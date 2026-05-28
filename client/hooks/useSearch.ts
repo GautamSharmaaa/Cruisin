@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import { useMemo, useState } from 'react';
-import { PRODUCTS } from '@/constants/catalog';
+import { useState } from 'react';
+import { useProducts } from '@/hooks/useProducts';
 
-export const useSearch = () => { const [query, setQuery] = useState(''); const results = useMemo(() => PRODUCTS.filter((product) => product.title.toLowerCase().includes(query.toLowerCase()) || product.tags.join(' ').toLowerCase().includes(query.toLowerCase())), [query]); return { query, setQuery, results }; };
+export const useSearch = () => { const [query, setQuery] = useState(''); const { data } = useProducts({ q: query, limit: 8 }); return { query, setQuery, results: data?.items ?? [] }; };

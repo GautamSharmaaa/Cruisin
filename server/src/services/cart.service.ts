@@ -2,6 +2,7 @@
 import { Types } from 'mongoose';
 import { CartModel } from '../models/cart.model.js';
 import { ProductModel } from '../models/product.model.js';
+import { CouponModel } from '../models/coupon.model.js';
 import { ApiError } from '../utils/api-error.js';
 
 const cartExpiry = (): Date => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -40,5 +41,17 @@ export const CartService = {
     const [guestCart, userCart] = await Promise.all([CartModel.findOne({ sessionId }), CartModel.findOneAndUpdate({ user: userId }, { $setOnInsert: { user: userId, expiresAt: cartExpiry() } }, { upsert: true, new: true })]);
     if (guestCart) { for (const item of guestCart.items) userCart.items.push(item); await userCart.save(); await guestCart.deleteOne(); }
     return userCart.populate('items.product');
+  },
+  async applyCoupon(userId: string | undefined, sessionId: string | undefined, code: string): Promise<unknown> {
+    const cart = await CartModel.findOne(ownerQuery(userId, sessionId));
+    if (!cart || cart.items.length === 0) throw new ApiError(400, 'Cart is empty');
+    const coupon = await CouponModel.findOne({ code: code.toUpperCase(), isActive: true });
+    if (!coupon) throw new ApiError(400, 'Invalid coupon');
+    const now = new Date();
+    if (coupon.validFrom > now || coupon.validUntil < now) throw new ApiError(400, 'Coupon is not active');
+    const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (subtotal < coupon.minOrderValue) throw new ApiError(400, 'Order does not meet coupon minimum');
+    const discount = coupon.type === 'freeShipping' ? 0 : Math.min(coupon.type === 'percentage' ? subtotal * (coupon.value / 100) : coupon.value, coupon.maxDiscount ?? subtotal);
+    return { coupon: coupon.code, type: coupon.type, discount, freeShipping: coupon.type === 'freeShipping' };
   }
 };

@@ -5,3 +5,4 @@ const addressSchema = z.object({ fullName: z.string().min(2), phone: z.string().
 export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe']), couponCode: z.string().optional() });
 export const paymentVerifySchema = z.object({ method: z.enum(['razorpay','stripe']), payload: z.record(z.unknown()) });
 export const orderStatusSchema = z.object({ status: z.enum(['pending','confirmed','processing','shipped','delivered','cancelled']), note: z.string().optional(), trackingNumber: z.string().optional() });
+export const refundSchema = z.object({ method: z.enum(['razorpay','stripe']), paymentId: z.string().min(3), amount: z.number().positive() });

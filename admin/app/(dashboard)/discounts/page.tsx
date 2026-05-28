@@ -1,6 +1,8 @@
 // Governed by .rules v1.0
+'use client';
+
 import type { ReactNode } from 'react';
-import { DataTable } from '@/components/dashboard/data-table';
+import { ResourceTable } from '@/components/dashboard/resource-table';
 import { COPY } from '@/constants/copy';
-import { tableColumns, tableRows } from '@/lib/table-data';
-export default function TablePage(): ReactNode { return <DataTable title={COPY.nav.discounts} columns={tableColumns()} rows={tableRows(COPY.nav.discounts)} />; }
+import { useAdminCoupons } from '@/hooks/useAdminResources';
+export default function TablePage(): ReactNode { const coupons = useAdminCoupons(); return <ResourceTable title={COPY.nav.discounts} items={coupons.data ?? []} isLoading={coupons.isLoading} />; }

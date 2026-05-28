@@ -84,5 +84,37 @@ export const AuthService = {
     const user = await UserModel.findById(userId);
     if (!user) throw new ApiError(404, 'User not found');
     return toUserDto(user);
+  },
+  async updateMe(userId: string, input: { name?: string; email?: string; phone?: string; avatar?: string }): Promise<AuthUserDto> {
+    const payload = { ...input, email: input.email ? normalizeEmail(input.email) : undefined };
+    const user = await UserModel.findByIdAndUpdate(userId, payload, { new: true, runValidators: true });
+    if (!user) throw new ApiError(404, 'User not found');
+    return toUserDto(user);
+  },
+  async changePassword(userId: string, input: { currentPassword: string; password: string }): Promise<void> {
+    const user = await UserModel.findById(userId).select('+passwordHash');
+    if (!user) throw new ApiError(404, 'User not found');
+    const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+    if (!valid) throw new ApiError(401, 'Current password is incorrect');
+    user.passwordHash = await bcrypt.hash(input.password, 12);
+    await user.save();
+    const keys = await redis.keys('refresh:' + userId + ':*');
+    if (keys.length > 0) await redis.del(keys);
+  },
+  async addAddress(userId: string, input: Record<string, unknown>): Promise<unknown> {
+    if (input.isDefault) await UserModel.findByIdAndUpdate(userId, { $set: { 'addresses.$[].isDefault': false } });
+    const user = await UserModel.findByIdAndUpdate(userId, { $push: { addresses: input } }, { new: true, runValidators: true });
+    if (!user) throw new ApiError(404, 'User not found');
+    return user.addresses;
+  },
+  async removeAddress(userId: string, addressId: string): Promise<unknown> {
+    const user = await UserModel.findByIdAndUpdate(userId, { $pull: { addresses: { _id: addressId } } }, { new: true });
+    if (!user) throw new ApiError(404, 'User not found');
+    return user.addresses;
+  },
+  async deleteMe(userId: string): Promise<void> {
+    await UserModel.findByIdAndUpdate(userId, { isActive: false, email: 'deleted-' + userId + '@cruisin.local', $unset: { refreshTokenHash: 1 } });
+    const keys = await redis.keys('refresh:' + userId + ':*');
+    if (keys.length > 0) await redis.del(keys);
   }
 };

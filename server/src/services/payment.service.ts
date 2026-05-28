@@ -62,4 +62,18 @@ export class PaymentService {
     }
     throw new ApiError(400, 'Unsupported payment provider');
   }
+
+  public static verifyRazorpayWebhook(rawBody: Buffer, signature: string): boolean {
+    const expected = crypto.createHmac('sha256', env.RAZORPAY_KEY_SECRET).update(rawBody).digest('hex');
+    return signature.length > 0 && expected.length === signature.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  }
+
+  public static stripeWebhook(rawBody: Buffer, signature: string): Stripe.Event {
+    const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+    return stripe.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
+  }
+
+  public static async refund(method: PaymentMethod, paymentId: string, amount: number): Promise<Refund> {
+    return this.getProvider(method).createRefund(paymentId, amount);
+  }
 }

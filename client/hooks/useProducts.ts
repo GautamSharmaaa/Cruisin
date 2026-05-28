@@ -1,8 +1,26 @@
 // Governed by .rules v1.0
 import { useQuery } from '@tanstack/react-query';
-import { PRODUCTS } from '@/constants/catalog';
 import { api } from '@/lib/api';
+import { mapProduct, type ApiProduct } from '@/lib/product-mapper';
 import type { ApiEnvelope, PaginatedResult } from '@/types/api.types';
 import type { Product } from '@/types/product.types';
 
-export const useProducts = () => useQuery({ queryKey: ['products'], queryFn: async (): Promise<Product[]> => { try { const response = await api.get<ApiEnvelope<PaginatedResult<Product>>>('/products'); return response.data.data.items; } catch { return PRODUCTS; } } });
+export interface UseProductsInput {
+  category?: string;
+  q?: string;
+  size?: string;
+  color?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: string;
+  page?: number;
+  limit?: number;
+}
+
+export const useProducts = (input: UseProductsInput = {}) => useQuery({
+  queryKey: ['products', input],
+  queryFn: async (): Promise<PaginatedResult<Product>> => {
+    const response = await api.get<ApiEnvelope<PaginatedResult<ApiProduct>>>('/products', { params: input });
+    return { ...response.data.data, items: response.data.data.items.map(mapProduct) };
+  }
+});
