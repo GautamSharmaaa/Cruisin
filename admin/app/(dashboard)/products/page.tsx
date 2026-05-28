@@ -2,7 +2,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ResourceTable } from '@/components/dashboard/resource-table';
-import { COPY } from '@/constants/copy';
+import { ProductManager } from '@/components/products/product-manager';
 import { useAdminProducts } from '@/hooks/useAdminResources';
-export default function TablePage(): ReactNode { const products = useAdminProducts(); return <ResourceTable title={COPY.products.title} items={products.data ?? []} isLoading={products.isLoading} />; }
+export default function TablePage(): ReactNode { const products = useAdminProducts(); return <ProductManager products={products.data ?? []} isLoading={products.isLoading} />; }

@@ -20,6 +20,7 @@ export const ProductService = {
     return { items, total, page: filters.page, pages: Math.ceil(total / filters.limit) };
   },
   async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, isActive: true }).populate('category').lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
+  async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
   async create(input: ProductInput): Promise<unknown> { return ProductModel.create(input); },
   async update(id: string, input: ProductInput): Promise<unknown> { const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }); if (!product) throw new ApiError(404, 'Product not found'); return product; },
   async remove(id: string): Promise<void> { const product = await ProductModel.findByIdAndUpdate(id, { isActive: false }); if (!product) throw new ApiError(404, 'Product not found'); }

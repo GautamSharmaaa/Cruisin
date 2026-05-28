@@ -9,6 +9,7 @@ import { productBodySchema, productQuerySchema } from '../../validators/product.
 
 export const productRouter = Router();
 productRouter.get('/', validate({ query: productQuerySchema }), ProductController.list);
+productRouter.get('/admin/:id', requireAuth, requireAdmin, validate({ params: idParamSchema }), ProductController.adminById);
 productRouter.get('/:slug', validate({ params: slugParamSchema }), ProductController.bySlug);
 productRouter.post('/', requireAuth, requireAdmin, validate({ body: productBodySchema }), ProductController.create);
 productRouter.put('/:id', requireAuth, requireAdmin, validate({ params: idParamSchema, body: productBodySchema.partial() }), ProductController.update);

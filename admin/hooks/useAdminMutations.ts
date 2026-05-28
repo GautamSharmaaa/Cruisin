@@ -87,6 +87,33 @@ export const useCreateProduct = () => {
   });
 };
 
+export const useUpdateProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminProductInput & { id: string }): Promise<void> => {
+      await api.put('/products/' + input.id, productPayload(input));
+    },
+    onSuccess: async (_data, input): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'products'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'products', input.id] })
+      ]);
+    }
+  });
+};
+
+export const useArchiveProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await api.delete('/products/' + id);
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+    }
+  });
+};
+
 export const useUploadSignature = () => useMutation({
   mutationFn: async (): Promise<void> => {
     await api.get('/admin/uploads/signature', { params: { folder: 'cruisin/products' } });

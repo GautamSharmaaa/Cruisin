@@ -14,7 +14,13 @@ export interface ProductDto {
   _id?: string;
   title: string;
   slug: string;
+  description?: string;
+  richDescription?: string;
+  category?: string;
+  images?: Array<{ url: string; alt: string; width: number; height: number }>;
   basePrice: number;
+  comparePrice?: number;
+  variants?: Array<{ sku: string; size: string; color: string; colorHex: string; price: number; stock: number; images?: Array<{ url: string; alt: string; width: number; height: number }> }>;
   isActive: boolean;
   isFeatured: boolean;
 }
