@@ -2,4 +2,5 @@
 import type { ReactNode } from 'react';
 import { DataTable } from '@/components/dashboard/data-table';
 import { COPY } from '@/constants/copy';
-export default function TablePage(): ReactNode { return <DataTable title={COPY.orders.title} columns={['Name','Status','Updated','Actions']} rows={[[COPY.orders.title,'Active','Today','Edit'],['Archive','Draft','Yesterday','Review']]} />; }
+import { tableColumns, tableRows } from '@/lib/table-data';
+export default function TablePage(): ReactNode { return <DataTable title={COPY.orders.title} columns={tableColumns()} rows={tableRows(COPY.orders.title)} />; }
