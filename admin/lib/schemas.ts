@@ -21,6 +21,29 @@ export const adminCouponSchema = z.object({
   code: z.string().min(2),
   type: z.enum(['percentage', 'fixed', 'freeShipping']),
   value: z.coerce.number().min(0),
+  minOrderValue: z.coerce.number().min(0).default(0),
+  maxDiscount: z.coerce.number().min(0).optional(),
+  usageLimit: z.coerce.number().int().min(1).optional(),
+  userUsageLimit: z.coerce.number().int().min(1).default(1),
   validFrom: z.string().min(4),
   validUntil: z.string().min(4)
+});
+
+export const adminCategorySchema = z.object({
+  name: z.string().min(2),
+  slug: z.string().min(2),
+  image: z.string().url(),
+  sortOrder: z.coerce.number().int().min(0),
+  isActive: z.boolean().default(true)
+});
+
+export const adminOrderStatusSchema = z.object({
+  status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+  note: z.string().max(240).optional(),
+  trackingNumber: z.string().max(80).optional()
+});
+
+export const adminUserUpdateSchema = z.object({
+  role: z.enum(['customer', 'admin', 'superadmin', 'manager', 'viewer']),
+  isActive: z.enum(['true', 'false'])
 });

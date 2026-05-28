@@ -2,7 +2,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ResourceTable } from '@/components/dashboard/resource-table';
-import { COPY } from '@/constants/copy';
+import { UserManager } from '@/components/dashboard/user-manager';
 import { useAdminUsers } from '@/hooks/useAdminResources';
-export default function TablePage(): ReactNode { const users = useAdminUsers(); return <ResourceTable title={COPY.nav.users} items={users.data ?? []} isLoading={users.isLoading} />; }
+export default function TablePage(): ReactNode { const users = useAdminUsers(); return <UserManager users={users.data ?? []} isLoading={users.isLoading} />; }

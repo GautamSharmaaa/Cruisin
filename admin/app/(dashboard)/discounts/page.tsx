@@ -2,7 +2,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ResourceTable } from '@/components/dashboard/resource-table';
-import { COPY } from '@/constants/copy';
+import { CouponManager } from '@/components/dashboard/coupon-manager';
 import { useAdminCoupons } from '@/hooks/useAdminResources';
-export default function TablePage(): ReactNode { const coupons = useAdminCoupons(); return <ResourceTable title={COPY.nav.discounts} items={coupons.data ?? []} isLoading={coupons.isLoading} />; }
+export default function TablePage(): ReactNode { const coupons = useAdminCoupons(); return <CouponManager coupons={coupons.data ?? []} isLoading={coupons.isLoading} />; }

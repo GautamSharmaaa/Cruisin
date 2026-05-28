@@ -18,6 +18,32 @@ export interface AdminProductInput {
   image: string;
 }
 
+export interface AdminCategoryInput {
+  name: string;
+  slug: string;
+  image: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface AdminCouponInput {
+  code: string;
+  type: 'percentage' | 'fixed' | 'freeShipping';
+  value: number;
+  minOrderValue: number;
+  maxDiscount?: number;
+  usageLimit?: number;
+  userUsageLimit: number;
+  validFrom: string;
+  validUntil: string;
+}
+
+export interface AdminUserUpdateInput {
+  id: string;
+  role: 'customer' | 'admin' | 'superadmin' | 'manager' | 'viewer';
+  isActive: boolean;
+}
+
 const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
   title: input.title,
   slug: input.slug,
@@ -53,6 +79,54 @@ export const useUploadSignature = () => useMutation({
   }
 });
 
+export const useCreateCategory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminCategoryInput): Promise<void> => {
+      await api.post('/admin/categories', { ...input, breadcrumb: [{ name: input.name, slug: input.slug }] });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+    }
+  });
+};
+
+export const useArchiveCategory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await api.delete('/admin/categories/' + id);
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+    }
+  });
+};
+
+export const useCreateCoupon = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminCouponInput): Promise<void> => {
+      await api.post('/admin/coupons', { ...input, applicableProducts: [], applicableCategories: [], isActive: true });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] });
+    }
+  });
+};
+
+export const useArchiveCoupon = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await api.delete('/admin/coupons/' + id);
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] });
+    }
+  });
+};
+
 export const useUpdateOrderStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,6 +135,18 @@ export const useUpdateOrderStatus = () => {
     },
     onSuccess: async (): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
+    }
+  });
+};
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminUserUpdateInput): Promise<void> => {
+      await api.patch('/admin/users/' + input.id, { role: input.role, isActive: input.isActive });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     }
   });
 };

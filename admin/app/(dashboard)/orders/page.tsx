@@ -2,7 +2,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ResourceTable } from '@/components/dashboard/resource-table';
-import { COPY } from '@/constants/copy';
+import { OrderManager } from '@/components/dashboard/order-manager';
 import { useAdminOrders } from '@/hooks/useAdminResources';
-export default function TablePage(): ReactNode { const orders = useAdminOrders(); return <ResourceTable title={COPY.orders.title} items={orders.data ?? []} isLoading={orders.isLoading} />; }
+export default function TablePage(): ReactNode { const orders = useAdminOrders(); return <OrderManager orders={orders.data ?? []} isLoading={orders.isLoading} />; }
