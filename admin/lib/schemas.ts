@@ -47,3 +47,17 @@ export const adminUserUpdateSchema = z.object({
   role: z.enum(['customer', 'admin', 'superadmin', 'manager', 'viewer']),
   isActive: z.enum(['true', 'false'])
 });
+
+export const adminBannerSchema = z.object({
+  title: z.string().min(2),
+  subtitle: z.string().min(2),
+  ctaText: z.string().min(2),
+  ctaLink: z.string().min(1),
+  image: z.string().url(),
+  mobileImage: z.string().url(),
+  position: z.string().min(2),
+  startDate: z.string().min(4),
+  endDate: z.string().min(4),
+  sortOrder: z.coerce.number().int().min(0),
+  isActive: z.boolean().default(true)
+});

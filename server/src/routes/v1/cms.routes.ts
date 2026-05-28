@@ -8,5 +8,6 @@ import { bannerBodySchema } from '../../validators/cms.validator.js';
 
 export const cmsRouter = Router();
 cmsRouter.get('/home', CmsController.home);
+cmsRouter.get('/banners', requireAuth, requireAdmin, CmsController.listBanners);
 cmsRouter.post('/banners', requireAuth, requireAdmin, validate({ body: bannerBodySchema }), CmsController.createBanner);
 cmsRouter.post('/reorder', requireAuth, requireAdmin, CmsController.reorder);

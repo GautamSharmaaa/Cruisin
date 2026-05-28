@@ -53,10 +53,17 @@ export interface OrderDto {
 
 export interface CmsSectionDto {
   id: string;
+  _id?: string;
   title: string;
+  subtitle?: string;
+  cta?: { text: string; link: string };
+  image?: string;
+  mobileImage?: string;
   position: string;
   isActive: boolean;
   sortOrder: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface AdminOverviewDto {
@@ -65,4 +72,10 @@ export interface AdminOverviewDto {
   users: number;
   products: number;
   conversionRate: number;
+}
+
+export interface AdminAnalyticsPointDto {
+  day: string;
+  revenue: number;
+  orders: number;
 }

@@ -44,6 +44,20 @@ export interface AdminUserUpdateInput {
   isActive: boolean;
 }
 
+export interface AdminBannerInput {
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaLink: string;
+  image: string;
+  mobileImage: string;
+  position: string;
+  startDate: string;
+  endDate: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
   title: input.title,
   slug: input.slug,
@@ -147,6 +161,30 @@ export const useUpdateUser = () => {
     },
     onSuccess: async (): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    }
+  });
+};
+
+export const useCreateBanner = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminBannerInput): Promise<void> => {
+      await api.post('/cms/banners', { title: input.title, subtitle: input.subtitle, cta: { text: input.ctaText, link: input.ctaLink }, image: input.image, mobileImage: input.mobileImage, position: input.position, isActive: input.isActive, startDate: input.startDate, endDate: input.endDate, sortOrder: input.sortOrder });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'banners'] });
+    }
+  });
+};
+
+export const useReorderBanners = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<void> => {
+      await api.post('/cms/reorder', { ids });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'banners'] });
     }
   });
 };

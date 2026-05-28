@@ -5,6 +5,7 @@ import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
 export const CmsController = {
+  listBanners: asyncHandler(async (_req: Request, res: Response): Promise<void> => { const banners = await CmsService.listBanners(); res.json(new ApiResponse(banners, 'CMS banners loaded')); }),
   home: asyncHandler(async (_req: Request, res: Response): Promise<void> => { const banners = await CmsService.activeHome(); res.json(new ApiResponse(banners, 'Home CMS loaded')); }),
   createBanner: asyncHandler(async (req: Request, res: Response): Promise<void> => { const banner = await CmsService.upsertBanner(req.body as Record<string, unknown>); res.status(201).json(new ApiResponse(banner, 'Banner created')); }),
   reorder: asyncHandler(async (req: Request, res: Response): Promise<void> => { await CmsService.reorder((req.body as { ids: string[] }).ids); res.json(new ApiResponse(null, 'CMS order updated')); })
