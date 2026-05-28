@@ -1,0 +1,8 @@
+// Governed by .rules v1.0
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { COPY } from '@/constants/copy';
+import { ROUTES } from '@/constants/routes';
+
+export interface FooterProps { }
+export function Footer(_props: FooterProps): ReactNode { return <footer className="border-t border-border px-6 py-12 lg:px-20"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-8 md:flex-row"><div><p className="font-display text-2xl">{COPY.brand.name}</p><p className="mt-2 text-text-secondary">{COPY.brand.tagline}</p></div><nav className="flex gap-6 text-sm text-text-secondary"><Link href={ROUTES.shop}>{COPY.nav.shop}</Link><Link href={ROUTES.account}>{COPY.nav.account}</Link><Link href={ROUTES.cart}>{COPY.nav.cart}</Link></nav></div></footer>; }

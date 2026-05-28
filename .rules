@@ -1,0 +1,55 @@
+# PROJECT RULES — LUXURY ECOM PLATFORM
+version: 1.0.0
+enforced_by: Codex
+
+## Code Rules
+- TypeScript strict mode. Zero `any`. Zero implicit returns.
+- All async functions wrapped in asyncHandler utility.
+- API shape always: { success, data, message, error? }
+- File naming: kebab-case for files, PascalCase for components, camelCase for functions.
+- No inline styles. All styling via Tailwind utility classes or CSS variables.
+- No hardcoded strings. All copy lives in constants/copy.ts.
+- No direct fetch() calls. All HTTP via the central lib/api.ts axios instance.
+- Every component must have TypeScript props interface defined above it.
+- Zod schema must exist for every form and every API request body.
+- Never expose secrets to frontend. All signed operations go through server.
+
+## Folder Rules
+- Client pages → app/(shop)/
+- Admin pages → app/(dashboard)/
+- Shared UI primitives → components/ui/
+- Business components → components/[feature]/
+- Global state → store/[name]Store.ts
+- API calls → hooks/use[Resource].ts (React Query)
+- Types → types/[resource].types.ts
+- Constants → constants/[name].ts
+
+## Git Rules
+- Commits follow Conventional Commits: feat|fix|chore|style|refactor|docs
+- Never commit .env files
+- Branch: main (prod) | dev (staging) | feature/* (work)
+
+## Design Rules
+- All colors must use CSS variables from globals.css. Never raw hex in JSX.
+- All spacing must be on the 4px grid.
+- All animations must reference the animation constants in lib/animations.ts.
+- Mobile-first. Every component built for 375px first, then md, lg, xl.
+- No layout shifts. All images must have explicit width + height or aspect-ratio.
+- Skeleton loaders required for every async data component.
+- Dark mode is the DEFAULT and ONLY mode for this brand.
+
+## API Rules
+- All routes prefixed /api/v1/
+- Auth routes: rate limited to 5 req/min
+- General routes: rate limited to 100 req/min
+- Admin routes: require both JWT auth AND role permission check
+- All file uploads: must go through signed Cloudinary upload
+- No direct DB queries in controllers. All DB logic in services/.
+
+## Security Rules
+- Passwords: bcrypt rounds 12
+- JWT access: 15 minutes expiry
+- JWT refresh: 7 days, stored in httpOnly cookie, hash stored in Redis
+- Never log sensitive data (passwords, tokens, card info)
+- All user inputs sanitized before DB operations
+- Helmet CSP enforced in production

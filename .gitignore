@@ -1,0 +1,14 @@
+# Governed by .rules v1.0
+
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.log
+*.tsbuildinfo
+server-error.log
+.env
+.env.*
+!.env.example
+.DS_Store

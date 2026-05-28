@@ -1,0 +1,9 @@
+// Governed by .rules v1.0
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { Product } from '@/types/product.types';
+
+export interface CartItem { product: Product; variantId: string; size: string; color: string; quantity: number; price: number; }
+export interface CartState { items: CartItem[]; isOpen: boolean; coupon?: string; addItem: (item: CartItem) => void; removeItem: (productId: string, variantId: string) => void; updateQuantity: (productId: string, variantId: string, quantity: number) => void; openCart: () => void; closeCart: () => void; setCoupon: (coupon: string) => void; subtotal: () => number; }
+
+export const useCartStore = create<CartState>()(persist((set, get) => ({ items: [], isOpen: false, addItem: (item) => set((state) => { const existing = state.items.find((entry) => entry.product.id === item.product.id && entry.variantId === item.variantId); if (existing) return { items: state.items.map((entry) => entry.product.id === item.product.id && entry.variantId === item.variantId ? { ...entry, quantity: entry.quantity + item.quantity } : entry), isOpen: true }; return { items: [...state.items, item], isOpen: true }; }), removeItem: (productId, variantId) => set((state) => ({ items: state.items.filter((item) => !(item.product.id === productId && item.variantId === variantId)) })), updateQuantity: (productId, variantId, quantity) => set((state) => ({ items: state.items.map((item) => item.product.id === productId && item.variantId === variantId ? { ...item, quantity: Math.max(1, quantity) } : item) })), openCart: () => set({ isOpen: true }), closeCart: () => set({ isOpen: false }), setCoupon: (coupon) => set({ coupon }), subtotal: () => get().items.reduce((sum, item) => sum + item.price * item.quantity, 0) }), { name: 'cruisin-cart' }));

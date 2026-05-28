@@ -1,0 +1,8 @@
+// Governed by .rules v1.0
+import { z } from 'zod';
+import { objectIdSchema } from './common.validator.js';
+
+const imageSchema = z.object({ url: z.string().url(), alt: z.string().min(2), width: z.number().int().positive(), height: z.number().int().positive(), publicId: z.string().optional() });
+const variantSchema = z.object({ size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), stock: z.number().int().min(0), images: z.array(imageSchema).default([]) });
+export const productBodySchema = z.object({ title: z.string().min(2).max(160), slug: z.string().min(2).max(180), description: z.string().min(10), richDescription: z.string().min(10), brand: z.string().min(2), category: objectIdSchema, images: z.array(imageSchema), basePrice: z.number().min(0), comparePrice: z.number().min(0).optional(), variants: z.array(variantSchema), tags: z.array(z.string()).default([]), isFeatured: z.boolean().default(false), isActive: z.boolean().default(true), seo: z.object({ metaTitle: z.string().optional(), metaDesc: z.string().optional(), ogImage: z.string().url().optional() }).default({}) });
+export const productQuerySchema = z.object({ q: z.string().optional(), category: z.string().optional(), size: z.string().optional(), color: z.string().optional(), minPrice: z.coerce.number().optional(), maxPrice: z.coerce.number().optional(), sort: z.enum(['newest','price-asc','price-desc','best-selling','top-rated']).default('newest'), page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(24) });
