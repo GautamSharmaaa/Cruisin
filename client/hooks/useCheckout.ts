@@ -2,7 +2,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { ApiEnvelope } from '@/types/api.types';
-import type { Address } from '@/types/order.types';
+import type { Address, CheckoutPaymentDto } from '@/types/order.types';
 
 export interface CheckoutInput {
   shippingAddress: Address;
@@ -13,7 +13,7 @@ export interface CheckoutInput {
 
 export interface CheckoutResult {
   order: { _id?: string; id?: string };
-  payment: { id: string; clientSecret?: string; provider: 'razorpay' | 'stripe' };
+  payment: CheckoutPaymentDto;
 }
 
 export const useCheckout = () => useMutation({

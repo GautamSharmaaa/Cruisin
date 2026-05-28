@@ -99,6 +99,6 @@ export const OrderService = {
   },
   async list(userId: string): Promise<unknown[]> { return OrderModel.find({ user: userId }).sort({ createdAt: -1 }).lean(); },
   async adminList(): Promise<unknown[]> { return OrderModel.find().sort({ createdAt: -1 }).limit(200).lean(); },
-  async byId(id: string): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); return order; },
+  async byId(id: string, user: { userId: string; role: string }): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); if (user.role === 'customer' && String(order.user ?? '') !== user.userId) throw new ApiError(403, 'Order access denied'); return order; },
   async updateStatus(id: string, input: { status: string; note?: string; trackingNumber?: string }): Promise<unknown> { const order = await OrderModel.findByIdAndUpdate(id, { orderStatus: input.status, trackingNumber: input.trackingNumber, $push: { timeline: { status: input.status, timestamp: new Date(), note: input.note } } }, { new: true }); if (!order) throw new ApiError(404, 'Order not found'); return order; }
 };

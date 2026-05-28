@@ -50,11 +50,22 @@ export interface CouponDto {
 export interface OrderDto {
   id: string;
   _id?: string;
+  user?: string;
+  sessionId?: string;
+  items?: Array<{ title: string; sku: string; quantity: number; price: number; image?: string }>;
+  shippingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
+  billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
+  paymentMethod?: 'razorpay' | 'stripe';
   paymentStatus: string;
   orderStatus: string;
+  subtotal?: number;
+  tax?: number;
+  shipping?: number;
+  discount?: number;
   total: number;
   createdAt?: string;
   trackingNumber?: string;
+  timeline?: Array<{ status: string; timestamp: string; note?: string }>;
 }
 
 export interface CmsSectionDto {

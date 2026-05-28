@@ -171,11 +171,12 @@ export const useArchiveCoupon = () => {
 export const useUpdateOrderStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; status: string; note?: string }): Promise<void> => {
+    mutationFn: async (input: { id: string; status: string; note?: string; trackingNumber?: string }): Promise<void> => {
       await api.patch('/orders/' + input.id + '/status', input);
     },
-    onSuccess: async (): Promise<void> => {
+    onSuccess: async (_data, input): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] });
     }
   });
 };
