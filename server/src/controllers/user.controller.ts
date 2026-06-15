@@ -9,8 +9,8 @@ export const UserController = {
     const users = await UserService.list(req.query as unknown as UserFilters);
     res.json(new ApiResponse(users, 'Users loaded'));
   }),
-  update: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const user = await UserService.update(String(req.params.id ?? ''), req.body as Record<string, unknown>);
+  update: asyncHandler(async (req: Request<Record<string, string>, unknown, Record<string, unknown>>, res: Response): Promise<void> => {
+    const user = await UserService.update(String(req.params.id ?? ''), req.body);
     res.json(new ApiResponse(user, 'User updated'));
   })
 };

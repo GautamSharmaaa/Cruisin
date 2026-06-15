@@ -13,20 +13,20 @@ export const CategoryController = {
     const categories = await CategoryService.list();
     res.json(new ApiResponse(categories, 'Categories loaded'));
   }),
-  create: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const category = await CategoryService.create(req.body as Record<string, unknown>);
+  create: asyncHandler(async (req: Request<Record<string, string>, unknown, Record<string, unknown>>, res: Response): Promise<void> => {
+    const category = await CategoryService.create(req.body);
     res.status(201).json(new ApiResponse(category, 'Category created'));
   }),
-  update: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const category = await CategoryService.update(String(req.params.id ?? ''), req.body as Record<string, unknown>);
+  update: asyncHandler(async (req: Request<Record<string, string>, unknown, Record<string, unknown>>, res: Response): Promise<void> => {
+    const category = await CategoryService.update(String(req.params.id ?? ''), req.body);
     res.json(new ApiResponse(category, 'Category updated'));
   }),
   remove: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     await CategoryService.remove(String(req.params.id ?? ''));
     res.json(new ApiResponse(null, 'Category archived'));
   }),
-  reorder: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    await CategoryService.reorder((req.body as { ids: string[] }).ids);
+  reorder: asyncHandler(async (req: Request<Record<string, string>, unknown, { ids: string[] }>, res: Response): Promise<void> => {
+    await CategoryService.reorder(req.body.ids);
     res.json(new ApiResponse(null, 'Category order updated'));
   })
 };

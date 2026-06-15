@@ -54,10 +54,33 @@ const seed = async (): Promise<void> => {
       comparePrice: 22900,
       variants: [
         { size: 'S', color: 'Black', colorHex: '#080808', sku: 'CR-VDH-BLK-S', price: 18900, stock: 4 },
-        { size: 'M', color: 'Black', colorHex: '#080808', sku: 'CR-VDH-BLK-M', price: 18900, stock: 0 }
+        { size: 'M', color: 'Black', colorHex: '#080808', sku: 'CR-VDH-BLK-M', price: 18900, stock: 12 },
+        { size: 'L', color: 'Black', colorHex: '#080808', sku: 'CR-VDH-BLK-L', price: 18900, stock: 8 },
+        { size: 'XL', color: 'Black', colorHex: '#080808', sku: 'CR-VDH-BLK-XL', price: 18900, stock: 5 }
       ],
       tags: ['new', 'editorial'],
-      isFeatured: true
+      isFeatured: true,
+      ratings: { avg: 4.8, count: 12 }
+    },
+    {
+      title: 'Minimalist Heavyweight Tee',
+      slug: 'minimalist-heavyweight-tee',
+      description: 'Preshrunk combed cotton tee with a thick rib collar and relaxed drop-shoulder drape.',
+      richDescription: 'Crafted from 240GSM cotton, this tee offers a structured silhouette that stands up to daily wear while remaining incredibly soft.',
+      category: tops._id,
+      image: imageBase + '/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 8900,
+      comparePrice: 10900,
+      variants: [
+        { size: 'XS', color: 'Off-White', colorHex: '#f5f5f5', sku: 'CR-MHT-WHT-XS', price: 8900, stock: 6 },
+        { size: 'S', color: 'Off-White', colorHex: '#f5f5f5', sku: 'CR-MHT-WHT-S', price: 8900, stock: 15 },
+        { size: 'M', color: 'Off-White', colorHex: '#f5f5f5', sku: 'CR-MHT-WHT-M', price: 8900, stock: 20 },
+        { size: 'L', color: 'Off-White', colorHex: '#f5f5f5', sku: 'CR-MHT-WHT-L', price: 8900, stock: 10 },
+        { size: 'XL', color: 'Off-White', colorHex: '#f5f5f5', sku: 'CR-MHT-WHT-XL', price: 8900, stock: 12 }
+      ],
+      tags: ['new'],
+      isFeatured: true,
+      ratings: { avg: 4.5, count: 8 }
     },
     {
       title: 'Signal Cargo Trouser',
@@ -67,9 +90,51 @@ const seed = async (): Promise<void> => {
       category: bottoms._id,
       image: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85',
       basePrice: 16400,
-      variants: [{ size: '30', color: 'Carbon', colorHex: '#1a1a1a', sku: 'CR-SCT-CBN-30', price: 16400, stock: 8 }],
+      variants: [
+        { size: '30', color: 'Carbon', colorHex: '#1a1a1a', sku: 'CR-SCT-CBN-30', price: 16400, stock: 8 },
+        { size: '32', color: 'Carbon', colorHex: '#1a1a1a', sku: 'CR-SCT-CBN-32', price: 16400, stock: 14 },
+        { size: '34', color: 'Carbon', colorHex: '#1a1a1a', sku: 'CR-SCT-CBN-34', price: 16400, stock: 9 }
+      ],
       tags: ['best'],
-      isFeatured: true
+      isFeatured: true,
+      ratings: { avg: 4.2, count: 5 }
+    },
+    {
+      title: 'Apex Utility Jogger',
+      slug: 'apex-utility-jogger',
+      description: 'Relaxed fit fleece jogger with zip pockets and adjustable toggle hems.',
+      richDescription: 'Heavyweight loopback cotton construction, featuring dynamic seam panels, matte black waterproof zippers, and custom drawcords.',
+      category: bottoms._id,
+      image: imageBase + '/photo-1551854838-212c50b4c184?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 14500,
+      variants: [
+        { size: 'S', color: 'Obsidian Black', colorHex: '#121212', sku: 'CR-AUJ-BLK-S', price: 14500, stock: 6 },
+        { size: 'M', color: 'Obsidian Black', colorHex: '#121212', sku: 'CR-AUJ-BLK-M', price: 14500, stock: 12 },
+        { size: 'L', color: 'Obsidian Black', colorHex: '#121212', sku: 'CR-AUJ-BLK-L', price: 14500, stock: 8 },
+        { size: 'XL', color: 'Obsidian Black', colorHex: '#121212', sku: 'CR-AUJ-BLK-XL', price: 14500, stock: 10 }
+      ],
+      tags: ['best'],
+      isFeatured: true,
+      ratings: { avg: 4.7, count: 19 }
+    },
+    {
+      title: 'Transit Tech Shorts',
+      slug: 'transit-tech-shorts',
+      description: 'Water-resistant nylon shorts with an integrated belt and utility cargo slots.',
+      richDescription: 'Designed for high mobility, using premium micro-ripstop nylon, matte hardware, and mesh pocket bags.',
+      category: bottoms._id,
+      image: imageBase + '/photo-1591195853828-11db59a44f6b?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 11000,
+      comparePrice: 13000,
+      variants: [
+        { size: 'S', color: 'Carbon Grey', colorHex: '#3a3a3a', sku: 'CR-TTS-GRY-S', price: 11000, stock: 7 },
+        { size: 'M', color: 'Carbon Grey', colorHex: '#3a3a3a', sku: 'CR-TTS-GRY-M', price: 11000, stock: 14 },
+        { size: 'L', color: 'Carbon Grey', colorHex: '#3a3a3a', sku: 'CR-TTS-GRY-L', price: 11000, stock: 11 },
+        { size: 'XL', color: 'Carbon Grey', colorHex: '#3a3a3a', sku: 'CR-TTS-GRY-XL', price: 11000, stock: 5 }
+      ],
+      tags: ['new'],
+      isFeatured: false,
+      ratings: { avg: 4.1, count: 3 }
     },
     {
       title: 'Monolith Overshirt',
@@ -79,33 +144,295 @@ const seed = async (): Promise<void> => {
       category: outerwear._id,
       image: imageBase + '/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85',
       basePrice: 21400,
-      variants: [{ size: 'M', color: 'Obsidian', colorHex: '#0f0f0f', sku: 'CR-MO-OBS-M', price: 21400, stock: 6 }],
+      variants: [
+        { size: 'S', color: 'Obsidian', colorHex: '#0f0f0f', sku: 'CR-MO-OBS-S', price: 21400, stock: 4 },
+        { size: 'M', color: 'Obsidian', colorHex: '#0f0f0f', sku: 'CR-MO-OBS-M', price: 21400, stock: 6 },
+        { size: 'L', color: 'Obsidian', colorHex: '#0f0f0f', sku: 'CR-MO-OBS-L', price: 21400, stock: 8 },
+        { size: 'XL', color: 'Obsidian', colorHex: '#0f0f0f', sku: 'CR-MO-OBS-XL', price: 21400, stock: 3 }
+      ],
       tags: ['new'],
-      isFeatured: true
+      isFeatured: true,
+      ratings: { avg: 4.9, count: 22 }
+    },
+    {
+      title: 'Phantom Windbreaker',
+      slug: 'phantom-windbreaker',
+      description: 'Ultra-light water-repellent shell jacket with modular hood and ventilation panels.',
+      richDescription: 'Built from breathable technical nylon, it contains internal shoulder straps for hands-free carry, seam sealing, and reflective screen prints.',
+      category: outerwear._id,
+      image: imageBase + '/photo-1548883354-7622d03aca27?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 24500,
+      comparePrice: 28500,
+      variants: [
+        { size: 'XS', color: 'Charcoal', colorHex: '#2b2b2b', sku: 'CR-PWB-CHA-XS', price: 24500, stock: 4 },
+        { size: 'S', color: 'Charcoal', colorHex: '#2b2b2b', sku: 'CR-PWB-CHA-S', price: 24500, stock: 10 },
+        { size: 'M', color: 'Charcoal', colorHex: '#2b2b2b', sku: 'CR-PWB-CHA-M', price: 24500, stock: 15 },
+        { size: 'L', color: 'Charcoal', colorHex: '#2b2b2b', sku: 'CR-PWB-CHA-L', price: 24500, stock: 8 },
+        { size: 'XL', color: 'Charcoal', colorHex: '#2b2b2b', sku: 'CR-PWB-CHA-XL', price: 24500, stock: 6 }
+      ],
+      tags: ['best', 'editorial'],
+      isFeatured: true,
+      ratings: { avg: 4.9, count: 31 }
+    },
+    {
+      title: 'Core Sweatpants',
+      slug: 'core-sweatpants',
+      description: 'Tapered fit heavy cotton sweatpants with subtle logo embroidery.',
+      richDescription: 'Constructed from loopback French terry cotton with deep zippered side pockets and an elastic drawstring waist.',
+      category: bottoms._id,
+      image: imageBase + '/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 12500,
+      variants: [
+        { size: 'XS', color: 'Heather Grey', colorHex: '#b0b0b0', sku: 'CR-CSP-GRY-XS', price: 12500, stock: 8 },
+        { size: 'S', color: 'Heather Grey', colorHex: '#b0b0b0', sku: 'CR-CSP-GRY-S', price: 12500, stock: 14 },
+        { size: 'M', color: 'Heather Grey', colorHex: '#b0b0b0', sku: 'CR-CSP-GRY-M', price: 12500, stock: 22 },
+        { size: 'L', color: 'Heather Grey', colorHex: '#b0b0b0', sku: 'CR-CSP-GRY-L', price: 12500, stock: 19 },
+        { size: 'XL', color: 'Heather Grey', colorHex: '#b0b0b0', sku: 'CR-CSP-GRY-XL', price: 12500, stock: 11 }
+      ],
+      tags: ['essential'],
+      isFeatured: false,
+      ratings: { avg: 4.3, count: 14 }
+    },
+    {
+      title: 'Cyber Punk Parka',
+      slug: 'cyber-punk-parka',
+      description: 'Longline technical fishtail parka with weather protection membranes.',
+      richDescription: 'Fully waterproof laminate exterior, internal harness system, magnetic-closure cargo compartments, and storm collar construction.',
+      category: outerwear._id,
+      image: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 32000,
+      comparePrice: 38000,
+      variants: [
+        { size: 'S', color: 'Obsidian Black', colorHex: '#080808', sku: 'CR-CPP-BLK-S', price: 32000, stock: 3 },
+        { size: 'M', color: 'Obsidian Black', colorHex: '#080808', sku: 'CR-CPP-BLK-M', price: 32000, stock: 5 },
+        { size: 'L', color: 'Obsidian Black', colorHex: '#080808', sku: 'CR-CPP-BLK-L', price: 32000, stock: 3 },
+        { size: 'XL', color: 'Obsidian Black', colorHex: '#080808', sku: 'CR-CPP-BLK-XL', price: 32000, stock: 4 }
+      ],
+      tags: ['editorial'],
+      isFeatured: true,
+      ratings: { avg: 5.0, count: 7 }
+    },
+    {
+      title: 'Aero Graphic Tee',
+      slug: 'aero-graphic-tee',
+      description: 'Drop shoulder cotton jersey tee featuring clean typographic graphics.',
+      richDescription: 'Soft-touch water-based printing on custom knit luxury cotton jersey with distressed detail at the collar.',
+      category: tops._id,
+      image: imageBase + '/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 7500,
+      variants: [
+        { size: 'XS', color: 'White', colorHex: '#ffffff', sku: 'CR-AGT-WHT-XS', price: 7500, stock: 12 },
+        { size: 'S', color: 'White', colorHex: '#ffffff', sku: 'CR-AGT-WHT-S', price: 7500, stock: 30 },
+        { size: 'M', color: 'White', colorHex: '#ffffff', sku: 'CR-AGT-WHT-M', price: 7500, stock: 25 },
+        { size: 'L', color: 'White', colorHex: '#ffffff', sku: 'CR-AGT-WHT-L', price: 7500, stock: 15 },
+        { size: 'XL', color: 'White', colorHex: '#ffffff', sku: 'CR-AGT-WHT-XL', price: 7500, stock: 20 }
+      ],
+      tags: ['new'],
+      isFeatured: false,
+      ratings: { avg: 4.0, count: 6 }
+    },
+    {
+      title: 'Grid Linen Shirt',
+      slug: 'grid-linen-shirt',
+      description: 'Linen-cotton blend button down shirt with dynamic grid pattern weave.',
+      richDescription: 'Breathable utility shirt with flap chest pockets, buttoned cuffs, and comfortable regular silhouette.',
+      category: tops._id,
+      image: imageBase + '/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85',
+      basePrice: 13500,
+      variants: [
+        { size: 'S', color: 'Sand', colorHex: '#e1d7c6', sku: 'CR-GLS-SND-S', price: 13500, stock: 8 },
+        { size: 'M', color: 'Sand', colorHex: '#e1d7c6', sku: 'CR-GLS-SND-M', price: 13500, stock: 12 },
+        { size: 'L', color: 'Sand', colorHex: '#e1d7c6', sku: 'CR-GLS-SND-L', price: 13500, stock: 10 },
+        { size: 'XL', color: 'Sand', colorHex: '#e1d7c6', sku: 'CR-GLS-SND-XL', price: 13500, stock: 5 }
+      ],
+      tags: ['essential'],
+      isFeatured: false,
+      ratings: { avg: 4.6, count: 11 }
+    },
+    {
+      title: 'Oversized Knit Cardigan',
+      slug: 'oversized-knit-cardigan',
+      description: 'Chunky wool-blend knit cardigan with natural horn buttons and relaxed drape.',
+      richDescription: 'Knitted from a soft alpaca-wool blend with a textured rib pattern, dropped shoulders, and patch pockets for an effortless layering silhouette.',
+      category: outerwear._id,
+      image: imageBase + '/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=85',
+      images: [
+        { url: imageBase + '/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Front', width: 1200, height: 1600 },
+        { url: imageBase + '/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Detail View', width: 1200, height: 1600 },
+        { url: imageBase + '/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Wearing Style', width: 1200, height: 1600 }
+      ],
+      basePrice: 28900,
+      variants: [
+        {
+          size: 'S',
+          color: 'Oatmeal',
+          colorHex: '#dfd5c6',
+          sku: 'CR-OKC-OAT-S',
+          price: 28900,
+          stock: 8,
+          images: [
+            { url: imageBase + '/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: 'M',
+          color: 'Oatmeal',
+          colorHex: '#dfd5c6',
+          sku: 'CR-OKC-OAT-M',
+          price: 28900,
+          stock: 12,
+          images: [
+            { url: imageBase + '/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: 'L',
+          color: 'Oatmeal',
+          colorHex: '#dfd5c6',
+          sku: 'CR-OKC-OAT-L',
+          price: 28900,
+          stock: 6,
+          images: [
+            { url: imageBase + '/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Oatmeal Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: 'S',
+          color: 'Espresso',
+          colorHex: '#3d2b1f',
+          sku: 'CR-OKC-ESP-S',
+          price: 28900,
+          stock: 5,
+          images: [
+            { url: imageBase + '/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Espresso Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1488161628813-04466f872be2?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Espresso Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: 'M',
+          color: 'Espresso',
+          colorHex: '#3d2b1f',
+          sku: 'CR-OKC-ESP-M',
+          price: 28900,
+          stock: 9,
+          images: [
+            { url: imageBase + '/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Espresso Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1488161628813-04466f872be2?auto=format&fit=crop&w=1200&q=85', alt: 'Oversized Knit Cardigan - Espresso Style', width: 1200, height: 1600 }
+          ]
+        }
+      ],
+      tags: ['new', 'editorial'],
+      isFeatured: true,
+      ratings: { avg: 4.8, count: 14 }
+    },
+    {
+      title: 'Cyber Cargo Pants',
+      slug: 'cyber-cargo-pants',
+      description: 'Multi-pocket technical cargo trousers with water-repellent finish.',
+      richDescription: 'Engineered pants with articulated knees, modular strap systems, secure zip-lock compartments, and adjustable toggle ankles.',
+      category: bottoms._id,
+      image: imageBase + '/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&w=1200&q=85',
+      images: [
+        { url: imageBase + '/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Front', width: 1200, height: 1600 },
+        { url: imageBase + '/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Stealth Black Detail', width: 1200, height: 1600 },
+        { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Full Model Look', width: 1200, height: 1600 }
+      ],
+      basePrice: 19500,
+      variants: [
+        {
+          size: '30',
+          color: 'Sage Green',
+          colorHex: '#708238',
+          sku: 'CR-CCP-SAG-30',
+          price: 19500,
+          stock: 10,
+          images: [
+            { url: imageBase + '/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: '32',
+          color: 'Sage Green',
+          colorHex: '#708238',
+          sku: 'CR-CCP-SAG-32',
+          price: 19500,
+          stock: 15,
+          images: [
+            { url: imageBase + '/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: '34',
+          color: 'Sage Green',
+          colorHex: '#708238',
+          sku: 'CR-CCP-SAG-34',
+          price: 19500,
+          stock: 8,
+          images: [
+            { url: imageBase + '/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Sage Green Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: '30',
+          color: 'Stealth Black',
+          colorHex: '#0c0c0c',
+          sku: 'CR-CCP-STB-30',
+          price: 19500,
+          stock: 12,
+          images: [
+            { url: imageBase + '/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Stealth Black Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Stealth Black Style', width: 1200, height: 1600 }
+          ]
+        },
+        {
+          size: '32',
+          color: 'Stealth Black',
+          colorHex: '#0c0c0c',
+          sku: 'CR-CCP-STB-32',
+          price: 19500,
+          stock: 18,
+          images: [
+            { url: imageBase + '/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Stealth Black Front', width: 1200, height: 1600 },
+            { url: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', alt: 'Cyber Cargo Pants - Stealth Black Style', width: 1200, height: 1600 }
+          ]
+        }
+      ],
+      tags: ['best'],
+      isFeatured: true,
+      ratings: { avg: 4.9, count: 28 }
     }
   ];
 
-  const products = await Promise.all(productPayloads.map((product) => ProductModel.findOneAndUpdate(
-    { slug: product.slug },
-    {
-      title: product.title,
-      slug: product.slug,
-      description: product.description,
-      richDescription: product.richDescription,
-      brand: 'Cruisin',
-      category: product.category,
-      images: [{ url: product.image, alt: product.title, width: 1200, height: 1600 }],
-      basePrice: product.basePrice,
-      comparePrice: product.comparePrice,
-      variants: product.variants.map((variant) => ({ ...variant, images: [{ url: product.image, alt: product.title, width: 1200, height: 1600 }] })),
-      tags: product.tags,
-      isFeatured: product.isFeatured,
-      isActive: true,
-      ratings: { avg: 4.8, count: 12 },
-      seo: { metaTitle: product.title, metaDesc: product.description, ogImage: product.image }
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  )));
+  const products = await Promise.all(productPayloads.map((product) => {
+    const images = product.images ?? [{ url: product.image, alt: product.title, width: 1200, height: 1600 }];
+    return ProductModel.findOneAndUpdate(
+      { slug: product.slug },
+      {
+        title: product.title,
+        slug: product.slug,
+        description: product.description,
+        richDescription: product.richDescription,
+        brand: 'Cruisin',
+        category: product.category,
+        images,
+        basePrice: product.basePrice,
+        comparePrice: product.comparePrice,
+        variants: product.variants.map((variant) => ({ ...variant, images: 'images' in variant ? variant.images : images })),
+        tags: product.tags,
+        isFeatured: product.isFeatured,
+        isActive: true,
+        ratings: product.ratings,
+        seo: { metaTitle: product.title, metaDesc: product.description, ogImage: product.image }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }));
 
   await CouponModel.findOneAndUpdate(
     { code: 'PRIVATE10' },

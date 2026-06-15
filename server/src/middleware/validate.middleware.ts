@@ -25,7 +25,13 @@ export const validate = (schemas: RequestSchemas) => {
       return;
     }
     if (queryResult?.success) {
-      req.query = queryResult.data as Request['query'];
+      const data = queryResult.data as Record<string, any>;
+      for (const key in req.query) {
+        if (Object.prototype.hasOwnProperty.call(req.query, key)) {
+          delete req.query[key];
+        }
+      }
+      Object.assign(req.query, data);
     }
     const paramsResult = schemas.params?.safeParse(req.params);
     if (paramsResult && !paramsResult.success) {
@@ -33,7 +39,13 @@ export const validate = (schemas: RequestSchemas) => {
       return;
     }
     if (paramsResult?.success) {
-      req.params = paramsResult.data as Request['params'];
+      const data = paramsResult.data as Record<string, any>;
+      for (const key in req.params) {
+        if (Object.prototype.hasOwnProperty.call(req.params, key)) {
+          delete req.params[key];
+        }
+      }
+      Object.assign(req.params, data);
     }
     next();
   };

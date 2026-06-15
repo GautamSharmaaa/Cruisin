@@ -9,12 +9,12 @@ export const CouponController = {
     const coupons = await CouponService.list();
     res.json(new ApiResponse(coupons, 'Coupons loaded'));
   }),
-  create: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const coupon = await CouponService.create(req.body as Record<string, unknown>);
+  create: asyncHandler(async (req: Request<Record<string, string>, unknown, Record<string, unknown>>, res: Response): Promise<void> => {
+    const coupon = await CouponService.create(req.body);
     res.status(201).json(new ApiResponse(coupon, 'Coupon created'));
   }),
-  update: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const coupon = await CouponService.update(String(req.params.id ?? ''), req.body as Record<string, unknown>);
+  update: asyncHandler(async (req: Request<Record<string, string>, unknown, Record<string, unknown>>, res: Response): Promise<void> => {
+    const coupon = await CouponService.update(String(req.params.id ?? ''), req.body);
     res.json(new ApiResponse(coupon, 'Coupon updated'));
   }),
   remove: asyncHandler(async (req: Request, res: Response): Promise<void> => {

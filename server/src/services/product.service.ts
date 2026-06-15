@@ -1,4 +1,4 @@
-// Governed by .rules v1.0
+import { CategoryModel } from '../models/category.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ApiError } from '../utils/api-error.js';
 import type { PaginatedResult } from '../types/api.types.js';
@@ -11,7 +11,14 @@ export const ProductService = {
   async list(filters: ProductFilters): Promise<PaginatedResult<unknown>> {
     const query: Record<string, unknown> = { isActive: true };
     if (filters.q) query.$text = { $search: filters.q };
-    if (filters.category) query.category = filters.category;
+    if (filters.category) {
+      const categoryDoc = await CategoryModel.findOne({ slug: filters.category });
+      if (categoryDoc) {
+        query.category = categoryDoc._id;
+      } else {
+        return { items: [], total: 0, page: filters.page, pages: 0 };
+      }
+    }
     if (filters.size) query['variants.size'] = filters.size;
     if (filters.color) query['variants.color'] = filters.color;
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) query.basePrice = { ...(filters.minPrice !== undefined ? { $gte: filters.minPrice } : {}), ...(filters.maxPrice !== undefined ? { $lte: filters.maxPrice } : {}) };

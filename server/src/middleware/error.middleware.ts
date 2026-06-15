@@ -7,11 +7,17 @@ import { ApiResponse } from '../utils/api-response.js';
 import { logger } from '../utils/logger.js';
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next): void => {
-  const apiError = error instanceof ApiError ? error : new ApiError(500, 'Internal server error', [], false);
+  const isApiError = error instanceof ApiError;
+  const apiError = isApiError ? error : new ApiError(500, 'Internal server error', [], false);
   if (!apiError.isOperational && env.NODE_ENV === 'production') {
     Sentry.captureException(error);
   }
-  logger.error(apiError.message, { statusCode: apiError.statusCode, errors: apiError.errors, stack: env.NODE_ENV === 'production' ? undefined : apiError.stack });
+  logger.error(isApiError ? apiError.message : error?.message || 'Internal server error', {
+    statusCode: apiError.statusCode,
+    errors: apiError.errors,
+    stack: env.NODE_ENV === 'production' ? undefined : (isApiError ? apiError.stack : error?.stack || new Error().stack)
+  });
   const visibleMessage = env.NODE_ENV === 'production' && !apiError.isOperational ? 'Internal server error' : apiError.message;
   res.status(apiError.statusCode).json(new ApiResponse(null, visibleMessage, apiError.errors.length > 0 ? apiError.errors : [visibleMessage]));
 };
+

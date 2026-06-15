@@ -18,6 +18,7 @@ interface PaginatedResult<TItem> {
 }
 
 export const useAdminOverview = () => useQuery({ queryKey: ['admin', 'overview'], queryFn: async (): Promise<AdminOverviewDto> => { const response = await api.get<ApiEnvelope<AdminOverviewDto>>('/admin/overview'); return response.data.data; } });
+export const useAdminMe = () => useQuery({ queryKey: ['admin', 'me'], queryFn: async (): Promise<UserDto> => { const response = await api.get<ApiEnvelope<UserDto>>('/auth/me'); return response.data.data; }, retry: false });
 export const useAdminAnalytics = (days: number) => useQuery({ queryKey: ['admin', 'analytics', days], queryFn: async (): Promise<AdminAnalyticsPointDto[]> => { const response = await api.get<ApiEnvelope<AdminAnalyticsPointDto[]>>('/admin/analytics', { params: { days } }); return response.data.data; } });
 export const useAdminProducts = () => useQuery({ queryKey: ['admin', 'products'], queryFn: async (): Promise<ProductDto[]> => { const response = await api.get<ApiEnvelope<PaginatedResult<ProductDto>>>('/products'); return response.data.data.items; } });
 export const useAdminProduct = (id: string) => useQuery({ queryKey: ['admin', 'products', id], queryFn: async (): Promise<ProductDto> => { const response = await api.get<ApiEnvelope<ProductDto>>('/products/admin/' + id); return response.data.data; }, enabled: id.length > 0 });

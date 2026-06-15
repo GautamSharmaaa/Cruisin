@@ -37,9 +37,8 @@ export const PaymentController = {
     res.json(new ApiResponse({ received: true }, 'Razorpay webhook processed'));
   }),
 
-  refund: asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const body = req.body as { method: PaymentMethod; paymentId: string; amount: number };
-    const refund = await OrderService.refund(body.method, body.paymentId, body.amount);
+  refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { method: PaymentMethod; paymentId: string; amount: number }>, res: Response): Promise<void> => {
+    const refund = await OrderService.refund(req.body.method, req.body.paymentId, req.body.amount);
     res.status(201).json(new ApiResponse(refund, 'Refund created'));
   })
 };
