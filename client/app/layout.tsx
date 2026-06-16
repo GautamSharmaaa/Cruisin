@@ -8,4 +8,4 @@ import './globals.css';
 
 export const metadata: Metadata = { title: COPY.brand.name, description: COPY.brand.tagline, metadataBase: new URL('https://cruisin.example') };
 export interface RootLayoutProps { children: ReactNode; }
-export default function RootLayout({ children }: RootLayoutProps): ReactNode { return <html lang="en" className="dark"><body><Providers><AppChrome>{children}</AppChrome></Providers></body></html>; }
+export default function RootLayout({ children }: RootLayoutProps): ReactNode { return <html lang="en" className="dark" data-scroll-behavior="smooth"><body><Providers><AppChrome>{children}</AppChrome></Providers></body></html>; }

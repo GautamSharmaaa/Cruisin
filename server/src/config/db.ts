@@ -8,3 +8,7 @@ export const connectDb = async (): Promise<void> => {
   await mongoose.connect(env.MONGODB_URI, { autoIndex: env.NODE_ENV !== 'production' });
   logger.info('MongoDB connected');
 };
+
+export const disconnectDb = async (): Promise<void> => {
+  await mongoose.disconnect();
+};

@@ -1,13 +1,30 @@
 // Governed by .rules v1.0
 import { Router } from 'express';
+import { z } from 'zod';
 import { CmsController } from '../../controllers/cms.controller.js';
 import { requireAdmin } from '../../middleware/admin.middleware.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
-import { bannerBodySchema } from '../../validators/cms.validator.js';
+import { idParamSchema, objectIdSchema, slugParamSchema } from '../../validators/common.validator.js';
+import { bannerBodySchema, cmsMediaBodySchema, cmsPageBodySchema, cmsPreviewQuerySchema, cmsReorderBodySchema, cmsRestoreBodySchema, cmsSectionBodySchema } from '../../validators/cms.validator.js';
 
 export const cmsRouter = Router();
+const pageIdParamSchema = z.object({ pageId: objectIdSchema });
 cmsRouter.get('/home', CmsController.home);
+cmsRouter.get('/pages/:slug/public', validate({ params: slugParamSchema, query: cmsPreviewQuerySchema }), CmsController.publicPage);
+cmsRouter.get('/pages', requireAuth, requireAdmin, CmsController.listPages);
+cmsRouter.post('/pages', requireAuth, requireAdmin, validate({ body: cmsPageBodySchema }), CmsController.createPage);
+cmsRouter.get('/pages/:slug', requireAuth, requireAdmin, validate({ params: slugParamSchema }), CmsController.pageBySlug);
+cmsRouter.get('/pages/:pageId/sections', requireAuth, requireAdmin, validate({ params: pageIdParamSchema }), CmsController.listSections);
+cmsRouter.post('/pages/:pageId/sections', requireAuth, requireAdmin, validate({ params: pageIdParamSchema, body: cmsSectionBodySchema }), CmsController.createSection);
+cmsRouter.post('/pages/:pageId/reorder', requireAuth, requireAdmin, validate({ params: pageIdParamSchema, body: cmsReorderBodySchema }), CmsController.reorderSections);
+cmsRouter.post('/pages/:pageId/publish', requireAuth, requireAdmin, validate({ params: pageIdParamSchema }), CmsController.publishPage);
+cmsRouter.get('/pages/:pageId/versions', requireAuth, requireAdmin, validate({ params: pageIdParamSchema }), CmsController.listVersions);
+cmsRouter.post('/pages/:pageId/restore', requireAuth, requireAdmin, validate({ params: pageIdParamSchema, body: cmsRestoreBodySchema }), CmsController.restoreVersion);
+cmsRouter.patch('/sections/:id', requireAuth, requireAdmin, validate({ params: idParamSchema, body: cmsSectionBodySchema.partial() }), CmsController.updateSection);
+cmsRouter.delete('/sections/:id', requireAuth, requireAdmin, validate({ params: idParamSchema }), CmsController.archiveSection);
+cmsRouter.get('/media', requireAuth, requireAdmin, CmsController.listMedia);
+cmsRouter.post('/media', requireAuth, requireAdmin, validate({ body: cmsMediaBodySchema }), CmsController.createMedia);
 cmsRouter.get('/banners', requireAuth, requireAdmin, CmsController.listBanners);
 cmsRouter.post('/banners', requireAuth, requireAdmin, validate({ body: bannerBodySchema }), CmsController.createBanner);
 cmsRouter.post('/reorder', requireAuth, requireAdmin, CmsController.reorder);

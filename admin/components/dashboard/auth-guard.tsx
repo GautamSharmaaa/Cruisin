@@ -3,9 +3,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
-import { API_CONFIG } from '@/constants/config';
 import { COPY } from '@/constants/copy';
 import { useAdminMe } from '@/hooks/useAdminResources';
+import { setAccessToken } from '@/lib/access-token';
 import type { UserDto } from '@/types/dto.types';
 
 export interface AuthGuardProps {
@@ -19,11 +19,8 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
   const router = useRouter();
   const me = useAdminMe();
   useEffect(() => {
-    if (!window.localStorage.getItem(API_CONFIG.accessTokenKey)) router.replace('/login');
-  }, [router]);
-  useEffect(() => {
     if (me.isError) {
-      window.localStorage.removeItem(API_CONFIG.accessTokenKey);
+      setAccessToken(null);
       router.replace('/login');
     }
   }, [me.isError, router]);

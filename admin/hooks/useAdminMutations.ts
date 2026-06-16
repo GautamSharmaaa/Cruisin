@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import type { CmsMediaDto, CmsSectionDto, CmsSectionType, CmsStatus } from '@/types/dto.types';
 
 export interface AdminProductInput {
   title: string;
@@ -56,6 +57,36 @@ export interface AdminBannerInput {
   endDate: string;
   sortOrder: number;
   isActive: boolean;
+}
+
+export interface CmsSectionInput {
+  pageTarget: string;
+  type: CmsSectionType;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  content: Record<string, unknown>;
+  styles: Record<string, unknown>;
+  products: string[];
+  categories: string[];
+  sortOrder: number;
+  active: boolean;
+  hideOnDesktop: boolean;
+  hideOnMobile: boolean;
+  status: CmsStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CmsMediaInput {
+  url: string;
+  type: 'image' | 'video';
+  alt?: string;
+  desktopUrl?: string;
+  mobileUrl?: string;
+  posterUrl?: string;
+  cropFocus?: 'center' | 'top' | 'bottom' | 'left' | 'right';
+  lazy?: boolean;
 }
 
 const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
@@ -115,8 +146,9 @@ export const useArchiveProduct = () => {
 };
 
 export const useUploadSignature = () => useMutation({
-  mutationFn: async (): Promise<void> => {
-    await api.get('/admin/uploads/signature', { params: { folder: 'cruisin/products' } });
+  mutationFn: async (): Promise<{ timestamp: number; signature: string; folder: string }> => {
+    const response = await api.get('/admin/uploads/signature', { params: { folder: 'cruisin/products' } });
+    return response.data.data;
   }
 });
 
@@ -213,6 +245,116 @@ export const useReorderBanners = () => {
     },
     onSuccess: async (): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'banners'] });
+    }
+  });
+};
+
+export const useCreateCmsSection = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CmsSectionInput): Promise<CmsSectionDto> => {
+      const response = await api.post('/cms/pages/' + pageId + '/sections', input);
+      return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] });
+    }
+  });
+};
+
+export const useUpdateCmsSection = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CmsSectionInput & { id: string }): Promise<CmsSectionDto> => {
+      const { id, ...payload } = input;
+      const response = await api.patch('/cms/sections/' + id, payload);
+      return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] });
+    }
+  });
+};
+
+export const useArchiveCmsSection = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await api.delete('/cms/sections/' + id);
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] });
+    }
+  });
+};
+
+export const useReorderCmsSections = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<void> => {
+      await api.post('/cms/pages/' + pageId + '/reorder', { ids });
+    },
+    onMutate: async (ids: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['admin', 'cms', 'sections', pageId] });
+      const previous = queryClient.getQueryData<CmsSectionDto[]>(['admin', 'cms', 'sections', pageId]);
+      if (previous) {
+        const byId = new Map(previous.map((section) => [section.id ?? section._id ?? section.title, section]));
+        queryClient.setQueryData<CmsSectionDto[]>(['admin', 'cms', 'sections', pageId], ids.flatMap((id, index) => {
+          const section = byId.get(id);
+          return section ? [{ ...section, sortOrder: index }] : [];
+        }));
+      }
+      return { previous };
+    },
+    onError: (_error, _ids, context): void => {
+      if (context?.previous) queryClient.setQueryData(['admin', 'cms', 'sections', pageId], context.previous);
+    },
+    onSettled: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] });
+    }
+  });
+};
+
+export const usePublishCmsPage = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      await api.post('/cms/pages/' + pageId + '/publish');
+    },
+    onSuccess: async (): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'pages'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'versions', pageId] })
+      ]);
+    }
+  });
+};
+
+export const useRestoreCmsVersion = (pageId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (versionId: string): Promise<void> => {
+      await api.post('/cms/pages/' + pageId + '/restore', { versionId });
+    },
+    onSuccess: async (): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'sections', pageId] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'versions', pageId] })
+      ]);
+    }
+  });
+};
+
+export const useCreateCmsMedia = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CmsMediaInput): Promise<CmsMediaDto> => {
+      const response = await api.post('/cms/media', input);
+      return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms', 'media'] });
     }
   });
 };

@@ -5,13 +5,17 @@ const hasToSanitize = (key: string): boolean => {
   return key.startsWith('$') || key.includes('.');
 };
 
-const sanitize = (target: any): void => {
-  if (target && typeof target === 'object') {
+const isRecord = (target: unknown): target is Record<string, unknown> => {
+  return typeof target === 'object' && target !== null;
+};
+
+const sanitize = (target: unknown): void => {
+  if (isRecord(target)) {
     for (const key in target) {
       if (Object.prototype.hasOwnProperty.call(target, key)) {
         if (hasToSanitize(key)) {
           delete target[key];
-        } else if (typeof target[key] === 'object') {
+        } else if (isRecord(target[key])) {
           sanitize(target[key]);
         }
       }

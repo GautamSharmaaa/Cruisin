@@ -25,7 +25,7 @@ export const validate = (schemas: RequestSchemas) => {
       return;
     }
     if (queryResult?.success) {
-      const data = queryResult.data as Record<string, any>;
+      const data = queryResult.data as Record<string, unknown>;
       for (const key in req.query) {
         if (Object.prototype.hasOwnProperty.call(req.query, key)) {
           delete req.query[key];
@@ -39,7 +39,7 @@ export const validate = (schemas: RequestSchemas) => {
       return;
     }
     if (paramsResult?.success) {
-      const data = paramsResult.data as Record<string, any>;
+      const data = paramsResult.data as Record<string, unknown>;
       for (const key in req.params) {
         if (Object.prototype.hasOwnProperty.call(req.params, key)) {
           delete req.params[key];

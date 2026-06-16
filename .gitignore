@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 coverage/
+client/test-results/
 *.log
 *.tsbuildinfo
 server-error.log

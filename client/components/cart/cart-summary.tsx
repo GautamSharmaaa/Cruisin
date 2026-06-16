@@ -7,4 +7,18 @@ import { ROUTES } from '@/constants/routes';
 import { formatPrice } from '@/lib/utils';
 
 export interface CartSummaryProps { subtotal: number; }
-export function CartSummary({ subtotal }: CartSummaryProps): ReactNode { const shipping = subtotal > 25000 ? 0 : 900; const total = subtotal + shipping; return <div className="space-y-3 border-t border-border pt-6"><div className="flex justify-between"><span>{COPY.cart.subtotal}</span><span>{formatPrice(subtotal)}</span></div><div className="flex justify-between"><span>{COPY.cart.shipping}</span><span>{formatPrice(shipping)}</span></div><div className="flex justify-between font-mono text-lg text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(total)}</span></div><Button className="mt-4 w-full"><Link href={ROUTES.checkout}>{COPY.cart.checkout}</Link></Button></div>; }
+export function CartSummary({ subtotal }: CartSummaryProps): ReactNode {
+	const shipping = subtotal > 25000 ? 0 : 900;
+	const total = subtotal + shipping;
+
+	return (
+		<div className="space-y-3 border-t border-border pt-6">
+			<div className="flex justify-between"><span>{COPY.cart.subtotal}</span><span>{formatPrice(subtotal)}</span></div>
+			<div className="flex justify-between"><span>{COPY.cart.shipping}</span><span>{formatPrice(shipping)}</span></div>
+			<div className="flex justify-between font-mono text-lg text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(total)}</span></div>
+			<Link href={ROUTES.checkout} className="block">
+				<Button className="mt-4 w-full">{COPY.cart.checkout}</Button>
+			</Link>
+		</div>
+	);
+}

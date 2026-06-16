@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { API_CONFIG } from '@/constants/config';
+import { setAccessToken } from '@/lib/access-token';
 import { api } from '@/lib/api';
 import type { UserDto } from '@/types/dto.types';
 
@@ -25,7 +25,7 @@ export const useAdminLogin = () => {
       return response.data.data;
     },
     onSuccess: (data): void => {
-      window.localStorage.setItem(API_CONFIG.accessTokenKey, data.accessToken);
+      setAccessToken(data.accessToken);
       router.push('/');
     }
   });
@@ -34,7 +34,9 @@ export const useAdminLogin = () => {
 export const useAdminLogout = () => {
   const router = useRouter();
   return (): void => {
-    window.localStorage.removeItem(API_CONFIG.accessTokenKey);
-    router.push('/login');
+    void api.post('/auth/logout').finally(() => {
+      setAccessToken(null);
+      router.push('/login');
+    });
   };
 };

@@ -71,16 +71,70 @@ export interface OrderDto {
 export interface CmsSectionDto {
   id: string;
   _id?: string;
+  pageId?: string;
+  pageTarget?: string;
+  type?: CmsSectionType;
   title: string;
   subtitle?: string;
+  description?: string;
   cta?: { text: string; link: string };
   image?: string;
   mobileImage?: string;
   position: string;
+  content?: Record<string, unknown>;
+  styles?: Record<string, unknown>;
+  products?: ProductDto[] | string[];
+  categories?: CategoryDto[] | string[];
   isActive: boolean;
+  active?: boolean;
+  hideOnDesktop?: boolean;
+  hideOnMobile?: boolean;
+  status?: CmsStatus;
   sortOrder: number;
   startDate?: string;
   endDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CmsSectionType = 'announcement_bar' | 'hero_campaign' | 'video_landing' | 'image_carousel' | 'product_carousel' | 'hot_drop' | 'trending_now' | 'discount_banner' | 'category_editorial_grid' | 'lookbook_story' | 'brand_story' | 'fullscreen_collection_landing' | 'popup_campaign' | 'newsletter' | 'social_proof' | 'marquee_strip';
+export type CmsStatus = 'draft' | 'published' | 'archived';
+
+export interface CmsPageDto {
+  id?: string;
+  _id?: string;
+  slug: string;
+  title: string;
+  status: CmsStatus;
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedVersionId?: string;
+  previewToken?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CmsVersionDto {
+  id?: string;
+  _id?: string;
+  pageId: string;
+  sectionsSnapshot: CmsSectionDto[];
+  status: 'draft' | 'published' | 'restored';
+  label?: string;
+  createdAt?: string;
+}
+
+export interface CmsMediaDto {
+  id?: string;
+  _id?: string;
+  url: string;
+  type: 'image' | 'video';
+  alt?: string;
+  desktopUrl?: string;
+  mobileUrl?: string;
+  posterUrl?: string;
+  cropFocus?: 'center' | 'top' | 'bottom' | 'left' | 'right';
+  lazy?: boolean;
 }
 
 export interface AdminOverviewDto {

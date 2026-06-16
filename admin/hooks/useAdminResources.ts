@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AdminAnalyticsPointDto, AdminOverviewDto, CategoryDto, CmsSectionDto, CouponDto, OrderDto, ProductDto, UserDto } from '@/types/dto.types';
+import type { AdminAnalyticsPointDto, AdminOverviewDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CouponDto, OrderDto, ProductDto, UserDto } from '@/types/dto.types';
 
 interface ApiEnvelope<TData> {
   success: boolean;
@@ -28,3 +28,7 @@ export const useAdminCategories = () => useQuery({ queryKey: ['admin', 'categori
 export const useAdminCoupons = () => useQuery({ queryKey: ['admin', 'coupons'], queryFn: async (): Promise<CouponDto[]> => { const response = await api.get<ApiEnvelope<CouponDto[]>>('/admin/coupons'); return response.data.data; } });
 export const useAdminUsers = () => useQuery({ queryKey: ['admin', 'users'], queryFn: async (): Promise<UserDto[]> => { const response = await api.get<ApiEnvelope<PaginatedResult<UserDto>>>('/admin/users'); return response.data.data.items; } });
 export const useAdminBanners = () => useQuery({ queryKey: ['admin', 'banners'], queryFn: async (): Promise<CmsSectionDto[]> => { const response = await api.get<ApiEnvelope<CmsSectionDto[]>>('/cms/banners'); return response.data.data; } });
+export const useCmsPages = () => useQuery({ queryKey: ['admin', 'cms', 'pages'], queryFn: async (): Promise<CmsPageDto[]> => { const response = await api.get<ApiEnvelope<CmsPageDto[]>>('/cms/pages'); return response.data.data; } });
+export const useCmsPageSections = (pageId?: string) => useQuery({ queryKey: ['admin', 'cms', 'sections', pageId], queryFn: async (): Promise<CmsSectionDto[]> => { const response = await api.get<ApiEnvelope<CmsSectionDto[]>>('/cms/pages/' + pageId + '/sections'); return response.data.data; }, enabled: Boolean(pageId) });
+export const useCmsVersions = (pageId?: string) => useQuery({ queryKey: ['admin', 'cms', 'versions', pageId], queryFn: async (): Promise<CmsVersionDto[]> => { const response = await api.get<ApiEnvelope<CmsVersionDto[]>>('/cms/pages/' + pageId + '/versions'); return response.data.data; }, enabled: Boolean(pageId) });
+export const useCmsMedia = () => useQuery({ queryKey: ['admin', 'cms', 'media'], queryFn: async (): Promise<CmsMediaDto[]> => { const response = await api.get<ApiEnvelope<CmsMediaDto[]>>('/cms/media'); return response.data.data; } });

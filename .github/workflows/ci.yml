@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      APP_ENV: development
+      CLIENT_URL: http://localhost:3000
+      ADMIN_URL: http://localhost:3001
+      MONGODB_URI: mongodb://localhost:27017/cruisin-test
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      JWT_REFRESH_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      CLOUDINARY_CLOUD_NAME: test
+      CLOUDINARY_API_KEY: test
+      CLOUDINARY_API_SECRET: test
+      RAZORPAY_KEY_ID: test
+      RAZORPAY_KEY_SECRET: test
+      STRIPE_SECRET_KEY: test
+      STRIPE_WEBHOOK_SECRET: test
+      SENDGRID_API_KEY: test
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

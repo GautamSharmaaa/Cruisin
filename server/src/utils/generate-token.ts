@@ -14,6 +14,6 @@ export const generateAccessToken = (payload: AccessTokenPayload): string => {
 };
 
 export const generateRefreshToken = (payload: AccessTokenPayload): string => {
-  const options: SignOptions = { expiresIn: env.JWT_REFRESH_EXPIRES as SignOptions['expiresIn'] };
+  const options: SignOptions = { expiresIn: env.JWT_REFRESH_EXPIRES as SignOptions['expiresIn'], jwtid: crypto.randomUUID() };
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, options);
 };
