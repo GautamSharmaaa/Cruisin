@@ -25,13 +25,12 @@ export const validate = (schemas: RequestSchemas) => {
       return;
     }
     if (queryResult?.success) {
-      const data = queryResult.data as Record<string, unknown>;
-      for (const key in req.query) {
-        if (Object.prototype.hasOwnProperty.call(req.query, key)) {
-          delete req.query[key];
-        }
-      }
-      Object.assign(req.query, data);
+      Object.defineProperty(req, 'query', {
+        value: queryResult.data as Request['query'],
+        configurable: true,
+        enumerable: true,
+        writable: true
+      });
     }
     const paramsResult = schemas.params?.safeParse(req.params);
     if (paramsResult && !paramsResult.success) {

@@ -18,7 +18,12 @@ export const cmsSectionTypeSchema = z.enum([
   'popup_campaign',
   'newsletter',
   'social_proof',
-  'marquee_strip'
+  'marquee_strip',
+  'shop_the_look',
+  'featured_collection',
+  'limited_drop_timer',
+  'recently_viewed',
+  'best_sellers'
 ]);
 
 export const cmsStatusSchema = z.enum(['draft', 'published', 'archived']);

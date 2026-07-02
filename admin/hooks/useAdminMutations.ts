@@ -1,14 +1,31 @@
 // Governed by .rules v1.0
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { CmsMediaDto, CmsSectionDto, CmsSectionType, CmsStatus } from '@/types/dto.types';
+import type { CmsMediaDto, CmsSectionDto, CmsSectionType, CmsStatus, ProductDto } from '@/types/dto.types';
 
 export interface AdminProductInput {
   title: string;
   slug: string;
   description: string;
+  shortDescription?: string;
   richDescription: string;
   category: string;
+  categoryIds?: string;
+  collections?: string;
+  tags?: string;
+  gender?: 'men' | 'women' | 'unisex';
+  status?: 'draft' | 'published' | 'archived';
+  visibility?: 'visible' | 'hidden';
+  isSale?: boolean;
+  isFeatured?: boolean;
+  isBestseller?: boolean;
+  isNewArrival?: boolean;
+  isLatestDrop?: boolean;
+  materialCare?: string;
+  fitDetails?: string;
+  shippingReturns?: string;
+  sizeGuide?: string;
+  productHighlights?: string;
   basePrice: number;
   comparePrice?: number;
   sku: string;
@@ -17,14 +34,57 @@ export interface AdminProductInput {
   colorHex: string;
   stock: number;
   image: string;
+  hoverImage?: string;
+  videoUrl?: string;
+  mobileVideoUrl?: string;
+  videoPosterImage?: string;
+  imageAltText?: string;
 }
 
 export interface AdminCategoryInput {
   name: string;
   slug: string;
+  parent?: string;
   image: string;
+  description?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroImage?: string;
+  mobileHeroImage?: string;
+  bannerImage?: string;
+  mobileBannerImage?: string;
+  thumbnailImage?: string;
+  categoryCardImage?: string;
+  categoryVideo?: string;
+  mobileCategoryVideo?: string;
+  backgroundVideo?: string;
+  videoPosterImage?: string;
+  imageAltText?: string;
+  videoAutoplay?: boolean;
+  videoMuted?: boolean;
+  videoLoop?: boolean;
   sortOrder: number;
   isActive: boolean;
+  isVisible?: boolean;
+  isPublished?: boolean;
+  isFeatured?: boolean;
+  showInHeader?: boolean;
+  showInMenu?: boolean;
+  showInFilters?: boolean;
+  showOnHomepage?: boolean;
+  showOnCollectionPages?: boolean;
+  showInFooter?: boolean;
+  bannerTitle?: string;
+  bannerSubtitle?: string;
+  defaultSort?: string;
+  defaultGridView?: 1 | 2 | 4;
+  areFiltersVisible?: boolean;
+  isAdvancedFilterEnabled?: boolean;
+  isFlashlightEnabled?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
+  canonicalSlug?: string;
 }
 
 export interface AdminCouponInput {
@@ -89,20 +149,42 @@ export interface CmsMediaInput {
   lazy?: boolean;
 }
 
+const listFromCsv = (value?: string): string[] => (value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+
 const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
   title: input.title,
   slug: input.slug,
   description: input.description,
+  shortDescription: input.shortDescription ?? '',
   richDescription: input.richDescription,
   brand: 'Cruisin',
   category: input.category,
-  images: [{ url: input.image, alt: input.title, width: 1200, height: 1600 }],
+  categoryIds: Array.from(new Set([input.category, ...listFromCsv(input.categoryIds)])),
+  collections: listFromCsv(input.collections),
+  images: [{ url: input.image, alt: input.imageAltText || input.title, width: 1200, height: 1600 }],
+  hoverImage: input.hoverImage ? { url: input.hoverImage, alt: input.imageAltText || input.title, width: 1200, height: 1600 } : null,
+  videoUrl: input.videoUrl ?? '',
+  mobileVideoUrl: input.mobileVideoUrl ?? '',
+  videoPosterImage: input.videoPosterImage ?? '',
+  imageAltText: input.imageAltText ?? '',
   basePrice: input.basePrice,
   comparePrice: input.comparePrice,
-  variants: [{ size: input.size, color: input.color, colorHex: input.colorHex, sku: input.sku, price: input.basePrice, stock: input.stock, images: [{ url: input.image, alt: input.title, width: 1200, height: 1600 }] }],
-  tags: [],
-  isFeatured: false,
-  isActive: true,
+  variants: [{ size: input.size, color: input.color, colorHex: input.colorHex, sku: input.sku, price: input.basePrice, stock: input.stock, images: [{ url: input.image, alt: input.imageAltText || input.title, width: 1200, height: 1600 }] }],
+  tags: listFromCsv(input.tags),
+  gender: input.gender ?? 'unisex',
+  status: input.status ?? 'published',
+  visibility: input.visibility ?? 'visible',
+  isSale: input.isSale ?? Boolean(input.comparePrice),
+  isFeatured: input.isFeatured ?? false,
+  isBestseller: input.isBestseller ?? false,
+  isNewArrival: input.isNewArrival ?? false,
+  isLatestDrop: input.isLatestDrop ?? false,
+  isActive: input.status !== 'draft' && input.visibility !== 'hidden',
+  materialCare: input.materialCare ?? '',
+  fitDetails: input.fitDetails ?? '',
+  shippingReturns: input.shippingReturns ?? '',
+  sizeGuide: input.sizeGuide ?? '',
+  productHighlights: listFromCsv(input.productHighlights),
   seo: { metaTitle: input.title, metaDesc: input.description, ogImage: input.image }
 });
 
@@ -133,6 +215,35 @@ export const useUpdateProduct = () => {
   });
 };
 
+export const usePatchProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; patch: Partial<ProductDto> }): Promise<ProductDto> => {
+      const response = await api.put('/products/' + input.id, input.patch);
+      return response.data.data;
+    },
+    onSuccess: async (_data, input): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'products'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'products', input.id] })
+      ]);
+    }
+  });
+};
+
+export const useDuplicateProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<ProductDto> => {
+      const response = await api.post('/products/' + id + '/duplicate');
+      return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+    }
+  });
+};
+
 export const useArchiveProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -156,10 +267,25 @@ export const useCreateCategory = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: AdminCategoryInput): Promise<void> => {
-      await api.post('/admin/categories', { ...input, breadcrumb: [{ name: input.name, slug: input.slug }] });
+      await api.post('/admin/categories', { ...input, parent: input.parent || null, breadcrumb: [{ name: input.name, slug: input.slug }] });
     },
     onSuccess: async (): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+    }
+  });
+};
+
+export const useUpdateCategory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AdminCategoryInput & { id: string }): Promise<void> => {
+      const { id, ...category } = input;
+      await api.put('/admin/categories/' + id, { ...category, parent: category.parent || null, breadcrumb: [{ name: category.name, slug: category.slug }] });
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cms'] });
     }
   });
 };

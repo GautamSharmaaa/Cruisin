@@ -24,7 +24,7 @@ export const requireAuth: RequestHandler = (req, _res, next): void => {
 };
 
 export const optionalSession: RequestHandler = (req, _res, next): void => {
-  const headerSession = req.headers['x-session-id'];
+  const headerSession = req.headers['x-session-id'] ?? req.headers['x-device-fingerprint'];
   if (typeof headerSession === 'string' && headerSession.length > 8) {
     req.sessionId = headerSession;
   }

@@ -6,13 +6,48 @@ import { env } from '../config/env.js';
 import { ApiError } from '../utils/api-error.js';
 import type { PaymentMethod, PaymentOrder, PaymentProvider, Refund } from '../types/payment.types.js';
 
+const localPaymentId = (prefix: string): string => `${prefix}_mock_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+const usesLocalPaymentKeys = (): boolean => env.APP_ENV === 'development' && (
+  env.RAZORPAY_KEY_ID.includes('mock') ||
+  env.RAZORPAY_KEY_SECRET.includes('mock') ||
+  env.STRIPE_SECRET_KEY.includes('mock')
+);
+
+class LocalPaymentProvider implements PaymentProvider {
+  public constructor(private readonly provider: PaymentMethod) {}
+
+  public async createOrder(amount: number, currency: string, _metadata: Record<string, unknown>): Promise<PaymentOrder> {
+    const id = this.provider === 'razorpay' ? localPaymentId('order') : localPaymentId('pi');
+    return {
+      id,
+      amount,
+      currency,
+      clientSecret: this.provider === 'stripe' ? `${id}_secret_local` : undefined,
+      provider: this.provider
+    };
+  }
+
+  public async verifyPayment(payload: Record<string, unknown>): Promise<boolean> {
+    const mockVerified = payload.mockVerified;
+    return mockVerified === true || mockVerified === 'true';
+  }
+
+  public async createRefund(_paymentId: string, amount: number): Promise<Refund> {
+    return { id: localPaymentId('refund'), amount, status: 'processed' };
+  }
+}
+
 export class RazorpayProvider implements PaymentProvider {
   private readonly client = new Razorpay({ key_id: env.RAZORPAY_KEY_ID, key_secret: env.RAZORPAY_KEY_SECRET });
 
   public async createOrder(amount: number, currency: string, metadata: Record<string, unknown>): Promise<PaymentOrder> {
     const notes = Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, typeof value === 'number' ? value : String(value)]));
-    const order = await this.client.orders.create({ amount: Math.round(amount * 100), currency, notes }) as unknown as { id: string };
-    return { id: order.id, amount, currency, provider: 'razorpay' };
+    try {
+      const order = await this.client.orders.create({ amount: Math.round(amount * 100), currency, notes }) as unknown as { id: string };
+      return { id: order.id, amount, currency, provider: 'razorpay' };
+    } catch {
+      throw new ApiError(502, 'Payment provider unavailable');
+    }
   }
 
   public async verifyPayment(payload: Record<string, unknown>): Promise<boolean> {
@@ -33,8 +68,12 @@ export class StripeProvider implements PaymentProvider {
   private readonly client = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
   public async createOrder(amount: number, currency: string, metadata: Record<string, unknown>): Promise<PaymentOrder> {
-    const intent = await this.client.paymentIntents.create({ amount: Math.round(amount * 100), currency: currency.toLowerCase(), metadata: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])) });
-    return { id: intent.id, amount, currency, clientSecret: intent.client_secret ?? undefined, provider: 'stripe' };
+    try {
+      const intent = await this.client.paymentIntents.create({ amount: Math.round(amount * 100), currency: currency.toLowerCase(), metadata: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])) });
+      return { id: intent.id, amount, currency, clientSecret: intent.client_secret ?? undefined, provider: 'stripe' };
+    } catch {
+      throw new ApiError(502, 'Payment provider unavailable');
+    }
   }
 
   public async verifyPayment(payload: Record<string, unknown>): Promise<boolean> {
@@ -54,6 +93,9 @@ export class StripeProvider implements PaymentProvider {
 
 export class PaymentService {
   public static getProvider(method: PaymentMethod): PaymentProvider {
+    if (usesLocalPaymentKeys()) {
+      return new LocalPaymentProvider(method);
+    }
     if (method === 'razorpay') {
       return new RazorpayProvider();
     }

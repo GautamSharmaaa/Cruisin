@@ -2,7 +2,6 @@
 export const COPY = {
   brand: { name: 'Cruisin', tagline: 'Wear Less. Mean More.', label: 'Ultra premium streetwear' },
   nav: { shop: 'Shop', collections: 'Collections', journal: 'Journal', account: 'Account', cart: 'Cart', search: 'Search', menu: 'Menu', close: 'Close', wishlist: 'Wishlist', home: 'Home' },
-  hero: { eyebrow: 'Drop 04 / Black Transit', lineOne: 'Wear Less.', lineTwo: 'Mean More.', cta: 'Enter The Drop', secondary: 'View Lookbook', scroll: 'Scroll' },
   home: { featured: 'Featured Collections', bestSellers: 'Best Sellers', flashSale: 'Private Window', newArrivals: 'New Arrivals', instagram: 'Seen In Motion', newsletter: 'Join The List', newsletterBody: 'Private drops, early access, and nothing unnecessary.', email: 'Email address', subscribe: 'Subscribe', success: 'You are on the list.', error: 'Something slipped. Try again.' },
   shop: { title: 'Shop All', eyebrow: 'Private Catalogue', filters: 'Filters', sort: 'Sort', loadMore: 'Load More', grid: 'Grid', list: 'List', showing: 'Showing', items: 'items', emptyTitle: 'Nothing Fits The Mood', emptyCta: 'Clear Filters', quickAdd: 'Quick Add', add: 'Add To Cart', soldOut: 'Sold Out', new: 'New', sale: 'Sale' },
   filters: { sizes: ['XS', 'S', 'M', 'L', 'XL', '30', '32', '34'], colors: ['Black', 'Ash', 'Carbon', 'Oatmeal', 'Espresso', 'Sage Green', 'Stealth Black', 'Grey', 'Charcoal', 'White', 'Sand'] },

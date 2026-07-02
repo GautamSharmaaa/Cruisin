@@ -7,11 +7,22 @@ import type { Product } from '@/types/product.types';
 
 export interface UseProductsInput {
   category?: string;
+  subcategory?: string;
+  collection?: string;
+  tags?: string;
+  gender?: 'men' | 'women' | 'unisex';
+  sale?: boolean;
+  featured?: boolean;
+  bestseller?: boolean;
+  latestDrop?: boolean;
   q?: string;
   size?: string;
   color?: string;
   minPrice?: number;
   maxPrice?: number;
+  priceMin?: number;
+  priceMax?: number;
+  availability?: 'all' | 'in-stock' | 'out-of-stock';
   sort?: string;
   page?: number;
   limit?: number;

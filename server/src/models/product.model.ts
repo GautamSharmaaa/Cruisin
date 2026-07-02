@@ -19,7 +19,10 @@ const variantSchema = new Schema(
     colorHex: { type: String, required: true, trim: true },
     sku: { type: String, required: true, unique: true, uppercase: true, trim: true },
     price: { type: Number, required: true, min: 0 },
+    priceOverride: { type: Number, min: 0 },
     stock: { type: Number, required: true, min: 0, index: true },
+    enabled: { type: Boolean, default: true, index: true },
+    lowStockThreshold: { type: Number, min: 0 },
     images: { type: [imageSchema], default: [] }
   },
   { _id: true }
@@ -30,16 +33,51 @@ const productSchema = new Schema(
     title: { type: String, required: true, trim: true, minlength: 2, maxlength: 160 },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     description: { type: String, required: true, trim: true },
+    shortDescription: { type: String, trim: true, default: '' },
     richDescription: { type: String, required: true },
     brand: { type: String, required: true, trim: true, default: 'Cruisin' },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true, index: true },
+    categoryIds: { type: [{ type: Schema.Types.ObjectId, ref: 'Category' }], default: [], index: true },
+    collections: { type: [{ type: Schema.Types.ObjectId, ref: 'Collection' }], default: [], index: true },
+    collectionSlugs: { type: [String], default: [], index: true },
     images: { type: [imageSchema], default: [] },
+    hoverImage: { type: imageSchema, default: null },
+    videoUrl: { type: String, trim: true },
+    mobileVideoUrl: { type: String, trim: true, default: '' },
+    videoPosterImage: { type: String, trim: true, default: '' },
+    imageAltText: { type: String, trim: true, default: '' },
     basePrice: { type: Number, required: true, min: 0, index: true },
     comparePrice: { type: Number, min: 0 },
     variants: { type: [variantSchema], default: [] },
     tags: { type: [String], default: [], index: true },
+    productCode: { type: String, trim: true, uppercase: true, index: true },
+    pickupAddress: { type: String, trim: true },
+    lowStockThreshold: { type: Number, default: 10, min: 0 },
+    lifetimeSales: { type: Number, default: 0, min: 0, index: true },
+    gender: { type: String, enum: ['men', 'women', 'unisex'], default: 'unisex', index: true },
+    status: { type: String, enum: ['draft', 'published', 'archived'], default: 'published', index: true },
+    visibility: { type: String, enum: ['visible', 'hidden'], default: 'visible', index: true },
+    isSale: { type: Boolean, default: false, index: true },
     isFeatured: { type: Boolean, default: false, index: true },
+    isBestseller: { type: Boolean, default: false, index: true },
+    isNewArrival: { type: Boolean, default: false, index: true },
+    isLatestDrop: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true, index: true },
+    isArchived: { type: Boolean, default: false, index: true },
+    materialCare: { type: String, trim: true, default: '' },
+    fitDetails: { type: String, trim: true, default: '' },
+    shippingReturns: { type: String, trim: true, default: '' },
+    sizeGuide: { type: String, trim: true, default: '' },
+    productHighlights: { type: [String], default: [] },
+    sortOrder: { type: Number, default: 0, index: true },
+    relatedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
+    recommendedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
+    weight: { type: Number, min: 0 },
+    dimensions: {
+      length: { type: Number, min: 0 },
+      width: { type: Number, min: 0 },
+      height: { type: Number, min: 0 }
+    },
     ratings: {
       avg: { type: Number, default: 0, min: 0, max: 5 },
       count: { type: Number, default: 0, min: 0 }
@@ -55,7 +93,13 @@ const productSchema = new Schema(
 
 productSchema.index({ title: 'text', description: 'text', tags: 'text' });
 productSchema.index({ category: 1, isActive: 1, basePrice: 1 });
+productSchema.index({ categoryIds: 1, isActive: 1, sortOrder: 1 });
+productSchema.index({ collections: 1, isActive: 1, sortOrder: 1 });
+productSchema.index({ gender: 1, isActive: 1, createdAt: -1 });
 productSchema.index({ isFeatured: 1, createdAt: -1 });
+productSchema.index({ isSale: 1, createdAt: -1 });
+productSchema.index({ isLatestDrop: 1, createdAt: -1 });
+productSchema.index({ isArchived: 1, updatedAt: -1 });
 
 export type ProductDocument = InferSchemaType<typeof productSchema>;
 export const ProductModel = model('Product', productSchema);

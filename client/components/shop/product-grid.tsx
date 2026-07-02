@@ -5,7 +5,12 @@ import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { ProductCard } from '@/components/shop/product-card';
 import { staggerContainer } from '@/lib/animations';
+import { cn } from '@/lib/utils';
 import type { Product } from '@/types/product.types';
 
-export interface ProductGridProps { products: Product[]; }
-export function ProductGrid({ products }: ProductGridProps): ReactNode { return <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-px xl:grid-cols-3 2xl:grid-cols-4">{products.map((product) => <ProductCard key={product.id} product={product} />)}</motion.div>; }
+export type GridView = 1 | 2 | 4;
+export interface ProductGridProps { products: Product[]; view?: GridView; spotlight?: boolean; }
+export function ProductGrid({ products, view = 4, spotlight = false }: ProductGridProps): ReactNode {
+  const gridClass = view === 1 ? 'mx-auto max-w-3xl grid-cols-1 gap-6' : view === 2 ? 'grid-cols-1 gap-3 md:grid-cols-2 md:gap-px' : 'grid-cols-2 gap-px md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
+  return <motion.div variants={staggerContainer} initial="initial" animate="animate" className={cn('grid transition duration-300', gridClass, spotlight && 'rounded-sm ring-1 ring-accent-gold/40 shadow-gold')}>{products.map((product, index) => <ProductCard key={product.id} product={product} view={view} priority={index < (view === 4 ? 4 : 2)} />)}</motion.div>;
+}

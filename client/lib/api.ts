@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '@/constants/config';
-import { getAccessToken, setAccessToken } from '@/lib/access-token';
+import { getAccessToken, hasSessionHint, setAccessToken } from '@/lib/access-token';
 import type { ApiEnvelope } from '@/types/api.types';
 
 export const api = axios.create({ baseURL: API_CONFIG.baseUrl, withCredentials: true, timeout: API_CONFIG.timeout });
@@ -27,7 +27,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig): InternalAxios
 
 api.interceptors.response.use((response) => response, async (error: AxiosError<ApiEnvelope<unknown>> & { config?: InternalAxiosRequestConfig & { _retry?: boolean } }): Promise<unknown> => {
   const original = error.config;
-  if (error.response?.status === 401 && original && !original._retry && !original.url?.includes('/auth/refresh')) {
+  if (error.response?.status === 401 && original && !original._retry && !original.url?.includes('/auth/refresh') && (getAccessToken() || hasSessionHint())) {
     original._retry = true;
     refreshPromise ??= api.post<ApiEnvelope<{ accessToken: string }>>('/auth/refresh', {}, { headers: { 'x-auth-bootstrap': '1' } }).then((response) => {
       const accessToken = response.data.data.accessToken;
@@ -50,6 +50,7 @@ api.interceptors.response.use((response) => response, async (error: AxiosError<A
 });
 
 export const refreshAccessToken = async (): Promise<string | null> => {
+  if (!hasSessionHint()) return null;
   if (!refreshPromise) {
     refreshPromise = api.post<ApiEnvelope<{ accessToken: string }>>('/auth/refresh', {}, { headers: { 'x-auth-bootstrap': '1' } })
       .then((response) => {

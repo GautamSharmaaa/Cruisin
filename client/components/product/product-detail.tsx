@@ -26,9 +26,12 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
   return (
     <main className="px-6 pb-20 pt-24 lg:px-20">
       <Breadcrumb items={[{ label: COPY.nav.home, href: ROUTES.home }, { label: COPY.nav.shop, href: ROUTES.shop }, { label: product.title, href: '/product/' + product.slug }]} />
-      <div className="mt-8 grid gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="mt-8 grid min-w-0 gap-12 lg:grid-cols-[1.1fr_0.9fr]">
         <ImageGallery images={displayImages} />
-        <section className="lg:sticky lg:top-24 lg:self-start">
+        {product.videoUrl ? <div className="overflow-hidden border border-border-subtle bg-background-elevated lg:hidden">
+          <video src={product.mobileVideoUrl || product.videoUrl} poster={product.videoPosterImage || product.images[0]?.url} className="aspect-[3/4] w-full object-cover" controls playsInline />
+        </div> : null}
+        <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
           <p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{product.brand}</p>
           <h1 className="mt-3 font-display text-4xl font-light text-text-primary">{product.title}</h1>
           <p className="mt-4 font-mono text-xl text-accent-gold">{formatPrice(product.basePrice)}</p>
@@ -36,7 +39,7 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           <div className="mt-10">
             <VariantSelector variants={product.variants} onChange={setVariant} />
           </div>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <SizeGuideModal />
             <WishlistButton productId={product.id} />
             <Button variant="ghost" onClick={share}><Share2 size={16} /> {COPY.product.share}</Button>
@@ -47,10 +50,22 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           <details className="mt-10 border-t border-border py-6" open>
             <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.description}</summary>
             <p className="mt-4 text-text-secondary">{product.richDescription}</p>
+            {product.productHighlights && product.productHighlights.length > 0 ? <ul className="mt-4 grid gap-2 text-sm text-text-secondary">{product.productHighlights.map((highlight) => <li key={highlight}>- {highlight}</li>)}</ul> : null}
           </details>
+          {product.videoUrl ? <div className="mt-8 hidden overflow-hidden border border-border-subtle bg-background-elevated lg:block">
+            <video src={product.videoUrl} poster={product.videoPosterImage || product.images[0]?.url} className="aspect-video w-full object-cover" controls playsInline />
+          </div> : null}
+          {product.materialCare ? <details className="border-t border-border py-6">
+            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">Material & Care</summary>
+            <p className="mt-4 text-text-secondary">{product.materialCare}</p>
+          </details> : null}
+          {product.fitDetails ? <details className="border-t border-border py-6">
+            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">Fit Details</summary>
+            <p className="mt-4 text-text-secondary">{product.fitDetails}</p>
+          </details> : null}
           <details className="border-t border-border py-6">
             <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.shipping}</summary>
-            <p className="mt-4 text-text-secondary">{COPY.home.newsletterBody}</p>
+            <p className="mt-4 text-text-secondary">{product.shippingReturns || COPY.home.newsletterBody}</p>
           </details>
         </section>
       </div>

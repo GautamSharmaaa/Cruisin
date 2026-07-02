@@ -12,6 +12,7 @@ import { FilterSidebar } from '@/components/shop/filter-sidebar';
 import { FilterDrawer } from '@/components/shop/filter-drawer';
 import { SortSelect } from '@/components/shop/sort-select';
 import { COPY } from '@/constants/copy';
+import { useCategories } from '@/hooks/useCategories';
 import { useProducts } from '@/hooks/useProducts';
 
 export interface InfiniteProductListProps { initialCategory?: string; }
@@ -26,6 +27,8 @@ export function InfiniteProductList({ initialCategory }: InfiniteProductListProp
   const color = params.get('color') ?? undefined;
   const activeFilters = [category, size, color].filter((value): value is string => Boolean(value));
   const products = useProducts({ category, size, color, sort, limit });
+  const categories = useCategories();
+  const categoryTitle = category ? categories.data?.find((item) => item.slug === category)?.name ?? category.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') : COPY.shop.title;
   const items = products.data?.items ?? [];
   const total = products.data?.total ?? items.length;
   const updateSort = (value: string): void => {
@@ -33,5 +36,5 @@ export function InfiniteProductList({ initialCategory }: InfiniteProductListProp
     next.set('sort', value);
     router.push('/shop?' + next.toString());
   };
-  return <div className="flex"><FilterSidebar activeCount={activeFilters.length} /><main className="min-w-0 flex-1 px-6 py-28 lg:px-12 lg:py-32"><div className="mb-12 flex flex-col gap-6 border-b border-border-subtle pb-8 md:flex-row md:items-end md:justify-between"><div><p className="font-accent text-xs uppercase tracking-[0.2em] text-accent-gold">{COPY.shop.eyebrow}</p><h1 className="mt-3 font-display text-5xl font-light text-text-primary md:text-hero">{COPY.shop.title}</h1><p className="mt-4 text-sm text-text-secondary">{COPY.shop.showing} {items.length} of {total} {COPY.shop.items}</p></div><div className="flex gap-3"><Button variant="secondary" className="lg:hidden" onClick={() => setOpen(true)}><SlidersHorizontal size={16} /> {COPY.shop.filters}</Button><SortSelect value={sort} onChange={updateSort} /></div></div>{products.isLoading ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-px xl:grid-cols-3 2xl:grid-cols-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : items.length > 0 ? <ProductGrid products={items} /> : <EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href="/shop" />}<div className="mt-16 flex justify-center"><Button variant="secondary" disabled={items.length >= total} onClick={() => setLimit((current) => current + 24)}>{COPY.shop.loadMore}</Button></div><FilterDrawer open={open} onOpenChange={setOpen} activeCount={activeFilters.length} /></main></div>;
+  return <div className="flex lg:pt-20"><FilterSidebar activeCount={activeFilters.length} /><main className="min-w-0 flex-1 px-6 py-28 lg:px-12 lg:pb-32 lg:pt-12"><div className="mb-12 flex flex-col gap-6 border-b border-border-subtle pb-8 md:flex-row md:items-end md:justify-between"><div><p className="font-accent text-xs uppercase tracking-[0.2em] text-accent-gold">{COPY.shop.eyebrow}</p><h1 className="mt-3 font-display text-5xl font-light text-text-primary md:text-hero">{categoryTitle}</h1><p className="mt-4 text-sm text-text-secondary">{COPY.shop.showing} {items.length} of {total} {COPY.shop.items}</p></div><div className="flex gap-3"><Button variant="secondary" className="lg:hidden" onClick={() => setOpen(true)}><SlidersHorizontal size={16} /> {COPY.shop.filters}</Button><SortSelect value={sort} onChange={updateSort} /></div></div>{products.isLoading ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-px xl:grid-cols-3 2xl:grid-cols-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : items.length > 0 ? <ProductGrid products={items} /> : <EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href="/shop" />}<div className="mt-16 flex justify-center"><Button variant="secondary" disabled={items.length >= total} onClick={() => setLimit((current) => current + 24)}>{COPY.shop.loadMore}</Button></div><FilterDrawer open={open} onOpenChange={setOpen} activeCount={activeFilters.length} /></main></div>;
 }

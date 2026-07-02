@@ -1,8 +1,9 @@
 import type { RequestHandler } from 'express';
 import { env } from '../config/env.js';
+import { allowedBrowserOrigins } from '../config/origins.js';
 import { ApiError } from '../utils/api-error.js';
 
-const allowedOrigins = new Set([env.CLIENT_URL, env.ADMIN_URL]);
+const allowedOrigins = new Set(allowedBrowserOrigins);
 
 export const requireBrowserOrigin: RequestHandler = (req, _res, next): void => {
   const origin = req.headers.origin;

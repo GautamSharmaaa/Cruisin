@@ -39,7 +39,12 @@ const cmsSectionSchema = new Schema(
         'popup_campaign',
         'newsletter',
         'social_proof',
-        'marquee_strip'
+        'marquee_strip',
+        'shop_the_look',
+        'featured_collection',
+        'limited_drop_timer',
+        'recently_viewed',
+        'best_sellers'
       ],
       index: true
     },

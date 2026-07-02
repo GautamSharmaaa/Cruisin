@@ -37,15 +37,33 @@ export interface ApiProduct {
   title: string;
   slug: string;
   description: string;
+  shortDescription?: string;
   richDescription: string;
   brand: string;
   category: string | { slug?: string; name?: string };
+  categoryIds?: Array<string | { slug?: string; name?: string }>;
+  collections?: Array<string | { slug?: string; title?: string }>;
   images: ApiProductImage[];
+  hoverImage?: ApiProductImage | null;
+  videoUrl?: string;
+  mobileVideoUrl?: string;
+  videoPosterImage?: string;
+  imageAltText?: string;
   basePrice: number;
   comparePrice?: number;
   variants: ApiProductVariant[];
   tags: string[];
+  gender?: 'men' | 'women' | 'unisex';
+  isSale?: boolean;
   isFeatured: boolean;
+  isBestseller?: boolean;
+  isNewArrival?: boolean;
+  isLatestDrop?: boolean;
+  materialCare?: string;
+  fitDetails?: string;
+  shippingReturns?: string;
+  sizeGuide?: string;
+  productHighlights?: string[];
   ratings?: { avg?: number; count?: number };
   seo?: { metaTitle?: string; metaDesc?: string; ogImage?: string };
   reviews?: ApiReview[];
@@ -84,15 +102,33 @@ export const mapProduct = (product: ApiProduct): Product => ({
   title: product.title,
   slug: product.slug,
   description: product.description,
+  shortDescription: product.shortDescription,
   richDescription: product.richDescription,
   brand: product.brand,
   category: typeof product.category === 'string' ? product.category : product.category.slug ?? product.category.name ?? '',
+  categoryIds: (product.categoryIds ?? []).map((category) => typeof category === 'string' ? category : category.slug ?? category.name ?? '').filter(Boolean),
+  collections: (product.collections ?? []).map((collection) => typeof collection === 'string' ? collection : collection.slug ?? collection.title ?? '').filter(Boolean),
   images: product.images.map(mapImage),
+  hoverImage: product.hoverImage ? mapImage(product.hoverImage) : null,
+  videoUrl: product.videoUrl,
+  mobileVideoUrl: product.mobileVideoUrl,
+  videoPosterImage: product.videoPosterImage,
+  imageAltText: product.imageAltText,
   basePrice: product.basePrice,
   comparePrice: product.comparePrice,
   variants: product.variants.map(mapVariant),
   tags: product.tags,
+  gender: product.gender,
+  isSale: product.isSale,
   isFeatured: product.isFeatured,
+  isBestseller: product.isBestseller,
+  isNewArrival: product.isNewArrival,
+  isLatestDrop: product.isLatestDrop,
+  materialCare: product.materialCare,
+  fitDetails: product.fitDetails,
+  shippingReturns: product.shippingReturns,
+  sizeGuide: product.sizeGuide,
+  productHighlights: product.productHighlights,
   ratings: { avg: product.ratings?.avg ?? 0, count: product.ratings?.count ?? 0 },
   seo: {
     metaTitle: product.seo?.metaTitle ?? product.title,

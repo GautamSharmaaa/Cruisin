@@ -4,10 +4,12 @@ import { connectDb } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { BannerModel } from '../models/banner.model.js';
 import { CategoryModel } from '../models/category.model.js';
+import { CollectionModel } from '../models/collection.model.js';
 import { CouponModel } from '../models/coupon.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ReviewModel } from '../models/review.model.js';
 import { UserModel } from '../models/user.model.js';
+import { MerchandisingService } from '../services/merchandising.service.js';
 import { logger } from '../utils/logger.js';
 
 const imageBase = 'https://images.unsplash.com';
@@ -451,6 +453,54 @@ const seed = async (): Promise<void> => {
     { product: products[0]._id, user: admin._id, rating: 5, title: 'Insane fabric', body: 'Dense, quiet, and tailored in the right places.', isVerifiedPurchase: true, status: 'approved' },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+
+  await MerchandisingService.ensureDefaults();
+
+  const categoryByPath = new Map((await CategoryModel.find({ path: { $exists: true } }).select('_id path').lean()).map((category) => [String(category.path), category._id]));
+  const collectionBySlug = new Map((await CollectionModel.find().select('_id slug').lean()).map((collection) => [String(collection.slug), collection._id]));
+  const categoryPathsForProduct = (title: string): string[] => {
+    const lower = title.toLowerCase();
+    const paths = ['men', 'women'];
+    if (lower.includes('hoodie')) paths.push('men/hoodies', 'women/hoodies');
+    else if (lower.includes('tee')) paths.push('men/t-shirts', 'women/t-shirts');
+    else if (lower.includes('shirt')) paths.push('men/shirts');
+    else if (lower.includes('jogger')) paths.push('men/joggers', 'women/joggers');
+    else if (lower.includes('cargo')) paths.push('men/cargo-pants', 'men/pants');
+    else if (lower.includes('trouser') || lower.includes('pants') || lower.includes('shorts')) paths.push('men/pants', 'women/pants-leggings');
+    else if (lower.includes('parka') || lower.includes('windbreaker') || lower.includes('overshirt') || lower.includes('cardigan')) paths.push('men/jackets', 'women/jackets');
+    return paths;
+  };
+  const collectionSlugsForProduct = (index: number, product: { comparePrice?: number; tags?: string[] }): string[] => {
+    const slugs = index < 4 ? ['black-transit'] : index < 8 ? ['quiet-uniform'] : ['latest-drop'];
+    if (product.comparePrice) slugs.push('racing-club');
+    if (product.tags?.includes('editorial')) slugs.push('winter-collection');
+    return Array.from(new Set(slugs));
+  };
+  await Promise.all(products.map(async (product, index) => {
+    const payload = productPayloads[index];
+    const categoryIds = categoryPathsForProduct(product.title).flatMap((path) => {
+      const id = categoryByPath.get(path);
+      return id ? [id] : [];
+    });
+    const collectionSlugs = collectionSlugsForProduct(index, payload);
+    const collections = collectionSlugs.flatMap((slug) => {
+      const id = collectionBySlug.get(slug);
+      return id ? [id] : [];
+    });
+    await ProductModel.findByIdAndUpdate(product._id, {
+      categoryIds: Array.from(new Set([product.category, ...categoryIds].map(String))),
+      collections,
+      collectionSlugs,
+      gender: 'unisex',
+      isSale: Boolean(product.comparePrice),
+      isLatestDrop: product.tags.includes('new'),
+      isBestseller: product.tags.includes('best')
+    });
+  }));
+  await Promise.all(Array.from(collectionBySlug.entries()).map(([slug, collectionId]) => {
+    const matching = products.filter((_product, index) => collectionSlugsForProduct(index, productPayloads[index]).includes(slug)).map((product) => product._id);
+    return CollectionModel.findByIdAndUpdate(collectionId, { productIds: matching });
+  }));
 
   logger.info('Seed complete', { admin: admin.email, products: products.length });
   await redis.quit();

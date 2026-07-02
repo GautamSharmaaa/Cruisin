@@ -4,3 +4,4 @@ import { CategoryController } from '../../controllers/category.controller.js';
 
 export const categoryRouter = Router();
 categoryRouter.get('/', CategoryController.list);
+categoryRouter.get('/by-path', CategoryController.byPath);

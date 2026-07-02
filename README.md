@@ -14,16 +14,45 @@ Cruisin is a dark-mode-only luxury streetwear commerce platform with a Next.js s
 
 ```bash
 npm install
+npm run dev:db
 npm run dev
 ```
 
-Create server/.env from server/.env.example before starting the API. Never commit real environment files.
+Create `server/.env`, `client/.env`, and `admin/.env` from their `.env.example` files before starting the apps. Never commit real environment files.
+
+## Local MongoDB
+
+The API requires MongoDB before it can bind to `http://localhost:8000`. The default local URI is:
+
+```bash
+MONGODB_URI=mongodb://localhost:27017/cruisin
+```
+
+Recommended local setup:
+
+```bash
+npm run dev:db
+npm --workspace server run seed
+npm run dev
+```
+
+If Docker is not available, install and start MongoDB locally with Homebrew:
+
+```bash
+brew tap mongodb/brew
+brew install mongodb-community
+brew services start mongodb-community
+```
+
+MongoDB Atlas also works. Replace `MONGODB_URI` in `server/.env` with the Atlas connection string and keep the same `/cruisin` database name or update it intentionally. If MongoDB is down, the API logs a clear connection failure and exits instead of silently running disconnected.
 
 ## Verification
 
 ```bash
 npm run typecheck
+npm run lint
 npm run build
+npm run test
 ```
 
 ## Ports

@@ -3,7 +3,8 @@ import { Router } from 'express';
 import { CategoryController } from '../../controllers/category.controller.js';
 import { CouponController } from '../../controllers/coupon.controller.js';
 import { UserController } from '../../controllers/user.controller.js';
-import { requireRole } from '../../middleware/admin.middleware.js';
+import { requireAdmin, requireRole } from '../../middleware/admin.middleware.js';
+import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { categoryBodySchema, categorySortSchema } from '../../validators/category.validator.js';
 import { couponBodySchema } from '../../validators/coupon.validator.js';
@@ -11,6 +12,7 @@ import { idParamSchema } from '../../validators/common.validator.js';
 import { userAdminUpdateSchema, userQuerySchema } from '../../validators/user.validator.js';
 
 export const adminManagementRouter = Router();
+adminManagementRouter.use(requireAuth, requireAdmin);
 
 adminManagementRouter.get('/categories', CategoryController.adminList);
 adminManagementRouter.post('/categories', requireRole(['admin', 'superadmin', 'manager']), validate({ body: categoryBodySchema }), CategoryController.create);

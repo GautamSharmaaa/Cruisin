@@ -6,6 +6,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
+import { allowedBrowserOrigins } from './config/origins.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import { mongoSanitizeMiddleware } from './middleware/mongo-sanitize.middleware.js';
 import { generalLimiter } from './middleware/rate-limit.middleware.js';
@@ -18,7 +19,7 @@ export const createApp = (): Express => {
   const app = express();
   if (env.SENTRY_DSN) Sentry.init({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV });
   app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' ? { directives: { defaultSrc: ["'self'"], imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], connectSrc: ["'self'", env.CLIENT_URL, env.ADMIN_URL] } } : false }));
-  app.use(cors({ origin: [env.CLIENT_URL, env.ADMIN_URL], credentials: true }));
+  app.use(cors({ origin: allowedBrowserOrigins, credentials: true }));
   app.use('/api/v1/payments/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use('/api/v1/payments/webhooks/razorpay', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));

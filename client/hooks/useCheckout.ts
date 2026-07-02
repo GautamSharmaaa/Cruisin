@@ -18,16 +18,20 @@ export interface CheckoutResult {
 }
 
 export const useCheckout = () => {
-  const cart = useCartStore.getState().items;
   return useMutation({
     mutationFn: async (input: CheckoutInput): Promise<CheckoutResult> => {
-      // Ensure server-side cart matches client cart for guests: sync items before checkout
-      try {
-        await Promise.all(cart.map((item) => api.post('/cart/items', { product: item.product.id, variant: item.variantId, quantity: item.quantity })).map((p) => p.catch(() => undefined)));
-      } catch (e) {
-        // ignore sync errors; proceed to checkout which will validate cart server-side
+      const cartState = useCartStore.getState();
+      const unavailable: typeof cartState.items = [];
+      for (const item of cartState.items) {
+        const payload = { product: item.product.id, variant: item.variantId, quantity: item.quantity };
+        await api.put('/cart/items', payload).catch(() => api.post('/cart/items', payload)).catch(() => unavailable.push(item));
       }
-      const response = await api.post<ApiEnvelope<CheckoutResult>>('/orders/checkout', input);
+      if (unavailable.length > 0) {
+        const store = useCartStore.getState();
+        unavailable.forEach((item) => store.removeItem(item.product.id, item.variantId));
+        throw new Error('Some unavailable items were removed. Review your bag and try again.');
+      }
+      const response = await api.post<ApiEnvelope<CheckoutResult>>('/orders/checkout', { ...input, couponCode: cartState.coupon });
       return response.data.data;
     }
   });

@@ -9,6 +9,10 @@ export const CategoryController = {
     const categories = await CategoryService.active();
     res.json(new ApiResponse(categories, 'Categories loaded'));
   }),
+  byPath: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const category = await CategoryService.byPath(String(req.query.path ?? ''));
+    res.json(new ApiResponse(category, 'Category loaded'));
+  }),
   adminList: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const categories = await CategoryService.list();
     res.json(new ApiResponse(categories, 'Categories loaded'));

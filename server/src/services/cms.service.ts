@@ -2,7 +2,9 @@
 import { randomUUID } from 'node:crypto';
 import { Types } from 'mongoose';
 import { BannerModel } from '../models/banner.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { CMSMediaModel, CMSPageModel, CMSSectionModel, CMSVersionModel } from '../models/cms.model.js';
+import { ProductModel } from '../models/product.model.js';
 import { ApiError } from '../utils/api-error.js';
 
 export interface CmsPageInput {
@@ -29,6 +31,57 @@ const scheduleQuery = (at: Date): Record<string, unknown> => ({
     { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: at } }] }
   ]
 });
+
+const dateValue = (value: unknown): Date | null => {
+  if (!value) return null;
+  const date = new Date(value as string | number | Date);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const sectionIsLiveFromSnapshot = (section: Record<string, unknown>, at: Date): boolean => {
+  if (section.status === 'archived') return false;
+  if (section.active === false || section.isActive === false) return false;
+  const starts = dateValue(section.startDate);
+  const ends = dateValue(section.endDate);
+  return (!starts || starts <= at) && (!ends || ends >= at);
+};
+
+const refIds = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === 'string') return item;
+    if (item instanceof Types.ObjectId) return item.toString();
+    if (item && typeof item === 'object' && '_id' in item) return String((item as { _id: unknown })._id);
+    if (item && typeof item === 'object' && 'id' in item) return String((item as { id: unknown }).id);
+    return '';
+  }).filter((id) => Types.ObjectId.isValid(id));
+};
+
+const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Promise<Record<string, unknown>[]> => {
+  const productIds = [...new Set(sections.flatMap((section) => refIds(section.products)))];
+  const categoryIds = [...new Set(sections.flatMap((section) => refIds(section.categories)))];
+  const [products, categories] = await Promise.all([
+    productIds.length ? ProductModel.find({ _id: { $in: productIds }, isArchived: { $ne: true } }).lean() : [],
+    categoryIds.length ? CategoryModel.find({ _id: { $in: categoryIds } }).lean() : []
+  ]);
+  const productById = new Map(products.map((product) => [String(product._id), product]));
+  const categoryById = new Map(categories.map((category) => [String(category._id), category]));
+  return sections.map((section) => {
+    const productsForSection = refIds(section.products).flatMap((id) => {
+      const product = productById.get(id);
+      return product ? [product] : [];
+    });
+    const categoriesForSection = refIds(section.categories).flatMap((id) => {
+      const category = categoryById.get(id);
+      return category ? [category] : [];
+    });
+    return { ...section, products: productsForSection, categories: categoriesForSection };
+  });
+};
+
+const loadPublishedSections = async (pageId: unknown, at: Date): Promise<Record<string, unknown>[]> => {
+  return CMSSectionModel.find({ pageId, status: 'published', active: true, ...scheduleQuery(at) }).sort(sectionSort).populate('products').populate('categories').lean();
+};
 
 const stripSectionForRestore = (section: Record<string, unknown>, pageId: Types.ObjectId, index: number): Record<string, unknown> => {
   const { _id, id, createdAt, updatedAt, __v, ...rest } = section;
@@ -90,7 +143,8 @@ export const CmsService = {
     const page = await CMSPageModel.findById(pageId);
     if (!page) throw new ApiError(404, 'CMS page not found');
     const sections = await CMSSectionModel.find({ pageId, status: { $ne: 'archived' } }).sort(sectionSort).lean();
-    const version = await CMSVersionModel.create({ pageId, sectionsSnapshot: sections, status: 'published', label: `Published ${new Date().toISOString()}`, createdBy: userId });
+    const publishedSections = sections.map((section) => ({ ...section, status: 'published' }));
+    const version = await CMSVersionModel.create({ pageId, sectionsSnapshot: publishedSections, status: 'published', label: `Published ${new Date().toISOString()}`, createdBy: userId });
     await CMSPageModel.findByIdAndUpdate(pageId, { status: 'published', publishedVersionId: version._id });
     await CMSSectionModel.updateMany({ pageId, status: { $ne: 'archived' } }, { status: 'published' });
     return version.toObject();
@@ -115,6 +169,17 @@ export const CmsService = {
     if (!page) throw new ApiError(404, 'CMS page not found');
     const isPreview = Boolean(options.previewToken && options.previewToken === page.previewToken);
     const at = options.scheduledAt ?? new Date();
+    if (!isPreview && page.publishedVersionId) {
+      const version = await CMSVersionModel.findById(page.publishedVersionId).lean();
+      if (version) {
+        const sections = await hydrateSnapshotSections((version.sectionsSnapshot as Record<string, unknown>[]).filter((section) => sectionIsLiveFromSnapshot(section, at)));
+        if (sections.length > 0) return { page, sections, preview: false };
+      }
+    }
+    if (!isPreview) {
+      const sections = await loadPublishedSections(page._id, at);
+      if (sections.length > 0) return { page, sections, preview: false };
+    }
     const query: Record<string, unknown> = { pageId: page._id, status: isPreview ? { $ne: 'archived' } : 'published' };
     if (!isPreview || !options.includeInactive) query.active = true;
     if (!isPreview) Object.assign(query, scheduleQuery(at));
