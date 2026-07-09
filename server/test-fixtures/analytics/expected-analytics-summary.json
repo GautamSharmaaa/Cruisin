@@ -1,0 +1,2577 @@
+{
+  "batchId": "ANALYTICS_QA_BATCH_20260702181816",
+  "seed": 20260701,
+  "timezone": "Asia/Kolkata",
+  "generatedAt": "2026-07-02T12:00:00.000Z",
+  "dateRange": {
+    "startDate": "2026-05-04",
+    "endDate": "2026-07-02"
+  },
+  "counts": {
+    "users": 144,
+    "carts": 260,
+    "orders": 181,
+    "products": 10,
+    "categories": 5,
+    "collections": 4,
+    "coupons": 3,
+    "futureOrders": 1
+  },
+  "ranges": {
+    "full60": {
+      "startDate": "2026-05-04",
+      "endDate": "2026-07-02",
+      "summary": {
+        "totalOrders": 180,
+        "paidOrders": 136,
+        "pendingOrders": 29,
+        "cancelledOrders": 17,
+        "failedPaymentOrders": 10,
+        "refundedOrders": 5,
+        "grossRevenue": 837790,
+        "netRevenue": 836992.58,
+        "discounts": 16126.8,
+        "tax": 41083.19,
+        "shipping": 3762,
+        "averageOrderValue": 6154.36,
+        "customers": 134,
+        "newCustomers": 107,
+        "returningCustomers": 48
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-05-04",
+          "grossRevenue": 16991,
+          "netRevenue": 11963.7,
+          "orders": 4,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-05",
+          "grossRevenue": 12593,
+          "netRevenue": 13222.65,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-06",
+          "grossRevenue": 5396,
+          "netRevenue": 5665.8,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-07",
+          "grossRevenue": 9596,
+          "netRevenue": 1462.95,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-08",
+          "grossRevenue": 7998,
+          "netRevenue": 8397.9,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-09",
+          "grossRevenue": 4297,
+          "netRevenue": 4511.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-10",
+          "grossRevenue": 13892,
+          "netRevenue": 6894.72,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-11",
+          "grossRevenue": 9894,
+          "netRevenue": 9690.12,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-12",
+          "grossRevenue": 37286,
+          "netRevenue": 38205.3,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-13",
+          "grossRevenue": 19191,
+          "netRevenue": 20050.16,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-14",
+          "grossRevenue": 18892,
+          "netRevenue": 19836.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-15",
+          "grossRevenue": 6997,
+          "netRevenue": 7346.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-16",
+          "grossRevenue": 15693,
+          "netRevenue": 16675.65,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-17",
+          "grossRevenue": 1299,
+          "netRevenue": 1462.95,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-18",
+          "grossRevenue": 23791,
+          "netRevenue": 24455.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-19",
+          "grossRevenue": 22589,
+          "netRevenue": 23817.45,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-20",
+          "grossRevenue": 22391,
+          "netRevenue": 23510.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-21",
+          "grossRevenue": 3498,
+          "netRevenue": 3147.9,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-22",
+          "grossRevenue": 5897,
+          "netRevenue": 6488.85,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-23",
+          "grossRevenue": 12493,
+          "netRevenue": 13117.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-24",
+          "grossRevenue": 3298,
+          "netRevenue": 3660.9,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-25",
+          "grossRevenue": 12892,
+          "netRevenue": 13011.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-26",
+          "grossRevenue": 1998,
+          "netRevenue": 1147.95,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-27",
+          "grossRevenue": 9894,
+          "netRevenue": 10586.7,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-28",
+          "grossRevenue": 16791,
+          "netRevenue": 17729.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-29",
+          "grossRevenue": 12792,
+          "netRevenue": 13530.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-30",
+          "grossRevenue": 23088,
+          "netRevenue": 24242.4,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-31",
+          "grossRevenue": 10994,
+          "netRevenue": 11468.91,
+          "orders": 4,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-01",
+          "grossRevenue": 22488,
+          "netRevenue": 23612.4,
+          "orders": 4,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-02",
+          "grossRevenue": 15791,
+          "netRevenue": 16679.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-03",
+          "grossRevenue": 5997,
+          "netRevenue": 6296.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-04",
+          "grossRevenue": 14493,
+          "netRevenue": 5456.85,
+          "orders": 4,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-05",
+          "grossRevenue": 14693,
+          "netRevenue": 14668.86,
+          "orders": 7,
+          "paidOrders": 6
+        },
+        {
+          "day": "2026-06-06",
+          "grossRevenue": 10795,
+          "netRevenue": 10389.75,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-07",
+          "grossRevenue": 7195,
+          "netRevenue": 6799.28,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-08",
+          "grossRevenue": 10894,
+          "netRevenue": 11438.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-09",
+          "grossRevenue": 1698,
+          "netRevenue": 1876.01,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-10",
+          "grossRevenue": 12995,
+          "netRevenue": 13120.07,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-11",
+          "grossRevenue": 16991,
+          "netRevenue": 17840.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-12",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-13",
+          "grossRevenue": 6297,
+          "netRevenue": 6710.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-14",
+          "grossRevenue": 20891,
+          "netRevenue": 21410.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-15",
+          "grossRevenue": 7095,
+          "netRevenue": 7548.75,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-16",
+          "grossRevenue": 17794,
+          "netRevenue": 18683.7,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-17",
+          "grossRevenue": 28486,
+          "netRevenue": 28965.3,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-18",
+          "grossRevenue": 3597,
+          "netRevenue": 3974.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-19",
+          "grossRevenue": 8094,
+          "netRevenue": 8498.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-20",
+          "grossRevenue": 15394,
+          "netRevenue": 16262.7,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-21",
+          "grossRevenue": 6596,
+          "netRevenue": 7024.8,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-22",
+          "grossRevenue": 17193,
+          "netRevenue": 18052.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-23",
+          "grossRevenue": 25287,
+          "netRevenue": 26026.35,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-24",
+          "grossRevenue": 19191,
+          "netRevenue": 20249.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-25",
+          "grossRevenue": 22789,
+          "netRevenue": 23928.45,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-26",
+          "grossRevenue": 11993,
+          "netRevenue": 12592.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-27",
+          "grossRevenue": 23790,
+          "netRevenue": 24133.5,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-28",
+          "grossRevenue": 10296,
+          "netRevenue": 10810.8,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-29",
+          "grossRevenue": 18592,
+          "netRevenue": 18675.6,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-30",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 4,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-07-01",
+          "grossRevenue": 20590,
+          "netRevenue": 20668.5,
+          "orders": 5,
+          "paidOrders": 4
+        },
+        {
+          "day": "2026-07-02",
+          "grossRevenue": 24188,
+          "netRevenue": 25496.4,
+          "orders": 4,
+          "paidOrders": 4
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 43,
+          "revenue": 167958,
+          "orders": 30
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 49,
+          "revenue": 140953,
+          "orders": 38
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 56,
+          "revenue": 129948,
+          "orders": 39
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 45,
+          "revenue": 85455,
+          "orders": 32
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 55,
+          "revenue": 80946,
+          "orders": 43
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 54,
+          "revenue": 67548,
+          "orders": 40
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 33,
+          "revenue": 59367,
+          "orders": 27
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 34,
+          "revenue": 30969,
+          "orders": 28
+        },
+        {
+          "productId": "prod-9",
+          "title": "QA Analytics Sling Bag",
+          "sku": "QA-SLING",
+          "quantity": 21,
+          "revenue": 30381,
+          "orders": 17
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 20,
+          "revenue": 13980,
+          "orders": 17
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 135,
+          "revenue": 246372,
+          "orders": 78
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 103,
+          "revenue": 208501,
+          "orders": 67
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 43,
+          "revenue": 167958,
+          "orders": 30
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 88,
+          "revenue": 140313,
+          "orders": 59
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 41,
+          "revenue": 44361,
+          "orders": 32
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 144,
+          "revenue": 383361,
+          "orders": 80
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 191,
+          "revenue": 348814,
+          "orders": 98
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 149,
+          "revenue": 287758,
+          "orders": 86
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 41,
+          "revenue": 44361,
+          "orders": 32
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 16,
+          "discount": 10626.8,
+          "revenue": 95528.03
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 11,
+          "discount": 5500,
+          "revenue": 76712.25
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 10,
+          "discount": 0,
+          "revenue": 58873.5
+        }
+      ],
+      "ordersByStatus": {
+        "delivered": 80,
+        "shipped": 27,
+        "processing": 34,
+        "cancelled": 17,
+        "pending": 22
+      },
+      "paymentStatus": {
+        "refunded": 5,
+        "paid": 136,
+        "pending": 29,
+        "failed": 10
+      }
+    },
+    "last30": {
+      "startDate": "2026-06-03",
+      "endDate": "2026-07-02",
+      "summary": {
+        "totalOrders": 94,
+        "paidOrders": 71,
+        "pendingOrders": 18,
+        "cancelledOrders": 12,
+        "failedPaymentOrders": 4,
+        "refundedOrders": 1,
+        "grossRevenue": 437090,
+        "netRevenue": 441396.87,
+        "discounts": 10398.5,
+        "tax": 21334.59,
+        "shipping": 1683,
+        "averageOrderValue": 6216.86,
+        "customers": 80,
+        "newCustomers": 31,
+        "returningCustomers": 54
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-06-03",
+          "grossRevenue": 5997,
+          "netRevenue": 6296.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-04",
+          "grossRevenue": 14493,
+          "netRevenue": 5456.85,
+          "orders": 4,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-05",
+          "grossRevenue": 14693,
+          "netRevenue": 14668.86,
+          "orders": 7,
+          "paidOrders": 6
+        },
+        {
+          "day": "2026-06-06",
+          "grossRevenue": 10795,
+          "netRevenue": 10389.75,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-07",
+          "grossRevenue": 7195,
+          "netRevenue": 6799.28,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-08",
+          "grossRevenue": 10894,
+          "netRevenue": 11438.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-09",
+          "grossRevenue": 1698,
+          "netRevenue": 1876.01,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-10",
+          "grossRevenue": 12995,
+          "netRevenue": 13120.07,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-11",
+          "grossRevenue": 16991,
+          "netRevenue": 17840.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-12",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-13",
+          "grossRevenue": 6297,
+          "netRevenue": 6710.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-14",
+          "grossRevenue": 20891,
+          "netRevenue": 21410.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-15",
+          "grossRevenue": 7095,
+          "netRevenue": 7548.75,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-16",
+          "grossRevenue": 17794,
+          "netRevenue": 18683.7,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-17",
+          "grossRevenue": 28486,
+          "netRevenue": 28965.3,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-18",
+          "grossRevenue": 3597,
+          "netRevenue": 3974.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-19",
+          "grossRevenue": 8094,
+          "netRevenue": 8498.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-20",
+          "grossRevenue": 15394,
+          "netRevenue": 16262.7,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-21",
+          "grossRevenue": 6596,
+          "netRevenue": 7024.8,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-22",
+          "grossRevenue": 17193,
+          "netRevenue": 18052.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-23",
+          "grossRevenue": 25287,
+          "netRevenue": 26026.35,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-24",
+          "grossRevenue": 19191,
+          "netRevenue": 20249.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-25",
+          "grossRevenue": 22789,
+          "netRevenue": 23928.45,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-26",
+          "grossRevenue": 11993,
+          "netRevenue": 12592.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-27",
+          "grossRevenue": 23790,
+          "netRevenue": 24133.5,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-28",
+          "grossRevenue": 10296,
+          "netRevenue": 10810.8,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-29",
+          "grossRevenue": 18592,
+          "netRevenue": 18675.6,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-30",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 4,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-07-01",
+          "grossRevenue": 20590,
+          "netRevenue": 20668.5,
+          "orders": 5,
+          "paidOrders": 4
+        },
+        {
+          "day": "2026-07-02",
+          "grossRevenue": 24188,
+          "netRevenue": 25496.4,
+          "orders": 4,
+          "paidOrders": 4
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 24,
+          "revenue": 95976,
+          "orders": 18
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 28,
+          "revenue": 83972,
+          "orders": 21
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 27,
+          "revenue": 59976,
+          "orders": 18
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 32,
+          "revenue": 47968,
+          "orders": 23
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 24,
+          "revenue": 45576,
+          "orders": 15
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 27,
+          "revenue": 33774,
+          "orders": 21
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 16,
+          "revenue": 28784,
+          "orders": 12
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 15,
+          "revenue": 14985,
+          "orders": 13
+        },
+        {
+          "productId": "prod-9",
+          "title": "QA Analytics Sling Bag",
+          "sku": "QA-SLING",
+          "quantity": 6,
+          "revenue": 9594,
+          "orders": 5
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 11,
+          "revenue": 7689,
+          "orders": 9
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 66,
+          "revenue": 120537,
+          "orders": 40
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 55,
+          "revenue": 117746,
+          "orders": 36
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 24,
+          "revenue": 95976,
+          "orders": 18
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 48,
+          "revenue": 76752,
+          "orders": 30
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 17,
+          "revenue": 17283,
+          "orders": 13
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 75,
+          "revenue": 201528,
+          "orders": 41
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 103,
+          "revenue": 194498,
+          "orders": 52
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 73,
+          "revenue": 154127,
+          "orders": 44
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 17,
+          "revenue": 17283,
+          "orders": 13
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 9,
+          "discount": 6398.5,
+          "revenue": 60633.72
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 8,
+          "discount": 4000,
+          "revenue": 56877.75
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 8,
+          "discount": 0,
+          "revenue": 45755.85
+        }
+      ],
+      "ordersByStatus": {
+        "shipped": 14,
+        "delivered": 42,
+        "pending": 10,
+        "cancelled": 12,
+        "processing": 16
+      },
+      "paymentStatus": {
+        "paid": 71,
+        "pending": 18,
+        "failed": 4,
+        "refunded": 1
+      }
+    },
+    "previous30": {
+      "startDate": "2026-05-04",
+      "endDate": "2026-06-02",
+      "summary": {
+        "totalOrders": 86,
+        "paidOrders": 65,
+        "pendingOrders": 11,
+        "cancelledOrders": 5,
+        "failedPaymentOrders": 6,
+        "refundedOrders": 4,
+        "grossRevenue": 400700,
+        "netRevenue": 395595.71,
+        "discounts": 5728.3,
+        "tax": 19748.6,
+        "shipping": 2079,
+        "averageOrderValue": 6086.09,
+        "customers": 74,
+        "newCustomers": 29,
+        "returningCustomers": 20
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-05-04",
+          "grossRevenue": 16991,
+          "netRevenue": 11963.7,
+          "orders": 4,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-05",
+          "grossRevenue": 12593,
+          "netRevenue": 13222.65,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-06",
+          "grossRevenue": 5396,
+          "netRevenue": 5665.8,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-07",
+          "grossRevenue": 9596,
+          "netRevenue": 1462.95,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-08",
+          "grossRevenue": 7998,
+          "netRevenue": 8397.9,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-09",
+          "grossRevenue": 4297,
+          "netRevenue": 4511.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-10",
+          "grossRevenue": 13892,
+          "netRevenue": 6894.72,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-11",
+          "grossRevenue": 9894,
+          "netRevenue": 9690.12,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-12",
+          "grossRevenue": 37286,
+          "netRevenue": 38205.3,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-13",
+          "grossRevenue": 19191,
+          "netRevenue": 20050.16,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-14",
+          "grossRevenue": 18892,
+          "netRevenue": 19836.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-15",
+          "grossRevenue": 6997,
+          "netRevenue": 7346.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-16",
+          "grossRevenue": 15693,
+          "netRevenue": 16675.65,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-17",
+          "grossRevenue": 1299,
+          "netRevenue": 1462.95,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-18",
+          "grossRevenue": 23791,
+          "netRevenue": 24455.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-19",
+          "grossRevenue": 22589,
+          "netRevenue": 23817.45,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-20",
+          "grossRevenue": 22391,
+          "netRevenue": 23510.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-21",
+          "grossRevenue": 3498,
+          "netRevenue": 3147.9,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-22",
+          "grossRevenue": 5897,
+          "netRevenue": 6488.85,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-23",
+          "grossRevenue": 12493,
+          "netRevenue": 13117.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-24",
+          "grossRevenue": 3298,
+          "netRevenue": 3660.9,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-25",
+          "grossRevenue": 12892,
+          "netRevenue": 13011.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-26",
+          "grossRevenue": 1998,
+          "netRevenue": 1147.95,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-05-27",
+          "grossRevenue": 9894,
+          "netRevenue": 10586.7,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-28",
+          "grossRevenue": 16791,
+          "netRevenue": 17729.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-29",
+          "grossRevenue": 12792,
+          "netRevenue": 13530.6,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-05-30",
+          "grossRevenue": 23088,
+          "netRevenue": 24242.4,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-05-31",
+          "grossRevenue": 10994,
+          "netRevenue": 11468.91,
+          "orders": 4,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-01",
+          "grossRevenue": 22488,
+          "netRevenue": 23612.4,
+          "orders": 4,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-02",
+          "grossRevenue": 15791,
+          "netRevenue": 16679.55,
+          "orders": 3,
+          "paidOrders": 3
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 19,
+          "revenue": 71982,
+          "orders": 12
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 29,
+          "revenue": 69972,
+          "orders": 21
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 21,
+          "revenue": 56981,
+          "orders": 17
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 21,
+          "revenue": 39879,
+          "orders": 17
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 27,
+          "revenue": 33774,
+          "orders": 19
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 23,
+          "revenue": 32978,
+          "orders": 20
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 17,
+          "revenue": 30583,
+          "orders": 15
+        },
+        {
+          "productId": "prod-9",
+          "title": "QA Analytics Sling Bag",
+          "sku": "QA-SLING",
+          "quantity": 15,
+          "revenue": 20787,
+          "orders": 12
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 19,
+          "revenue": 15984,
+          "orders": 15
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 9,
+          "revenue": 6291,
+          "orders": 8
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 69,
+          "revenue": 125835,
+          "orders": 38
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 48,
+          "revenue": 90755,
+          "orders": 31
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 19,
+          "revenue": 71982,
+          "orders": 12
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 40,
+          "revenue": 63561,
+          "orders": 29
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 24,
+          "revenue": 27078,
+          "orders": 19
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 69,
+          "revenue": 181833,
+          "orders": 39
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 88,
+          "revenue": 154316,
+          "orders": 46
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 76,
+          "revenue": 133631,
+          "orders": 42
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 24,
+          "revenue": 27078,
+          "orders": 19
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 7,
+          "discount": 4228.3,
+          "revenue": 34894.31
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 3,
+          "discount": 1500,
+          "revenue": 19834.5
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 2,
+          "discount": 0,
+          "revenue": 13117.65
+        }
+      ],
+      "ordersByStatus": {
+        "delivered": 38,
+        "shipped": 13,
+        "processing": 18,
+        "cancelled": 5,
+        "pending": 12
+      },
+      "paymentStatus": {
+        "refunded": 4,
+        "paid": 65,
+        "pending": 11,
+        "failed": 6
+      }
+    },
+    "last7": {
+      "startDate": "2026-06-26",
+      "endDate": "2026-07-02",
+      "summary": {
+        "totalOrders": 25,
+        "paidOrders": 19,
+        "pendingOrders": 5,
+        "cancelledOrders": 2,
+        "failedPaymentOrders": 1,
+        "refundedOrders": 0,
+        "grossRevenue": 126042,
+        "netRevenue": 129275.1,
+        "discounts": 3300,
+        "tax": 6137.1,
+        "shipping": 396,
+        "averageOrderValue": 6803.95,
+        "customers": 23,
+        "newCustomers": 0,
+        "returningCustomers": 23
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-06-26",
+          "grossRevenue": 11993,
+          "netRevenue": 12592.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-27",
+          "grossRevenue": 23790,
+          "netRevenue": 24133.5,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-28",
+          "grossRevenue": 10296,
+          "netRevenue": 10810.8,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-29",
+          "grossRevenue": 18592,
+          "netRevenue": 18675.6,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-30",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 4,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-07-01",
+          "grossRevenue": 20590,
+          "netRevenue": 20668.5,
+          "orders": 5,
+          "paidOrders": 4
+        },
+        {
+          "day": "2026-07-02",
+          "grossRevenue": 24188,
+          "netRevenue": 25496.4,
+          "orders": 4,
+          "paidOrders": 4
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 9,
+          "revenue": 35991,
+          "orders": 7
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 7,
+          "revenue": 20993,
+          "orders": 6
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 6,
+          "revenue": 14994,
+          "orders": 4
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 10,
+          "revenue": 14990,
+          "orders": 9
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 7,
+          "revenue": 12593,
+          "orders": 5
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 5,
+          "revenue": 9495,
+          "orders": 4
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 5,
+          "revenue": 6495,
+          "orders": 5
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 5,
+          "revenue": 4995,
+          "orders": 5
+        },
+        {
+          "productId": "prod-9",
+          "title": "QA Analytics Sling Bag",
+          "sku": "QA-SLING",
+          "quantity": 3,
+          "revenue": 4797,
+          "orders": 2
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 1,
+          "revenue": 699,
+          "orders": 1
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 9,
+          "revenue": 35991,
+          "orders": 7
+        },
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 16,
+          "revenue": 29484,
+          "orders": 10
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 17,
+          "revenue": 27583,
+          "orders": 10
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 12,
+          "revenue": 27488,
+          "orders": 11
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 4,
+          "revenue": 5496,
+          "orders": 2
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 20,
+          "revenue": 60480,
+          "orders": 13
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 29,
+          "revenue": 55071,
+          "orders": 15
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 20,
+          "revenue": 40280,
+          "orders": 14
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 4,
+          "revenue": 5496,
+          "orders": 2
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 2,
+          "discount": 1800,
+          "revenue": 19101.6
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 3,
+          "discount": 1500,
+          "revenue": 22985.55
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 2,
+          "discount": 0,
+          "revenue": 17317.65
+        }
+      ],
+      "ordersByStatus": {
+        "shipped": 5,
+        "delivered": 10,
+        "processing": 4,
+        "pending": 4,
+        "cancelled": 2
+      },
+      "paymentStatus": {
+        "paid": 19,
+        "pending": 5,
+        "failed": 1
+      }
+    },
+    "saleWeek": {
+      "startDate": "2026-06-03",
+      "endDate": "2026-06-10",
+      "summary": {
+        "totalOrders": 24,
+        "paidOrders": 16,
+        "pendingOrders": 7,
+        "cancelledOrders": 5,
+        "failedPaymentOrders": 0,
+        "refundedOrders": 1,
+        "grossRevenue": 78760,
+        "netRevenue": 70046.37,
+        "discounts": 4698.5,
+        "tax": 3703.09,
+        "shipping": 594,
+        "averageOrderValue": 4377.9,
+        "customers": 22,
+        "newCustomers": 4,
+        "returningCustomers": 11
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-06-03",
+          "grossRevenue": 5997,
+          "netRevenue": 6296.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-04",
+          "grossRevenue": 14493,
+          "netRevenue": 5456.85,
+          "orders": 4,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-05",
+          "grossRevenue": 14693,
+          "netRevenue": 14668.86,
+          "orders": 7,
+          "paidOrders": 6
+        },
+        {
+          "day": "2026-06-06",
+          "grossRevenue": 10795,
+          "netRevenue": 10389.75,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-07",
+          "grossRevenue": 7195,
+          "netRevenue": 6799.28,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-08",
+          "grossRevenue": 10894,
+          "netRevenue": 11438.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-09",
+          "grossRevenue": 1698,
+          "netRevenue": 1876.01,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-10",
+          "grossRevenue": 12995,
+          "netRevenue": 13120.07,
+          "orders": 2,
+          "paidOrders": 2
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 4,
+          "revenue": 15996,
+          "orders": 3
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 4,
+          "revenue": 11996,
+          "orders": 3
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 6,
+          "revenue": 11394,
+          "orders": 3
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 6,
+          "revenue": 7497,
+          "orders": 4
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 5,
+          "revenue": 7495,
+          "orders": 4
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 5,
+          "revenue": 5196,
+          "orders": 4
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 4,
+          "revenue": 3996,
+          "orders": 3
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 2,
+          "revenue": 3598,
+          "orders": 2
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 4,
+          "revenue": 2796,
+          "orders": 3
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 16,
+          "revenue": 22887,
+          "orders": 10
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 9,
+          "revenue": 17192,
+          "orders": 6
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 4,
+          "revenue": 15996,
+          "orders": 3
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 7,
+          "revenue": 11093,
+          "orders": 5
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 4,
+          "revenue": 2796,
+          "orders": 3
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 16,
+          "revenue": 34887,
+          "orders": 9
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 16,
+          "revenue": 28285,
+          "orders": 10
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 14,
+          "revenue": 27386,
+          "orders": 8
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 4,
+          "revenue": 2796,
+          "orders": 3
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 6,
+          "discount": 3698.5,
+          "revenue": 28622.37
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 2,
+          "discount": 1000,
+          "revenue": 7654.8
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 2,
+          "discount": 0,
+          "revenue": 8290.8
+        }
+      ],
+      "ordersByStatus": {
+        "delivered": 10,
+        "pending": 2,
+        "shipped": 3,
+        "cancelled": 5,
+        "processing": 4
+      },
+      "paymentStatus": {
+        "paid": 16,
+        "pending": 7,
+        "refunded": 1
+      }
+    },
+    "thisMonth": {
+      "startDate": "2026-07-01",
+      "endDate": "2026-07-02",
+      "summary": {
+        "totalOrders": 9,
+        "paidOrders": 8,
+        "pendingOrders": 1,
+        "cancelledOrders": 1,
+        "failedPaymentOrders": 0,
+        "refundedOrders": 0,
+        "grossRevenue": 44778,
+        "netRevenue": 46164.9,
+        "discounts": 1000,
+        "tax": 2188.9,
+        "shipping": 198,
+        "averageOrderValue": 5770.61,
+        "customers": 9,
+        "newCustomers": 0,
+        "returningCustomers": 9
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-07-01",
+          "grossRevenue": 20590,
+          "netRevenue": 20668.5,
+          "orders": 5,
+          "paidOrders": 4
+        },
+        {
+          "day": "2026-07-02",
+          "grossRevenue": 24188,
+          "netRevenue": 25496.4,
+          "orders": 4,
+          "paidOrders": 4
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 6,
+          "revenue": 14994,
+          "orders": 4
+        },
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 2,
+          "revenue": 7998,
+          "orders": 2
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 4,
+          "revenue": 5996,
+          "orders": 3
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 3,
+          "revenue": 5697,
+          "orders": 2
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 4,
+          "revenue": 3996,
+          "orders": 4
+        },
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 1,
+          "revenue": 2999,
+          "orders": 1
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 1,
+          "revenue": 1799,
+          "orders": 1
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 1,
+          "revenue": 1299,
+          "orders": 1
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 13,
+          "revenue": 24687,
+          "orders": 7
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 2,
+          "revenue": 7998,
+          "orders": 2
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 5,
+          "revenue": 7795,
+          "orders": 3
+        },
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 2,
+          "revenue": 4298,
+          "orders": 2
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 11,
+          "revenue": 28689,
+          "orders": 6
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 8,
+          "revenue": 12692,
+          "orders": 5
+        },
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 7,
+          "revenue": 12093,
+          "orders": 5
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS500",
+          "orders": 2,
+          "discount": 1000,
+          "revenue": 13748.7
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 1,
+          "discount": 0,
+          "revenue": 4196.85
+        }
+      ],
+      "ordersByStatus": {
+        "delivered": 5,
+        "processing": 1,
+        "shipped": 2,
+        "cancelled": 1
+      },
+      "paymentStatus": {
+        "paid": 8,
+        "pending": 1
+      }
+    },
+    "lastMonth": {
+      "startDate": "2026-06-01",
+      "endDate": "2026-06-30",
+      "summary": {
+        "totalOrders": 92,
+        "paidOrders": 69,
+        "pendingOrders": 18,
+        "cancelledOrders": 12,
+        "failedPaymentOrders": 4,
+        "refundedOrders": 1,
+        "grossRevenue": 430591,
+        "netRevenue": 435523.92,
+        "discounts": 9398.5,
+        "tax": 21059.64,
+        "shipping": 1584,
+        "averageOrderValue": 6311.94,
+        "customers": 78,
+        "newCustomers": 30,
+        "returningCustomers": 50
+      },
+      "revenueByDay": [
+        {
+          "day": "2026-06-01",
+          "grossRevenue": 22488,
+          "netRevenue": 23612.4,
+          "orders": 4,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-02",
+          "grossRevenue": 15791,
+          "netRevenue": 16679.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-03",
+          "grossRevenue": 5997,
+          "netRevenue": 6296.85,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-04",
+          "grossRevenue": 14493,
+          "netRevenue": 5456.85,
+          "orders": 4,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-05",
+          "grossRevenue": 14693,
+          "netRevenue": 14668.86,
+          "orders": 7,
+          "paidOrders": 6
+        },
+        {
+          "day": "2026-06-06",
+          "grossRevenue": 10795,
+          "netRevenue": 10389.75,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-07",
+          "grossRevenue": 7195,
+          "netRevenue": 6799.28,
+          "orders": 2,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-08",
+          "grossRevenue": 10894,
+          "netRevenue": 11438.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-09",
+          "grossRevenue": 1698,
+          "netRevenue": 1876.01,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-10",
+          "grossRevenue": 12995,
+          "netRevenue": 13120.07,
+          "orders": 2,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-11",
+          "grossRevenue": 16991,
+          "netRevenue": 17840.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-12",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-13",
+          "grossRevenue": 6297,
+          "netRevenue": 6710.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-14",
+          "grossRevenue": 20891,
+          "netRevenue": 21410.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-15",
+          "grossRevenue": 7095,
+          "netRevenue": 7548.75,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-16",
+          "grossRevenue": 17794,
+          "netRevenue": 18683.7,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-17",
+          "grossRevenue": 28486,
+          "netRevenue": 28965.3,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-18",
+          "grossRevenue": 3597,
+          "netRevenue": 3974.85,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-19",
+          "grossRevenue": 8094,
+          "netRevenue": 8498.7,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-20",
+          "grossRevenue": 15394,
+          "netRevenue": 16262.7,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-21",
+          "grossRevenue": 6596,
+          "netRevenue": 7024.8,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-22",
+          "grossRevenue": 17193,
+          "netRevenue": 18052.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-23",
+          "grossRevenue": 25287,
+          "netRevenue": 26026.35,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-24",
+          "grossRevenue": 19191,
+          "netRevenue": 20249.55,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-25",
+          "grossRevenue": 22789,
+          "netRevenue": 23928.45,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-26",
+          "grossRevenue": 11993,
+          "netRevenue": 12592.65,
+          "orders": 3,
+          "paidOrders": 2
+        },
+        {
+          "day": "2026-06-27",
+          "grossRevenue": 23790,
+          "netRevenue": 24133.5,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-28",
+          "grossRevenue": 10296,
+          "netRevenue": 10810.8,
+          "orders": 3,
+          "paidOrders": 1
+        },
+        {
+          "day": "2026-06-29",
+          "grossRevenue": 18592,
+          "netRevenue": 18675.6,
+          "orders": 3,
+          "paidOrders": 3
+        },
+        {
+          "day": "2026-06-30",
+          "grossRevenue": 16593,
+          "netRevenue": 16897.65,
+          "orders": 4,
+          "paidOrders": 2
+        }
+      ],
+      "topProducts": [
+        {
+          "productId": "prod-0",
+          "title": "QA Analytics Hoodie",
+          "sku": "QA-HOODIE",
+          "quantity": 31,
+          "revenue": 92969,
+          "orders": 23
+        },
+        {
+          "productId": "prod-6",
+          "title": "QA Analytics Jacket",
+          "sku": "QA-JACKET",
+          "quantity": 22,
+          "revenue": 87978,
+          "orders": 16
+        },
+        {
+          "productId": "prod-2",
+          "title": "QA Analytics Cargo",
+          "sku": "QA-CARGO",
+          "quantity": 22,
+          "revenue": 47481,
+          "orders": 15
+        },
+        {
+          "productId": "prod-7",
+          "title": "QA Analytics Oversized Tee",
+          "sku": "QA-OVERSIZED-TEE",
+          "quantity": 31,
+          "revenue": 46469,
+          "orders": 23
+        },
+        {
+          "productId": "prod-3",
+          "title": "QA Analytics Jogger",
+          "sku": "QA-JOGGER",
+          "quantity": 23,
+          "revenue": 43677,
+          "orders": 15
+        },
+        {
+          "productId": "prod-1",
+          "title": "QA Analytics T-Shirt",
+          "sku": "QA-TEE",
+          "quantity": 30,
+          "revenue": 37671,
+          "orders": 22
+        },
+        {
+          "productId": "prod-8",
+          "title": "QA Analytics Shirt",
+          "sku": "QA-SHIRT",
+          "quantity": 18,
+          "revenue": 32382,
+          "orders": 14
+        },
+        {
+          "productId": "prod-9",
+          "title": "QA Analytics Sling Bag",
+          "sku": "QA-SLING",
+          "quantity": 8,
+          "revenue": 12792,
+          "orders": 6
+        },
+        {
+          "productId": "prod-4",
+          "title": "QA Analytics Shorts",
+          "sku": "QA-SHORTS",
+          "quantity": 12,
+          "revenue": 11988,
+          "orders": 10
+        },
+        {
+          "productId": "prod-5",
+          "title": "QA Analytics Cap",
+          "sku": "QA-CAP",
+          "quantity": 12,
+          "revenue": 8388,
+          "orders": 10
+        }
+      ],
+      "topCategories": [
+        {
+          "categoryId": "cat-men-tops",
+          "name": "Men Tops",
+          "quantity": 61,
+          "revenue": 130640,
+          "orders": 39
+        },
+        {
+          "categoryId": "cat-bottoms",
+          "name": "Bottoms",
+          "quantity": 57,
+          "revenue": 103146,
+          "orders": 36
+        },
+        {
+          "categoryId": "cat-outerwear",
+          "name": "Outerwear",
+          "quantity": 22,
+          "revenue": 87978,
+          "orders": 16
+        },
+        {
+          "categoryId": "cat-women-tops",
+          "name": "Women Tops",
+          "quantity": 49,
+          "revenue": 78851,
+          "orders": 32
+        },
+        {
+          "categoryId": "cat-accessories",
+          "name": "Accessories",
+          "quantity": 20,
+          "revenue": 21180,
+          "orders": 15
+        }
+      ],
+      "topCollections": [
+        {
+          "collectionId": "col-quiet-uniform",
+          "title": "QA Quiet Uniform",
+          "quantity": 110,
+          "revenue": 209491,
+          "orders": 52
+        },
+        {
+          "collectionId": "col-utility-drop",
+          "title": "QA Utility Drop",
+          "quantity": 67,
+          "revenue": 179136,
+          "orders": 37
+        },
+        {
+          "collectionId": "col-weekend-sale",
+          "title": "QA Weekend Sale",
+          "quantity": 74,
+          "revenue": 161426,
+          "orders": 43
+        },
+        {
+          "collectionId": "col-accessories",
+          "title": "QA Accessories Edit",
+          "quantity": 20,
+          "revenue": 21180,
+          "orders": 15
+        }
+      ],
+      "coupons": [
+        {
+          "code": "ANALYTICS10",
+          "orders": 9,
+          "discount": 6398.5,
+          "revenue": 60633.72
+        },
+        {
+          "code": "ANALYTICS500",
+          "orders": 6,
+          "discount": 3000,
+          "revenue": 43129.05
+        },
+        {
+          "code": "ANALYTICSFREESHIP",
+          "orders": 7,
+          "discount": 0,
+          "revenue": 41559
+        }
+      ],
+      "ordersByStatus": {
+        "delivered": 42,
+        "shipped": 13,
+        "pending": 10,
+        "cancelled": 12,
+        "processing": 15
+      },
+      "paymentStatus": {
+        "paid": 69,
+        "pending": 18,
+        "failed": 4,
+        "refunded": 1
+      }
+    }
+  }
+}

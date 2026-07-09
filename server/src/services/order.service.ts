@@ -5,6 +5,7 @@ import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { UserModel } from '../models/user.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { calculateCouponDiscount } from '../utils/coupon-discount.js';
 import { sendEmail } from '../utils/send-email.js';
 import { PaymentService } from './payment.service.js';
 import type { PaymentMethod } from '../types/payment.types.js';
@@ -53,12 +54,14 @@ export const OrderService = {
     if (!cart || cart.items.length === 0) throw new ApiError(400, 'Cart is empty');
     const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const coupon = input.couponCode ? await CouponModel.findOne({ code: input.couponCode.toUpperCase(), isActive: true }) : null;
-    const discount = coupon ? Math.min(coupon.type === 'percentage' ? subtotal * (coupon.value / 100) : coupon.value, coupon.maxDiscount ?? subtotal) : 0;
-    const shipping = subtotal - discount >= 25000 ? 0 : 900;
+    const couponResult = coupon ? await calculateCouponDiscount(coupon, cart.items) : null;
+    const discount = couponResult?.discount ?? 0;
+    const shipping = couponResult?.freeShipping || subtotal - discount >= 25000 ? 0 : 900;
     const tax = Math.round((subtotal - discount) * 0.18);
     const total = subtotal - discount + shipping + tax;
     const payment = await PaymentService.getProvider(input.paymentMethod).createOrder(total, 'INR', { userId: userId ?? 'guest' });
-    const order = await OrderModel.create({ user: userId, sessionId, items: cart.items.map((item) => ({ product: item.product, variant: item.variant, title: productTitle(item.product), sku: String(item.variant), quantity: item.quantity, price: item.price, image: productImage(item.product) })), shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, subtotal, tax, shipping, discount, total, razorpayOrderId: input.paymentMethod === 'razorpay' ? payment.id : undefined, stripePaymentIntentId: input.paymentMethod === 'stripe' ? payment.id : undefined, timeline: [{ status: 'pending', timestamp: new Date(), note: 'Order created' }] });
+    const order = await OrderModel.create({ user: userId, sessionId, items: cart.items.map((item) => ({ product: item.product, variant: item.variant, title: productTitle(item.product), sku: String(item.variant), quantity: item.quantity, price: item.price, image: productImage(item.product) })), shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, subtotal, tax, shipping, discount, total, couponCode: coupon?.code, razorpayOrderId: input.paymentMethod === 'razorpay' ? payment.id : undefined, stripePaymentIntentId: input.paymentMethod === 'stripe' ? payment.id : undefined, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? 'Order created with coupon ' + coupon.code : 'Order created' }] });
+    if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
     return { order, payment };
   },
   async verifyPayment(method: PaymentMethod, payload: Record<string, unknown>): Promise<{ verified: boolean; order?: unknown }> {

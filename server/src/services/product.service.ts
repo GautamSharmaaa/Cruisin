@@ -3,6 +3,7 @@ import { CollectionModel } from '../models/collection.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ApiError } from '../utils/api-error.js';
 import type { PaginatedResult } from '../types/api.types.js';
+import { CatalogueHistoryService } from './catalogueHistory.service.js';
 
 export interface ProductFilters {
   q?: string;
@@ -47,10 +48,12 @@ export interface AdminProductFilters {
   sort: 'updated' | 'newest' | 'oldest' | 'price-asc' | 'price-desc' | 'stock-asc' | 'stock-desc' | 'sales-desc' | 'title-asc';
 }
 export type ProductInput = Record<string, unknown>;
+const markCatalogueStale = (): void => { CatalogueHistoryService.markStale().catch(() => undefined); };
 const sortMap = { newest: { sortOrder: 1, createdAt: -1 }, 'price-asc': { basePrice: 1 }, 'price-desc': { basePrice: -1 }, 'best-selling': { lifetimeSales: -1, createdAt: -1 }, 'top-rated': { 'ratings.avg': -1 } } as const;
 const adminSortMap = { updated: { updatedAt: -1 }, newest: { createdAt: -1 }, oldest: { createdAt: 1 }, 'price-asc': { basePrice: 1 }, 'price-desc': { basePrice: -1 }, 'sales-desc': { lifetimeSales: -1 }, 'title-asc': { title: 1 } } as const;
 type AdminDirectSort = keyof typeof adminSortMap;
 const publicProductQuery = { isActive: true, isArchived: { $ne: true }, visibility: 'visible', status: 'published' } as const;
+const publicProductProjection = '-costPrice -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
 
 const categoryFromFilter = async (category?: string, publicOnly = false): Promise<{ _id: unknown } | null | undefined> => {
   if (!category) return undefined;
@@ -131,8 +134,8 @@ export const ProductService = {
     if (filters.availability === 'out-of-stock') query['variants.stock'] = { $not: { $gt: 0 } };
     if (and.length > 0) query.$and = and;
     const skip = (filters.page - 1) * filters.limit;
-    const [items, total] = await Promise.all([ProductModel.find(query).populate('category').populate('categoryIds').populate('collections').sort(sortMap[filters.sort]).skip(skip).limit(filters.limit).lean(), ProductModel.countDocuments(query)]);
-    return { items, total, page: filters.page, pages: Math.ceil(total / filters.limit) };
+      const [items, total] = await Promise.all([ProductModel.find(query).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').sort(sortMap[filters.sort]).skip(skip).limit(filters.limit).lean(), ProductModel.countDocuments(query)]);
+      return { items, total, page: filters.page, pages: Math.ceil(total / filters.limit) };
   },
   async adminList(filters: AdminProductFilters): Promise<PaginatedResult<unknown>> {
     const query: Record<string, unknown> = {};
@@ -186,10 +189,10 @@ export const ProductService = {
     const items = filteredItems.slice(start, start + filters.limit);
     return { items, total: filteredItems.length, page: filters.page, pages: Math.ceil(filteredItems.length / filters.limit) };
   },
-  async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
+  async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
   async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
-  async create(input: ProductInput): Promise<unknown> { return ProductModel.create(input); },
-  async update(id: string, input: ProductInput): Promise<unknown> { const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }); if (!product) throw new ApiError(404, 'Product not found'); return product; },
+  async create(input: ProductInput): Promise<unknown> { const product = await ProductModel.create(input); markCatalogueStale(); return product; },
+  async update(id: string, input: ProductInput): Promise<unknown> { const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }); if (!product) throw new ApiError(404, 'Product not found'); markCatalogueStale(); return product; },
   async duplicate(id: string): Promise<unknown> {
     const product = await ProductModel.findById(id).lean();
     if (!product) throw new ApiError(404, 'Product not found');
@@ -209,7 +212,9 @@ export const ProductService = {
       createdAt: undefined,
       updatedAt: undefined
     };
-    return ProductModel.create(duplicate);
+    const duplicatedProduct = await ProductModel.create(duplicate);
+    markCatalogueStale();
+    return duplicatedProduct;
   },
-  async remove(id: string): Promise<void> { const product = await ProductModel.findByIdAndUpdate(id, { isActive: false, isArchived: true }); if (!product) throw new ApiError(404, 'Product not found'); }
+  async remove(id: string): Promise<void> { const product = await ProductModel.findByIdAndUpdate(id, { isActive: false, isArchived: true }); if (!product) throw new ApiError(404, 'Product not found'); markCatalogueStale(); }
 };

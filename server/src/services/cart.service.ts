@@ -4,11 +4,14 @@ import { CartModel } from '../models/cart.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { CouponModel } from '../models/coupon.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { calculateCouponDiscount } from '../utils/coupon-discount.js';
 
 const cartExpiry = (): Date => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 const ownerQuery = (userId?: string, sessionId?: string): Record<string, string> => userId ? { user: userId } : { sessionId: sessionId ?? '' };
 export const CartService = {
-  async get(userId?: string, sessionId?: string): Promise<unknown> { return CartModel.findOne(ownerQuery(userId, sessionId)).populate('items.product').lean() ?? { items: [] }; },
+  async get(userId?: string, sessionId?: string): Promise<unknown> {
+    return await CartModel.findOne(ownerQuery(userId, sessionId)).populate('items.product').lean() ?? { items: [] };
+  },
   async add(userId: string | undefined, sessionId: string | undefined, input: { product: string; variant: string; quantity: number }): Promise<unknown> {
     const product = await ProductModel.findById(input.product);
     const variant = product?.variants.find((item) => String(item._id) === input.variant);
@@ -47,11 +50,7 @@ export const CartService = {
     if (!cart || cart.items.length === 0) throw new ApiError(400, 'Cart is empty');
     const coupon = await CouponModel.findOne({ code: code.toUpperCase(), isActive: true });
     if (!coupon) throw new ApiError(400, 'Invalid coupon');
-    const now = new Date();
-    if (coupon.validFrom > now || coupon.validUntil < now) throw new ApiError(400, 'Coupon is not active');
-    const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    if (subtotal < coupon.minOrderValue) throw new ApiError(400, 'Order does not meet coupon minimum');
-    const discount = coupon.type === 'freeShipping' ? 0 : Math.min(coupon.type === 'percentage' ? subtotal * (coupon.value / 100) : coupon.value, coupon.maxDiscount ?? subtotal);
-    return { coupon: coupon.code, type: coupon.type, discount, freeShipping: coupon.type === 'freeShipping' };
+    const result = await calculateCouponDiscount(coupon, cart.items);
+    return { coupon: coupon.code, type: coupon.type, discount: result.discount, freeShipping: result.freeShipping, eligibleSubtotal: result.eligibleSubtotal };
   }
 };

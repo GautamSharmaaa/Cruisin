@@ -27,17 +27,17 @@ const seed = async (): Promise<void> => {
   const categories = await Promise.all([
     CategoryModel.findOneAndUpdate(
       { slug: 'outerwear' },
-      { name: 'Outerwear', slug: 'outerwear', image: imageBase + '/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85', sortOrder: 0, breadcrumb: [{ name: 'Outerwear', slug: 'outerwear' }] },
+      { name: 'Outerwear', slug: 'outerwear', image: imageBase + '/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85', sortOrder: 0, breadcrumb: [{ name: 'Outerwear', slug: 'outerwear' }], isActive: true, isVisible: true, isPublished: true, showInMenu: true, showInFilters: true },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ),
     CategoryModel.findOneAndUpdate(
       { slug: 'tops' },
-      { name: 'Tops', slug: 'tops', image: imageBase + '/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=85', sortOrder: 1, breadcrumb: [{ name: 'Tops', slug: 'tops' }] },
+      { name: 'Tops', slug: 'tops', image: imageBase + '/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=85', sortOrder: 1, breadcrumb: [{ name: 'Tops', slug: 'tops' }], isActive: true, isVisible: true, isPublished: true, showInMenu: true, showInFilters: true },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ),
     CategoryModel.findOneAndUpdate(
       { slug: 'bottoms' },
-      { name: 'Bottoms', slug: 'bottoms', image: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', sortOrder: 2, breadcrumb: [{ name: 'Bottoms', slug: 'bottoms' }] },
+      { name: 'Bottoms', slug: 'bottoms', image: imageBase + '/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=85', sortOrder: 2, breadcrumb: [{ name: 'Bottoms', slug: 'bottoms' }], isActive: true, isVisible: true, isPublished: true, showInMenu: true, showInFilters: true },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     )
   ]);
@@ -411,6 +411,10 @@ const seed = async (): Promise<void> => {
     }
   ];
 
+  const seedSlugs = productPayloads.map((product) => product.slug);
+  const seedSkus = productPayloads.flatMap((product) => product.variants.map((variant) => variant.sku));
+  await ProductModel.deleteMany({ isArchived: true, slug: { $nin: seedSlugs }, 'variants.sku': { $in: seedSkus } });
+
   const products = await Promise.all(productPayloads.map((product) => {
     const images = product.images ?? [{ url: product.image, alt: product.title, width: 1200, height: 1600 }];
     return ProductModel.findOneAndUpdate(
@@ -429,6 +433,9 @@ const seed = async (): Promise<void> => {
         tags: product.tags,
         isFeatured: product.isFeatured,
         isActive: true,
+        isArchived: false,
+        status: 'published',
+        visibility: 'visible',
         ratings: product.ratings,
         seo: { metaTitle: product.title, metaDesc: product.description, ogImage: product.image }
       },

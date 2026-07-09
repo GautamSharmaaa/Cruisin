@@ -1,0 +1,3337 @@
+{
+  "startedAt": "2026-07-02T10:20:48.167Z",
+  "apiBase": "http://localhost:8000/api/v1",
+  "checks": [
+    {
+      "name": "Backend /health returns 200",
+      "status": 200
+    },
+    {
+      "name": "Unauthenticated GET /admin/catalogues/imports returns 401",
+      "status": 401
+    },
+    {
+      "name": "Unauthenticated POST /admin/catalogues/import/confirm returns 401",
+      "status": 401
+    },
+    {
+      "name": "Unauthenticated POST /admin/catalogues/export returns 401",
+      "status": 401
+    },
+    {
+      "name": "Admin login works",
+      "status": 200
+    },
+    {
+      "name": "Verified non-admin login works",
+      "status": 200
+    },
+    {
+      "name": "Non-admin catalogue API returns 403",
+      "status": 403
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "/admin/categories list works",
+      "status": 200
+    },
+    {
+      "name": "/admin/collections list works",
+      "status": 200
+    },
+    {
+      "name": "Real CSV upload/preview returns 201",
+      "status": 201
+    },
+    {
+      "name": "Real CSV detects 235 rows",
+      "status": "pass",
+      "detectedRows": 235,
+      "detectedProductCodes": 44,
+      "detectedColumns": 87,
+      "warnings": 0,
+      "errors": 0
+    },
+    {
+      "name": "Real CSV groups into 44 product codes",
+      "status": "pass",
+      "detectedRows": 235,
+      "detectedProductCodes": 44,
+      "detectedColumns": 87,
+      "warnings": 0,
+      "errors": 0
+    },
+    {
+      "name": "Real CSV has no blocking validation errors",
+      "status": "pass",
+      "errors": []
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "Real CSV dry-run succeeds",
+      "status": 200
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "Dry-run does not write products or variants",
+      "status": "pass",
+      "before": {
+        "products": 57,
+        "variants": 292
+      },
+      "after": {
+        "products": 57,
+        "variants": 292
+      }
+    },
+    {
+      "name": "Real CSV confirmed import succeeds",
+      "status": 200
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "/admin/categories list works",
+      "status": 200
+    },
+    {
+      "name": "/admin/collections list works",
+      "status": 200
+    },
+    {
+      "name": "Confirmed import does not reduce product count",
+      "status": "pass",
+      "before": {
+        "products": 57,
+        "variants": 292
+      },
+      "after": {
+        "products": 57,
+        "variants": 292
+      }
+    },
+    {
+      "name": "Confirmed import creates/updates catalogue variants",
+      "status": "pass",
+      "createdProducts": 0,
+      "updatedProducts": 44,
+      "createdVariants": 0,
+      "updatedVariants": 235,
+      "createdCategories": 0,
+      "createdCollections": 0,
+      "failedRows": 0,
+      "warningsCount": 0,
+      "results": [
+        {
+          "productCode": "Crusiin106 - Dark Grey",
+          "productId": "6a463b6074df41deaba234f4",
+          "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Olive",
+          "productId": "6a463b6074df41deaba23500",
+          "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Black",
+          "productId": "6a463b6074df41deaba2350c",
+          "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Light Grey",
+          "productId": "6a463b6074df41deaba23518",
+          "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - White",
+          "productId": "6a463b6074df41deaba23526",
+          "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin105 - Light Grey",
+          "productId": "6a463b6074df41deaba23532",
+          "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin128",
+          "productId": "6a463b6074df41deaba2353d",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin118",
+          "productId": "6a463b6074df41deaba2354e",
+          "title": "The Signature lightweight Box-Fit Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue -Combo",
+          "productId": "6a463b6074df41deaba2355e",
+          "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Musturd",
+          "productId": "6a463b6074df41deaba2356a",
+          "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow",
+          "productId": "6a463b6074df41deaba23576",
+          "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Olive",
+          "productId": "6a463b6074df41deaba23582",
+          "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Red",
+          "productId": "6a463b6074df41deaba2358e",
+          "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin120",
+          "productId": "6a463b6074df41deaba23599",
+          "title": "Compression T-Shirt",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Light Grey",
+          "productId": "6a463b6074df41deaba235a6",
+          "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin102 - Electric Blue",
+          "productId": "6a463b6074df41deaba235b2",
+          "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Light Grey",
+          "productId": "6a463b6074df41deaba235be",
+          "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd -Combo",
+          "productId": "6a463b6074df41deaba235ca",
+          "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin 115",
+          "productId": "6a463b6074df41deaba235d8",
+          "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Dark Grey",
+          "productId": "6a463b6074df41deaba235e4",
+          "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin123",
+          "productId": "6a463b6074df41deaba235ef",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin122",
+          "productId": "6a463b6074df41deaba23606",
+          "title": "Signature Stealth Wide-Leg Track Pants",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd",
+          "productId": "6a463b6074df41deaba23614",
+          "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Dark Grey",
+          "productId": "6a463b6074df41deaba23620",
+          "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Olive",
+          "productId": "6a463b6074df41deaba2362c",
+          "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow -Combo",
+          "productId": "6a463b6074df41deaba23638",
+          "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - White",
+          "productId": "6a463b6074df41deaba23644",
+          "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 111",
+          "productId": "6a463b6074df41deaba23650",
+          "title": "The \"Stress Less\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin117",
+          "productId": "6a463b6074df41deaba2365c",
+          "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 110",
+          "productId": "6a463b6074df41deaba23668",
+          "title": "Make Dreams Happen Oversized Tee - Vintage White",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Black",
+          "productId": "6a463b6074df41deaba23674",
+          "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Black",
+          "productId": "6a463b6074df41deaba23680",
+          "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Dark Grey",
+          "productId": "6a463b6074df41deaba2368c",
+          "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Black",
+          "productId": "6a463b6074df41deaba23698",
+          "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 113",
+          "productId": "6a463b6074df41deaba236a4",
+          "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin114",
+          "productId": "6a463b6074df41deaba236b0",
+          "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin116",
+          "productId": "6a463b6074df41deaba236be",
+          "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin130",
+          "productId": "6a463b6074df41deaba236ca",
+          "title": "Cruisin 5'' running shorts",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 112",
+          "productId": "6a463b6074df41deaba236d7",
+          "title": "The \"Invincible\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue",
+          "productId": "6a463b6074df41deaba236e3",
+          "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Red",
+          "productId": "6a463b6074df41deaba236ef",
+          "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Musturd",
+          "productId": "6a463b6074df41deaba236fb",
+          "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Light Grey",
+          "productId": "6a463b6074df41deaba23707",
+          "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin107 - Dark Grey",
+          "productId": "6a463b6074df41deaba23715",
+          "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+          "status": "updated"
+        }
+      ],
+      "summary": {
+        "rowCount": 235,
+        "productGroupCount": 44,
+        "productsToCreate": 0,
+        "productsToUpdate": 44,
+        "variantsToCreate": 0,
+        "variantsToUpdate": 235,
+        "categoriesToReview": [
+          "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+          "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+          "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+          "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+          "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+        ],
+        "collectionsToCreate": [
+          "Signature Series",
+          "Street-Gym Hybrid"
+        ],
+        "results": [
+          {
+            "productCode": "Crusiin106 - Dark Grey",
+            "productId": "6a463b6074df41deaba234f4",
+            "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Olive",
+            "productId": "6a463b6074df41deaba23500",
+            "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Black",
+            "productId": "6a463b6074df41deaba2350c",
+            "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Light Grey",
+            "productId": "6a463b6074df41deaba23518",
+            "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - White",
+            "productId": "6a463b6074df41deaba23526",
+            "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin105 - Light Grey",
+            "productId": "6a463b6074df41deaba23532",
+            "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin128",
+            "productId": "6a463b6074df41deaba2353d",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin118",
+            "productId": "6a463b6074df41deaba2354e",
+            "title": "The Signature lightweight Box-Fit Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue -Combo",
+            "productId": "6a463b6074df41deaba2355e",
+            "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Musturd",
+            "productId": "6a463b6074df41deaba2356a",
+            "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow",
+            "productId": "6a463b6074df41deaba23576",
+            "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Olive",
+            "productId": "6a463b6074df41deaba23582",
+            "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Red",
+            "productId": "6a463b6074df41deaba2358e",
+            "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin120",
+            "productId": "6a463b6074df41deaba23599",
+            "title": "Compression T-Shirt",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Light Grey",
+            "productId": "6a463b6074df41deaba235a6",
+            "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin102 - Electric Blue",
+            "productId": "6a463b6074df41deaba235b2",
+            "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Light Grey",
+            "productId": "6a463b6074df41deaba235be",
+            "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd -Combo",
+            "productId": "6a463b6074df41deaba235ca",
+            "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin 115",
+            "productId": "6a463b6074df41deaba235d8",
+            "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Dark Grey",
+            "productId": "6a463b6074df41deaba235e4",
+            "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin123",
+            "productId": "6a463b6074df41deaba235ef",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin122",
+            "productId": "6a463b6074df41deaba23606",
+            "title": "Signature Stealth Wide-Leg Track Pants",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd",
+            "productId": "6a463b6074df41deaba23614",
+            "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Dark Grey",
+            "productId": "6a463b6074df41deaba23620",
+            "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Olive",
+            "productId": "6a463b6074df41deaba2362c",
+            "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow -Combo",
+            "productId": "6a463b6074df41deaba23638",
+            "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - White",
+            "productId": "6a463b6074df41deaba23644",
+            "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 111",
+            "productId": "6a463b6074df41deaba23650",
+            "title": "The \"Stress Less\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin117",
+            "productId": "6a463b6074df41deaba2365c",
+            "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 110",
+            "productId": "6a463b6074df41deaba23668",
+            "title": "Make Dreams Happen Oversized Tee - Vintage White",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Black",
+            "productId": "6a463b6074df41deaba23674",
+            "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Black",
+            "productId": "6a463b6074df41deaba23680",
+            "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Dark Grey",
+            "productId": "6a463b6074df41deaba2368c",
+            "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Black",
+            "productId": "6a463b6074df41deaba23698",
+            "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 113",
+            "productId": "6a463b6074df41deaba236a4",
+            "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin114",
+            "productId": "6a463b6074df41deaba236b0",
+            "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin116",
+            "productId": "6a463b6074df41deaba236be",
+            "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin130",
+            "productId": "6a463b6074df41deaba236ca",
+            "title": "Cruisin 5'' running shorts",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 112",
+            "productId": "6a463b6074df41deaba236d7",
+            "title": "The \"Invincible\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue",
+            "productId": "6a463b6074df41deaba236e3",
+            "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Red",
+            "productId": "6a463b6074df41deaba236ef",
+            "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Musturd",
+            "productId": "6a463b6074df41deaba236fb",
+            "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Light Grey",
+            "productId": "6a463b6074df41deaba23707",
+            "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin107 - Dark Grey",
+            "productId": "6a463b6074df41deaba23715",
+            "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+            "status": "updated"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "Imported product searchable by Product Code",
+      "status": "pass",
+      "total": 1
+    },
+    {
+      "name": "Imported product has grouped variants",
+      "status": "pass",
+      "variants": 5
+    },
+    {
+      "name": "Imported product has images",
+      "status": "pass",
+      "images": 7
+    },
+    {
+      "name": "Imported product price maps from Selling Price",
+      "status": "pass",
+      "basePrice": 1099
+    },
+    {
+      "name": "Imported product MRP maps to compare price",
+      "status": "pass",
+      "comparePrice": 2299
+    },
+    {
+      "name": "Imported PDP public API loads",
+      "status": "pass",
+      "slug": "dark-grey-polyester-slim-tapered-fit-bottomwear-joggers-for-men-crusiin106-dark-grey"
+    },
+    {
+      "name": "Public product API hides costPrice",
+      "status": "pass"
+    },
+    {
+      "name": "Public product API hides raw import metadata",
+      "status": "pass"
+    },
+    {
+      "name": "Second real CSV dry-run succeeds",
+      "status": "pass"
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "Admin products API works",
+      "status": 200
+    },
+    {
+      "name": "Re-import does not duplicate products",
+      "status": "pass",
+      "secondImport": {
+        "createdProducts": 0,
+        "updatedProducts": 44,
+        "createdVariants": 0,
+        "updatedVariants": 235,
+        "createdCategories": 0,
+        "createdCollections": 0,
+        "failedRows": 0,
+        "warningsCount": 0,
+        "results": [
+          {
+            "productCode": "Crusiin106 - Dark Grey",
+            "productId": "6a463b6074df41deaba234f4",
+            "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Olive",
+            "productId": "6a463b6074df41deaba23500",
+            "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Black",
+            "productId": "6a463b6074df41deaba2350c",
+            "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Light Grey",
+            "productId": "6a463b6074df41deaba23518",
+            "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - White",
+            "productId": "6a463b6074df41deaba23526",
+            "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin105 - Light Grey",
+            "productId": "6a463b6074df41deaba23532",
+            "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin128",
+            "productId": "6a463b6074df41deaba2353d",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin118",
+            "productId": "6a463b6074df41deaba2354e",
+            "title": "The Signature lightweight Box-Fit Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue -Combo",
+            "productId": "6a463b6074df41deaba2355e",
+            "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Musturd",
+            "productId": "6a463b6074df41deaba2356a",
+            "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow",
+            "productId": "6a463b6074df41deaba23576",
+            "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Olive",
+            "productId": "6a463b6074df41deaba23582",
+            "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Red",
+            "productId": "6a463b6074df41deaba2358e",
+            "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin120",
+            "productId": "6a463b6074df41deaba23599",
+            "title": "Compression T-Shirt",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Light Grey",
+            "productId": "6a463b6074df41deaba235a6",
+            "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin102 - Electric Blue",
+            "productId": "6a463b6074df41deaba235b2",
+            "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Light Grey",
+            "productId": "6a463b6074df41deaba235be",
+            "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd -Combo",
+            "productId": "6a463b6074df41deaba235ca",
+            "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin 115",
+            "productId": "6a463b6074df41deaba235d8",
+            "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Dark Grey",
+            "productId": "6a463b6074df41deaba235e4",
+            "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin123",
+            "productId": "6a463b6074df41deaba235ef",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin122",
+            "productId": "6a463b6074df41deaba23606",
+            "title": "Signature Stealth Wide-Leg Track Pants",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd",
+            "productId": "6a463b6074df41deaba23614",
+            "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Dark Grey",
+            "productId": "6a463b6074df41deaba23620",
+            "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Olive",
+            "productId": "6a463b6074df41deaba2362c",
+            "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow -Combo",
+            "productId": "6a463b6074df41deaba23638",
+            "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - White",
+            "productId": "6a463b6074df41deaba23644",
+            "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 111",
+            "productId": "6a463b6074df41deaba23650",
+            "title": "The \"Stress Less\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin117",
+            "productId": "6a463b6074df41deaba2365c",
+            "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 110",
+            "productId": "6a463b6074df41deaba23668",
+            "title": "Make Dreams Happen Oversized Tee - Vintage White",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Black",
+            "productId": "6a463b6074df41deaba23674",
+            "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Black",
+            "productId": "6a463b6074df41deaba23680",
+            "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Dark Grey",
+            "productId": "6a463b6074df41deaba2368c",
+            "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Black",
+            "productId": "6a463b6074df41deaba23698",
+            "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 113",
+            "productId": "6a463b6074df41deaba236a4",
+            "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin114",
+            "productId": "6a463b6074df41deaba236b0",
+            "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin116",
+            "productId": "6a463b6074df41deaba236be",
+            "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin130",
+            "productId": "6a463b6074df41deaba236ca",
+            "title": "Cruisin 5'' running shorts",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 112",
+            "productId": "6a463b6074df41deaba236d7",
+            "title": "The \"Invincible\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue",
+            "productId": "6a463b6074df41deaba236e3",
+            "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Red",
+            "productId": "6a463b6074df41deaba236ef",
+            "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Musturd",
+            "productId": "6a463b6074df41deaba236fb",
+            "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Light Grey",
+            "productId": "6a463b6074df41deaba23707",
+            "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin107 - Dark Grey",
+            "productId": "6a463b6074df41deaba23715",
+            "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+            "status": "updated"
+          }
+        ],
+        "summary": {
+          "rowCount": 235,
+          "productGroupCount": 44,
+          "productsToCreate": 0,
+          "productsToUpdate": 44,
+          "variantsToCreate": 0,
+          "variantsToUpdate": 235,
+          "categoriesToReview": [
+            "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+            "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+            "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+            "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+            "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+            "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+            "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+          ],
+          "collectionsToCreate": [
+            "Signature Series",
+            "Street-Gym Hybrid"
+          ],
+          "results": [
+            {
+              "productCode": "Crusiin106 - Dark Grey",
+              "productId": "6a463b6074df41deaba234f4",
+              "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Olive",
+              "productId": "6a463b6074df41deaba23500",
+              "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Black",
+              "productId": "6a463b6074df41deaba2350c",
+              "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Light Grey",
+              "productId": "6a463b6074df41deaba23518",
+              "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - White",
+              "productId": "6a463b6074df41deaba23526",
+              "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin105 - Light Grey",
+              "productId": "6a463b6074df41deaba23532",
+              "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin128",
+              "productId": "6a463b6074df41deaba2353d",
+              "title": "The Cruiseway All-Day Cotton Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin118",
+              "productId": "6a463b6074df41deaba2354e",
+              "title": "The Signature lightweight Box-Fit Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Electric Blue -Combo",
+              "productId": "6a463b6074df41deaba2355e",
+              "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Musturd",
+              "productId": "6a463b6074df41deaba2356a",
+              "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Yellow",
+              "productId": "6a463b6074df41deaba23576",
+              "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Olive",
+              "productId": "6a463b6074df41deaba23582",
+              "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Red",
+              "productId": "6a463b6074df41deaba2358e",
+              "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin120",
+              "productId": "6a463b6074df41deaba23599",
+              "title": "Compression T-Shirt",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Light Grey",
+              "productId": "6a463b6074df41deaba235a6",
+              "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin102 - Electric Blue",
+              "productId": "6a463b6074df41deaba235b2",
+              "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Light Grey",
+              "productId": "6a463b6074df41deaba235be",
+              "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Musturd -Combo",
+              "productId": "6a463b6074df41deaba235ca",
+              "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin 115",
+              "productId": "6a463b6074df41deaba235d8",
+              "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Dark Grey",
+              "productId": "6a463b6074df41deaba235e4",
+              "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin123",
+              "productId": "6a463b6074df41deaba235ef",
+              "title": "The Cruiseway All-Day Cotton Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin122",
+              "productId": "6a463b6074df41deaba23606",
+              "title": "Signature Stealth Wide-Leg Track Pants",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Musturd",
+              "productId": "6a463b6074df41deaba23614",
+              "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Dark Grey",
+              "productId": "6a463b6074df41deaba23620",
+              "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Olive",
+              "productId": "6a463b6074df41deaba2362c",
+              "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Yellow -Combo",
+              "productId": "6a463b6074df41deaba23638",
+              "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - White",
+              "productId": "6a463b6074df41deaba23644",
+              "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 111",
+              "productId": "6a463b6074df41deaba23650",
+              "title": "The \"Stress Less\" Oversized Graphic Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin117",
+              "productId": "6a463b6074df41deaba2365c",
+              "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 110",
+              "productId": "6a463b6074df41deaba23668",
+              "title": "Make Dreams Happen Oversized Tee - Vintage White",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Black",
+              "productId": "6a463b6074df41deaba23674",
+              "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Black",
+              "productId": "6a463b6074df41deaba23680",
+              "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Dark Grey",
+              "productId": "6a463b6074df41deaba2368c",
+              "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Black",
+              "productId": "6a463b6074df41deaba23698",
+              "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 113",
+              "productId": "6a463b6074df41deaba236a4",
+              "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin114",
+              "productId": "6a463b6074df41deaba236b0",
+              "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin116",
+              "productId": "6a463b6074df41deaba236be",
+              "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin130",
+              "productId": "6a463b6074df41deaba236ca",
+              "title": "Cruisin 5'' running shorts",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 112",
+              "productId": "6a463b6074df41deaba236d7",
+              "title": "The \"Invincible\" Oversized Graphic Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Electric Blue",
+              "productId": "6a463b6074df41deaba236e3",
+              "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Red",
+              "productId": "6a463b6074df41deaba236ef",
+              "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Musturd",
+              "productId": "6a463b6074df41deaba236fb",
+              "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Light Grey",
+              "productId": "6a463b6074df41deaba23707",
+              "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin107 - Dark Grey",
+              "productId": "6a463b6074df41deaba23715",
+              "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+              "status": "updated"
+            }
+          ]
+        }
+      },
+      "before": {
+        "products": 57,
+        "variants": 292
+      },
+      "after": {
+        "products": 57,
+        "variants": 292
+      }
+    },
+    {
+      "name": "Re-import does not duplicate variants",
+      "status": "pass",
+      "secondImport": {
+        "createdProducts": 0,
+        "updatedProducts": 44,
+        "createdVariants": 0,
+        "updatedVariants": 235,
+        "createdCategories": 0,
+        "createdCollections": 0,
+        "failedRows": 0,
+        "warningsCount": 0,
+        "results": [
+          {
+            "productCode": "Crusiin106 - Dark Grey",
+            "productId": "6a463b6074df41deaba234f4",
+            "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Olive",
+            "productId": "6a463b6074df41deaba23500",
+            "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Black",
+            "productId": "6a463b6074df41deaba2350c",
+            "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Light Grey",
+            "productId": "6a463b6074df41deaba23518",
+            "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - White",
+            "productId": "6a463b6074df41deaba23526",
+            "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin105 - Light Grey",
+            "productId": "6a463b6074df41deaba23532",
+            "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin128",
+            "productId": "6a463b6074df41deaba2353d",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin118",
+            "productId": "6a463b6074df41deaba2354e",
+            "title": "The Signature lightweight Box-Fit Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue -Combo",
+            "productId": "6a463b6074df41deaba2355e",
+            "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Musturd",
+            "productId": "6a463b6074df41deaba2356a",
+            "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow",
+            "productId": "6a463b6074df41deaba23576",
+            "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Olive",
+            "productId": "6a463b6074df41deaba23582",
+            "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Red",
+            "productId": "6a463b6074df41deaba2358e",
+            "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin120",
+            "productId": "6a463b6074df41deaba23599",
+            "title": "Compression T-Shirt",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Light Grey",
+            "productId": "6a463b6074df41deaba235a6",
+            "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin102 - Electric Blue",
+            "productId": "6a463b6074df41deaba235b2",
+            "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Light Grey",
+            "productId": "6a463b6074df41deaba235be",
+            "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd -Combo",
+            "productId": "6a463b6074df41deaba235ca",
+            "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin 115",
+            "productId": "6a463b6074df41deaba235d8",
+            "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Dark Grey",
+            "productId": "6a463b6074df41deaba235e4",
+            "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin123",
+            "productId": "6a463b6074df41deaba235ef",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin122",
+            "productId": "6a463b6074df41deaba23606",
+            "title": "Signature Stealth Wide-Leg Track Pants",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd",
+            "productId": "6a463b6074df41deaba23614",
+            "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Dark Grey",
+            "productId": "6a463b6074df41deaba23620",
+            "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Olive",
+            "productId": "6a463b6074df41deaba2362c",
+            "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow -Combo",
+            "productId": "6a463b6074df41deaba23638",
+            "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - White",
+            "productId": "6a463b6074df41deaba23644",
+            "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 111",
+            "productId": "6a463b6074df41deaba23650",
+            "title": "The \"Stress Less\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin117",
+            "productId": "6a463b6074df41deaba2365c",
+            "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 110",
+            "productId": "6a463b6074df41deaba23668",
+            "title": "Make Dreams Happen Oversized Tee - Vintage White",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Black",
+            "productId": "6a463b6074df41deaba23674",
+            "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Black",
+            "productId": "6a463b6074df41deaba23680",
+            "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Dark Grey",
+            "productId": "6a463b6074df41deaba2368c",
+            "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Black",
+            "productId": "6a463b6074df41deaba23698",
+            "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 113",
+            "productId": "6a463b6074df41deaba236a4",
+            "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin114",
+            "productId": "6a463b6074df41deaba236b0",
+            "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin116",
+            "productId": "6a463b6074df41deaba236be",
+            "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin130",
+            "productId": "6a463b6074df41deaba236ca",
+            "title": "Cruisin 5'' running shorts",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 112",
+            "productId": "6a463b6074df41deaba236d7",
+            "title": "The \"Invincible\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue",
+            "productId": "6a463b6074df41deaba236e3",
+            "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Red",
+            "productId": "6a463b6074df41deaba236ef",
+            "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Musturd",
+            "productId": "6a463b6074df41deaba236fb",
+            "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Light Grey",
+            "productId": "6a463b6074df41deaba23707",
+            "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin107 - Dark Grey",
+            "productId": "6a463b6074df41deaba23715",
+            "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+            "status": "updated"
+          }
+        ],
+        "summary": {
+          "rowCount": 235,
+          "productGroupCount": 44,
+          "productsToCreate": 0,
+          "productsToUpdate": 44,
+          "variantsToCreate": 0,
+          "variantsToUpdate": 235,
+          "categoriesToReview": [
+            "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+            "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+            "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+            "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+            "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+            "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+            "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+            "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+          ],
+          "collectionsToCreate": [
+            "Signature Series",
+            "Street-Gym Hybrid"
+          ],
+          "results": [
+            {
+              "productCode": "Crusiin106 - Dark Grey",
+              "productId": "6a463b6074df41deaba234f4",
+              "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Olive",
+              "productId": "6a463b6074df41deaba23500",
+              "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Black",
+              "productId": "6a463b6074df41deaba2350c",
+              "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin106 - Light Grey",
+              "productId": "6a463b6074df41deaba23518",
+              "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - White",
+              "productId": "6a463b6074df41deaba23526",
+              "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin105 - Light Grey",
+              "productId": "6a463b6074df41deaba23532",
+              "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin128",
+              "productId": "6a463b6074df41deaba2353d",
+              "title": "The Cruiseway All-Day Cotton Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin118",
+              "productId": "6a463b6074df41deaba2354e",
+              "title": "The Signature lightweight Box-Fit Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Electric Blue -Combo",
+              "productId": "6a463b6074df41deaba2355e",
+              "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Musturd",
+              "productId": "6a463b6074df41deaba2356a",
+              "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Yellow",
+              "productId": "6a463b6074df41deaba23576",
+              "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Olive",
+              "productId": "6a463b6074df41deaba23582",
+              "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Red",
+              "productId": "6a463b6074df41deaba2358e",
+              "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin120",
+              "productId": "6a463b6074df41deaba23599",
+              "title": "Compression T-Shirt",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Light Grey",
+              "productId": "6a463b6074df41deaba235a6",
+              "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin102 - Electric Blue",
+              "productId": "6a463b6074df41deaba235b2",
+              "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Light Grey",
+              "productId": "6a463b6074df41deaba235be",
+              "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Musturd -Combo",
+              "productId": "6a463b6074df41deaba235ca",
+              "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin 115",
+              "productId": "6a463b6074df41deaba235d8",
+              "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Dark Grey",
+              "productId": "6a463b6074df41deaba235e4",
+              "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin123",
+              "productId": "6a463b6074df41deaba235ef",
+              "title": "The Cruiseway All-Day Cotton Pant",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin122",
+              "productId": "6a463b6074df41deaba23606",
+              "title": "Signature Stealth Wide-Leg Track Pants",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Musturd",
+              "productId": "6a463b6074df41deaba23614",
+              "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Dark Grey",
+              "productId": "6a463b6074df41deaba23620",
+              "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Olive",
+              "productId": "6a463b6074df41deaba2362c",
+              "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Yellow -Combo",
+              "productId": "6a463b6074df41deaba23638",
+              "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - White",
+              "productId": "6a463b6074df41deaba23644",
+              "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 111",
+              "productId": "6a463b6074df41deaba23650",
+              "title": "The \"Stress Less\" Oversized Graphic Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin117",
+              "productId": "6a463b6074df41deaba2365c",
+              "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 110",
+              "productId": "6a463b6074df41deaba23668",
+              "title": "Make Dreams Happen Oversized Tee - Vintage White",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin100 - Black",
+              "productId": "6a463b6074df41deaba23674",
+              "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Black",
+              "productId": "6a463b6074df41deaba23680",
+              "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Dark Grey",
+              "productId": "6a463b6074df41deaba2368c",
+              "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Black",
+              "productId": "6a463b6074df41deaba23698",
+              "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 113",
+              "productId": "6a463b6074df41deaba236a4",
+              "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin114",
+              "productId": "6a463b6074df41deaba236b0",
+              "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin116",
+              "productId": "6a463b6074df41deaba236be",
+              "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+              "status": "updated"
+            },
+            {
+              "productCode": "Cruisin130",
+              "productId": "6a463b6074df41deaba236ca",
+              "title": "Cruisin 5'' running shorts",
+              "status": "updated"
+            },
+            {
+              "productCode": "CRUISIN 112",
+              "productId": "6a463b6074df41deaba236d7",
+              "title": "The \"Invincible\" Oversized Graphic Tee",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Electric Blue",
+              "productId": "6a463b6074df41deaba236e3",
+              "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin101 - Red",
+              "productId": "6a463b6074df41deaba236ef",
+              "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Musturd",
+              "productId": "6a463b6074df41deaba236fb",
+              "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin103 - Light Grey",
+              "productId": "6a463b6074df41deaba23707",
+              "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+              "status": "updated"
+            },
+            {
+              "productCode": "Crusiin107 - Dark Grey",
+              "productId": "6a463b6074df41deaba23715",
+              "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+              "status": "updated"
+            }
+          ]
+        }
+      },
+      "before": {
+        "products": 57,
+        "variants": 292
+      },
+      "after": {
+        "products": 57,
+        "variants": 292
+      }
+    },
+    {
+      "name": "Full catalogue export succeeds",
+      "status": 201
+    },
+    {
+      "name": "Export filename is safe",
+      "status": "pass",
+      "filename": "cruisin_catalogue_2026-07-02_10-20.csv"
+    },
+    {
+      "name": "Export contains required columns",
+      "status": "pass"
+    },
+    {
+      "name": "Export download works",
+      "status": "pass"
+    },
+    {
+      "name": "Exported CSV uploads for reimport preview",
+      "status": "pass"
+    },
+    {
+      "name": "Exported CSV dry-run can import safely",
+      "status": "pass",
+      "validation": {
+        "errors": [],
+        "warnings": [],
+        "valid": true
+      }
+    },
+    {
+      "name": "missing-product-code.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "duplicate-sku.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "invalid-price.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "price-greater-than-mrp.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "invalid-stock.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "invalid-media-url.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "xss-description.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "blank-important-fields.csv uploads to validation preview",
+      "status": "pass"
+    },
+    {
+      "name": "Missing Product Code fixture is blocked",
+      "status": "pass"
+    },
+    {
+      "name": "Invalid price fixture is blocked",
+      "status": "pass"
+    },
+    {
+      "name": "Invalid stock fixture is blocked",
+      "status": "pass"
+    },
+    {
+      "name": "XSS description fixture is blocked",
+      "status": "pass"
+    },
+    {
+      "name": "Duplicate SKU fixture warns",
+      "status": "pass"
+    },
+    {
+      "name": "Price greater than MRP fixture warns",
+      "status": "pass"
+    },
+    {
+      "name": "Invalid media URL fixture warns",
+      "status": "pass"
+    },
+    {
+      "name": "Non-CSV upload is rejected",
+      "status": 400
+    },
+    {
+      "name": "Path traversal filename is normalized",
+      "status": "pass",
+      "filename": "evil.csv"
+    },
+    {
+      "name": "CSV injection test product can be created",
+      "status": "pass"
+    },
+    {
+      "name": "CSV injection fields are neutralized in export",
+      "status": "pass"
+    },
+    {
+      "name": "Catalogue settings load",
+      "status": "pass"
+    },
+    {
+      "name": "Auto-generate setting turns on",
+      "status": "pass"
+    },
+    {
+      "name": "Product update marks catalogue stale",
+      "status": "pass"
+    },
+    {
+      "name": "Generate latest catalogue after stale succeeds",
+      "status": "pass"
+    },
+    {
+      "name": "Export regeneration clears stale flag",
+      "status": "pass"
+    },
+    {
+      "name": "Large 2500-row upload/preview succeeds",
+      "status": "pass",
+      "ms": 261
+    },
+    {
+      "name": "Large 2500-row dry-run succeeds",
+      "status": "pass",
+      "uploadMs": 261,
+      "dryRunMs": 238,
+      "rows": 2500,
+      "groups": 500
+    }
+  ],
+  "bugsFixedDuringQa": [
+    "Public product API now excludes costPrice and raw catalogue import metadata.",
+    "Catalogue validator now blocks missing Product Code and textual price/stock cells.",
+    "Catalogue upload response no longer returns the stored import file record.",
+    "Stored catalogue filenames are normalized.",
+    "Export/import now supports slug fallback for products without productCode."
+  ],
+  "realCsv": {
+    "detectedRows": 235,
+    "detectedProductCodes": 44,
+    "detectedColumns": 87,
+    "warnings": 0,
+    "errors": 0,
+    "importResult": {
+      "createdProducts": 0,
+      "updatedProducts": 44,
+      "createdVariants": 0,
+      "updatedVariants": 235,
+      "createdCategories": 0,
+      "createdCollections": 0,
+      "failedRows": 0,
+      "warningsCount": 0,
+      "results": [
+        {
+          "productCode": "Crusiin106 - Dark Grey",
+          "productId": "6a463b6074df41deaba234f4",
+          "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Olive",
+          "productId": "6a463b6074df41deaba23500",
+          "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Black",
+          "productId": "6a463b6074df41deaba2350c",
+          "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Light Grey",
+          "productId": "6a463b6074df41deaba23518",
+          "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - White",
+          "productId": "6a463b6074df41deaba23526",
+          "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin105 - Light Grey",
+          "productId": "6a463b6074df41deaba23532",
+          "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin128",
+          "productId": "6a463b6074df41deaba2353d",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin118",
+          "productId": "6a463b6074df41deaba2354e",
+          "title": "The Signature lightweight Box-Fit Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue -Combo",
+          "productId": "6a463b6074df41deaba2355e",
+          "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Musturd",
+          "productId": "6a463b6074df41deaba2356a",
+          "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow",
+          "productId": "6a463b6074df41deaba23576",
+          "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Olive",
+          "productId": "6a463b6074df41deaba23582",
+          "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Red",
+          "productId": "6a463b6074df41deaba2358e",
+          "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin120",
+          "productId": "6a463b6074df41deaba23599",
+          "title": "Compression T-Shirt",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Light Grey",
+          "productId": "6a463b6074df41deaba235a6",
+          "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin102 - Electric Blue",
+          "productId": "6a463b6074df41deaba235b2",
+          "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Light Grey",
+          "productId": "6a463b6074df41deaba235be",
+          "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd -Combo",
+          "productId": "6a463b6074df41deaba235ca",
+          "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin 115",
+          "productId": "6a463b6074df41deaba235d8",
+          "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Dark Grey",
+          "productId": "6a463b6074df41deaba235e4",
+          "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin123",
+          "productId": "6a463b6074df41deaba235ef",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin122",
+          "productId": "6a463b6074df41deaba23606",
+          "title": "Signature Stealth Wide-Leg Track Pants",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd",
+          "productId": "6a463b6074df41deaba23614",
+          "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Dark Grey",
+          "productId": "6a463b6074df41deaba23620",
+          "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Olive",
+          "productId": "6a463b6074df41deaba2362c",
+          "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow -Combo",
+          "productId": "6a463b6074df41deaba23638",
+          "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - White",
+          "productId": "6a463b6074df41deaba23644",
+          "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 111",
+          "productId": "6a463b6074df41deaba23650",
+          "title": "The \"Stress Less\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin117",
+          "productId": "6a463b6074df41deaba2365c",
+          "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 110",
+          "productId": "6a463b6074df41deaba23668",
+          "title": "Make Dreams Happen Oversized Tee - Vintage White",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Black",
+          "productId": "6a463b6074df41deaba23674",
+          "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Black",
+          "productId": "6a463b6074df41deaba23680",
+          "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Dark Grey",
+          "productId": "6a463b6074df41deaba2368c",
+          "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Black",
+          "productId": "6a463b6074df41deaba23698",
+          "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 113",
+          "productId": "6a463b6074df41deaba236a4",
+          "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin114",
+          "productId": "6a463b6074df41deaba236b0",
+          "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin116",
+          "productId": "6a463b6074df41deaba236be",
+          "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin130",
+          "productId": "6a463b6074df41deaba236ca",
+          "title": "Cruisin 5'' running shorts",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 112",
+          "productId": "6a463b6074df41deaba236d7",
+          "title": "The \"Invincible\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue",
+          "productId": "6a463b6074df41deaba236e3",
+          "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Red",
+          "productId": "6a463b6074df41deaba236ef",
+          "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Musturd",
+          "productId": "6a463b6074df41deaba236fb",
+          "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Light Grey",
+          "productId": "6a463b6074df41deaba23707",
+          "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin107 - Dark Grey",
+          "productId": "6a463b6074df41deaba23715",
+          "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+          "status": "updated"
+        }
+      ],
+      "summary": {
+        "rowCount": 235,
+        "productGroupCount": 44,
+        "productsToCreate": 0,
+        "productsToUpdate": 44,
+        "variantsToCreate": 0,
+        "variantsToUpdate": 235,
+        "categoriesToReview": [
+          "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+          "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+          "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+          "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+          "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+        ],
+        "collectionsToCreate": [
+          "Signature Series",
+          "Street-Gym Hybrid"
+        ],
+        "results": [
+          {
+            "productCode": "Crusiin106 - Dark Grey",
+            "productId": "6a463b6074df41deaba234f4",
+            "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Olive",
+            "productId": "6a463b6074df41deaba23500",
+            "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Black",
+            "productId": "6a463b6074df41deaba2350c",
+            "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Light Grey",
+            "productId": "6a463b6074df41deaba23518",
+            "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - White",
+            "productId": "6a463b6074df41deaba23526",
+            "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin105 - Light Grey",
+            "productId": "6a463b6074df41deaba23532",
+            "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin128",
+            "productId": "6a463b6074df41deaba2353d",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin118",
+            "productId": "6a463b6074df41deaba2354e",
+            "title": "The Signature lightweight Box-Fit Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue -Combo",
+            "productId": "6a463b6074df41deaba2355e",
+            "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Musturd",
+            "productId": "6a463b6074df41deaba2356a",
+            "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow",
+            "productId": "6a463b6074df41deaba23576",
+            "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Olive",
+            "productId": "6a463b6074df41deaba23582",
+            "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Red",
+            "productId": "6a463b6074df41deaba2358e",
+            "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin120",
+            "productId": "6a463b6074df41deaba23599",
+            "title": "Compression T-Shirt",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Light Grey",
+            "productId": "6a463b6074df41deaba235a6",
+            "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin102 - Electric Blue",
+            "productId": "6a463b6074df41deaba235b2",
+            "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Light Grey",
+            "productId": "6a463b6074df41deaba235be",
+            "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd -Combo",
+            "productId": "6a463b6074df41deaba235ca",
+            "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin 115",
+            "productId": "6a463b6074df41deaba235d8",
+            "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Dark Grey",
+            "productId": "6a463b6074df41deaba235e4",
+            "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin123",
+            "productId": "6a463b6074df41deaba235ef",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin122",
+            "productId": "6a463b6074df41deaba23606",
+            "title": "Signature Stealth Wide-Leg Track Pants",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd",
+            "productId": "6a463b6074df41deaba23614",
+            "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Dark Grey",
+            "productId": "6a463b6074df41deaba23620",
+            "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Olive",
+            "productId": "6a463b6074df41deaba2362c",
+            "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow -Combo",
+            "productId": "6a463b6074df41deaba23638",
+            "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - White",
+            "productId": "6a463b6074df41deaba23644",
+            "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 111",
+            "productId": "6a463b6074df41deaba23650",
+            "title": "The \"Stress Less\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin117",
+            "productId": "6a463b6074df41deaba2365c",
+            "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 110",
+            "productId": "6a463b6074df41deaba23668",
+            "title": "Make Dreams Happen Oversized Tee - Vintage White",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Black",
+            "productId": "6a463b6074df41deaba23674",
+            "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Black",
+            "productId": "6a463b6074df41deaba23680",
+            "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Dark Grey",
+            "productId": "6a463b6074df41deaba2368c",
+            "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Black",
+            "productId": "6a463b6074df41deaba23698",
+            "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 113",
+            "productId": "6a463b6074df41deaba236a4",
+            "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin114",
+            "productId": "6a463b6074df41deaba236b0",
+            "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin116",
+            "productId": "6a463b6074df41deaba236be",
+            "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin130",
+            "productId": "6a463b6074df41deaba236ca",
+            "title": "Cruisin 5'' running shorts",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 112",
+            "productId": "6a463b6074df41deaba236d7",
+            "title": "The \"Invincible\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue",
+            "productId": "6a463b6074df41deaba236e3",
+            "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Red",
+            "productId": "6a463b6074df41deaba236ef",
+            "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Musturd",
+            "productId": "6a463b6074df41deaba236fb",
+            "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Light Grey",
+            "productId": "6a463b6074df41deaba23707",
+            "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin107 - Dark Grey",
+            "productId": "6a463b6074df41deaba23715",
+            "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+            "status": "updated"
+          }
+        ]
+      }
+    },
+    "before": {
+      "products": {
+        "products": 57,
+        "variants": 292
+      },
+      "categories": 75,
+      "collections": 25
+    },
+    "afterImport": {
+      "products": {
+        "products": 57,
+        "variants": 292
+      },
+      "categories": 75,
+      "collections": 25
+    }
+  },
+  "badFixtures": {
+    "missing-product-code.csv": {
+      "errors": [
+        "Product Code: Missing Product Code"
+      ],
+      "warnings": []
+    },
+    "duplicate-sku.csv": {
+      "errors": [],
+      "warnings": [
+        "Sku Id: Duplicate SKU QA-DUP-S appears on rows 2, 3"
+      ]
+    },
+    "invalid-price.csv": {
+      "errors": [
+        "Selling Price: Invalid selling price"
+      ],
+      "warnings": []
+    },
+    "price-greater-than-mrp.csv": {
+      "errors": [],
+      "warnings": [
+        "Selling Price: Selling price is greater than MRP"
+      ]
+    },
+    "invalid-stock.csv": {
+      "errors": [
+        "Quantity: Invalid stock quantity"
+      ],
+      "warnings": []
+    },
+    "invalid-media-url.csv": {
+      "errors": [],
+      "warnings": [
+        "Image: Invalid image URL: not-a-url"
+      ]
+    },
+    "xss-description.csv": {
+      "errors": [
+        "Description: Description contains unsafe script content"
+      ],
+      "warnings": []
+    },
+    "blank-important-fields.csv": {
+      "errors": [
+        "Name: Missing product name",
+        "Selling Price: Invalid selling price"
+      ],
+      "warnings": [
+        "Size: Variant size is missing"
+      ]
+    }
+  },
+  "security": {
+    "pathTraversalFilename": "evil.csv",
+    "csvInjectionNeutralized": true
+  },
+  "performance": {
+    "large2500": {
+      "uploadMs": 261,
+      "dryRunMs": 238,
+      "rows": 2500,
+      "groups": 500
+    }
+  },
+  "export": {
+    "filename": "cruisin_catalogue_2026-07-02_10-20.csv",
+    "rowCount": 292,
+    "productCount": 57,
+    "exportId": "6a463b8274df41deaba24375",
+    "reimportDryRun": {
+      "rowCount": 292,
+      "productGroupCount": 57,
+      "productsToCreate": 0,
+      "productsToUpdate": 57,
+      "variantsToCreate": 0,
+      "variantsToUpdate": 292,
+      "categoriesToReview": [
+        "bottoms -> Men > Clothing > Cargos",
+        "tops -> Men > Clothing > T-Shirts",
+        "bottoms -> Men > Clothing > Track Pants & Joggers",
+        "tops -> Men > Clothing",
+        "outerwear -> Men > Clothing",
+        "bottoms -> Men > Clothing > Shorts",
+        "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+        "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+        "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+        "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+        "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+        "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+        "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+        "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+        "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+        "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+        "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+      ],
+      "collectionsToCreate": [
+        "black-transit",
+        "racing-club",
+        "winter-collection",
+        "quiet-uniform",
+        "latest-drop",
+        "signature-series",
+        "street-gym-hybrid"
+      ]
+    }
+  },
+  "idempotency": {
+    "secondImport": {
+      "createdProducts": 0,
+      "updatedProducts": 44,
+      "createdVariants": 0,
+      "updatedVariants": 235,
+      "createdCategories": 0,
+      "createdCollections": 0,
+      "failedRows": 0,
+      "warningsCount": 0,
+      "results": [
+        {
+          "productCode": "Crusiin106 - Dark Grey",
+          "productId": "6a463b6074df41deaba234f4",
+          "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Olive",
+          "productId": "6a463b6074df41deaba23500",
+          "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Black",
+          "productId": "6a463b6074df41deaba2350c",
+          "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin106 - Light Grey",
+          "productId": "6a463b6074df41deaba23518",
+          "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - White",
+          "productId": "6a463b6074df41deaba23526",
+          "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin105 - Light Grey",
+          "productId": "6a463b6074df41deaba23532",
+          "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin128",
+          "productId": "6a463b6074df41deaba2353d",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin118",
+          "productId": "6a463b6074df41deaba2354e",
+          "title": "The Signature lightweight Box-Fit Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue -Combo",
+          "productId": "6a463b6074df41deaba2355e",
+          "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Musturd",
+          "productId": "6a463b6074df41deaba2356a",
+          "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow",
+          "productId": "6a463b6074df41deaba23576",
+          "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Olive",
+          "productId": "6a463b6074df41deaba23582",
+          "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Red",
+          "productId": "6a463b6074df41deaba2358e",
+          "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin120",
+          "productId": "6a463b6074df41deaba23599",
+          "title": "Compression T-Shirt",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Light Grey",
+          "productId": "6a463b6074df41deaba235a6",
+          "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin102 - Electric Blue",
+          "productId": "6a463b6074df41deaba235b2",
+          "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Light Grey",
+          "productId": "6a463b6074df41deaba235be",
+          "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd -Combo",
+          "productId": "6a463b6074df41deaba235ca",
+          "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin 115",
+          "productId": "6a463b6074df41deaba235d8",
+          "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Dark Grey",
+          "productId": "6a463b6074df41deaba235e4",
+          "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin123",
+          "productId": "6a463b6074df41deaba235ef",
+          "title": "The Cruiseway All-Day Cotton Pant",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin122",
+          "productId": "6a463b6074df41deaba23606",
+          "title": "Signature Stealth Wide-Leg Track Pants",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Musturd",
+          "productId": "6a463b6074df41deaba23614",
+          "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Dark Grey",
+          "productId": "6a463b6074df41deaba23620",
+          "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Olive",
+          "productId": "6a463b6074df41deaba2362c",
+          "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Yellow -Combo",
+          "productId": "6a463b6074df41deaba23638",
+          "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - White",
+          "productId": "6a463b6074df41deaba23644",
+          "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 111",
+          "productId": "6a463b6074df41deaba23650",
+          "title": "The \"Stress Less\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin117",
+          "productId": "6a463b6074df41deaba2365c",
+          "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 110",
+          "productId": "6a463b6074df41deaba23668",
+          "title": "Make Dreams Happen Oversized Tee - Vintage White",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin100 - Black",
+          "productId": "6a463b6074df41deaba23674",
+          "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Black",
+          "productId": "6a463b6074df41deaba23680",
+          "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Dark Grey",
+          "productId": "6a463b6074df41deaba2368c",
+          "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Black",
+          "productId": "6a463b6074df41deaba23698",
+          "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 113",
+          "productId": "6a463b6074df41deaba236a4",
+          "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin114",
+          "productId": "6a463b6074df41deaba236b0",
+          "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin116",
+          "productId": "6a463b6074df41deaba236be",
+          "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+          "status": "updated"
+        },
+        {
+          "productCode": "Cruisin130",
+          "productId": "6a463b6074df41deaba236ca",
+          "title": "Cruisin 5'' running shorts",
+          "status": "updated"
+        },
+        {
+          "productCode": "CRUISIN 112",
+          "productId": "6a463b6074df41deaba236d7",
+          "title": "The \"Invincible\" Oversized Graphic Tee",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Electric Blue",
+          "productId": "6a463b6074df41deaba236e3",
+          "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin101 - Red",
+          "productId": "6a463b6074df41deaba236ef",
+          "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Musturd",
+          "productId": "6a463b6074df41deaba236fb",
+          "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin103 - Light Grey",
+          "productId": "6a463b6074df41deaba23707",
+          "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+          "status": "updated"
+        },
+        {
+          "productCode": "Crusiin107 - Dark Grey",
+          "productId": "6a463b6074df41deaba23715",
+          "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+          "status": "updated"
+        }
+      ],
+      "summary": {
+        "rowCount": 235,
+        "productGroupCount": 44,
+        "productsToCreate": 0,
+        "productsToUpdate": 44,
+        "variantsToCreate": 0,
+        "variantsToUpdate": 235,
+        "categoriesToReview": [
+          "mens_clothing__mens_western_wear__track_pants_joggers -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_inner_wear_night_wear__shorts -> Men > Clothing > Shorts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing",
+          "mens_clothing__mens_western_wear__pants -> Men > Clothing > Pants",
+          "mens_accessories__mens_other_accessories__apparel_accesories -> Men > Accessories",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > T-Shirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Track Pants & Joggers",
+          "mens_clothing__mens_western_wear__t_shirt -> Men > Clothing > T-Shirts",
+          "mens_clothing__mens_western_wear__sweaters_sweatshirt -> Men > Clothing > Sweatshirts",
+          "others_69313f0020f904d4535128a3__others__puja_articles -> Men > Clothing > Shorts",
+          "mens_clothing__mens_western_wear__cargos -> Men > Clothing > Cargos"
+        ],
+        "collectionsToCreate": [
+          "Signature Series",
+          "Street-Gym Hybrid"
+        ],
+        "results": [
+          {
+            "productCode": "Crusiin106 - Dark Grey",
+            "productId": "6a463b6074df41deaba234f4",
+            "title": "Dark Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Olive",
+            "productId": "6a463b6074df41deaba23500",
+            "title": "Olive Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Black",
+            "productId": "6a463b6074df41deaba2350c",
+            "title": "Black Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin106 - Light Grey",
+            "productId": "6a463b6074df41deaba23518",
+            "title": "Light Grey Polyester Slim Tapered Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - White",
+            "productId": "6a463b6074df41deaba23526",
+            "title": "White Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin105 - Light Grey",
+            "productId": "6a463b6074df41deaba23532",
+            "title": "Light Grey Woven Tapered Jogger Fit Bottomwear Joggers For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin128",
+            "productId": "6a463b6074df41deaba2353d",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin118",
+            "productId": "6a463b6074df41deaba2354e",
+            "title": "The Signature lightweight Box-Fit Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue -Combo",
+            "productId": "6a463b6074df41deaba2355e",
+            "title": "Blue & Red Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Musturd",
+            "productId": "6a463b6074df41deaba2356a",
+            "title": "Beige Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow",
+            "productId": "6a463b6074df41deaba23576",
+            "title": "Yellow Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Olive",
+            "productId": "6a463b6074df41deaba23582",
+            "title": "Olive Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Red",
+            "productId": "6a463b6074df41deaba2358e",
+            "title": "Red Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin120",
+            "productId": "6a463b6074df41deaba23599",
+            "title": "Compression T-Shirt",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Light Grey",
+            "productId": "6a463b6074df41deaba235a6",
+            "title": "Light Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin102 - Electric Blue",
+            "productId": "6a463b6074df41deaba235b2",
+            "title": "Electric Blue Terry Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Light Grey",
+            "productId": "6a463b6074df41deaba235be",
+            "title": "Light Grey Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd -Combo",
+            "productId": "6a463b6074df41deaba235ca",
+            "title": "Mustard & Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin 115",
+            "productId": "6a463b6074df41deaba235d8",
+            "title": "The \"Believe\" Oversized Graphic Tee ? Black",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Dark Grey",
+            "productId": "6a463b6074df41deaba235e4",
+            "title": "Dark Grey Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin123",
+            "productId": "6a463b6074df41deaba235ef",
+            "title": "The Cruiseway All-Day Cotton Pant",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin122",
+            "productId": "6a463b6074df41deaba23606",
+            "title": "Signature Stealth Wide-Leg Track Pants",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Musturd",
+            "productId": "6a463b6074df41deaba23614",
+            "title": "Mustard Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Dark Grey",
+            "productId": "6a463b6074df41deaba23620",
+            "title": "Dark Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Olive",
+            "productId": "6a463b6074df41deaba2362c",
+            "title": "Blue Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Yellow -Combo",
+            "productId": "6a463b6074df41deaba23638",
+            "title": "Yellow & Grey Polyester Athletic Fit Activewear Shorts For Men ( Pack of 2 )",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - White",
+            "productId": "6a463b6074df41deaba23644",
+            "title": "White Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 111",
+            "productId": "6a463b6074df41deaba23650",
+            "title": "The \"Stress Less\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin117",
+            "productId": "6a463b6074df41deaba2365c",
+            "title": "The CRUISIN Signature Wide-Leg Sweatpant ? Off-White",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 110",
+            "productId": "6a463b6074df41deaba23668",
+            "title": "Make Dreams Happen Oversized Tee - Vintage White",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin100 - Black",
+            "productId": "6a463b6074df41deaba23674",
+            "title": "Black Ribstop Modern Fit Bottomwear Track Pants For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Black",
+            "productId": "6a463b6074df41deaba23680",
+            "title": "Black Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Dark Grey",
+            "productId": "6a463b6074df41deaba2368c",
+            "title": "Dark Gray Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Black",
+            "productId": "6a463b6074df41deaba23698",
+            "title": "Black Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 113",
+            "productId": "6a463b6074df41deaba236a4",
+            "title": "The CRUISIN \"Thrust Trap\" Oversized Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin114",
+            "productId": "6a463b6074df41deaba236b0",
+            "title": "The \"Cruisin\" Heavyweight Oversized Tee ? Coffee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin116",
+            "productId": "6a463b6074df41deaba236be",
+            "title": "CRUISIN \"Not Ordinary\" Heavyweight T-Shirt ? Cream",
+            "status": "updated"
+          },
+          {
+            "productCode": "Cruisin130",
+            "productId": "6a463b6074df41deaba236ca",
+            "title": "Cruisin 5'' running shorts",
+            "status": "updated"
+          },
+          {
+            "productCode": "CRUISIN 112",
+            "productId": "6a463b6074df41deaba236d7",
+            "title": "The \"Invincible\" Oversized Graphic Tee",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Electric Blue",
+            "productId": "6a463b6074df41deaba236e3",
+            "title": "Electric Blue Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin101 - Red",
+            "productId": "6a463b6074df41deaba236ef",
+            "title": "Red Ribstop Relaxed Athletic Fit Bottomwear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Musturd",
+            "productId": "6a463b6074df41deaba236fb",
+            "title": "Beige Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin103 - Light Grey",
+            "productId": "6a463b6074df41deaba23707",
+            "title": "Light Grey Polyester Athletic Fit Activewear Shorts For Men",
+            "status": "updated"
+          },
+          {
+            "productCode": "Crusiin107 - Dark Grey",
+            "productId": "6a463b6074df41deaba23715",
+            "title": "Dark Grey Nylon Regular Straight Fit Bottomwear Cargo Pants For Men",
+            "status": "updated"
+          }
+        ]
+      }
+    },
+    "before": {
+      "products": 57,
+      "variants": 292
+    },
+    "after": {
+      "products": 57,
+      "variants": 292
+    }
+  },
+  "settings": {
+    "staleAfterProductUpdate": true,
+    "staleAfterRegenerate": false
+  },
+  "storefrontPrivacy": {
+    "sampleSlug": "dark-grey-polyester-slim-tapered-fit-bottomwear-joggers-for-men-crusiin106-dark-grey",
+    "costPriceHidden": true,
+    "rawImportHidden": true
+  },
+  "completedAt": "2026-07-02T10:20:50.925Z"
+}

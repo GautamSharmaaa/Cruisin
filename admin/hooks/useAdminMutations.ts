@@ -26,8 +26,21 @@ export interface AdminProductInput {
   shippingReturns?: string;
   sizeGuide?: string;
   productHighlights?: string;
+  pickupAddress?: string;
+  lowStockThreshold?: number;
+  weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
   basePrice: number;
   comparePrice?: number;
+  costPrice?: number;
+  gstPercent?: number;
+  hsnCode?: string;
+  productCode?: string;
   sku: string;
   size: string;
   color: string;
@@ -95,6 +108,8 @@ export interface AdminCouponInput {
   maxDiscount?: number;
   usageLimit?: number;
   userUsageLimit: number;
+  applicableProducts?: string;
+  applicableCategories?: string;
   validFrom: string;
   validUntil: string;
 }
@@ -169,6 +184,10 @@ const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
   imageAltText: input.imageAltText ?? '',
   basePrice: input.basePrice,
   comparePrice: input.comparePrice,
+  costPrice: input.costPrice,
+  gstPercent: input.gstPercent,
+  hsnCode: input.hsnCode ?? '',
+  productCode: input.productCode ?? '',
   variants: [{ size: input.size, color: input.color, colorHex: input.colorHex, sku: input.sku, price: input.basePrice, stock: input.stock, images: [{ url: input.image, alt: input.imageAltText || input.title, width: 1200, height: 1600 }] }],
   tags: listFromCsv(input.tags),
   gender: input.gender ?? 'unisex',
@@ -185,7 +204,11 @@ const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
   shippingReturns: input.shippingReturns ?? '',
   sizeGuide: input.sizeGuide ?? '',
   productHighlights: listFromCsv(input.productHighlights),
-  seo: { metaTitle: input.title, metaDesc: input.description, ogImage: input.image }
+  pickupAddress: input.pickupAddress ?? '',
+  lowStockThreshold: input.lowStockThreshold ?? 10,
+  weight: input.weight,
+  dimensions: { length: input.length, width: input.width, height: input.height },
+  seo: { metaTitle: input.seoTitle || input.title, metaDesc: input.seoDescription || input.description, ogImage: input.ogImage || input.image }
 });
 
 export const useCreateProduct = () => {
@@ -306,7 +329,7 @@ export const useCreateCoupon = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: AdminCouponInput): Promise<void> => {
-      await api.post('/admin/coupons', { ...input, applicableProducts: [], applicableCategories: [], isActive: true });
+      await api.post('/admin/coupons', { ...input, applicableProducts: listFromCsv(input.applicableProducts), applicableCategories: listFromCsv(input.applicableCategories), isActive: true });
     },
     onSuccess: async (): Promise<void> => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] });

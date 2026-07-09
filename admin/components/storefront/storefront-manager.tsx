@@ -7,10 +7,10 @@ import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import { EmptyPanel } from '@/components/dashboard/empty-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAdminCollections, useAdminNavigation, useAdminPageSettings, useAdminSiteSettings, useAdminTags } from '@/hooks/useAdminResources';
+import { useAdminCategories, useAdminCollections, useAdminNavigation, useAdminPageSettings, useAdminProducts, useAdminSiteSettings, useAdminTags } from '@/hooks/useAdminResources';
 import { api } from '@/lib/api';
 import { slugify } from '@/lib/utils';
-import type { CollectionDto, MegaMenuCollectionCardDto, MegaMenuColumnDto, MegaMenuLinkDto, MegaMenuPromoDto, NavigationItemDto, PageSettingsDto, TagDto } from '@/types/dto.types';
+import type { CategoryDto, CollectionDto, MegaMenuCollectionCardDto, MegaMenuColumnDto, MegaMenuLinkDto, MegaMenuPromoDto, NavigationItemDto, PageSettingsDto, ProductDto, SiteSettingsDto, TagDto } from '@/types/dto.types';
 
 type Tab = 'navigation' | 'mega-menu' | 'collections' | 'filters' | 'pages' | 'settings';
 type Toast = { tone: 'success' | 'error'; message: string } | null;
@@ -42,6 +42,8 @@ export function StorefrontManager(): ReactNode {
   const queryClient = useQueryClient();
   const navigation = useAdminNavigation();
   const collections = useAdminCollections();
+  const products = useAdminProducts({ limit: 100, status: 'visible' });
+  const categories = useAdminCategories();
   const tags = useAdminTags();
   const pages = useAdminPageSettings();
   const site = useAdminSiteSettings();
@@ -55,6 +57,7 @@ export function StorefrontManager(): ReactNode {
   const [editingCollection, setEditingCollection] = useState<CollectionDto | null>(null);
   const [editingTag, setEditingTag] = useState<TagDto | null>(null);
   const [editingPage, setEditingPage] = useState<PageSettingsDto | null>(null);
+  const [pendingVisibility, setPendingVisibility] = useState<string | null>(null);
   const [navForm, setNavForm] = useState(navDefaults);
   const [columnForm, setColumnForm] = useState(columnDefaults);
   const [linkForm, setLinkForm] = useState(linkDefaults);
@@ -89,6 +92,12 @@ export function StorefrontManager(): ReactNode {
     } catch (error) {
       setToast({ tone: 'error', message: error instanceof Error ? error.message : 'Save failed' });
     }
+  };
+
+  const toggleVisibility = (key: string, task: () => Promise<void>, message: string): void => {
+    if (pendingVisibility === key) return;
+    setPendingVisibility(key);
+    void run(task, message).finally(() => setPendingVisibility(null));
   };
 
   const editNav = (item: NavigationItemDto): void => {
@@ -234,7 +243,8 @@ export function StorefrontManager(): ReactNode {
 
   const saveSite = (patch: Record<string, unknown>): void => {
     void run(async () => {
-      await api.put('/admin/site-settings', { ...site.data, ...patch });
+      const response = await api.put<{ data: SiteSettingsDto }>('/admin/site-settings', { ...site.data, ...patch });
+      queryClient.setQueryData(['admin', 'site-settings'], response.data.data);
     }, 'Site settings saved.');
   };
 
@@ -250,11 +260,11 @@ export function StorefrontManager(): ReactNode {
         ['settings', 'Settings', Settings]
       ].map(([key, label, Icon]) => <button key={String(key)} type="button" onClick={() => setTab(key as Tab)} className={(tab === key ? 'border-accent-gold text-accent-gold' : 'border-transparent text-text-secondary hover:text-text-primary') + ' inline-flex h-11 shrink-0 items-center gap-2 border px-3 text-xs uppercase tracking-[0.12em] transition'}><Icon size={15} />{String(label)}</button>)}
     </div>
-    {tab === 'navigation' ? <NavigationPanel navItems={navItems} form={navForm} setForm={setNavForm} editing={editingNav} onCancel={() => { setEditingNav(null); setNavForm(navDefaults); }} onEdit={editNav} onSubmit={saveNav} onDelete={(item) => void run(async () => { await api.delete('/admin/navigation/' + idOf(item)); }, 'Navigation deleted.')} /> : null}
-    {tab === 'mega-menu' ? <MegaMenuPanel navItems={navItems} selectedNav={selectedNav} selectedNavId={idOf(selectedNav ?? {})} setSelectedNavId={setSelectedNavId} columns={columns} collectionCards={collectionCards} collections={collections.data ?? []} columnForm={columnForm} setColumnForm={setColumnForm} editingColumn={editingColumn} onCancelColumn={() => { setEditingColumn(null); setColumnForm({ ...columnDefaults, navItemId: idOf(selectedNav ?? {}) }); }} onEditColumn={editColumn} linkForm={linkForm} setLinkForm={setLinkForm} editingLink={editingLink} onCancelLink={() => { setEditingLink(null); setLinkForm({ ...linkDefaults, columnId: idOf(columns[0] ?? {}) }); }} onEditLink={editLink} cardForm={cardForm} setCardForm={setCardForm} editingCard={editingCard} onCancelCard={() => { setEditingCard(null); setCardForm({ ...cardDefaults, navItemId: idOf(selectedNav ?? {}) }); }} onEditCard={editCard} onCardSubmit={saveCard} promoForm={promoForm} setPromoForm={setPromoForm} editingPromo={editingPromo} onEditPromo={editPromo} onPromoSubmit={savePromo} onColumnSubmit={saveColumn} onLinkSubmit={saveLink} onDeleteColumn={(column) => void run(async () => { await api.delete('/admin/mega-menu/columns/' + idOf(column)); }, 'Column deleted.')} onDeleteLink={(link) => void run(async () => { await api.delete('/admin/mega-menu/links/' + idOf(link)); }, 'Link deleted.')} onDeleteCard={(card) => void run(async () => { await api.delete('/admin/mega-menu/collection-cards/' + idOf(card)); }, 'Collection card deleted.')} onDeletePromo={(promo) => void run(async () => { await api.delete('/admin/mega-menu/promos/' + idOf(promo)); }, 'Promo deleted.')} /> : null}
-    {tab === 'collections' ? <CollectionsPanel collections={collections.data ?? []} form={collectionForm} setForm={setCollectionForm} editing={editingCollection} onCancel={() => { setEditingCollection(null); setCollectionForm(collectionDefaults); }} onEdit={editCollection} onSubmit={saveCollection} onDelete={(collection) => void run(async () => { await api.delete('/admin/collections/' + idOf(collection)); }, 'Collection hidden.')} /> : null}
-    {tab === 'filters' ? <TagsPanel tags={tags.data ?? []} form={tagForm} setForm={setTagForm} editing={editingTag} onCancel={() => { setEditingTag(null); setTagForm(tagDefaults); }} onEdit={editTag} onSubmit={saveTag} onDelete={(tag) => void run(async () => { await api.delete('/admin/tags/' + idOf(tag)); }, 'Filter chip hidden.')} /> : null}
-    {tab === 'pages' ? <PagesPanel pages={pages.data ?? []} form={pageForm} setForm={setPageForm} editing={editingPage} onCancel={() => { setEditingPage(null); setPageForm(pageDefaults); }} onEdit={editPage} onSubmit={savePage} /> : null}
+    {tab === 'navigation' ? <NavigationPanel navItems={navItems} form={navForm} setForm={setNavForm} editing={editingNav} pendingVisibility={pendingVisibility} onCancel={() => { setEditingNav(null); setNavForm(navDefaults); }} onEdit={editNav} onSubmit={saveNav} onDelete={(item) => void run(async () => { await api.delete('/admin/navigation/' + idOf(item)); }, 'Navigation deleted.')} onToggleVisibility={(item) => toggleVisibility('navigation:' + idOf(item), async () => { await api.put('/admin/navigation/' + idOf(item), { isVisible: !item.isVisible }); }, item.isVisible ? 'Navigation hidden.' : 'Navigation shown.')} /> : null}
+    {tab === 'mega-menu' ? <MegaMenuPanel navItems={navItems} selectedNav={selectedNav} selectedNavId={idOf(selectedNav ?? {})} setSelectedNavId={setSelectedNavId} columns={columns} collectionCards={collectionCards} collections={collections.data ?? []} columnForm={columnForm} setColumnForm={setColumnForm} editingColumn={editingColumn} pendingVisibility={pendingVisibility} onCancelColumn={() => { setEditingColumn(null); setColumnForm({ ...columnDefaults, navItemId: idOf(selectedNav ?? {}) }); }} onEditColumn={editColumn} linkForm={linkForm} setLinkForm={setLinkForm} editingLink={editingLink} onCancelLink={() => { setEditingLink(null); setLinkForm({ ...linkDefaults, columnId: idOf(columns[0] ?? {}) }); }} onEditLink={editLink} cardForm={cardForm} setCardForm={setCardForm} editingCard={editingCard} onCancelCard={() => { setEditingCard(null); setCardForm({ ...cardDefaults, navItemId: idOf(selectedNav ?? {}) }); }} onEditCard={editCard} onCardSubmit={saveCard} promoForm={promoForm} setPromoForm={setPromoForm} editingPromo={editingPromo} onEditPromo={editPromo} onPromoSubmit={savePromo} onColumnSubmit={saveColumn} onLinkSubmit={saveLink} onDeleteColumn={(column) => void run(async () => { await api.delete('/admin/mega-menu/columns/' + idOf(column)); }, 'Column deleted.')} onDeleteLink={(link) => void run(async () => { await api.delete('/admin/mega-menu/links/' + idOf(link)); }, 'Link deleted.')} onDeleteCard={(card) => void run(async () => { await api.delete('/admin/mega-menu/collection-cards/' + idOf(card)); }, 'Collection card deleted.')} onDeletePromo={(promo) => void run(async () => { await api.delete('/admin/mega-menu/promos/' + idOf(promo)); }, 'Promo deleted.')} onToggleColumnVisibility={(column) => toggleVisibility('mega-column:' + idOf(column), async () => { await api.put('/admin/mega-menu/columns/' + idOf(column), { isVisible: !column.isVisible }); }, column.isVisible ? 'Column hidden.' : 'Column shown.')} onToggleLinkVisibility={(link) => toggleVisibility('mega-link:' + idOf(link), async () => { await api.put('/admin/mega-menu/links/' + idOf(link), { isVisible: !link.isVisible }); }, link.isVisible ? 'Menu link hidden.' : 'Menu link shown.')} onToggleCardVisibility={(card) => toggleVisibility('mega-card:' + idOf(card), async () => { await api.put('/admin/mega-menu/collection-cards/' + idOf(card), { isVisible: !card.isVisible }); }, card.isVisible ? 'Collection card hidden.' : 'Collection card shown.')} onTogglePromoVisibility={(promo) => toggleVisibility('mega-promo:' + idOf(promo), async () => { await api.put('/admin/mega-menu/promos/' + idOf(promo), { isVisible: !promo.isVisible }); }, promo.isVisible ? 'Promo hidden.' : 'Promo shown.')} /> : null}
+    {tab === 'collections' ? <CollectionsPanel collections={collections.data ?? []} productOptions={products.data?.items ?? []} categoryOptions={categories.data ?? []} form={collectionForm} setForm={setCollectionForm} editing={editingCollection} pendingVisibility={pendingVisibility} onCancel={() => { setEditingCollection(null); setCollectionForm(collectionDefaults); }} onEdit={editCollection} onSubmit={saveCollection} onDelete={(collection) => void run(async () => { await api.delete('/admin/collections/' + idOf(collection)); }, 'Collection hidden.')} onToggleVisibility={(collection) => toggleVisibility('collection:' + idOf(collection), async () => { await api.put('/admin/collections/' + idOf(collection), { isVisible: !collection.isVisible }); }, collection.isVisible ? 'Collection hidden.' : 'Collection shown.')} /> : null}
+    {tab === 'filters' ? <TagsPanel tags={tags.data ?? []} form={tagForm} setForm={setTagForm} editing={editingTag} pendingVisibility={pendingVisibility} onCancel={() => { setEditingTag(null); setTagForm(tagDefaults); }} onEdit={editTag} onSubmit={saveTag} onDelete={(tag) => void run(async () => { await api.delete('/admin/tags/' + idOf(tag)); }, 'Filter chip hidden.')} onToggleVisibility={(tag) => toggleVisibility('tag:' + idOf(tag), async () => { await api.put('/admin/tags/' + idOf(tag), { isVisible: !tag.isVisible }); }, tag.isVisible ? 'Filter chip hidden.' : 'Filter chip shown.')} /> : null}
+    {tab === 'pages' ? <PagesPanel pages={pages.data ?? []} form={pageForm} setForm={setPageForm} editing={editingPage} pendingVisibility={pendingVisibility} onCancel={() => { setEditingPage(null); setPageForm(pageDefaults); }} onEdit={editPage} onSubmit={savePage} onToggleVisibility={(page) => toggleVisibility('page:' + idOf(page), async () => { await api.put('/admin/page-settings/' + idOf(page), { isPublished: !(page.isPublished ?? true) }); }, (page.isPublished ?? true) ? 'Page hidden.' : 'Page shown.')} /> : null}
     {tab === 'settings' ? <SettingsPanel site={site.data} onSave={saveSite} /> : null}
   </section>;
 }
@@ -271,7 +281,17 @@ function Select({ label, value, onChange, children }: { label: string; value: st
   return <label className="grid gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 border border-border bg-background-input px-3 text-sm normal-case text-text-primary">{children}</select></label>;
 }
 
-function NavigationPanel({ navItems, form, setForm, editing, onCancel, onEdit, onSubmit, onDelete }: { navItems: NavigationItemDto[]; form: typeof navDefaults; setForm: (form: typeof navDefaults) => void; editing: NavigationItemDto | null; onCancel: () => void; onEdit: (item: NavigationItemDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (item: NavigationItemDto) => void }): ReactNode {
+function VisibilityButton({ active, pending, onClick, label }: { active?: boolean; pending?: boolean; onClick: () => void; label: string }): ReactNode {
+  const actionLabel = pending ? 'Updating visibility' : label;
+  const handleAction = (): void => {
+    if (!pending) onClick();
+  };
+  return <button type="button" aria-label={actionLabel} title={actionLabel} disabled={pending} onClick={handleAction} onTouchEnd={(event) => { event.preventDefault(); handleAction(); }} className={(pending ? 'animate-pulse opacity-70' : '') + ' grid h-10 w-10 touch-manipulation place-items-center border border-border text-text-secondary transition hover:border-accent-gold hover:text-accent-gold disabled:cursor-wait disabled:hover:border-border disabled:hover:text-text-secondary'}>{active ? <EyeOff size={15} /> : <Eye size={15} />}</button>;
+}
+
+const namedAction = (action: string, name: string): string => action + ' ' + name;
+
+function NavigationPanel({ navItems, form, setForm, editing, pendingVisibility, onCancel, onEdit, onSubmit, onDelete, onToggleVisibility }: { navItems: NavigationItemDto[]; form: typeof navDefaults; setForm: (form: typeof navDefaults) => void; editing: NavigationItemDto | null; pendingVisibility: string | null; onCancel: () => void; onEdit: (item: NavigationItemDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (item: NavigationItemDto) => void; onToggleVisibility: (item: NavigationItemDto) => void }): ReactNode {
   return <Panel title="Header Navigation Manager" body="Create, hide, reorder, and route the primary storefront navigation. Mega-menu content is built in the next tab.">
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3">
       <Input label="Label" value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value, slug: form.slug || slugify(event.target.value) })} />
@@ -283,7 +303,7 @@ function NavigationPanel({ navItems, form, setForm, editing, onCancel, onEdit, o
       <div className="grid gap-2"><Toggle label="Visible" value={form.isVisible} onChange={(value) => setForm({ ...form, isVisible: value })} /><Toggle label="Mega menu" value={form.isMegaMenuEnabled} onChange={(value) => setForm({ ...form, isMegaMenuEnabled: value })} /><Toggle label="Default active" value={form.isDefaultActive} onChange={(value) => setForm({ ...form, isDefaultActive: value })} /></div>
       <div className="flex gap-3 md:col-span-3"><Button type="submit"><Save size={15} />{editing ? 'Save Navigation' : 'Add Navigation'}</Button>{editing ? <Button type="button" variant="secondary" onClick={onCancel}><X size={15} />Cancel</Button> : null}</div>
     </form>
-    {navItems.length === 0 ? <EmptyPanel title="No navigation" message="Create the first header item to begin." /> : <Rows items={navItems.map((item) => ({ id: idOf(item), title: item.label, meta: item.href, active: item.isVisible, onEdit: () => onEdit(item), onDelete: () => onDelete(item) }))} />}
+    {navItems.length === 0 ? <EmptyPanel title="No navigation" message="Create the first header item to begin." /> : <Rows items={navItems.map((item) => ({ id: idOf(item), title: item.label, meta: item.href, active: item.isVisible, pendingVisibility: pendingVisibility === 'navigation:' + idOf(item), onToggleVisibility: () => onToggleVisibility(item), onEdit: () => onEdit(item), onDelete: () => onDelete(item) }))} />}
   </Panel>;
 }
 
@@ -298,6 +318,7 @@ function MegaMenuPanel({
   columnForm,
   setColumnForm,
   editingColumn,
+  pendingVisibility,
   onCancelColumn,
   onEditColumn,
   linkForm,
@@ -321,7 +342,11 @@ function MegaMenuPanel({
   onDeleteColumn,
   onDeleteLink,
   onDeleteCard,
-  onDeletePromo
+  onDeletePromo,
+  onToggleColumnVisibility,
+  onToggleLinkVisibility,
+  onToggleCardVisibility,
+  onTogglePromoVisibility
 }: {
   navItems: NavigationItemDto[];
   selectedNav?: NavigationItemDto;
@@ -333,6 +358,7 @@ function MegaMenuPanel({
   columnForm: typeof columnDefaults;
   setColumnForm: (form: typeof columnDefaults) => void;
   editingColumn: MegaMenuColumnDto | null;
+  pendingVisibility: string | null;
   onCancelColumn: () => void;
   onEditColumn: (column: MegaMenuColumnDto) => void;
   linkForm: typeof linkDefaults;
@@ -357,6 +383,10 @@ function MegaMenuPanel({
   onDeleteLink: (link: MegaMenuLinkDto) => void;
   onDeleteCard: (card: MegaMenuCollectionCardDto) => void;
   onDeletePromo: (promo: MegaMenuPromoDto) => void;
+  onToggleColumnVisibility: (column: MegaMenuColumnDto) => void;
+  onToggleLinkVisibility: (link: MegaMenuLinkDto) => void;
+  onToggleCardVisibility: (card: MegaMenuCollectionCardDto) => void;
+  onTogglePromoVisibility: (promo: MegaMenuPromoDto) => void;
 }): ReactNode {
   const firstColumnId = idOf(columns[0] ?? {});
   const linkColumnValue = linkForm.columnId || firstColumnId;
@@ -401,8 +431,9 @@ function MegaMenuPanel({
             <p className="mt-1 text-xs uppercase tracking-[0.12em] text-text-muted">{column.isVisible ? 'Visible' : 'Hidden'} - {column.links.length} links</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" aria-label="Edit column" onClick={() => onEditColumn(column)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={14} /></button>
-            <button type="button" aria-label="Delete column" onClick={() => onDeleteColumn(column)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={14} /></button>
+            <VisibilityButton active={column.isVisible} pending={pendingVisibility === 'mega-column:' + idOf(column)} label={column.isVisible ? namedAction('Hide', column.title) : namedAction('Show', column.title)} onClick={() => onToggleColumnVisibility(column)} />
+            <button type="button" aria-label={namedAction('Edit', column.title)} onClick={() => onEditColumn(column)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={14} /></button>
+            <button type="button" aria-label={namedAction('Delete', column.title)} onClick={() => onDeleteColumn(column)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={14} /></button>
           </div>
         </div>
         <div className="mt-4 grid gap-2">
@@ -413,8 +444,9 @@ function MegaMenuPanel({
                 <p className="truncate text-xs text-text-muted">{link.href}</p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <button type="button" aria-label="Edit link" onClick={() => onEditLink(link)} className="text-text-muted hover:text-accent-gold"><Pencil size={14} /></button>
-                <button type="button" aria-label="Delete link" onClick={() => onDeleteLink(link)} className="text-text-muted hover:text-danger"><Trash2 size={14} /></button>
+                <VisibilityButton active={link.isVisible} pending={pendingVisibility === 'mega-link:' + idOf(link)} label={link.isVisible ? namedAction('Hide', link.label) : namedAction('Show', link.label)} onClick={() => onToggleLinkVisibility(link)} />
+                <button type="button" aria-label={namedAction('Edit', link.label)} onClick={() => onEditLink(link)} className="text-text-muted hover:text-accent-gold"><Pencil size={14} /></button>
+                <button type="button" aria-label={namedAction('Delete', link.label)} onClick={() => onDeleteLink(link)} className="text-text-muted hover:text-danger"><Trash2 size={14} /></button>
               </div>
             </div>
             <p className="text-xs uppercase tracking-[0.12em] text-text-muted">{link.isVisible ? 'Visible' : 'Hidden'}{link.isHighlighted ? ' - Highlighted' : ''}</p>
@@ -456,6 +488,7 @@ function MegaMenuPanel({
         <div className="grid gap-2 sm:grid-cols-3"><Toggle label="Visible" value={promoForm.isVisible} onChange={(value) => setPromoForm({ ...promoForm, isVisible: value, navItemId: promoForm.navItemId || selectedNavId })} /><Toggle label="Desktop" value={promoForm.showOnDesktop} onChange={(value) => setPromoForm({ ...promoForm, showOnDesktop: value, navItemId: promoForm.navItemId || selectedNavId })} /><Toggle label="Mobile" value={promoForm.showOnMobile} onChange={(value) => setPromoForm({ ...promoForm, showOnMobile: value, navItemId: promoForm.navItemId || selectedNavId })} /></div>
         <div className="flex gap-3">
           <Button type="submit"><Save size={15} />Save Promo</Button>
+          {selectedNav?.promo ? <VisibilityButton active={selectedNav.promo.isVisible} pending={pendingVisibility === 'mega-promo:' + idOf(selectedNav.promo)} label={selectedNav.promo.isVisible ? 'Hide promo' : 'Show promo'} onClick={() => onTogglePromoVisibility(selectedNav.promo as MegaMenuPromoDto)} /> : null}
           {selectedNav?.promo ? <Button type="button" variant="secondary" onClick={() => onDeletePromo(selectedNav.promo as MegaMenuPromoDto)}><Trash2 size={15} />Delete</Button> : null}
         </div>
       </form>
@@ -470,8 +503,9 @@ function MegaMenuPanel({
               <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-text-muted">{card.isVisible ? 'Visible' : 'Hidden'} - {card.slugOverride || collection?.slug || 'custom'}</p>
             </div>
             <div className="flex shrink-0 gap-2">
-              <button type="button" aria-label="Edit card" onClick={() => onEditCard(card)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={14} /></button>
-              <button type="button" aria-label="Delete card" onClick={() => onDeleteCard(card)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={14} /></button>
+              <VisibilityButton active={card.isVisible} pending={pendingVisibility === 'mega-card:' + idOf(card)} label={card.isVisible ? namedAction('Hide', card.titleOverride || collection?.title || 'collection card') : namedAction('Show', card.titleOverride || collection?.title || 'collection card')} onClick={() => onToggleCardVisibility(card)} />
+              <button type="button" aria-label={namedAction('Edit', card.titleOverride || collection?.title || 'collection card')} onClick={() => onEditCard(card)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={14} /></button>
+              <button type="button" aria-label={namedAction('Delete', card.titleOverride || collection?.title || 'collection card')} onClick={() => onDeleteCard(card)} className="grid h-9 w-9 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={14} /></button>
             </div>
           </div>
         </section>;
@@ -480,9 +514,11 @@ function MegaMenuPanel({
   </Panel>;
 }
 
-function CollectionsPanel({ collections, form, setForm, editing, onCancel, onEdit, onSubmit, onDelete }: { collections: CollectionDto[]; form: typeof collectionDefaults; setForm: (form: typeof collectionDefaults) => void; editing: CollectionDto | null; onCancel: () => void; onEdit: (collection: CollectionDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (collection: CollectionDto) => void }): ReactNode {
+function CollectionsPanel({ collections, productOptions, categoryOptions, form, setForm, editing, pendingVisibility, onCancel, onEdit, onSubmit, onDelete, onToggleVisibility }: { collections: CollectionDto[]; productOptions: ProductDto[]; categoryOptions: CategoryDto[]; form: typeof collectionDefaults; setForm: (form: typeof collectionDefaults) => void; editing: CollectionDto | null; pendingVisibility: string | null; onCancel: () => void; onEdit: (collection: CollectionDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (collection: CollectionDto) => void; onToggleVisibility: (collection: CollectionDto) => void }): ReactNode {
   return <Panel title="Collection Manager" body="Control collection cards, landing pages, SEO, and product browsing groups.">
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3">
+      <datalist id="collection-product-options">{productOptions.map((product) => <option key={idOf(product)} value={idOf(product)}>{product.title} - {product.slug}</option>)}</datalist>
+      <datalist id="collection-category-options">{categoryOptions.map((category) => <option key={idOf(category)} value={idOf(category)}>{category.name} - {category.path ?? category.slug}</option>)}</datalist>
       <Input label="Title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value, slug: form.slug || slugify(event.target.value) })} />
       <Input label="Slug" value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} />
       <Input label="Sort Order" type="number" value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: Number(event.target.value) })} />
@@ -506,8 +542,8 @@ function CollectionsPanel({ collections, form, setForm, editing, onCancel, onEdi
       <Input label="Menu Title Override" value={form.menuCardTitleOverride} onChange={(event) => setForm({ ...form, menuCardTitleOverride: event.target.value })} />
       <Input label="Menu Card Order" type="number" value={form.menuCardOrder} onChange={(event) => setForm({ ...form, menuCardOrder: Number(event.target.value) })} />
       <Input label="Tags" value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} />
-      <Input label="Product IDs" value={form.productIds} onChange={(event) => setForm({ ...form, productIds: event.target.value })} />
-      <Input label="Category IDs" value={form.categoryIds} onChange={(event) => setForm({ ...form, categoryIds: event.target.value })} />
+      <Input label="Product IDs" list="collection-product-options" placeholder="Paste IDs or choose a product, comma-separated" value={form.productIds} onChange={(event) => setForm({ ...form, productIds: event.target.value })} />
+      <Input label="Category IDs" list="collection-category-options" placeholder="Paste IDs or choose a category, comma-separated" value={form.categoryIds} onChange={(event) => setForm({ ...form, categoryIds: event.target.value })} />
       <Input label="Product Sort JSON" value={form.productSortOrder} onChange={(event) => setForm({ ...form, productSortOrder: event.target.value })} />
       <Select label="Default Sort" value={form.defaultSort} onChange={(value) => setForm({ ...form, defaultSort: value as typeof collectionDefaults.defaultSort })}>{sortOptions.map((sort) => <option key={sort} value={sort}>{sort}</option>)}</Select>
       <Select label="Default Grid" value={form.defaultGridView} onChange={(value) => setForm({ ...form, defaultGridView: Number(value) as typeof collectionDefaults.defaultGridView })}>{gridOptions.map((grid) => <option key={grid} value={grid}>{grid}-grid</option>)}</Select>
@@ -517,11 +553,11 @@ function CollectionsPanel({ collections, form, setForm, editing, onCancel, onEdi
       <div className="grid gap-2"><Toggle label="Visible" value={form.isVisible} onChange={(value) => setForm({ ...form, isVisible: value })} /><Toggle label="Published" value={form.isPublished} onChange={(value) => setForm({ ...form, isPublished: value })} /><Toggle label="Featured" value={form.isFeatured} onChange={(value) => setForm({ ...form, isFeatured: value })} /><Toggle label="Show in menu" value={form.showInMenu} onChange={(value) => setForm({ ...form, showInMenu: value })} /><Toggle label="Banner visible" value={form.isBannerVisible} onChange={(value) => setForm({ ...form, isBannerVisible: value })} /><Toggle label="Filters" value={form.areFiltersVisible} onChange={(value) => setForm({ ...form, areFiltersVisible: value })} /><Toggle label="Advanced filters" value={form.isAdvancedFilterEnabled} onChange={(value) => setForm({ ...form, isAdvancedFilterEnabled: value })} /><Toggle label="Flashlight" value={form.isFlashlightEnabled} onChange={(value) => setForm({ ...form, isFlashlightEnabled: value })} /></div>
       <div className="flex gap-3 md:col-span-3"><Button type="submit"><Save size={15} />{editing ? 'Save Collection' : 'Add Collection'}</Button>{editing ? <Button type="button" variant="secondary" onClick={onCancel}><X size={15} />Cancel</Button> : null}</div>
     </form>
-    <Rows items={collections.map((collection) => ({ id: idOf(collection), title: collection.title, meta: '/collections/' + collection.slug, active: collection.isVisible, onEdit: () => onEdit(collection), onDelete: () => onDelete(collection) }))} />
+    <Rows items={collections.map((collection) => ({ id: idOf(collection), title: collection.title, meta: '/collections/' + collection.slug, active: collection.isVisible, pendingVisibility: pendingVisibility === 'collection:' + idOf(collection), onToggleVisibility: () => onToggleVisibility(collection), onEdit: () => onEdit(collection), onDelete: () => onDelete(collection) }))} />
   </Panel>;
 }
 
-function TagsPanel({ tags, form, setForm, editing, onCancel, onEdit, onSubmit, onDelete }: { tags: TagDto[]; form: typeof tagDefaults; setForm: (form: typeof tagDefaults) => void; editing: TagDto | null; onCancel: () => void; onEdit: (tag: TagDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (tag: TagDto) => void }): ReactNode {
+function TagsPanel({ tags, form, setForm, editing, pendingVisibility, onCancel, onEdit, onSubmit, onDelete, onToggleVisibility }: { tags: TagDto[]; form: typeof tagDefaults; setForm: (form: typeof tagDefaults) => void; editing: TagDto | null; pendingVisibility: string | null; onCancel: () => void; onEdit: (tag: TagDto) => void; onSubmit: (event: FormEvent) => void; onDelete: (tag: TagDto) => void; onToggleVisibility: (tag: TagDto) => void }): ReactNode {
   return <Panel title="Filter Chip Manager" body="Manage the horizontal storefront filter chips used by collection and listing pages.">
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-4">
       <Input label="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value, slug: form.slug || slugify(event.target.value) })} />
@@ -530,11 +566,11 @@ function TagsPanel({ tags, form, setForm, editing, onCancel, onEdit, onSubmit, o
       <Toggle label="Visible" value={form.isVisible} onChange={(value) => setForm({ ...form, isVisible: value })} />
       <div className="flex gap-3 md:col-span-4"><Button type="submit"><Save size={15} />{editing ? 'Save Chip' : 'Add Chip'}</Button>{editing ? <Button type="button" variant="secondary" onClick={onCancel}><X size={15} />Cancel</Button> : null}</div>
     </form>
-    <Rows items={tags.map((tag) => ({ id: idOf(tag), title: tag.name, meta: tag.slug, active: tag.isVisible, onEdit: () => onEdit(tag), onDelete: () => onDelete(tag) }))} />
+    <Rows items={tags.map((tag) => ({ id: idOf(tag), title: tag.name, meta: tag.slug, active: tag.isVisible, pendingVisibility: pendingVisibility === 'tag:' + idOf(tag), onToggleVisibility: () => onToggleVisibility(tag), onEdit: () => onEdit(tag), onDelete: () => onDelete(tag) }))} />
   </Panel>;
 }
 
-function PagesPanel({ pages, form, setForm, editing, onCancel, onEdit, onSubmit }: { pages: PageSettingsDto[]; form: typeof pageDefaults; setForm: (form: typeof pageDefaults) => void; editing: PageSettingsDto | null; onCancel: () => void; onEdit: (page: PageSettingsDto) => void; onSubmit: (event: FormEvent) => void }): ReactNode {
+function PagesPanel({ pages, form, setForm, editing, pendingVisibility, onCancel, onEdit, onSubmit, onToggleVisibility }: { pages: PageSettingsDto[]; form: typeof pageDefaults; setForm: (form: typeof pageDefaults) => void; editing: PageSettingsDto | null; pendingVisibility: string | null; onCancel: () => void; onEdit: (page: PageSettingsDto) => void; onSubmit: (event: FormEvent) => void; onToggleVisibility: (page: PageSettingsDto) => void }): ReactNode {
   return <Panel title="Page Settings" body="Control titles, heroes, filters, grid defaults, flashlight visibility, and SEO for storefront pages.">
     <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3">
       <Input label="Page Type" value={form.pageType} onChange={(event) => setForm({ ...form, pageType: event.target.value })} />
@@ -560,7 +596,7 @@ function PagesPanel({ pages, form, setForm, editing, onCancel, onEdit, onSubmit 
       <div className="grid gap-2"><Toggle label="Published" value={form.isPublished} onChange={(value) => setForm({ ...form, isPublished: value })} /><Toggle label="Banner visible" value={form.isBannerVisible} onChange={(value) => setForm({ ...form, isBannerVisible: value })} /><Toggle label="Filters" value={form.areFiltersVisible} onChange={(value) => setForm({ ...form, areFiltersVisible: value })} /><Toggle label="Advanced Filters" value={form.isAdvancedFilterEnabled} onChange={(value) => setForm({ ...form, isAdvancedFilterEnabled: value })} /><Toggle label="Flashlight" value={form.isFlashlightEnabled} onChange={(value) => setForm({ ...form, isFlashlightEnabled: value })} /></div>
       <div className="flex gap-3 md:col-span-3"><Button type="submit"><Save size={15} />{editing ? 'Save Page' : 'Add Page'}</Button>{editing ? <Button type="button" variant="secondary" onClick={onCancel}><X size={15} />Cancel</Button> : null}</div>
     </form>
-    <Rows items={pages.map((page) => ({ id: idOf(page), title: page.title, meta: page.pageType + '/' + page.pageSlug, active: page.isPublished ?? true, onEdit: () => onEdit(page) }))} />
+    <Rows items={pages.map((page) => ({ id: idOf(page), title: page.title, meta: page.pageType + '/' + page.pageSlug, active: page.isPublished ?? true, pendingVisibility: pendingVisibility === 'page:' + idOf(page), onToggleVisibility: () => onToggleVisibility(page), onEdit: () => onEdit(page) }))} />
   </Panel>;
 }
 
@@ -577,7 +613,7 @@ function SettingsPanel({ site, onSave }: { site?: { defaultGridView: 1 | 2 | 4; 
   </Panel>;
 }
 
-function Rows({ items }: { items: Array<{ id: string; title: string; meta: string; active?: boolean; onEdit?: () => void; onDelete?: () => void }> }): ReactNode {
+function Rows({ items }: { items: Array<{ id: string; title: string; meta: string; active?: boolean; pendingVisibility?: boolean; onToggleVisibility?: () => void; onEdit?: () => void; onDelete?: () => void }> }): ReactNode {
   if (items.length === 0) return <EmptyPanel title="No records" message="Create an item to populate this manager." />;
-  return <div className="overflow-x-auto border border-border bg-background-primary"><table className="w-full min-w-[720px] text-left text-sm"><thead className="text-xs uppercase tracking-[0.12em] text-text-muted"><tr><th className="border-b border-border p-4">Name</th><th className="border-b border-border p-4">Path</th><th className="border-b border-border p-4">Status</th><th className="border-b border-border p-4 text-right">Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} className="border-b border-border-subtle"><td className="p-4 text-text-primary">{item.title}</td><td className="p-4 text-text-secondary">{item.meta}</td><td className="p-4">{item.active ? <span className="inline-flex items-center gap-2 text-success"><Eye size={14} />Visible</span> : <span className="inline-flex items-center gap-2 text-text-muted"><EyeOff size={14} />Hidden</span>}</td><td className="p-4"><div className="flex justify-end gap-2">{item.onEdit ? <button type="button" aria-label="Edit" onClick={item.onEdit} className="grid h-10 w-10 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={15} /></button> : null}{item.onDelete ? <button type="button" aria-label="Delete" onClick={item.onDelete} className="grid h-10 w-10 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={15} /></button> : null}</div></td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto border border-border bg-background-primary"><table className="w-full min-w-[760px] text-left text-sm"><thead className="text-xs uppercase tracking-[0.12em] text-text-muted"><tr><th className="border-b border-border p-4">Name</th><th className="border-b border-border p-4">Path</th><th className="border-b border-border p-4">Status</th><th className="border-b border-border p-4 text-right">Actions</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} className="border-b border-border-subtle"><td className="p-4 text-text-primary">{item.title}</td><td className="p-4 text-text-secondary">{item.meta}</td><td className="p-4">{item.active ? <span className="inline-flex items-center gap-2 text-success"><Eye size={14} />Visible</span> : <span className="inline-flex items-center gap-2 text-text-muted"><EyeOff size={14} />Hidden</span>}</td><td className="p-4"><div className="flex justify-end gap-2">{item.onToggleVisibility ? <VisibilityButton active={item.active} pending={item.pendingVisibility} label={item.active ? 'Hide ' + item.title : 'Show ' + item.title} onClick={item.onToggleVisibility} /> : null}{item.onEdit ? <button type="button" aria-label={'Edit ' + item.title} onClick={item.onEdit} className="grid h-10 w-10 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><Pencil size={15} /></button> : null}{item.onDelete ? <button type="button" aria-label={'Delete ' + item.title} onClick={item.onDelete} className="grid h-10 w-10 place-items-center border border-border text-text-secondary hover:border-danger hover:text-danger"><Trash2 size={15} /></button> : null}</div></td></tr>)}</tbody></table></div>;
 }

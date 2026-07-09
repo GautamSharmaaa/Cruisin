@@ -56,7 +56,9 @@ const categorySchema = new Schema(
     ogImage: { type: String, trim: true, default: '' },
     canonicalSlug: { type: String, lowercase: true, trim: true, default: '' },
     customContent: { type: Schema.Types.Mixed, default: null },
-    breadcrumb: { type: [breadcrumbSchema], default: [] }
+    breadcrumb: { type: [breadcrumbSchema], default: [] },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

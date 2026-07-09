@@ -16,7 +16,9 @@ const cartSchema = new Schema(
     user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     sessionId: { type: String, index: true },
     items: { type: [cartItemSchema], default: [] },
-    expiresAt: { type: Date, required: true, index: { expires: 0 } }
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

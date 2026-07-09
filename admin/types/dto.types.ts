@@ -4,9 +4,22 @@ export interface UserDto {
   _id?: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'customer' | 'admin' | 'superadmin' | 'manager' | 'viewer';
+  status?: 'active' | 'suspended' | 'pending_verification' | 'deleted';
   isVerified: boolean;
   isActive: boolean;
+  createdAt?: string;
+  lastLogin?: string;
+  addressCount?: number;
+  orderCount?: number;
+  totalSpend?: number;
+  lastOrderAt?: string;
+  lastOrderId?: string;
+  lastOrderStatus?: string;
+  lastPaymentStatus?: string;
+  lastOrderTotal?: number;
+  lastCouponCode?: string;
 }
 
 export interface ProductDto {
@@ -29,6 +42,9 @@ export interface ProductDto {
   imageAltText?: string;
   basePrice: number;
   comparePrice?: number;
+  costPrice?: number;
+  gstPercent?: number;
+  hsnCode?: string;
   tags?: string[];
   productCode?: string;
   pickupAddress?: string;
@@ -282,6 +298,13 @@ export interface CouponDto {
   code: string;
   type: 'percentage' | 'fixed' | 'freeShipping';
   value: number;
+  minOrderValue?: number;
+  maxDiscount?: number;
+  usageLimit?: number;
+  usedCount?: number;
+  userUsageLimit?: number;
+  applicableProducts?: Array<string | ProductDto>;
+  applicableCategories?: Array<string | CategoryDto>;
   validFrom?: string;
   validUntil?: string;
   isActive: boolean;
@@ -302,6 +325,7 @@ export interface OrderDto {
   tax?: number;
   shipping?: number;
   discount?: number;
+  couponCode?: string;
   total: number;
   createdAt?: string;
   trackingNumber?: string;
@@ -389,4 +413,39 @@ export interface AdminAnalyticsPointDto {
   day: string;
   revenue: number;
   orders: number;
+}
+
+export interface AdminAnalyticsSummaryDto {
+  range: {
+    startDate: string;
+    endDate: string;
+    timezone: 'Asia/Kolkata';
+    preset: string;
+    analyticsTestBatchId?: string;
+  };
+  generatedAt: string;
+  summary: {
+    totalOrders: number;
+    paidOrders: number;
+    pendingOrders: number;
+    cancelledOrders: number;
+    failedPaymentOrders: number;
+    refundedOrders: number;
+    grossRevenue: number;
+    netRevenue: number;
+    discounts: number;
+    tax: number;
+    shipping: number;
+    averageOrderValue: number;
+    customers: number;
+    newCustomers: number;
+    returningCustomers: number;
+  };
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; orders: number; paidOrders: number }>;
+  topProducts: Array<{ productId: string; title: string; sku: string; quantity: number; revenue: number; orders: number }>;
+  topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
+  topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
+  coupons: Array<{ code: string; orders: number; discount: number; revenue: number }>;
+  ordersByStatus: Record<string, number>;
+  paymentStatus: Record<string, number>;
 }

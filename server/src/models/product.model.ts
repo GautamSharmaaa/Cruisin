@@ -51,6 +51,18 @@ const productSchema = new Schema(
     variants: { type: [variantSchema], default: [] },
     tags: { type: [String], default: [], index: true },
     productCode: { type: String, trim: true, uppercase: true, index: true },
+    amazonAsin: { type: String, trim: true, default: '' },
+    costPrice: { type: Number, min: 0 },
+    gstPercent: { type: Number, min: 0 },
+    hsnCode: { type: String, trim: true, default: '' },
+    returnExchangeCondition: { type: String, trim: true, default: '' },
+    catalogueSource: { type: String, trim: true, default: '' },
+    lastCatalogueImportId: { type: Schema.Types.ObjectId, ref: 'CatalogueImport', default: null },
+    rawCatalogueAttributes: { type: Schema.Types.Mixed, default: {} },
+    normalizedAttributes: { type: Schema.Types.Mixed, default: {} },
+    productTypeRaw: { type: String, trim: true, default: '' },
+    categoryMappingRaw: { type: String, trim: true, default: '' },
+    collectionMappingRaw: { type: String, trim: true, default: '' },
     pickupAddress: { type: String, trim: true },
     lowStockThreshold: { type: Number, default: 10, min: 0 },
     lifetimeSales: { type: Number, default: 0, min: 0, index: true },
@@ -86,7 +98,9 @@ const productSchema = new Schema(
       metaTitle: { type: String, trim: true },
       metaDesc: { type: String, trim: true },
       ogImage: { type: String }
-    }
+    },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

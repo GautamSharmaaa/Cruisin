@@ -13,6 +13,8 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "seed": "tsx src/scripts/seed.ts",
+    "analytics:test:seed": "tsx src/scripts/seed-analytics-simulation.ts",
+    "analytics:test:cleanup": "tsx src/scripts/cleanup-analytics-simulation.ts",
     "migrate:identity": "tsx src/scripts/migrate-identity.ts"
   },
   "dependencies": {

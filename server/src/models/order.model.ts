@@ -52,17 +52,22 @@ const orderSchema = new Schema(
     shipping: { type: Number, required: true, min: 0 },
     discount: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0 },
+    couponCode: { type: String, uppercase: true, trim: true, index: true },
+    refundAmount: { type: Number, min: 0, default: 0 },
     razorpayOrderId: { type: String, index: true },
     stripePaymentIntentId: { type: String, index: true },
     trackingNumber: { type: String, trim: true, index: true },
     notes: { type: String, trim: true },
-    timeline: { type: [timelineSchema], default: [] }
+    timeline: { type: [timelineSchema], default: [] },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );
 
 orderSchema.index({ createdAt: -1, orderStatus: 1 });
 orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1, paymentStatus: 1, orderStatus: 1 });
 
 export type OrderDocument = InferSchemaType<typeof orderSchema>;
 export const OrderModel = model('Order', orderSchema);

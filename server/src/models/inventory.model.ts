@@ -8,7 +8,9 @@ const inventorySchema = new Schema(
     sku: { type: String, required: true, unique: true, uppercase: true, trim: true },
     stock: { type: Number, required: true, min: 0 },
     reserved: { type: Number, default: 0, min: 0 },
-    lowStockThreshold: { type: Number, default: 5, min: 0 }
+    lowStockThreshold: { type: Number, default: 5, min: 0 },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

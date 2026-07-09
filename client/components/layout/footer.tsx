@@ -13,7 +13,7 @@ const usefulLinks = [
   { label: 'Privacy Policy', href: ROUTES.privacy },
   { label: 'Return Policy', href: ROUTES.returns },
   { label: 'Shipping Policy', href: ROUTES.shipping },
-  { label: 'Terms and condition', href: ROUTES.terms }
+  { label: 'Terms & Conditions', href: ROUTES.terms }
 ];
 
 const searchedLinks = [
@@ -37,7 +37,7 @@ export function Footer(_props: FooterProps): ReactNode {
     <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1.15fr_0.65fr_1.05fr]">
       <section className="max-w-2xl">
         <h2 className="font-display text-3xl text-text-primary">CRUISIN</h2>
-        <p className="mt-4 max-w-xl text-sm leading-6 text-text-secondary">Comfort-first shorts, pants, trousers, and track pants made for everyday movement.</p>
+        <p className="mt-4 max-w-xl text-sm leading-6 text-text-secondary">Minimal streetwear essentials cut for movement, restraint, and daily wear.</p>
         <div className="mt-6 flex items-center gap-3">
           <span className="text-sm text-text-secondary">Follow us on</span>
           <a href={facebookUrl} target="_blank" rel="noreferrer" aria-label="Cruisin on Facebook" className="grid h-9 w-9 place-items-center border border-border text-lg font-bold text-[#1877f2] transition hover:border-accent-gold">f</a>

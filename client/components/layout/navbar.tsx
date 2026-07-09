@@ -14,6 +14,7 @@ import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useNavigation, useSiteSettings } from '@/hooks/useMerchandising';
 import { navReveal } from '@/lib/animations';
+import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import type { NavigationItemDto } from '@/types/dto.types';
@@ -39,6 +40,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
     return routeItem ?? navItems.find((item) => item.isDefaultActive && item.isMegaMenuEnabled) ?? navItems.find((item) => item.isMegaMenuEnabled) ?? navItems[0] ?? null;
   }, [navItems, pathname]);
   const items = useCartStore((state) => state.items);
+  const cartCount = items.filter((item) => isCustomerVisibleProduct(item.product)).length;
   const openCart = useCartStore((state) => state.openCart);
   const wishlistCount = useWishlistStore((state) => state.ids.length);
 
@@ -91,20 +93,6 @@ export function Navbar(_props: NavbarProps): ReactNode {
       <div className="relative z-[90] grid h-20 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-10">
         <div className="flex min-w-0 items-center justify-start gap-2">
           {navItems.length > 0 ? <AnimatedMenuButton open={Boolean(activeId) || mobile} onClick={openMenu} /> : null}
-          {navItems.length > 0 ? <nav aria-label="Primary navigation" className="hidden min-w-0 items-center gap-1 lg:flex">
-            {navItems.map((item) => (
-              <button
-                key={navId(item)}
-                type="button"
-                onMouseEnter={() => item.isMegaMenuEnabled ? setActiveId(navId(item)) : undefined}
-                onFocus={() => item.isMegaMenuEnabled ? setActiveId(navId(item)) : undefined}
-                onClick={() => item.isMegaMenuEnabled ? setActiveId(navId(item)) : undefined}
-                className="h-11 px-3 font-accent text-[11px] uppercase tracking-[0.14em] text-text-secondary transition hover:text-accent-gold"
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav> : null}
         </div>
         <Link href={ROUTES.home} className="min-w-0 text-center font-display text-xl leading-none text-text-primary transition duration-300 hover:text-accent-gold lg:text-2xl">
           <span className="block leading-none">{COPY.brand.name}</span>
@@ -119,7 +107,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           <AccountMenu />
           <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
             <ShoppingBag size={18} />
-            {items.length > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{items.length}</span> : null}
+            {cartCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{cartCount}</span> : null}
           </button>
         </div>
       </div>
@@ -136,7 +124,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
         items={navItems}
         onSearch={() => setSearch(true)}
         onCart={openCart}
-        cartCount={items.length}
+        cartCount={cartCount}
       />
       <SearchModal open={search} onOpenChange={setSearch} />
     </motion.header>

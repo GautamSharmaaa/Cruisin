@@ -1,8 +1,10 @@
 // Governed by .rules v1.0
 import { CategoryModel } from '../models/category.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { CatalogueHistoryService } from './catalogueHistory.service.js';
 
 export type CategoryInput = Record<string, unknown>;
+const markCatalogueStale = (): void => { CatalogueHistoryService.markStale().catch(() => undefined); };
 
 const categoryId = (value: unknown): string | undefined => {
   if (!value) return undefined;
@@ -57,7 +59,9 @@ export const CategoryService = {
 
   async create(input: CategoryInput): Promise<unknown> {
     const normalized = await buildCategoryPath(input);
-    return CategoryModel.create({ ...input, ...normalized });
+    const category = await CategoryModel.create({ ...input, ...normalized });
+    markCatalogueStale();
+    return category;
   },
 
   async update(id: string, input: CategoryInput): Promise<unknown> {
@@ -71,6 +75,7 @@ export const CategoryService = {
     if (!category) {
       throw new ApiError(404, 'Category not found');
     }
+    markCatalogueStale();
     return category;
   },
 
@@ -79,9 +84,11 @@ export const CategoryService = {
     if (!category) {
       throw new ApiError(404, 'Category not found');
     }
+    markCatalogueStale();
   },
 
   async reorder(ids: string[]): Promise<void> {
     await Promise.all(ids.map((id, index) => CategoryModel.findByIdAndUpdate(id, { sortOrder: index })));
+    markCatalogueStale();
   }
 };

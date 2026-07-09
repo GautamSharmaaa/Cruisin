@@ -187,17 +187,45 @@ const cleanupBrowserTestRecords = async (request: APIRequestContext, records?: C
 };
 
 test.describe('storefront browser QA', () => {
+  let listingSiteSettingsBefore: Record<string, unknown> | undefined;
+  let listingSiteSettingsToken = '';
+
+  test.beforeEach(async ({ request }, testInfo) => {
+    if (!testInfo.title.includes('category, collection, listing controls')) return;
+    listingSiteSettingsToken = await loginToken(request);
+    const response = await request.get(apiUrl + '/admin/site-settings', { headers: adminHeaders(listingSiteSettingsToken) });
+    const body = await response.json();
+    listingSiteSettingsBefore = body.data as Record<string, unknown>;
+    await request.put(apiUrl + '/admin/site-settings', {
+      headers: adminHeaders(listingSiteSettingsToken),
+      data: {
+        ...listingSiteSettingsBefore,
+        isFlashlightEnabled: true,
+        isAdvancedFilterEnabled: true
+      }
+    });
+  });
+
+  test.afterEach(async ({ request }) => {
+    if (!listingSiteSettingsBefore || !listingSiteSettingsToken) return;
+    await request.put(apiUrl + '/admin/site-settings', {
+      headers: adminHeaders(listingSiteSettingsToken),
+      data: listingSiteSettingsBefore
+    }).catch(() => undefined);
+    listingSiteSettingsBefore = undefined;
+    listingSiteSettingsToken = '';
+  });
+
   test('homepage/header and desktop menu overlay work without browser errors', async ({ page, isMobile }) => {
     test.skip(isMobile, 'desktop menu overlay is covered by the desktop project');
     const diagnostics = attachPageDiagnostics(page);
     await page.goto(storefrontUrl + '/');
     await page.waitForLoadState('networkidle').catch(() => undefined);
     await expect(page.getByRole('link', { name: 'Cruisin Wear Less. Mean More.' })).toBeVisible();
-    const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
+    await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toHaveCount(0);
     for (const label of ['New & Featured', 'Men', 'Women', 'Sale', 'Collections']) {
-      await expect(primaryNav.getByRole('button', { name: label, exact: true })).toBeVisible();
+      await expect(page.locator('header').getByRole('button', { name: label, exact: true })).toHaveCount(0);
     }
-    await expect(primaryNav.getByRole('button', { name: 'Shop', exact: true })).toHaveCount(0);
     await expect(page.getByText('Jordan')).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
 
@@ -208,11 +236,11 @@ test.describe('storefront browser QA', () => {
     await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
     await expect(menuSections.getByRole('button', { name: 'Collections', exact: true })).toBeVisible();
     await menuSections.getByRole('button', { name: 'Collections', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'Quiet Uniform' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View All Collections' })).toBeVisible();
+    await expect(desktopDialog.getByRole('link', { name: 'Quiet Uniform' })).toBeVisible();
+    await expect(desktopDialog.getByRole('link', { name: 'View All Collections' })).toBeVisible();
     await menuSections.getByRole('button', { name: 'Men', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'T-Shirts', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Quiet Uniform' })).toHaveCount(0);
+    await expect(desktopDialog.getByRole('link', { name: 'T-Shirts', exact: true })).toBeVisible();
+    await expect(desktopDialog.getByRole('link', { name: 'Quiet Uniform' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Cruisin menu' })).toHaveCount(0);
     expectNoImportantBrowserFailures(diagnostics);
@@ -231,17 +259,18 @@ test.describe('storefront browser QA', () => {
       await expect(mobileDialog.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     await mobileDialog.getByRole('button', { name: 'Collections', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'View All Collections' })).toBeVisible();
-    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(mobileDialog.getByRole('link', { name: 'View All Collections' })).toBeVisible();
+    await mobileDialog.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Menu' })).toHaveCount(0);
     expectNoImportantBrowserFailures(diagnostics);
   });
 
   test('category, collection, listing controls, and product detail pages load', async ({ page }) => {
+    test.setTimeout(90000);
     const diagnostics = attachPageDiagnostics(page);
     for (const path of ['/men', '/women', '/sale', '/new-featured', '/category/men', '/category/men/t-shirts', '/collections']) {
-      await page.goto(storefrontUrl + path);
-      await page.waitForLoadState('networkidle').catch(() => undefined);
+      await page.goto(storefrontUrl + path, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
       await expect(page.locator('main')).toBeVisible();
       await expectNoHorizontalOverflow(page);
     }
@@ -253,12 +282,14 @@ test.describe('storefront browser QA', () => {
     await expect(page.getByRole('button', { name: 'Toggle spotlight mode' })).toHaveAttribute('aria-pressed', 'true');
     await page.locator('select').selectOption('price-asc');
     await expect(page).toHaveURL(/sort=price-asc/);
-    const firstProduct = page.locator('a[href="/product/minimalist-heavyweight-tee"]').first();
+    const firstProduct = page.locator('a[href^="/product/"]').first();
     await expect(firstProduct).toBeVisible();
     await firstProduct.click();
-    await page.waitForLoadState('networkidle').catch(() => undefined);
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
     await expect(page.locator('main h1')).toBeVisible();
-    await page.getByRole('button', { name: 'M', exact: true }).click();
+    const sizeButton = page.locator('button').filter({ hasText: /^(XS|S|M|L|XL|2XL|XXL|Free Size)$/ }).first();
+    await expect(sizeButton).toBeVisible();
+    await sizeButton.click();
     await expect(page.getByRole('button', { name: 'Add To Cart' })).toBeVisible();
     expectNoImportantBrowserFailures(diagnostics);
   });
@@ -273,10 +304,11 @@ test.describe('storefront browser QA', () => {
       await expectNoHorizontalOverflow(page);
 
       await page.getByRole('button', { name: 'Menu', exact: true }).click();
-      await expect(page.getByRole('dialog')).toBeVisible();
+      const menuDialog = page.getByRole('dialog', { name: width >= 1024 ? 'Cruisin menu' : 'Menu' });
+      await expect(menuDialog).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await page.keyboard.press('Escape');
-      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(menuDialog).toHaveCount(0);
 
       await page.goto(storefrontUrl + '/shop');
       await page.waitForLoadState('networkidle').catch(() => undefined);

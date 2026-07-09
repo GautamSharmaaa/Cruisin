@@ -24,6 +24,8 @@ export interface PublicPageOptions {
 }
 
 const sectionSort = { sortOrder: 1, createdAt: 1 } as const;
+const publicCmsProductQuery = { isActive: true, isArchived: { $ne: true }, status: 'published', visibility: 'visible' } as const;
+const publicCmsProductProjection = '-costPrice -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
 
 const scheduleQuery = (at: Date): Record<string, unknown> => ({
   $and: [
@@ -61,7 +63,7 @@ const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Pro
   const productIds = [...new Set(sections.flatMap((section) => refIds(section.products)))];
   const categoryIds = [...new Set(sections.flatMap((section) => refIds(section.categories)))];
   const [products, categories] = await Promise.all([
-    productIds.length ? ProductModel.find({ _id: { $in: productIds }, isArchived: { $ne: true } }).lean() : [],
+    productIds.length ? ProductModel.find({ _id: { $in: productIds }, ...publicCmsProductQuery }).select(publicCmsProductProjection).lean() : [],
     categoryIds.length ? CategoryModel.find({ _id: { $in: categoryIds } }).lean() : []
   ]);
   const productById = new Map(products.map((product) => [String(product._id), product]));
@@ -79,8 +81,20 @@ const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Pro
   });
 };
 
+const sanitizePublicPage = (page: Record<string, unknown>): Record<string, unknown> => {
+  const { __v, previewToken, publishedVersionId, createdAt, updatedAt, ...safePage } = page;
+  void __v; void previewToken; void publishedVersionId; void createdAt; void updatedAt;
+  return safePage;
+};
+
+const sanitizePublicSection = (section: Record<string, unknown>): Record<string, unknown> => {
+  const { __v, pageId, createdAt, updatedAt, ...safeSection } = section;
+  void __v; void pageId; void createdAt; void updatedAt;
+  return safeSection;
+};
+
 const loadPublishedSections = async (pageId: unknown, at: Date): Promise<Record<string, unknown>[]> => {
-  return CMSSectionModel.find({ pageId, status: 'published', active: true, ...scheduleQuery(at) }).sort(sectionSort).populate('products').populate('categories').lean();
+  return CMSSectionModel.find({ pageId, status: 'published', active: true, ...scheduleQuery(at) }).sort(sectionSort).populate({ path: 'products', match: publicCmsProductQuery, select: publicCmsProductProjection }).populate('categories').lean();
 };
 
 const stripSectionForRestore = (section: Record<string, unknown>, pageId: Types.ObjectId, index: number): Record<string, unknown> => {
@@ -173,18 +187,18 @@ export const CmsService = {
       const version = await CMSVersionModel.findById(page.publishedVersionId).lean();
       if (version) {
         const sections = await hydrateSnapshotSections((version.sectionsSnapshot as Record<string, unknown>[]).filter((section) => sectionIsLiveFromSnapshot(section, at)));
-        if (sections.length > 0) return { page, sections, preview: false };
+        if (sections.length > 0) return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
       }
     }
     if (!isPreview) {
       const sections = await loadPublishedSections(page._id, at);
-      if (sections.length > 0) return { page, sections, preview: false };
+      if (sections.length > 0) return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
     }
     const query: Record<string, unknown> = { pageId: page._id, status: isPreview ? { $ne: 'archived' } : 'published' };
     if (!isPreview || !options.includeInactive) query.active = true;
     if (!isPreview) Object.assign(query, scheduleQuery(at));
     const sections = await CMSSectionModel.find(query).sort(sectionSort).populate('products').populate('categories').lean();
-    return { page, sections, preview: isPreview };
+    return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: isPreview };
   },
 
   async activeHome(): Promise<unknown> {

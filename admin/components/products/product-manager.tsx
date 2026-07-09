@@ -5,7 +5,7 @@ import { AlertTriangle, Archive, BadgeIndianRupee, Check, ChevronLeft, ChevronRi
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { EmptyPanel } from '@/components/dashboard/empty-panel';
+import { AdminCard, AdminSectionHeader, AdminTabs, EmptyState } from '@/components/dashboard/admin-ui';
 import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
 import { useArchiveProduct, useDuplicateProduct, usePatchProduct } from '@/hooks/useAdminMutations';
@@ -15,7 +15,7 @@ import { calculateProductHealth, downloadProductsCsv, productBaseSku, productCat
 import { cn } from '@/lib/utils';
 import type { ProductDto } from '@/types/dto.types';
 
-type CatalogueTab = 'all' | 'group' | 'create' | 'bulk' | 'media';
+type ProductTab = 'all' | 'tools';
 type FilterState = Required<Pick<AdminProductFilters, 'status' | 'stock' | 'featured' | 'bestseller' | 'newArrival' | 'needsFix' | 'sort'>> & Pick<AdminProductFilters, 'category' | 'createdFrom' | 'updatedFrom' | 'pickupAddress'>;
 type ProductVariant = NonNullable<ProductDto['variants']>[number];
 type ToastState = { tone: 'success' | 'error' | 'info'; message: string } | null;
@@ -30,7 +30,7 @@ const statusOptions = [['all', 'All Status'], ['visible', 'Visible'], ['hidden',
 const stockOptions = [['all', 'All Stock'], ['in-stock', 'In Stock'], ['low-stock', 'Low Stock'], ['out-of-stock', 'Out of Stock']] as const;
 const flagOptions = [['all', 'All'], ['yes', 'Yes'], ['no', 'No']] as const;
 const sortOptions = [['updated', 'Recently Updated'], ['newest', 'Recently Created'], ['price-asc', 'Price: Low to High'], ['price-desc', 'Price: High to Low'], ['stock-asc', 'Stock: Low to High'], ['stock-desc', 'Stock: High to Low'], ['sales-desc', 'Lifetime Sales'], ['title-asc', 'Product Name A-Z']] as const;
-const tabs: Array<{ key: CatalogueTab; label: string }> = [{ key: 'all', label: 'All Catalogues' }, { key: 'group', label: 'Group Catalogue' }, { key: 'create', label: 'Create Catalogue' }, { key: 'bulk', label: 'Bulk Upload' }, { key: 'media', label: 'Generate Image/Video Link' }];
+const tabs: Array<{ value: ProductTab; label: string; helper?: string }> = [{ value: 'all', label: 'All Products', helper: 'Search, edit, bulk update' }, { value: 'tools', label: 'Product Tools', helper: 'Shortcuts and catalogue links' }];
 
 const useDebouncedValue = (value: string, delay: number): string => {
   const [debounced, setDebounced] = useState(value);
@@ -75,7 +75,7 @@ const Modal = ({ state, onClose }: { state: ModalState; onClose: () => void }): 
     <div className="w-full max-w-lg border border-border-strong bg-background-elevated p-6 shadow-lg">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent-gold">Catalogue Control</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent-gold">Product Control</p>
           <h2 className="mt-3 text-xl text-text-primary">{state.title}</h2>
         </div>
         <button type="button" aria-label="Close modal" onClick={onClose} className="text-text-secondary transition hover:text-text-primary"><X size={18} /></button>
@@ -91,7 +91,7 @@ const skeletonRows = Array.from({ length: 4 }, (_, index) => index);
 
 export function ProductManager(): ReactNode {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<CatalogueTab>('all');
+  const [activeTab, setActiveTab] = useState<ProductTab>('all');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [page, setPage] = useState(1);
@@ -207,7 +207,7 @@ export function ProductManager(): ReactNode {
   const toggleFlag = async (product: ProductDto, field: 'isActive' | 'isFeatured' | 'isBestseller' | 'isNewArrival'): Promise<void> => {
     const health = calculateProductHealth(product);
     if (field === 'isActive' && !product.isActive && health.state === 'critical') {
-      setModal({ title: 'Product needs fixes', body: 'This product is missing critical catalogue data: ' + health.missing.slice(0, 5).join(', ') + '. Fix these before making it visible.' });
+      setModal({ title: 'Product needs fixes', body: 'This product is missing critical product data: ' + health.missing.slice(0, 5).join(', ') + '. Fix these before making it visible.' });
       return;
     }
     try {
@@ -220,8 +220,8 @@ export function ProductManager(): ReactNode {
 
   const archiveOne = (product: ProductDto): void => {
     setModal({
-      title: 'Archive catalogue',
-      body: 'Archive "' + product.title + '"? It will be hidden from active catalogue operations.',
+      title: 'Archive product',
+      body: 'Archive "' + product.title + '"? It will be hidden from active product operations and the storefront.',
       action: <Button variant="danger" disabled={archiveProduct.isPending} onClick={() => {
         archiveProduct.mutate(productId(product), { onSuccess: () => { setModal(null); showToast({ tone: 'success', message: 'Product archived.' }); }, onError: (error) => showToast({ tone: 'error', message: error.message }) });
       }}><Archive size={15} className="mr-2" />Archive</Button>
@@ -302,7 +302,7 @@ export function ProductManager(): ReactNode {
   };
 
   const bulkArchive = (): void => setModal({
-    title: 'Archive selected catalogues',
+    title: 'Archive selected products',
     body: 'Archive ' + selected.size + ' selected products? This is safer than deleting and can be restored later.',
     action: <Button variant="danger" disabled={archiveProduct.isPending} onClick={async () => {
       try {
@@ -335,13 +335,23 @@ export function ProductManager(): ReactNode {
   };
 
   const openBulkPriceModal = (): void => setBulkPriceOpen(true);
-
-  const renderTabContent = (): ReactNode => {
-    if (activeTab === 'group') return <EmptyPanel title="Group Catalogue" message="Grouped catalogue rules can be connected when bundled products or color families are modeled in the backend." />;
-    if (activeTab === 'bulk') return <EmptyPanel title="Bulk Upload" message="Bulk upload needs a CSV/import backend. Current CSV export is live; import can be connected to a validation queue next." />;
-    if (activeTab === 'media') return <EmptyPanel title="Generate Image/Video Link" message="Generate product media links feature can be connected to image/video storage later." />;
-    return null;
+  const openArchivedProducts = (): void => {
+    setSearch('');
+    setFilters({ ...defaultFilters, status: 'archived' });
+    setSelected(new Set());
+    setPage(1);
+    setActiveTab('all');
   };
+
+  const renderToolsContent = (): ReactNode => <AdminCard className="grid gap-5">
+    <AdminSectionHeader eyebrow="Product Operations" title="Tools and catalogue workflows" description="Product editing stays focused here. Supplier import/export and grouped catalogue workflows now live in Catalogues, with quick shortcuts from this panel." />
+    <div className="grid gap-3 md:grid-cols-3">
+      <Link href="/products/new" className="border border-border bg-background-primary p-4 transition hover:border-accent-gold"><PackagePlus className="text-accent-gold" size={20} /><p className="mt-3 text-text-primary">Create product</p><p className="mt-1 text-sm text-text-secondary">Manual product entry with media, pricing, variants, and categorization.</p></Link>
+      <Link href="/catalogues" className="border border-border bg-background-primary p-4 transition hover:border-accent-gold"><FileStack className="text-accent-gold" size={20} /><p className="mt-3 text-text-primary">Import catalogue</p><p className="mt-1 text-sm text-text-secondary">Upload CSV, preview, dry-run, confirm, and export from the Catalogues section.</p></Link>
+      <button type="button" onClick={() => void exportCurrent(false)} className="border border-border bg-background-primary p-4 text-left transition hover:border-accent-gold"><Download className="text-accent-gold" size={20} /><p className="mt-3 text-text-primary">Export current products</p><p className="mt-1 text-sm text-text-secondary">Download a CSV for the current filter set.</p></button>
+      <button type="button" onClick={openArchivedProducts} className="border border-border bg-background-primary p-4 text-left transition hover:border-accent-gold md:col-span-3 xl:col-span-1"><Archive className="text-accent-gold" size={20} /><p className="mt-3 text-text-primary">Archived Products</p><p className="mt-1 text-sm text-text-secondary">Review archived products, search by SKU or product code, restore items, or confirm archive-only cleanup.</p></button>
+    </div>
+  </AdminCard>;
 
   return <section className="grid gap-6">
     {toast ? <div className={cn('fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg', toast.tone === 'success' && 'border-success text-success', toast.tone === 'error' && 'border-danger text-danger', toast.tone === 'info' && 'border-accent-gold text-accent-gold')}>{toast.message}</div> : null}
@@ -355,7 +365,7 @@ export function ProductManager(): ReactNode {
           </div>
           <button type="button" aria-label="Close bulk price modal" onClick={() => setBulkPriceOpen(false)} className="text-text-secondary transition hover:text-text-primary"><X size={18} /></button>
         </div>
-        <p className="mt-4 text-sm leading-6 text-text-secondary">Apply a careful price operation to the selected catalogues. Sale-price specific bulk rules can be connected to a promotion workflow later.</p>
+        <p className="mt-4 text-sm leading-6 text-text-secondary">Apply a careful price operation to the selected products. Sale-price specific bulk rules can be connected to a promotion workflow later.</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <select value={bulkPrice.mode} onChange={(event) => setBulkPrice((current) => ({ ...current, mode: event.target.value }))} className="h-11 border border-border bg-background-input px-3 text-sm text-text-primary">
             <option value="increase">Increase by %</option>
@@ -368,11 +378,9 @@ export function ProductManager(): ReactNode {
       </div>
     </div> : null}
 
-    <div className="flex flex-wrap gap-2 border-b border-border">
-      {tabs.map((tab) => <button key={tab.key} type="button" onClick={() => { if (tab.key === 'create') router.push('/products/new'); else setActiveTab(tab.key); }} className={cn('min-h-12 px-4 text-sm font-medium text-text-secondary transition hover:text-text-primary', activeTab === tab.key && 'border-b border-accent-gold text-accent-gold')}>{tab.label}</button>)}
-    </div>
+    <AdminTabs tabs={tabs} value={activeTab} onChange={setActiveTab} />
 
-    {activeTab !== 'all' ? renderTabContent() : <>
+    {activeTab === 'tools' ? renderToolsContent() : <>
       <div className="border border-border bg-background-elevated p-4">
         <div className="flex items-start gap-3 text-sm leading-6 text-text-secondary">
           <Info size={18} className="mt-0.5 shrink-0 text-accent-gold" />
@@ -395,7 +403,7 @@ export function ProductManager(): ReactNode {
             <span>Search product name, SKU, or slug</span>
             <span className="flex h-12 items-center border border-border bg-background-input px-3 focus-within:border-accent-gold">
               <Search size={17} className="mr-2 text-text-muted" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search catalogues" className="h-full min-w-0 flex-1 bg-transparent text-sm normal-case tracking-[0.02em] text-text-primary outline-none placeholder:text-text-muted" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products, SKU, product code, or slug" className="h-full min-w-0 flex-1 bg-transparent text-sm normal-case tracking-[0.02em] text-text-primary outline-none placeholder:text-text-muted" />
             </span>
           </label>
           <div className="flex flex-wrap gap-2">
@@ -429,7 +437,7 @@ export function ProductManager(): ReactNode {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <label className="flex items-center gap-3 text-sm text-text-secondary">
             <input type="checkbox" checked={allPageSelected} onChange={toggleAllPage} className="h-4 w-4 accent-[var(--accent-gold)]" />
-            Catalogues <span className="border border-border px-2 py-0.5 font-mono text-text-primary">{products.data?.total ?? 0}</span>
+            Products <span className="border border-border px-2 py-0.5 font-mono text-text-primary">{products.data?.total ?? 0}</span>
           </label>
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <SlidersHorizontal size={16} />
@@ -438,7 +446,7 @@ export function ProductManager(): ReactNode {
         </div>
 
         {products.isLoading ? <div className="grid gap-0">{skeletonRows.map((row) => <div key={row} className="grid gap-4 border-b border-border p-4 lg:grid-cols-[1.2fr_1fr_320px]"><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /></div>)}</div> : null}
-        {!products.isLoading && productItems.length === 0 ? <div className="p-6"><EmptyPanel title="No products found" message={activeFilterCount ? 'No products found for these filters. Clear filters or create a new catalogue.' : COPY.products.empty} /></div> : null}
+        {!products.isLoading && productItems.length === 0 ? <div className="p-6"><EmptyState title="No products found" message={activeFilterCount ? 'No products found for these filters. Clear filters or create a new product.' : COPY.products.empty} /></div> : null}
         {!products.isLoading ? <div className="grid">
           {productItems.map((product) => {
             const id = productId(product);
@@ -512,7 +520,7 @@ export function ProductManager(): ReactNode {
               </div>
 
               <div className="grid min-w-0 content-start gap-3">
-                <Link href={'/products/' + id} className="inline-flex h-11 items-center justify-center bg-accent-gold px-4 text-xs font-medium uppercase tracking-[0.08em] text-text-inverse transition hover:brightness-110 active:scale-[0.98]"><Pencil size={15} className="mr-2" />Edit Catalogue Details</Link>
+                <Link href={'/products/' + id} className="inline-flex h-11 items-center justify-center bg-accent-gold px-4 text-xs font-medium uppercase tracking-[0.08em] text-text-inverse transition hover:brightness-110 active:scale-[0.98]"><Pencil size={15} className="mr-2" />Edit Product</Link>
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="secondary" onClick={() => setQuickDraft(product, {})}><BadgeIndianRupee size={15} className="mr-2" />Edit Price</Button>
                   <Button variant="secondary" onClick={() => setModal({ title: 'Manage variants', body: 'Variants can be edited inline here for stock. Full SKU creation and image association stay in the product edit form until a dedicated variant manager is added.' })}><PackagePlus size={15} className="mr-2" />Variants</Button>

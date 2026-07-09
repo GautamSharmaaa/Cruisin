@@ -7,8 +7,10 @@ import { SiteSettingsModel } from '../models/site-settings.model.js';
 import { TagModel } from '../models/tag.model.js';
 import { ApiError } from '../utils/api-error.js';
 import type { PaginatedResult } from '../types/api.types.js';
+import { CatalogueHistoryService } from './catalogueHistory.service.js';
 
 export type MerchandisingInput = Record<string, unknown>;
+const markCatalogueStale = (): void => { CatalogueHistoryService.markStale().catch(() => undefined); };
 
 const imageBase = 'https://images.unsplash.com';
 const defaultImage = imageBase + '/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85';
@@ -153,40 +155,44 @@ const seedColumnsForNav = async (navItemId: unknown, group: (typeof menuGroups)[
 };
 
 const seedNavigation = async (): Promise<void> => {
-  const navCount = await NavigationItemModel.countDocuments();
-  if (navCount > 0) {
-    for (const [navIndex, group] of menuGroups.entries()) {
-      await NavigationItemModel.updateOne(
-        { slug: group.slug },
-        { $set: { menuLayoutType: group.menuLayoutType, isDefaultActive: navIndex === 0 } }
-      );
-      const nav = await NavigationItemModel.findOne({ slug: group.slug }).select('_id slug').lean();
-      if (!nav) continue;
-      const columns = await MegaMenuColumnModel.find({ navItemId: nav._id }).select('title').lean();
-      const titleCounts = new Map<string, number>();
-      for (const column of columns) {
-        const key = column.title.toLowerCase();
-        titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
-      }
-      const hasDuplicateColumns = [...titleCounts.values()].some((count) => count > 1);
-      const hasWrongColumnCount = group.slug !== 'collections' && columns.length !== group.columns.length;
-      const hasLegacyColumns = group.slug === 'new-featured'
-        ? columns.some((column) => column.title.toLowerCase() === 'trending')
-        : group.slug === 'collections'
-          ? columns.length > 0
-          : columns.some((column) => column.title.toLowerCase() === 'featured' || column.title.toLowerCase().includes('sport'));
-      const links = await MegaMenuLinkModel.find({ columnId: { $in: columns.map((column) => column._id) } }).select('href linkedType').lean();
-      const hasCollectionLinksInTextTab = group.slug !== 'collections' && links.some((link) => link.href.startsWith('/collections/') || link.linkedType === 'collection');
-      if (hasLegacyColumns || hasDuplicateColumns || hasWrongColumnCount || hasCollectionLinksInTextTab || columns.length === 0) {
-        await clearNavColumns(nav._id);
-        await seedColumnsForNav(nav._id, group);
-      }
-    }
-    return;
-  }
   for (const [navIndex, group] of menuGroups.entries()) {
-    const nav = await NavigationItemModel.create({ label: group.label, slug: group.slug, href: group.href, type: 'mega_menu', menuLayoutType: group.menuLayoutType, sortOrder: navIndex, isVisible: true, isMegaMenuEnabled: true, isDefaultActive: navIndex === 0 });
-    await seedColumnsForNav(nav._id, group);
+    const nav = await NavigationItemModel.findOneAndUpdate(
+      { slug: group.slug },
+      {
+        $set: {
+          label: group.label,
+          slug: group.slug,
+          href: group.href,
+          type: 'mega_menu',
+          menuLayoutType: group.menuLayoutType,
+          sortOrder: navIndex,
+          isVisible: true,
+          isMegaMenuEnabled: true,
+          isDefaultActive: navIndex === 0
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).select('_id slug').lean();
+
+    const columns = await MegaMenuColumnModel.find({ navItemId: nav._id }).select('title').lean();
+    const titleCounts = new Map<string, number>();
+    for (const column of columns) {
+      const key = column.title.toLowerCase();
+      titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+    }
+    const hasDuplicateColumns = [...titleCounts.values()].some((count) => count > 1);
+    const hasWrongColumnCount = group.slug !== 'collections' && columns.length !== group.columns.length;
+    const hasLegacyColumns = group.slug === 'new-featured'
+      ? columns.some((column) => column.title.toLowerCase() === 'trending')
+      : group.slug === 'collections'
+        ? columns.length > 0
+        : columns.some((column) => column.title.toLowerCase() === 'featured' || column.title.toLowerCase().includes('sport'));
+    const links = await MegaMenuLinkModel.find({ columnId: { $in: columns.map((column) => column._id) } }).select('href linkedType').lean();
+    const hasCollectionLinksInTextTab = group.slug !== 'collections' && links.some((link) => link.href.startsWith('/collections/') || link.linkedType === 'collection');
+    if (hasLegacyColumns || hasDuplicateColumns || hasWrongColumnCount || hasCollectionLinksInTextTab || (group.slug !== 'collections' && columns.length === 0)) {
+      await clearNavColumns(nav._id);
+      await seedColumnsForNav(nav._id, group);
+    }
   }
 };
 
@@ -533,18 +539,22 @@ export const MerchandisingService = {
   },
 
   async createCollection(input: MerchandisingInput): Promise<unknown> {
-    return CollectionModel.create(input);
+    const collection = await CollectionModel.create(input);
+    markCatalogueStale();
+    return collection;
   },
 
   async updateCollection(id: string, input: MerchandisingInput): Promise<unknown> {
     const collection = await CollectionModel.findByIdAndUpdate(id, input, { new: true, runValidators: true });
     if (!collection) throw new ApiError(404, 'Collection not found');
+    markCatalogueStale();
     return collection;
   },
 
   async removeCollection(id: string): Promise<void> {
     const collection = await CollectionModel.findByIdAndUpdate(id, { isVisible: false }, { new: true });
     if (!collection) throw new ApiError(404, 'Collection not found');
+    markCatalogueStale();
   },
 
   async pageSettings(filters: { pageType?: string; pageSlug?: string; page?: number; limit?: number }): Promise<PaginatedResult<unknown>> {

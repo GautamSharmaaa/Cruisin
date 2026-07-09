@@ -38,7 +38,9 @@ const userSchema = new Schema(
     isActive: { type: Boolean, default: true, index: true },
     refreshTokenHash: { type: String, select: false },
     lastLogin: { type: Date },
-    deletedAt: { type: Date, index: true }
+    deletedAt: { type: Date, index: true },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

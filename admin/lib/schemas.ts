@@ -1,6 +1,8 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
 
+const optionalNumber = (schema: z.ZodNumber) => z.preprocess((value) => value === '' || value === null || value === undefined ? undefined : value, schema.optional());
+
 export const adminProductSchema = z.object({
   title: z.string().min(2),
   slug: z.string().min(2),
@@ -24,8 +26,21 @@ export const adminProductSchema = z.object({
   shippingReturns: z.string().optional().default(''),
   sizeGuide: z.string().optional().default(''),
   productHighlights: z.string().optional().default(''),
+  pickupAddress: z.string().optional().default(''),
+  lowStockThreshold: z.coerce.number().int().min(0).default(10),
+  weight: z.coerce.number().min(0).optional(),
+  length: z.coerce.number().min(0).optional(),
+  width: z.coerce.number().min(0).optional(),
+  height: z.coerce.number().min(0).optional(),
+  seoTitle: z.string().optional().default(''),
+  seoDescription: z.string().optional().default(''),
+  ogImage: z.string().optional().default(''),
   basePrice: z.coerce.number().min(0),
   comparePrice: z.coerce.number().min(0).optional(),
+  costPrice: z.coerce.number().min(0).optional(),
+  gstPercent: z.coerce.number().min(0).max(100).optional(),
+  hsnCode: z.string().optional().default(''),
+  productCode: z.string().optional().default(''),
   sku: z.string().min(2),
   size: z.string().min(1),
   color: z.string().min(1),
@@ -44,9 +59,11 @@ export const adminCouponSchema = z.object({
   type: z.enum(['percentage', 'fixed', 'freeShipping']),
   value: z.coerce.number().min(0),
   minOrderValue: z.coerce.number().min(0).default(0),
-  maxDiscount: z.coerce.number().min(0).optional(),
-  usageLimit: z.coerce.number().int().min(1).optional(),
+  maxDiscount: optionalNumber(z.coerce.number().min(0)),
+  usageLimit: optionalNumber(z.coerce.number().int().min(1)),
   userUsageLimit: z.coerce.number().int().min(1).default(1),
+  applicableProducts: z.string().optional().default(''),
+  applicableCategories: z.string().optional().default(''),
   validFrom: z.preprocess((value) => value instanceof Date ? value.toISOString().slice(0, 10) : value ?? '', z.string().min(4)),
   validUntil: z.preprocess((value) => value instanceof Date ? value.toISOString().slice(0, 10) : value ?? '', z.string().min(4))
 });

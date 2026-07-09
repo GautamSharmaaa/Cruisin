@@ -12,9 +12,9 @@ import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select-field';
 import { COPY } from '@/constants/copy';
 import { useArchiveCmsSection, useCreateCmsMedia, useCreateCmsSection, usePublishCmsPage, useReorderCmsSections, useRestoreCmsVersion, useUpdateCmsSection, type CmsSectionInput } from '@/hooks/useAdminMutations';
-import { useCmsMedia, useCmsPages, useCmsPageSections, useCmsVersions } from '@/hooks/useAdminResources';
+import { useAdminCategories, useAdminCollections, useAdminProducts, useCmsMedia, useCmsPages, useCmsPageSections, useCmsVersions } from '@/hooks/useAdminResources';
 import { cn } from '@/lib/utils';
-import type { CmsMediaDto, CmsPageDto, CmsSectionDto, CmsSectionType, CmsStatus } from '@/types/dto.types';
+import type { CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsSectionType, CmsStatus, CollectionDto, ProductDto } from '@/types/dto.types';
 
 export interface CmsBuilderProps { }
 
@@ -39,6 +39,7 @@ const isActive = (section: CmsSectionDto): boolean => section.active ?? section.
 const scheduleLabel = (section: CmsSectionDto): string => section.startDate || section.endDate ? 'Scheduled' : 'Always on';
 const contentValue = (value: unknown): ContentValue => typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string' ? value : '';
 const parseIds = (value: ContentValue | undefined): string[] => String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+const itemId = (item: { id?: string; _id?: string }): string => item.id ?? item._id ?? '';
 const normalizeContent = (section?: CmsSectionDto): ContentState => ({ ...getSectionTemplate((section?.type ?? 'hero_campaign') as CmsSectionType).defaults, ...Object.fromEntries(Object.entries(section?.content ?? {}).map(([key, value]) => [key, contentValue(value)])) });
 const mockProductImages = [
   'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=700&q=80',
@@ -51,6 +52,8 @@ const mediaUrl = (content: ContentState, device: DevicePreview): string => {
   if (device === 'mobile') return String(content.mobileMedia || content.mobileImage || content.mobileFallbackImage || content.desktopMedia || content.imageOne || content.image || '');
   return String(content.desktopMedia || content.posterImage || content.imageOne || content.image || content.mobileMedia || '');
 };
+
+const accessibleTemplateName = (name: string): string => name.replace(/\s*\/\s*/g, ' ');
 
 const sectionImage = (section: CmsSectionInput, fallbackIndex = 0): string => {
   const content = section.content as ContentState;
@@ -87,6 +90,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const [templatePreview, setTemplatePreview] = useState<HomepageTemplate | null>(null);
   const [templateConfirm, setTemplateConfirm] = useState<HomepageTemplate | null>(null);
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState<CmsSectionDto | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('builder');
   const [toast, setToast] = useState<ToastState>(null);
   const selectedRef = useRef(selectedId);
@@ -156,8 +160,18 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   };
 
   const archiveOne = (section: CmsSectionDto): void => {
-    if (!window.confirm('Delete this section from the draft?')) return;
-    archiveSection.mutate(sectionId(section), { onSuccess: () => setToast({ tone: 'success', message: 'Section removed from draft.' }) });
+    setArchiveConfirm(section);
+  };
+
+  const confirmArchive = (): void => {
+    if (!archiveConfirm) return;
+    archiveSection.mutate(sectionId(archiveConfirm), {
+      onSuccess: () => {
+        setToast({ tone: 'success', message: 'Section removed from draft.' });
+        setArchiveConfirm(null);
+      },
+      onError: (error) => setToast({ tone: 'error', message: error.message })
+    });
   };
 
   const saveDraft = (): void => {
@@ -255,6 +269,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     {templatePreview ? <TemplatePreviewModal template={templatePreview} onClose={() => setTemplatePreview(null)} onUse={(template) => setTemplateConfirm(template)} /> : null}
     {templateConfirm ? <TemplateConfirmModal template={templateConfirm} onClose={() => setTemplateConfirm(null)} onApply={(action) => void applyTemplate(templateConfirm, action)} /> : null}
     {publishConfirmOpen ? <PublishConfirmModal isPublishing={publishPage.isPending} onClose={() => setPublishConfirmOpen(false)} onPublish={confirmPublish} /> : null}
+    {archiveConfirm ? <ArchiveConfirmModal section={archiveConfirm} isArchiving={archiveSection.isPending} onClose={() => setArchiveConfirm(null)} onArchive={confirmArchive} /> : null}
   </DndContext>;
 }
 
@@ -327,8 +342,8 @@ function SectionTemplateCard({ template, onPreview, onAdd }: { template: Section
       <p className="mt-2 line-clamp-2 text-xs leading-5 text-text-secondary">{template.description}</p>
       <p className="mt-2 truncate text-[11px] text-text-muted"><span className="text-text-secondary">Best for:</span> {template.bestFor}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button type="button" variant="secondary" aria-label={'Preview ' + template.name} onClick={() => onPreview(template)}><Eye size={15} />Preview</Button>
-        <Button type="button" aria-label={'Add ' + template.name} onClick={() => onAdd(template.type)}><Plus size={15} />Add</Button>
+        <Button type="button" variant="secondary" data-testid={'cms-preview-' + template.type} aria-label={'Preview ' + accessibleTemplateName(template.name)} onClick={() => onPreview(template)}><Eye size={15} />Preview</Button>
+        <Button type="button" data-testid={'cms-add-' + template.type} aria-label={'Add ' + accessibleTemplateName(template.name)} onClick={() => onAdd(template.type)}><Plus size={15} />Add</Button>
       </div>
     </div>
   </article>;
@@ -350,7 +365,7 @@ function SectionCanvasCard({ section, selected, nodeRef, onSelect, onDuplicate, 
   const droppable = useDroppable({ id });
   const missing = template.requiredFields.some((field) => field === 'title' ? !section.title : !String((section.content ?? {})[field.replace('content.', '')] ?? '').trim());
   return <article ref={(node) => { draggable.setNodeRef(node); droppable.setNodeRef(node); nodeRef(node); }} className={cn('border bg-background-primary transition', selected ? 'border-accent-gold shadow-gold' : 'border-border-subtle hover:border-border-strong')}>
-    <button type="button" onClick={onSelect} className="grid w-full grid-cols-[32px_1fr] gap-3 p-3 text-left">
+    <button type="button" aria-label={'Edit section: ' + section.title} onClick={onSelect} className="grid w-full grid-cols-[32px_1fr] gap-3 p-3 text-left">
       <span {...draggable.listeners} {...draggable.attributes} className="flex h-9 w-9 cursor-grab items-center justify-center border border-border bg-background-elevated text-text-secondary active:cursor-grabbing"><GripVertical size={16} /></span>
       <span className="min-w-0">
         <span className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-accent-gold"><Icon size={15} />{template.name}</span>
@@ -365,10 +380,10 @@ function SectionCanvasCard({ section, selected, nodeRef, onSelect, onDuplicate, 
       </span>
     </button>
     <div className="grid grid-cols-4 border-t border-border-subtle">
-      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label="Hide or show section" onClick={onToggle}>{isActive(section) ? <ToggleRight size={17} /> : <ToggleLeft size={17} />}</button>
-      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label="Duplicate section" onClick={onDuplicate}><Copy size={16} /></button>
-      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label="Edit section" onClick={onSelect}><Eye size={16} /></button>
-      <button type="button" className="flex h-9 items-center justify-center text-danger hover:brightness-125" aria-label="Delete section" onClick={onArchive}><Trash2 size={16} /></button>
+      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label={'Toggle visibility section: ' + section.title} onClick={onToggle}>{isActive(section) ? <ToggleRight size={17} /> : <ToggleLeft size={17} />}</button>
+      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label={'Duplicate section: ' + section.title} onClick={onDuplicate}><Copy size={16} /></button>
+      <button type="button" className="flex h-9 items-center justify-center text-text-secondary hover:text-text-primary" aria-label={'Preview section: ' + section.title} onClick={onSelect}><Eye size={16} /></button>
+      <button type="button" className="flex h-9 items-center justify-center text-danger hover:brightness-125" aria-label={'Delete section: ' + section.title} onClick={onArchive}><Trash2 size={16} /></button>
     </div>
   </article>;
 }
@@ -390,43 +405,141 @@ function EmptyHomepageState({ onQuickAdd, onTemplate }: { onQuickAdd: (type: Cms
 }
 
 function SectionInspector({ selected, draft, saveState, onSave, onDuplicate, onArchive, onField, onContent }: { selected?: CmsSectionDto; draft: CmsSectionInput; saveState: SaveState; onSave: () => void; onDuplicate: (section: CmsSectionDto) => void; onArchive: (section: CmsSectionDto) => void; onField: <TKey extends keyof CmsSectionInput>(key: TKey, value: CmsSectionInput[TKey]) => void; onContent: (key: string, value: ContentValue) => void; }): ReactNode {
+  const [productQuery, setProductQuery] = useState('');
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const [collectionQuery, setCollectionQuery] = useState('');
+  const products = useAdminProducts({ q: productQuery, status: 'visible', limit: 24 });
+  const categoriesData = useAdminCategories();
+  const collectionsData = useAdminCollections();
+  const selectedProductIds = Array.from(new Set([...draft.products, ...parseIds(contentValue(draft.content.productIds))]));
+  const selectedCategoryIds = draft.categories;
+  const selectedCollectionIds = parseIds(contentValue(draft.content.collectionIds));
+  const filteredCategories = useMemo(() => filterReferences(categoriesData.data ?? [], categoryQuery, categoryLabel), [categoriesData.data, categoryQuery]);
+  const filteredCollections = useMemo(() => filterReferences(collectionsData.data ?? [], collectionQuery, collectionLabel), [collectionsData.data, collectionQuery]);
+  const updateProducts = (ids: string[]): void => {
+    onField('products', ids);
+    onContent('productIds', ids.join(', '));
+  };
+  const updateCategories = (ids: string[]): void => {
+    onField('categories', ids);
+  };
+  const updateCollections = (ids: string[]): void => {
+    onContent('collectionIds', ids.join(', '));
+    const collection = (collectionsData.data ?? []).find((item) => ids[0] && itemId(item) === ids[0]);
+    if (collection) {
+      onContent('collectionSlug', collection.slug);
+      onContent('collectionLabel', collection.title);
+      if (!String(draft.content.ctaLink ?? '').trim() || String(draft.content.ctaLink).startsWith('/collections')) onContent('ctaLink', '/collections/' + collection.slug);
+      if (!String(draft.content.image ?? '').trim()) onContent('image', collection.heroImage ?? collection.bannerImage ?? collection.cardImage ?? '');
+    }
+  };
+  const contentEntries = Object.entries(draft.content).filter(([key]) => !['productIds', 'collectionIds', 'collectionSlug'].includes(key));
   return <section className="border border-border bg-background-elevated p-5 shadow-lg">
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">Selected Section Editor</p><h3 className="mt-2 font-display text-2xl">{selected?.title ?? 'No section selected'}</h3></div>
       {selected ? <StatusPill tone={saveState === 'saved' ? 'success' : saveState === 'error' ? 'warning' : 'gold'}>{saveState === 'dirty' ? 'Unsaved' : saveState === 'saving' ? 'Saving' : draft.status}</StatusPill> : null}
     </div>
     {selected ? <div className="mt-6 grid gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <SelectField label="Section Type" options={SECTION_TEMPLATES.map((item) => ({ label: item.name, value: item.type }))} value={draft.type} onChange={(event) => { const type = event.target.value as CmsSectionType; onField('type', type); onField('content', { ...getSectionTemplate(type).defaults, ...draft.content }); }} />
-        <SelectField label="Page Target" options={targetOptions} value={draft.pageTarget} onChange={(event) => onField('pageTarget', event.target.value)} />
-        <Input label={COPY.fields.title} value={draft.title} onChange={(event) => onField('title', event.target.value)} />
-        <Input label={COPY.fields.subtitle} value={draft.subtitle ?? ''} onChange={(event) => onField('subtitle', event.target.value)} />
-        <SelectField label={COPY.fields.status} options={statusOptions} value={draft.status} onChange={(event) => onField('status', event.target.value as CmsStatus)} />
-        <Input label={COPY.fields.sortOrder} type="number" value={draft.sortOrder} onChange={(event) => onField('sortOrder', Number(event.target.value))} />
-      </div>
-      <label className="block text-xs uppercase tracking-[0.15em] text-text-secondary"><span>Description</span><textarea className="mt-2 min-h-24 w-full border border-border-subtle bg-background-input px-4 py-3 text-sm normal-case tracking-normal text-text-primary" value={draft.description ?? ''} onChange={(event) => onField('description', event.target.value)} /></label>
-      <div className="grid gap-4 md:grid-cols-3">
-        <SelectField label="Active" options={boolOptions} value={String(draft.active)} onChange={(event) => onField('active', event.target.value === 'true')} />
-        <SelectField label="Hide Desktop" options={boolOptions} value={String(draft.hideOnDesktop)} onChange={(event) => onField('hideOnDesktop', event.target.value === 'true')} />
-        <SelectField label="Hide Mobile" options={boolOptions} value={String(draft.hideOnMobile)} onChange={(event) => onField('hideOnMobile', event.target.value === 'true')} />
-        <Input label={COPY.fields.startDate} type="date" value={draft.startDate ?? ''} onChange={(event) => onField('startDate', event.target.value)} />
-        <Input label={COPY.fields.endDate} type="date" value={draft.endDate ?? ''} onChange={(event) => onField('endDate', event.target.value)} />
-      </div>
-      <div className="border border-border-subtle p-4">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-accent-gold"><CalendarClock size={15} />Campaign Content</div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">{Object.entries(draft.content).map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Input label="Manual Product IDs" value={parseIds(contentValue(draft.content.productIds)).join(', ')} onChange={(event) => onContent('productIds', event.target.value)} />
-        <Input label="Manual Category IDs" value={draft.categories.join(', ')} onChange={(event) => onField('categories', parseIds(event.target.value))} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={onSave}>{saveState === 'saving' ? COPY.common.loading : 'Save Section'}</Button>
+      <InspectorGroup title="Basic Info" helper="Name the block and choose where this section appears in the store.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <SelectField label="Section Type" options={SECTION_TEMPLATES.map((item) => ({ label: item.name, value: item.type }))} value={draft.type} onChange={(event) => { const type = event.target.value as CmsSectionType; onField('type', type); onField('content', { ...getSectionTemplate(type).defaults, ...draft.content }); }} />
+          <SelectField label="Page Target" options={targetOptions} value={draft.pageTarget} onChange={(event) => onField('pageTarget', event.target.value)} />
+          <Input label={COPY.fields.title} value={draft.title} onChange={(event) => onField('title', event.target.value)} placeholder="Customer-facing headline" />
+          <Input label={COPY.fields.subtitle} value={draft.subtitle ?? ''} onChange={(event) => onField('subtitle', event.target.value)} placeholder="Short supporting copy" />
+          <SelectField label={COPY.fields.status} options={statusOptions} value={draft.status} onChange={(event) => onField('status', event.target.value as CmsStatus)} />
+          <Input label={COPY.fields.sortOrder} type="number" value={draft.sortOrder} onChange={(event) => onField('sortOrder', Number(event.target.value))} />
+        </div>
+        <label className="mt-4 block text-xs uppercase tracking-[0.15em] text-text-secondary"><span>Description</span><textarea className="mt-2 min-h-24 w-full border border-border-subtle bg-background-input px-4 py-3 text-sm normal-case tracking-normal text-text-primary" value={draft.description ?? ''} onChange={(event) => onField('description', event.target.value)} placeholder="Internal note or longer storefront copy for editorial blocks." /></label>
+      </InspectorGroup>
+      <InspectorGroup title="Visibility & Scheduling" helper="Control device targeting, campaign dates, and whether the block can appear after publish.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <SelectField label="Active" options={boolOptions} value={String(draft.active)} onChange={(event) => onField('active', event.target.value === 'true')} />
+          <SelectField label="Hide Desktop" options={boolOptions} value={String(draft.hideOnDesktop)} onChange={(event) => onField('hideOnDesktop', event.target.value === 'true')} />
+          <SelectField label="Hide Mobile" options={boolOptions} value={String(draft.hideOnMobile)} onChange={(event) => onField('hideOnMobile', event.target.value === 'true')} />
+          <Input label={COPY.fields.startDate} type="date" value={draft.startDate ?? ''} onChange={(event) => onField('startDate', event.target.value)} />
+          <Input label={COPY.fields.endDate} type="date" value={draft.endDate ?? ''} onChange={(event) => onField('endDate', event.target.value)} />
+        </div>
+      </InspectorGroup>
+      <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
+        <div className="grid gap-4 md:grid-cols-2">{contentEntries.map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
+      </InspectorGroup>
+      <InspectorGroup title="Products / Categories / Collections" helper="Search by product, category, or collection name. Selections are saved as CMS references for storefront hydration.">
+        <div className="grid gap-4 xl:grid-cols-3">
+          <ReferencePicker<ProductDto> label="Products" query={productQuery} onQuery={setProductQuery} items={products.data?.items ?? []} selectedIds={selectedProductIds} isLoading={products.isLoading} getId={itemId} getLabel={productLabel} getMeta={(item) => item.slug + ' / ' + (item.status ?? 'published')} onChange={updateProducts} />
+          <ReferencePicker<CategoryDto> label="Categories" query={categoryQuery} onQuery={setCategoryQuery} items={filteredCategories} selectedIds={selectedCategoryIds} isLoading={categoriesData.isLoading} getId={itemId} getLabel={categoryLabel} getMeta={(item) => item.slug} onChange={updateCategories} />
+          <ReferencePicker<CollectionDto> label="Collections" query={collectionQuery} onQuery={setCollectionQuery} items={filteredCollections} selectedIds={selectedCollectionIds} isLoading={collectionsData.isLoading} getId={itemId} getLabel={collectionLabel} getMeta={(item) => item.slug} onChange={updateCollections} />
+        </div>
+      </InspectorGroup>
+      <div className="flex flex-wrap gap-2 border border-border-subtle bg-background-primary p-4">
+        <Button type="button" onClick={onSave}><Save size={16} />{saveState === 'saving' ? COPY.common.loading : 'Save Draft'}</Button>
         <Button type="button" variant="secondary" onClick={() => onDuplicate(selected)}><Copy size={16} />Duplicate</Button>
+        <Button type="button" variant="secondary" onClick={() => window.open('/cms', '_blank')}><Eye size={16} />Preview</Button>
         <Button type="button" variant="danger" onClick={() => onArchive(selected)}><Trash2 size={16} />Delete</Button>
       </div>
     </div> : <div className="mt-6"><EmptyPanel title="No section selected" message="Create a section to edit its campaign fields." /></div>}
   </section>;
+}
+
+function InspectorGroup({ title, helper, children }: { title: string; helper: string; children: ReactNode }): ReactNode {
+  return <fieldset className="border border-border-subtle bg-background-primary p-4">
+    <legend className="px-2 font-mono text-xs uppercase tracking-[0.14em] text-accent-gold">{title}</legend>
+    <p className="mb-4 text-xs leading-5 text-text-muted">{helper}</p>
+    {children}
+  </fieldset>;
+}
+
+function filterReferences<TItem>(items: TItem[], query: string, labelFor: (item: TItem) => string): TItem[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return items.slice(0, 24);
+  return items.filter((item) => labelFor(item).toLowerCase().includes(needle)).slice(0, 24);
+}
+
+function productLabel(product: ProductDto): string {
+  return product.title;
+}
+
+function categoryLabel(category: CategoryDto): string {
+  return category.name;
+}
+
+function collectionLabel(collection: CollectionDto): string {
+  return collection.title;
+}
+
+function ReferencePicker<TItem>({ label, query, onQuery, items, selectedIds, isLoading, getId, getLabel, getMeta, onChange }: { label: string; query: string; onQuery: (query: string) => void; items: TItem[]; selectedIds: string[]; isLoading: boolean; getId: (item: TItem) => string; getLabel: (item: TItem) => string; getMeta?: (item: TItem) => string; onChange: (ids: string[]) => void; }): ReactNode {
+  const selected = new Set(selectedIds);
+  const toggle = (id: string): void => {
+    if (!id) return;
+    const next = selected.has(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
+    onChange(next);
+  };
+  return <div className="min-w-0 border border-border-subtle p-3">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-[0.14em] text-text-secondary">{label}</p>
+        <p className="mt-1 text-xs text-text-muted">{selectedIds.length} selected</p>
+      </div>
+      {selectedIds.length ? <button type="button" className="text-xs uppercase tracking-[0.1em] text-accent-gold" onClick={() => onChange([])}>Clear</button> : null}
+    </div>
+    <label className="mt-3 flex h-10 items-center gap-2 border border-border-subtle bg-background-input px-3 text-sm text-text-secondary focus-within:border-accent-gold">
+      <Search size={14} />
+      <input value={query} onChange={(event) => onQuery(event.target.value)} placeholder={'Search ' + label.toLowerCase()} className="min-w-0 flex-1 bg-transparent text-text-primary outline-none placeholder:text-text-muted" />
+    </label>
+    <div className="mt-3 grid max-h-60 gap-2 overflow-auto pr-1">
+      {isLoading ? <p className="text-sm text-text-secondary">{COPY.common.loading}</p> : items.length ? items.map((item) => {
+        const id = getId(item);
+        const checked = selected.has(id);
+        return <button key={id} type="button" className={cn('grid grid-cols-[18px_1fr] gap-2 border px-3 py-2 text-left transition', checked ? 'border-accent-gold bg-accent-gold/10' : 'border-border-subtle hover:border-border-strong')} onClick={() => toggle(id)} aria-pressed={checked}>
+          <span className={cn('mt-0.5 h-4 w-4 border', checked ? 'border-accent-gold bg-accent-gold' : 'border-border-subtle')} />
+          <span className="min-w-0">
+            <span className="block truncate text-sm text-text-primary">{getLabel(item)}</span>
+            {getMeta ? <span className="mt-0.5 block truncate text-xs text-text-muted">{getMeta(item)}</span> : null}
+          </span>
+        </button>;
+      }) : <p className="text-sm text-text-secondary">No {label.toLowerCase()} found.</p>}
+    </div>
+    {selectedIds.length ? <p className="mt-3 break-words font-mono text-[10px] leading-4 text-text-muted">{selectedIds.join(', ')}</p> : null}
+  </div>;
 }
 
 function PreviewWorkspace({ sectionList, selected, draft, device, includeInactive, onDevice, onSelect }: { sectionList: CmsSectionDto[]; selected?: CmsSectionDto; draft: CmsSectionInput; device: DevicePreview; includeInactive: boolean; onDevice: (device: DevicePreview) => void; onSelect: (section: CmsSectionDto) => void; }): ReactNode {
@@ -493,7 +606,7 @@ function SectionPreviewModal({ template, onClose, onAdd }: { template: SectionTe
     <p className="mt-5 text-sm leading-6 text-text-secondary">{template.description}</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2"><InfoBlock label="Category" value={template.category} /><InfoBlock label="Best for" value={template.bestFor} /></div>
     <div className="mt-5"><p className="text-xs uppercase tracking-[0.14em] text-accent-gold">Editable fields</p><div className="mt-3 flex flex-wrap gap-2">{template.editableFields.map((field) => <span key={field} className="border border-border-subtle px-3 py-1.5 text-xs text-text-secondary">{field}</span>)}</div></div>
-    <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Close</Button><Button type="button" onClick={() => onAdd(template.type)}>Add {template.name}</Button></div>
+    <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Close</Button><Button type="button" aria-label={'Add ' + accessibleTemplateName(template.name)} onClick={() => onAdd(template.type)}>Add {template.name}</Button></div>
   </ModalShell>;
 }
 
@@ -556,6 +669,21 @@ function PublishConfirmModal({ isPublishing, onClose, onPublish }: { isPublishin
     <div className="mt-6 flex justify-end gap-2">
       <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
       <Button type="button" onClick={onPublish} disabled={isPublishing}><Rocket size={16} />{isPublishing ? 'Publishing' : 'Publish Homepage'}</Button>
+    </div>
+  </ModalShell>;
+}
+
+function ArchiveConfirmModal({ section, isArchiving, onClose, onArchive }: { section: CmsSectionDto; isArchiving: boolean; onClose: () => void; onArchive: () => void; }): ReactNode {
+  useEscape(onClose);
+  return <ModalShell title="Delete CMS section?" onClose={onClose}>
+    <p className="text-sm leading-6 text-text-secondary">This removes the draft section from the homepage builder. The storefront will not change until you publish.</p>
+    <div className="mt-5 border border-border-subtle bg-background-primary p-4">
+      <p className="text-xs uppercase tracking-[0.14em] text-accent-gold">Section</p>
+      <p className="mt-2 break-words text-sm text-text-primary">{section.title}</p>
+    </div>
+    <div className="mt-6 flex justify-end gap-2">
+      <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+      <Button type="button" variant="danger" aria-label={'Confirm delete section: ' + section.title} onClick={onArchive} disabled={isArchiving}><Trash2 size={16} />{isArchiving ? 'Deleting' : 'Delete Section'}</Button>
     </div>
   </ModalShell>;
 }

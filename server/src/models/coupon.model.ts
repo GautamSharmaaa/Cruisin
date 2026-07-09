@@ -15,7 +15,9 @@ const couponSchema = new Schema(
     applicableCategories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
     isActive: { type: Boolean, default: true, index: true },
     validFrom: { type: Date, required: true, index: true },
-    validUntil: { type: Date, required: true, index: true }
+    validUntil: { type: Date, required: true, index: true },
+    analyticsTestBatchId: { type: String, trim: true, index: true },
+    isAnalyticsTestData: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

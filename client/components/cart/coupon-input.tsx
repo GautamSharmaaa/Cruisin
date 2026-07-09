@@ -16,6 +16,15 @@ type CouponForm = z.infer<typeof couponSchema>;
 export interface CouponInputProps { }
 interface CouponApplyResponse { coupon: string; discount: number; freeShipping: boolean; }
 interface ApiEnvelope<TData> { data: TData; message: string; }
+interface ServerCartItem { product?: string | { _id?: string; id?: string }; variant?: string | { _id?: string; id?: string }; }
+interface ServerCartResponse { items?: ServerCartItem[]; }
+
+const idString = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && '_id' in value) return String((value as { _id: unknown })._id);
+  if (value && typeof value === 'object' && 'id' in value) return String((value as { id: unknown }).id);
+  return '';
+};
 
 export function CouponInput(_props: CouponInputProps): ReactNode {
   const items = useCartStore((state) => state.items);
@@ -28,9 +37,12 @@ export function CouponInput(_props: CouponInputProps): ReactNode {
     clearCoupon();
     try {
       const unavailable: typeof items = [];
+      const cartResponse = await api.get<ApiEnvelope<ServerCartResponse>>('/cart').catch(() => null);
+      const serverItems = cartResponse?.data.data?.items ?? [];
       for (const item of items) {
         const payload = { product: item.product.id, variant: item.variantId, quantity: item.quantity };
-        await api.put('/cart/items', payload).catch(() => api.post('/cart/items', payload)).catch(() => unavailable.push(item));
+        const exists = serverItems.some((serverItem) => idString(serverItem.product) === item.product.id && idString(serverItem.variant) === item.variantId);
+        await (exists ? api.put('/cart/items', payload) : api.post('/cart/items', payload)).catch(() => unavailable.push(item));
       }
       if (unavailable.length > 0) {
         unavailable.forEach((item) => removeItem(item.product.id, item.variantId));

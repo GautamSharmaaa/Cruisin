@@ -65,7 +65,7 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           </details> : null}
           <details className="border-t border-border py-6">
             <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.shipping}</summary>
-            <p className="mt-4 text-text-secondary">{product.shippingReturns || COPY.home.newsletterBody}</p>
+            <p className="mt-4 text-text-secondary">{product.shippingReturns || 'Ships with tracking in 2-5 business days. Returns are accepted on unworn pieces with original tags.'}</p>
           </details>
         </section>
       </div>
