@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
-export type PaymentMethod = 'razorpay' | 'stripe';
+export type PaymentMethod = 'razorpay' | 'stripe' | 'cod';
+export type CheckoutPaymentMode = 'online' | 'cod' | 'partial';
 
 export interface PaymentOrder {
   id: string;

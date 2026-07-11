@@ -3,7 +3,7 @@
 
 import { GoogleLogin } from '@react-oauth/google';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -30,6 +30,7 @@ export interface AuthPageProps {
 
 export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<AuthTab>(initialTab);
   const [method, setMethod] = useState<AuthMethod>('email');
   const [countryCode, setCountryCode] = useState('+91');
@@ -77,7 +78,9 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   };
 
   const finishAuth = (user: User): void => {
-    router.push(destinationFor(user));
+    const redirect = searchParams.get('redirect') ?? searchParams.get('next');
+    const destination = redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : destinationFor(user);
+    router.push(destination);
   };
 
   const sendOtp = (): void => {

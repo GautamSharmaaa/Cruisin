@@ -15,8 +15,8 @@ const optionalNameSchema = z.preprocess((value) => typeof value === 'string' && 
 const optionalEmailSchema = z.preprocess((value) => typeof value === 'string' && value.trim() === '' ? undefined : value, z.string().email().optional());
 export const profileSchema = z.object({ name: optionalNameSchema, email: optionalEmailSchema, phone: optionalE164PhoneSchema, whatsappNumber: optionalE164PhoneSchema });
 export const passwordChangeSchema = z.object({ currentPassword: z.string().min(1), password: z.string().min(8), confirmPassword: z.string().min(8) }).refine((data) => data.password === data.confirmPassword, { path: ['confirmPassword'], message: 'Passwords must match' });
-export const checkoutSchema = z.object({ address: addressSchema, paymentMethod: z.enum(['razorpay','stripe']), shippingMethod: z.enum(['standard','express']) });
-export const checkoutPageSchema = addressSchema.extend({ paymentMethod: z.enum(['razorpay','stripe']), shippingMethod: z.enum(['standard','express']) });
+export const checkoutSchema = z.object({ address: addressSchema, paymentMethod: z.enum(['razorpay','cod','partial']), shippingMethod: z.enum(['standard','express']) });
+export const checkoutPageSchema = addressSchema.extend({ paymentMethod: z.enum(['razorpay','cod','partial']), shippingMethod: z.enum(['standard','express']) });
 export const reviewSchema = z.object({ rating: z.number().int().min(1).max(5), title: z.string().min(2), body: z.string().min(8) });
 export const couponSchema = z.object({ code: z.string().min(2).max(40) });
 export const otpRequestSchema = z.object({ phone: e164PhoneSchema, channel: z.literal('whatsapp') });

@@ -156,25 +156,25 @@ const seedColumnsForNav = async (navItemId: unknown, group: (typeof menuGroups)[
 
 const seedNavigation = async (): Promise<void> => {
   for (const [navIndex, group] of menuGroups.entries()) {
-    const nav = await NavigationItemModel.findOneAndUpdate(
-      { slug: group.slug },
-      {
-        $set: {
-          label: group.label,
-          slug: group.slug,
-          href: group.href,
-          type: 'mega_menu',
-          menuLayoutType: group.menuLayoutType,
-          sortOrder: navIndex,
-          isVisible: true,
-          isMegaMenuEnabled: true,
-          isDefaultActive: navIndex === 0
-        }
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    ).select('_id slug').lean();
+    let nav = await NavigationItemModel.findOne({ slug: group.slug }).select('_id slug').lean();
+    if (!nav) {
+      nav = await NavigationItemModel.create({
+        label: group.label,
+        slug: group.slug,
+        href: group.href,
+        type: 'mega_menu',
+        menuLayoutType: group.menuLayoutType,
+        sortOrder: navIndex,
+        isVisible: true,
+        isMegaMenuEnabled: true,
+        isDefaultActive: navIndex === 0
+      });
+      await seedColumnsForNav(nav._id, group);
+      continue;
+    }
 
     const columns = await MegaMenuColumnModel.find({ navItemId: nav._id }).select('title').lean();
+    if (columns.length > 0) continue;
     const titleCounts = new Map<string, number>();
     for (const column of columns) {
       const key = column.title.toLowerCase();

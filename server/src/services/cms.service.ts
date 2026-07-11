@@ -41,8 +41,8 @@ const dateValue = (value: unknown): Date | null => {
 };
 
 const sectionIsLiveFromSnapshot = (section: Record<string, unknown>, at: Date): boolean => {
-  if (section.status === 'archived') return false;
-  if (section.active === false || section.isActive === false) return false;
+  if (section.status !== 'published') return false;
+  if (section.active !== true) return false;
   const starts = dateValue(section.startDate);
   const ends = dateValue(section.endDate);
   return (!starts || starts <= at) && (!ends || ends >= at);
@@ -59,8 +59,17 @@ const refIds = (value: unknown): string[] => {
   }).filter((id) => Types.ObjectId.isValid(id));
 };
 
+const contentProductIds = (section: Record<string, unknown>): string[] => {
+  const content = section.content;
+  if (!content || typeof content !== 'object' || !('productIds' in content)) return [];
+  const value = (content as { productIds?: unknown }).productIds;
+  if (Array.isArray(value)) return refIds(value);
+  if (typeof value !== 'string') return [];
+  return value.split(',').map((id) => id.trim()).filter((id) => Types.ObjectId.isValid(id));
+};
+
 const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Promise<Record<string, unknown>[]> => {
-  const productIds = [...new Set(sections.flatMap((section) => refIds(section.products)))];
+  const productIds = [...new Set(sections.flatMap((section) => [...refIds(section.products), ...contentProductIds(section)]))];
   const categoryIds = [...new Set(sections.flatMap((section) => refIds(section.categories)))];
   const [products, categories] = await Promise.all([
     productIds.length ? ProductModel.find({ _id: { $in: productIds }, ...publicCmsProductQuery }).select(publicCmsProductProjection).lean() : [],
@@ -69,7 +78,8 @@ const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Pro
   const productById = new Map(products.map((product) => [String(product._id), product]));
   const categoryById = new Map(categories.map((category) => [String(category._id), category]));
   return sections.map((section) => {
-    const productsForSection = refIds(section.products).flatMap((id) => {
+    const sectionProductIds = refIds(section.products);
+    const productsForSection = (sectionProductIds.length ? sectionProductIds : contentProductIds(section)).flatMap((id) => {
       const product = productById.get(id);
       return product ? [product] : [];
     });
@@ -79,6 +89,52 @@ const hydrateSnapshotSections = async (sections: Record<string, unknown>[]): Pro
     });
     return { ...section, products: productsForSection, categories: categoriesForSection };
   });
+};
+
+const sourceValue = (section: Record<string, unknown>): string => {
+  const content = section.content;
+  if (!content || typeof content !== 'object' || !('source' in content)) return '';
+  return String((content as { source?: unknown }).source ?? '').toLowerCase();
+};
+
+const limitValue = (section: Record<string, unknown>): number => {
+  const content = section.content;
+  if (!content || typeof content !== 'object' || !('limit' in content)) return 4;
+  const limit = Number((content as { limit?: unknown }).limit);
+  return Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 12) : 4;
+};
+
+const fallbackProductsForSection = async (section: Record<string, unknown>): Promise<Record<string, unknown>[]> => {
+  const source = sourceValue(section);
+  const limit = limitValue(section);
+  const type = String(section.type ?? '');
+  const match: Record<string, unknown> = { ...publicCmsProductQuery };
+  const sort: Record<string, 1 | -1> = { createdAt: -1 };
+  if (source.includes('best') || type === 'best_sellers') {
+    match.$or = [{ isBestseller: true }, { lifetimeSales: { $gt: 0 } }, { isFeatured: true }];
+    Object.assign(sort, { isBestseller: -1, lifetimeSales: -1 });
+  } else if (source.includes('sale')) {
+    match.isSale = true;
+  } else if (source.includes('new') || source.includes('drop')) {
+    match.$or = [{ isNewArrival: true }, { isLatestDrop: true }, { isFeatured: true }];
+    Object.assign(sort, { isNewArrival: -1, isLatestDrop: -1 });
+  }
+  let products = await ProductModel.find(match).select(publicCmsProductProjection).sort(sort).limit(limit).lean();
+  if (products.length < limit) {
+    const selectedIds = products.map((product) => product._id);
+    const fillers = await ProductModel.find({ ...publicCmsProductQuery, _id: { $nin: selectedIds } }).select(publicCmsProductProjection).sort({ createdAt: -1 }).limit(limit - products.length).lean();
+    products = [...products, ...fillers];
+  }
+  return products;
+};
+
+const hydrateEmptyProductRails = async (sections: Record<string, unknown>[]): Promise<Record<string, unknown>[]> => {
+  return Promise.all(sections.map(async (section) => {
+    const type = String(section.type ?? '');
+    if (!['product_carousel', 'trending_now', 'hot_drop', 'featured_collection', 'recently_viewed', 'best_sellers'].includes(type)) return section;
+    if (Array.isArray(section.products) && section.products.length > 0) return section;
+    return { ...section, products: await fallbackProductsForSection(section) };
+  }));
 };
 
 const sanitizePublicPage = (page: Record<string, unknown>): Record<string, unknown> => {
@@ -158,7 +214,13 @@ export const CmsService = {
     if (!page) throw new ApiError(404, 'CMS page not found');
     const sections = await CMSSectionModel.find({ pageId, status: { $ne: 'archived' } }).sort(sectionSort).lean();
     const publishedSections = sections.map((section) => ({ ...section, status: 'published' }));
-    const version = await CMSVersionModel.create({ pageId, sectionsSnapshot: publishedSections, status: 'published', label: `Published ${new Date().toISOString()}`, createdBy: userId });
+    const version = await CMSVersionModel.create({
+      pageId,
+      sectionsSnapshot: publishedSections.filter((section) => section.active === true),
+      status: 'published',
+      label: `Published ${new Date().toISOString()}`,
+      createdBy: userId
+    });
     await CMSPageModel.findByIdAndUpdate(pageId, { status: 'published', publishedVersionId: version._id });
     await CMSSectionModel.updateMany({ pageId, status: { $ne: 'archived' } }, { status: 'published' });
     return version.toObject();
@@ -186,18 +248,18 @@ export const CmsService = {
     if (!isPreview && page.publishedVersionId) {
       const version = await CMSVersionModel.findById(page.publishedVersionId).lean();
       if (version) {
-        const sections = await hydrateSnapshotSections((version.sectionsSnapshot as Record<string, unknown>[]).filter((section) => sectionIsLiveFromSnapshot(section, at)));
+        const sections = await hydrateEmptyProductRails(await hydrateSnapshotSections((version.sectionsSnapshot as Record<string, unknown>[]).filter((section) => sectionIsLiveFromSnapshot(section, at))));
         if (sections.length > 0) return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
       }
     }
     if (!isPreview) {
-      const sections = await loadPublishedSections(page._id, at);
+      const sections = await hydrateEmptyProductRails(await loadPublishedSections(page._id, at));
       if (sections.length > 0) return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
     }
     const query: Record<string, unknown> = { pageId: page._id, status: isPreview ? { $ne: 'archived' } : 'published' };
     if (!isPreview || !options.includeInactive) query.active = true;
     if (!isPreview) Object.assign(query, scheduleQuery(at));
-    const sections = await CMSSectionModel.find(query).sort(sectionSort).populate('products').populate('categories').lean();
+    const sections = await hydrateEmptyProductRails(await CMSSectionModel.find(query).sort(sectionSort).populate('products').populate('categories').lean());
     return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: isPreview };
   },
 

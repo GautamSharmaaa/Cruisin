@@ -25,6 +25,15 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().min(1, 'CLOUDINARY_API_SECRET is required'),
   RAZORPAY_KEY_ID: z.string().min(1, 'RAZORPAY_KEY_ID is required'),
   RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET is required'),
+  RAZORPAY_WEBHOOK_SECRET: optionalSecret,
+  PAYMENT_MODE: z.enum(['test', 'live']).default('test'),
+  COD_ENABLED: z.coerce.boolean().default(true),
+  COD_FEE: z.coerce.number().min(0).default(0),
+  PARTIAL_PAYMENT_ENABLED: z.coerce.boolean().default(false),
+  PARTIAL_PAYMENT_PERCENTAGE: z.coerce.number().positive().max(100).optional(),
+  PARTIAL_PAYMENT_FIXED_AMOUNT: z.coerce.number().positive().optional(),
+  MAX_COD_ORDER_VALUE: z.coerce.number().positive().default(50000),
+  MIN_PARTIAL_PAYMENT_ORDER_VALUE: z.coerce.number().min(0).default(0),
   STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required'),
   STRIPE_WEBHOOK_SECRET: z.string().min(1, 'STRIPE_WEBHOOK_SECRET is required'),
   SENDGRID_API_KEY: z.string().min(1, 'SENDGRID_API_KEY is required'),
@@ -44,6 +53,9 @@ const envSchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['UPSTASH_REDIS_REST_URL'], message: 'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be provided together' });
   }
   if (value.APP_ENV === 'development') return;
+  if (!value.RAZORPAY_WEBHOOK_SECRET) context.addIssue({ code: z.ZodIssueCode.custom, path: ['RAZORPAY_WEBHOOK_SECRET'], message: 'RAZORPAY_WEBHOOK_SECRET is required outside development' });
+  if (value.PAYMENT_MODE === 'live' && !value.RAZORPAY_KEY_ID.startsWith('rzp_live_')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYMENT_MODE'], message: 'Live payment mode requires Razorpay live credentials' });
+  if (value.PARTIAL_PAYMENT_ENABLED && !value.PARTIAL_PAYMENT_PERCENTAGE && !value.PARTIAL_PAYMENT_FIXED_AMOUNT) context.addIssue({ code: z.ZodIssueCode.custom, path: ['PARTIAL_PAYMENT_PERCENTAGE'], message: 'Configure a partial payment percentage or fixed amount' });
   const requiredIdentityVariables: Array<keyof typeof value> = [
     'GOOGLE_CLIENT_ID',
     'TWILIO_ACCOUNT_SID',

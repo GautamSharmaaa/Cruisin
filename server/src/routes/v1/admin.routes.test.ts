@@ -75,6 +75,18 @@ describe('admin analytics route auth', () => {
     expect(adminService.analyticsSummary).not.toHaveBeenCalled();
   });
 
+  it('blocks customer access to the admin order collection', async () => {
+    const response = await request(app).get('/admin/orders').set('Authorization', 'Bearer ' + tokenFor('customer'));
+    expect(response.status).toBe(403);
+  });
+
+  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund']) {
+    it(`blocks customer access to ${path}`, async () => {
+      const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('customer')).send({ amount: 1 });
+      expect(response.status).toBe(403);
+    });
+  }
+
   it('allows analytics summary for admins', async () => {
     adminService.analyticsSummary.mockResolvedValue({ summary: { netRevenue: 123 }, revenueByDay: [] });
     const response = await request(app).get('/admin/analytics/summary?preset=last7').set('Authorization', 'Bearer ' + tokenFor('admin'));

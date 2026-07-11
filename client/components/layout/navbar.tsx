@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { MegaMenu } from '@/components/layout/mega-menu';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { AccountMenu } from '@/components/layout/account-menu';
+import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { SearchModal } from '@/components/shared/search-modal';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
@@ -17,6 +18,7 @@ import { navReveal } from '@/lib/animations';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
+import { useAuthStore } from '@/store/authStore';
 import type { NavigationItemDto } from '@/types/dto.types';
 
 export interface NavbarProps { }
@@ -28,6 +30,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
+  const [wishlistPrompt, setWishlistPrompt] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const navigation = useNavigation();
@@ -43,6 +46,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
   const cartCount = items.filter((item) => isCustomerVisibleProduct(item.product)).length;
   const openCart = useCartStore((state) => state.openCart);
   const wishlistCount = useWishlistStore((state) => state.ids.length);
+  const user = useAuthStore((state) => state.user);
 
   const openMenu = (): void => {
     if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
@@ -100,10 +104,10 @@ export function Navbar(_props: NavbarProps): ReactNode {
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
           <button aria-label={COPY.nav.search} className="hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-text-primary md:flex" onClick={() => { setActiveId(null); setMobile(false); setSearch(true); }}><Search size={18} /></button>
-          <Link aria-label={COPY.nav.wishlist} href={ROUTES.wishlist} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
+          <button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
             <Heart size={18} fill={wishlistCount > 0 ? 'currentColor' : 'none'} />
             {wishlistCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{wishlistCount}</span> : null}
-          </Link>
+          </button>
           <AccountMenu />
           <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
             <ShoppingBag size={18} />
@@ -127,6 +131,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
         cartCount={cartCount}
       />
       <SearchModal open={search} onOpenChange={setSearch} />
+      <LoginRequiredModal open={wishlistPrompt} onOpenChange={setWishlistPrompt} next={ROUTES.wishlist} action="wishlist" />
     </motion.header>
   );
 }

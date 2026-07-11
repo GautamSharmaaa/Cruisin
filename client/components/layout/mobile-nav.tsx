@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { COPY } from '@/constants/copy';
+import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { ROUTES } from '@/constants/routes';
 import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
 import { useAuthStore } from '@/store/authStore';
@@ -21,6 +22,7 @@ export interface MobileNavProps {
   onCart: () => void;
   cartCount: number;
 }
+type AccountLink = { label: string; href: string; action?: 'wishlist' | 'orders' };
 
 const fallbackImage = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85';
 const idOf = (item: { id?: string; _id?: string; slug?: string; title?: string; label?: string }): string => item._id ?? item.id ?? item.slug ?? item.title ?? item.label ?? '';
@@ -46,6 +48,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
   const defaultId = idOf(menuItems.find((item) => item.isDefaultActive) ?? menuItems[0] ?? {});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedColumns, setExpandedColumns] = useState<Record<string, string | null>>({});
+  const [protectedAction, setProtectedAction] = useState<'wishlist' | 'orders' | null>(null);
   const close = useCallback((): void => onOpenChange(false), [onOpenChange]);
 
   useEffect(() => {
@@ -70,9 +73,9 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
     };
   }, [close, open]);
 
-  const accountLinks = user
-    ? [{ label: COPY.nav.wishlist, href: ROUTES.wishlist }, { label: COPY.auth.myAccount, href: ROUTES.account }, { label: COPY.account.preferences, href: ROUTES.preferences }]
-    : [{ label: COPY.auth.signIn, href: ROUTES.login }, { label: COPY.auth.createAccount, href: ROUTES.register }];
+  const accountLinks: AccountLink[] = user
+    ? [{ label: COPY.nav.wishlist, href: ROUTES.wishlist }, { label: COPY.account.orders, href: ROUTES.orders }, { label: COPY.auth.myAccount, href: ROUTES.account }, { label: COPY.account.preferences, href: ROUTES.preferences }]
+    : [{ label: COPY.nav.wishlist, href: ROUTES.wishlist, action: 'wishlist' as const }, { label: COPY.account.orders, href: ROUTES.orders, action: 'orders' as const }, { label: COPY.auth.signIn, href: ROUTES.login }, { label: COPY.auth.createAccount, href: ROUTES.register }];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
@@ -93,7 +96,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
     }
   };
 
-  return (
+  return <>
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -157,13 +160,17 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
               );
             })}
             <div className="mt-6 grid gap-1 border-t border-white/10 pt-4">
-              {accountLinks.map((link) => <Link key={link.href} href={link.href} onClick={close} className="flex min-h-11 items-center text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</Link>)}
+              {accountLinks.map((link) => {
+                const action = link.action;
+                return action ? <button key={link.href} type="button" onClick={() => { close(); setProtectedAction(action); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button> : <Link key={link.href} href={link.href} onClick={close} className="flex min-h-11 items-center text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</Link>;
+              })}
             </div>
           </nav>
         </motion.div>
       ) : null}
     </AnimatePresence>
-  );
+    <LoginRequiredModal open={Boolean(protectedAction)} onOpenChange={(open) => { if (!open) setProtectedAction(null); }} next={protectedAction === 'orders' ? ROUTES.orders : ROUTES.wishlist} action={protectedAction ?? 'wishlist'} />
+  </>;
 }
 
 function MobileMenuContent({ item, expandedColumns, setExpandedColumns, onClose }: { item: NavigationItemDto; expandedColumns: Record<string, string | null>; setExpandedColumns: (value: Record<string, string | null>) => void; onClose: () => void }): ReactNode {

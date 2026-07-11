@@ -12,4 +12,5 @@ server-error.log
 .env
 .env.*
 !.env.example
+razorpay_test_api_keys_*.csv
 .DS_Store

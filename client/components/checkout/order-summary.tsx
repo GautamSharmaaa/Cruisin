@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { COPY } from '@/constants/copy';
+import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { formatPrice } from '@/lib/utils';
 import { useCartStore } from '@/store/cartStore';
 
@@ -12,12 +13,12 @@ export function OrderSummary(_props: OrderSummaryProps): ReactNode {
 	useEffect(() => setMounted(true), []);
 
 	// call hooks unconditionally to preserve hook order
-	const subtotal = useCartStore((state) => state.subtotal());
+	const subtotal = useCartStore((state) => state.items.filter((item) => isCustomerVisibleProduct(item.product)).reduce((sum, item) => sum + item.price * item.quantity, 0));
 	const discount = useCartStore((state) => state.couponDiscount);
 	const freeShipping = useCartStore((state) => state.freeShipping);
 	if (!mounted) return null;
 	const discountedSubtotal = Math.max(0, subtotal - discount);
-	const shipping = freeShipping || discountedSubtotal > 25000 ? 0 : 900;
+	const shipping = freeShipping || discountedSubtotal >= 25000 ? 0 : 900;
 	const tax = Math.round(discountedSubtotal * 0.18);
 	return (
 		<aside className="border border-border bg-background-elevated/70 p-6 shadow-lg backdrop-blur-xl lg:sticky lg:top-28">

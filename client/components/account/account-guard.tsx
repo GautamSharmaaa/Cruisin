@@ -16,10 +16,9 @@ export function AccountGuard({ children }: AccountGuardProps): ReactNode {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const isInitialized = useAuthStore((state) => state.isInitialized);
-
   useEffect(() => {
     if (isInitialized && !user) {
-      router.replace(ROUTES.login + '?next=' + encodeURIComponent(pathname));
+      router.replace(ROUTES.login + '?redirect=' + encodeURIComponent(pathname));
     }
   }, [isInitialized, pathname, router, user]);
 

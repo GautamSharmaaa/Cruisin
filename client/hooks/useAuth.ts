@@ -5,6 +5,7 @@ import { setAccessToken } from '@/lib/access-token';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { User } from '@/types/user.types';
 
@@ -23,9 +24,11 @@ interface OtpRequestResult {
 
 const useAuthSuccess = () => {
   const setSession = useAuthStore((state) => state.setSession);
+  const setWishlistIds = useWishlistStore((state) => state.setIds);
   return (data: AuthResult): void => {
     setAccessToken(data.accessToken);
     setSession(data.user, data.accessToken);
+    void api.get<ApiEnvelope<{ products?: Array<{ _id?: string; id?: string }> }>>('/wishlist').then((response) => setWishlistIds((response.data.data.products ?? []).map((product) => product.id ?? product._id ?? '').filter(Boolean))).catch(() => undefined);
   };
 };
 
@@ -68,4 +71,4 @@ export const useForgotPassword = () => useMutation({ mutationFn: async (input: {
 
 export const useResetPassword = () => useMutation({ mutationFn: async (input: { token: string; password: string }): Promise<void> => { await api.post('/auth/reset-pw', input); } });
 
-export const useLogout = () => { const clearSession = useAuthStore((state) => state.clearSession); const router = useRouter(); return useMutation({ mutationFn: async (): Promise<void> => { await api.post('/auth/logout'); }, onSettled: (): void => { setAccessToken(null); clearSession(); router.push('/login'); } }); };
+export const useLogout = () => { const clearSession = useAuthStore((state) => state.clearSession); const setWishlistIds = useWishlistStore((state) => state.setIds); const router = useRouter(); return useMutation({ mutationFn: async (): Promise<void> => { await api.post('/auth/logout'); }, onSettled: (): void => { setAccessToken(null); clearSession(); setWishlistIds([]); router.push('/login'); } }); };

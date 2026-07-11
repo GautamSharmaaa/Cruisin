@@ -313,12 +313,15 @@ export interface CouponDto {
 export interface OrderDto {
   id: string;
   _id?: string;
+  orderNumber?: string;
   user?: string;
   sessionId?: string;
   items?: Array<{ title: string; sku: string; quantity: number; price: number; image?: string }>;
   shippingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
-  paymentMethod?: 'razorpay' | 'stripe';
+  paymentMethod?: 'razorpay' | 'stripe' | 'cod';
+  paymentMode?: 'online' | 'cod' | 'partial';
+  paymentProvider?: 'razorpay' | 'stripe' | 'cod' | 'manual';
   paymentStatus: string;
   orderStatus: string;
   subtotal?: number;
@@ -327,6 +330,13 @@ export interface OrderDto {
   discount?: number;
   couponCode?: string;
   total: number;
+  codFee?: number;
+  amountPaid?: number;
+  amountDue?: number;
+  refundAmount?: number;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  refunds?: Array<{ providerRefundId?: string; amount: number; status: string; reason?: string; createdAt?: string }>;
   createdAt?: string;
   trackingNumber?: string;
   timeline?: Array<{ status: string; timestamp: string; note?: string }>;

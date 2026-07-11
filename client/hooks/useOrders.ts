@@ -5,4 +5,4 @@ import type { ApiEnvelope } from '@/types/api.types';
 import type { Order } from '@/types/order.types';
 
 export const useOrders = () => useQuery({ queryKey: ['orders'], queryFn: async (): Promise<Order[]> => { const response = await api.get<ApiEnvelope<Order[]>>('/orders/mine'); return response.data.data; } });
-export const useOrder = (id: string) => useQuery({ queryKey: ['orders', id], queryFn: async (): Promise<Order> => { const response = await api.get<ApiEnvelope<Order>>('/orders/' + id); return response.data.data; } });
+export const useOrder = (id: string | undefined) => useQuery({ queryKey: ['orders', id], enabled: Boolean(id), queryFn: async (): Promise<Order> => { const response = await api.get<ApiEnvelope<Order>>('/orders/' + id); return response.data.data; } });

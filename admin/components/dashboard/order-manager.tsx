@@ -24,13 +24,15 @@ type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'deliver
 const orderId = (order: OrderDto): string => order.id ?? order._id ?? order.createdAt ?? COPY.common.none;
 const statusOptions = Object.entries(COPY.orders.statuses).map(([value, label]) => ({ value, label }));
 const statuses = ['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
-const paymentStatuses = ['all', 'pending', 'paid', 'failed', 'refunded'] as const;
+const paymentStatuses = ['all', 'pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'refunded', 'partially_refunded'] as const;
+const paymentModes = ['all', 'online', 'cod', 'partial'] as const;
 
 export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNode {
   const updateStatus = useUpdateOrderStatus();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>('all');
   const [paymentFilter, setPaymentFilter] = useState<(typeof paymentStatuses)[number]>('all');
+  const [paymentModeFilter, setPaymentModeFilter] = useState<(typeof paymentModes)[number]>('all');
   const [statusesById, setStatusesById] = useState<Record<string, OrderStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [tracking, setTracking] = useState<Record<string, string>>({});
@@ -49,9 +51,9 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
     const needle = query.trim().toLowerCase();
     return orders.filter((order) => {
       const haystack = [orderId(order), order.shippingAddress?.fullName, order.shippingAddress?.phone, order.shippingAddress?.city, order.items?.map((item) => item.title + ' ' + item.sku).join(' '), order.couponCode, order.trackingNumber].join(' ').toLowerCase();
-      return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || order.orderStatus === statusFilter) && (paymentFilter === 'all' || order.paymentStatus === paymentFilter);
+      return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || order.orderStatus === statusFilter) && (paymentFilter === 'all' || order.paymentStatus === paymentFilter) && (paymentModeFilter === 'all' || order.paymentMode === paymentModeFilter);
     });
-  }, [orders, paymentFilter, query, statusFilter]);
+  }, [orders, paymentFilter, paymentModeFilter, query, statusFilter]);
 
   const onUpdate = (order: OrderDto): void => {
     const id = orderId(order);
@@ -72,10 +74,11 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
       <AdminStat label="Paid revenue" value={formatPrice(stats.revenue)} tone="gold" />
     </AdminStatsGrid>
 
-    <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); }}>Reset Filters</Button>}>
+    <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); }}>Reset Filters</Button>}>
       <label className="grid min-w-[260px] flex-1 gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>Search order, customer, product, coupon</span><span className="flex h-11 items-center border border-border bg-background-input px-3"><Search size={16} className="mr-2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm normal-case text-text-primary outline-none" /></span></label>
       <SelectField label="Order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])} options={statuses.map((value) => ({ value, label: value === 'all' ? 'All statuses' : COPY.orders.statuses[value as OrderStatus] }))} />
       <SelectField label="Payment status" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as (typeof paymentStatuses)[number])} options={paymentStatuses.map((value) => ({ value, label: value === 'all' ? 'All payments' : value }))} />
+      <SelectField label="Payment mode" value={paymentModeFilter} onChange={(event) => setPaymentModeFilter(event.target.value as (typeof paymentModes)[number])} options={paymentModes.map((value) => ({ value, label: value === 'all' ? 'All methods' : value }))} />
     </AdminFilters>
 
     <AdminDataTable minWidth={1180}>
@@ -88,7 +91,7 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
           <td className="p-4"><Link className="font-mono text-text-primary hover:text-accent-gold" href={'/orders/' + id}>{id.slice(-10)}</Link><p className="mt-2 text-xs text-text-muted">{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'No date'}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{order.shippingAddress?.fullName ?? 'Guest'}</p><p className="mt-1 text-xs">{order.shippingAddress?.phone ?? 'No phone'}</p><p className="mt-1 text-xs">{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(', ')}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{itemCount} items</p><p className="mt-1 max-w-72 truncate text-xs">{order.items?.map((item) => item.title + ' x' + item.quantity).join(', ') || 'No items'}</p>{order.couponCode ? <p className="mt-1 font-mono text-xs text-accent-gold">{order.couponCode}</p> : null}</td>
-          <td className="p-4"><StatusPill tone={order.paymentStatus === 'paid' ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMethod ?? 'payment'}</p></td>
+          <td className="p-4"><StatusPill tone={order.paymentStatus === 'paid' ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMode ?? order.paymentMethod ?? 'payment'} · paid {formatPrice(order.amountPaid ?? 0)} · due {formatPrice(order.amountDue ?? order.total)}</p><p className="mt-1 max-w-48 truncate font-mono text-[10px] text-text-muted">{order.razorpayPaymentId ?? ''}</p></td>
           <td className="p-4"><StatusPill tone={order.orderStatus === 'cancelled' ? 'danger' : order.orderStatus === 'delivered' ? 'success' : 'warning'}>{order.orderStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.trackingNumber ?? 'No tracking'}</p></td>
           <td className="p-4 font-mono text-accent-gold">{formatPrice(order.total)}<p className="mt-1 text-xs text-text-muted">Discount {formatPrice(order.discount ?? 0)}</p></td>
           <td className="p-4"><div className="grid min-w-56 gap-2"><SelectField label={'Status for order ' + id} options={statusOptions} value={status} onChange={(event) => setStatusesById((current) => ({ ...current, [id]: event.target.value as OrderStatus }))} /><Input label={'Tracking for order ' + id} value={tracking[id] ?? order.trackingNumber ?? ''} onChange={(event) => setTracking((current) => ({ ...current, [id]: event.target.value }))} /><Input label={'Admin note for order ' + id} value={notes[id] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div></td>

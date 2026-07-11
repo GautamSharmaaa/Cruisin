@@ -41,7 +41,7 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <SizeGuideModal />
-            <WishlistButton productId={product.id} />
+            <WishlistButton productId={product.id} next={'/product/' + product.slug} />
             <Button variant="ghost" onClick={share}><Share2 size={16} /> {COPY.product.share}</Button>
           </div>
           <div className="mt-8">

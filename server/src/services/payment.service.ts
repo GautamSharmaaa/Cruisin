@@ -6,11 +6,17 @@ import { env } from '../config/env.js';
 import { ApiError } from '../utils/api-error.js';
 import type { PaymentMethod, PaymentOrder, PaymentProvider, Refund } from '../types/payment.types.js';
 
+export const toPaise = (amount: number): number => {
+  const paise = Math.round((amount + Number.EPSILON) * 100);
+  if (!Number.isSafeInteger(paise) || paise < 100) throw new ApiError(400, 'Invalid payment amount');
+  return paise;
+};
+
 const localPaymentId = (prefix: string): string => `${prefix}_mock_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-const usesLocalPaymentKeys = (): boolean => env.APP_ENV === 'development' && (
-  env.RAZORPAY_KEY_ID.includes('mock') ||
-  env.RAZORPAY_KEY_SECRET.includes('mock') ||
-  env.STRIPE_SECRET_KEY.includes('mock')
+const usesLocalPaymentKeys = (provider: PaymentMethod): boolean => env.APP_ENV === 'development' && (
+  provider === 'razorpay'
+    ? env.RAZORPAY_KEY_ID.includes('mock') || env.RAZORPAY_KEY_SECRET.includes('mock')
+    : provider === 'stripe' && env.STRIPE_SECRET_KEY.includes('mock')
 );
 
 class LocalPaymentProvider implements PaymentProvider {
@@ -43,7 +49,7 @@ export class RazorpayProvider implements PaymentProvider {
   public async createOrder(amount: number, currency: string, metadata: Record<string, unknown>): Promise<PaymentOrder> {
     const notes = Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, typeof value === 'number' ? value : String(value)]));
     try {
-      const order = await this.client.orders.create({ amount: Math.round(amount * 100), currency, notes }) as unknown as { id: string };
+      const order = await this.client.orders.create({ amount: toPaise(amount), currency, notes }) as unknown as { id: string };
       return { id: order.id, amount, currency, provider: 'razorpay' };
     } catch {
       throw new ApiError(502, 'Payment provider unavailable');
@@ -59,7 +65,7 @@ export class RazorpayProvider implements PaymentProvider {
   }
 
   public async createRefund(paymentId: string, amount: number): Promise<Refund> {
-    const refund = await this.client.payments.refund(paymentId, { amount: Math.round(amount * 100) });
+    const refund = await this.client.payments.refund(paymentId, { amount: toPaise(amount) });
     return { id: refund.id, amount, status: String(refund.status) };
   }
 }
@@ -93,7 +99,7 @@ export class StripeProvider implements PaymentProvider {
 
 export class PaymentService {
   public static getProvider(method: PaymentMethod): PaymentProvider {
-    if (usesLocalPaymentKeys()) {
+    if (usesLocalPaymentKeys(method)) {
       return new LocalPaymentProvider(method);
     }
     if (method === 'razorpay') {
@@ -106,7 +112,8 @@ export class PaymentService {
   }
 
   public static verifyRazorpayWebhook(rawBody: Buffer, signature: string): boolean {
-    const expected = crypto.createHmac('sha256', env.RAZORPAY_KEY_SECRET).update(rawBody).digest('hex');
+    if (!env.RAZORPAY_WEBHOOK_SECRET) return false;
+    const expected = crypto.createHmac('sha256', env.RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest('hex');
     return signature.length > 0 && expected.length === signature.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
   }
 

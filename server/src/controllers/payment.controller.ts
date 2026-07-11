@@ -1,5 +1,7 @@
 // Governed by .rules v1.0
+import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
+import { env } from '../config/env.js';
 import { OrderService } from '../services/order.service.js';
 import { PaymentService } from '../services/payment.service.js';
 import { ApiError } from '../utils/api-error.js';
@@ -13,6 +15,17 @@ const rawBody = (body: unknown): Buffer => {
 };
 
 export const PaymentController = {
+  config: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    res.json(new ApiResponse({
+      paymentMode: env.PAYMENT_MODE,
+      codEnabled: env.COD_ENABLED,
+      partialPaymentEnabled: env.PARTIAL_PAYMENT_ENABLED,
+      partialPaymentPercentage: env.PARTIAL_PAYMENT_PERCENTAGE ?? null,
+      partialPaymentFixedAmount: env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? null,
+      minPartialPaymentOrderValue: env.MIN_PARTIAL_PAYMENT_ORDER_VALUE,
+      maxCodOrderValue: env.MAX_COD_ORDER_VALUE
+    }, 'Payment configuration loaded'));
+  }),
   stripeWebhook: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const signature = typeof req.headers['stripe-signature'] === 'string' ? req.headers['stripe-signature'] : '';
     const event = PaymentService.stripeWebhook(rawBody(req.body), signature);
@@ -30,15 +43,16 @@ export const PaymentController = {
     const body = rawBody(req.body);
     const verified = PaymentService.verifyRazorpayWebhook(body, signature);
     if (!verified) throw new ApiError(401, 'Invalid Razorpay signature');
-    const event = JSON.parse(body.toString('utf8')) as { event?: string; payload?: { payment?: { entity?: { order_id?: string } } } };
-    const orderId = event.payload?.payment?.entity?.order_id;
-    if (event.event === 'payment.captured' && orderId) await OrderService.markPaymentStatus(orderId, 'paid');
-    if (event.event === 'payment.failed' && orderId) await OrderService.markPaymentStatus(orderId, 'failed');
-    res.json(new ApiResponse({ received: true }, 'Razorpay webhook processed'));
+    const event = JSON.parse(body.toString('utf8')) as { id?: string; event?: string; payload?: Record<string, unknown> };
+    if (!event.event || !event.payload) throw new ApiError(400, 'Invalid Razorpay webhook event');
+    const headerEventId = typeof req.headers['x-razorpay-event-id'] === 'string' ? req.headers['x-razorpay-event-id'] : '';
+    const eventId = headerEventId || event.id || crypto.createHash('sha256').update(body).digest('hex');
+    const processed = await OrderService.processRazorpayWebhook(eventId, event.event, event.payload);
+    res.json(new ApiResponse({ received: true, processed }, processed ? 'Razorpay webhook processed' : 'Duplicate Razorpay webhook ignored'));
   }),
 
-  refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { method: PaymentMethod; paymentId: string; amount: number }>, res: Response): Promise<void> => {
-    const refund = await OrderService.refund(req.body.method, req.body.paymentId, req.body.amount);
+  refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { amount: number; reason?: string }>, res: Response): Promise<void> => {
+    const refund = await OrderService.refund(String(req.params.id ?? ''), req.body.amount, req.body.reason, req.user?.userId ?? '');
     res.status(201).json(new ApiResponse(refund, 'Refund created'));
   })
 };
