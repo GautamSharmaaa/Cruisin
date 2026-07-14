@@ -1,7 +1,11 @@
 // Governed by .rules v1.0
 export type CsvRow = Record<string, string | number | boolean | null | undefined> | Array<string | number | boolean | null | undefined>;
 
-const csvCell = (value: string | number | boolean | null | undefined): string => '"' + String(value ?? '').replaceAll('"', '""') + '"';
+export const csvCell = (value: string | number | boolean | null | undefined): string => {
+  const text = String(value ?? '');
+  const spreadsheetSafe = typeof value === 'string' && (/^[\t\r]/.test(text) || /^[ ]*[=+\-@]/.test(text)) ? "'" + text : text;
+  return '"' + spreadsheetSafe.replaceAll('"', '""') + '"';
+};
 
 export const exportToCsv = (filename: string, rows: CsvRow[]): void => {
   if (typeof window === 'undefined') return;

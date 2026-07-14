@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import type { ProductDto } from '@/types/dto.types';
+import { csvCell } from '@/lib/export-csv';
 
 export type ProductStockState = 'in-stock' | 'low-stock' | 'out-of-stock';
 export type ProductHealthState = 'good' | 'needs-fix' | 'critical';
@@ -68,10 +69,7 @@ export const productInsight = (product: ProductDto): string => {
   return 'Inventory stable';
 };
 
-const csvValue = (value: string | number | boolean | undefined): string => {
-  const text = String(value ?? '');
-  return '"' + text.replace(/"/g, '""') + '"';
-};
+const csvValue = csvCell;
 
 export const productsToCsv = (products: ProductDto[]): string => {
   const headers = ['Product Name', 'Slug', 'Product Code / Base SKU', 'Category', 'Color', 'Price', 'Sale Price', 'Total Stock', 'Size-wise Stock', 'Status', 'Visibility', 'Featured', 'Bestseller', 'New Arrival', 'Lifetime Sales', 'Product Health Score', 'Created Date', 'Updated Date'];

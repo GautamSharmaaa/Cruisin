@@ -6,6 +6,8 @@ import { serverApi } from '@/lib/server-api';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { CmsExperienceDto } from '@/types/dto.types';
 
+export const dynamic = 'force-dynamic';
+
 async function loadCmsHome(): Promise<CmsExperienceDto | null> {
   try {
     const response = await serverApi.get<ApiEnvelope<CmsExperienceDto>>('/cms/home');
@@ -17,6 +19,6 @@ async function loadCmsHome(): Promise<CmsExperienceDto | null> {
 
 export default async function HomePage(): Promise<ReactNode> {
   const cms = await loadCmsHome();
-  if (cms?.sections.length) return <CmsHomepage sections={cms.sections} />;
+  if (cms?.sections.length) return <main><CmsHomepage sections={cms.sections} /></main>;
   return <ProductListingPage pageType="landing" pageSlug="home" featured showCollectionCarousel />;
 }

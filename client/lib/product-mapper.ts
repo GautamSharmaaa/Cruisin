@@ -17,6 +17,7 @@ interface ApiProductVariant {
   sku: string;
   price: number;
   stock: number;
+  enabled?: boolean;
   images?: ApiProductImage[];
 }
 
@@ -54,6 +55,10 @@ export interface ApiProduct {
   variants: ApiProductVariant[];
   tags: string[];
   gender?: 'men' | 'women' | 'unisex';
+  status?: 'draft' | 'published' | 'archived';
+  visibility?: 'visible' | 'hidden';
+  isActive?: boolean;
+  isArchived?: boolean;
   isSale?: boolean;
   isFeatured: boolean;
   isBestseller?: boolean;
@@ -84,6 +89,7 @@ const mapVariant = (variant: ApiProductVariant): ProductVariant => ({
   sku: variant.sku,
   price: variant.price,
   stock: variant.stock,
+  enabled: variant.enabled !== false,
   images: (variant.images ?? []).map(mapImage)
 });
 
@@ -119,6 +125,10 @@ export const mapProduct = (product: ApiProduct): Product => ({
   variants: product.variants.map(mapVariant),
   tags: product.tags,
   gender: product.gender,
+  status: product.status,
+  visibility: product.visibility,
+  isActive: product.isActive,
+  isArchived: product.isArchived,
   isSale: product.isSale,
   isFeatured: product.isFeatured,
   isBestseller: product.isBestseller,

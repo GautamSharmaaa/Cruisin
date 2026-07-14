@@ -1,0 +1,6 @@
+Product Code,Name,Sku Id,Selling Price,MRP,Cost Price,Quantity,GST %,Image 1,Product Type,Size Type,Size,Colour,Colour HEX,Variant Image URLs,Variant Enabled,Description,Return/Exchange Condition,Visibility,HSN Code,attr_Brand,attr_collection
+QA-CATALOGUE-INVALID,"=2+2 QA-CATALOGUE-INVALID",QA-CAT-DUPLICATE,not-a-price,1999,800,-1,18,broken-image-url,,size,M,Burgundy,burgundy,javascript:alert(1),true,"Formula-like name, comma, ""quote"", and a
+line break",QA-only,true,61091000,Cruisin,QA-Catalogue
+QA-CATALOGUE-INVALID,"=2+2 QA-CATALOGUE-INVALID",QA-CAT-DUPLICATE,1699,1999,800,2,18,broken-image-url,,size,M,Burgundy,#800020,https://placehold.co/1200x1600/800020/FFFFFF?text=Invalid,true,,,,,,
+,QA-CATALOGUE-MISSING-CODE,QA-CAT-MISSING-CODE,1499,1799,700,2,18,https://placehold.co/1200x1600/333333/FFFFFF?text=Missing+Code,mens_clothing__mens_western_wear__t_shirt,size,S,Black,#000000,https://placehold.co/1200x1600/333333/FFFFFF?text=Missing+Code,true,,,,,,
+QA-CATALOGUE-NEGATIVE,QA-CATALOGUE-NEGATIVE-STOCK,QA-CAT-NEG-S,1499,1799,700,-5,18,https://placehold.co/1200x1600/333333/FFFFFF?text=Negative,mens_clothing__mens_western_wear__t_shirt,size,S,Black,#000000,https://placehold.co/1200x1600/333333/FFFFFF?text=Negative,true,,,,,,

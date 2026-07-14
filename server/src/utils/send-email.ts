@@ -12,5 +12,6 @@ export interface EmailPayload {
 }
 
 export const sendEmail = async (payload: EmailPayload): Promise<void> => {
+  if (env.NODE_ENV !== 'production') return;
   await sendgrid.send({ from: env.EMAIL_FROM, ...payload });
 };

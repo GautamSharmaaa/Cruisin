@@ -78,6 +78,18 @@ describe('auth API routes', () => {
     expect(response.headers['set-cookie']?.[0]).toContain('HttpOnly');
   });
 
+  it('isolates the admin refresh cookie from the storefront session', async () => {
+    authService.refresh.mockResolvedValue({ accessToken: 'admin-access-token', refreshToken: 'next-admin-refresh-token' });
+    const response = await request(app)
+      .post('/auth/refresh')
+      .set('Origin', 'http://localhost:3001')
+      .set('Cookie', ['refreshToken=customer-refresh-token', 'adminRefreshToken=current-admin-refresh-token'])
+      .send({});
+    expect(response.status).toBe(200);
+    expect(authService.refresh).toHaveBeenCalledWith('current-admin-refresh-token', expect.any(Object));
+    expect(response.headers['set-cookie']?.[0]).toContain('adminRefreshToken=next-admin-refresh-token');
+  });
+
   it('rejects cookie-auth requests from an unknown origin', async () => {
     const response = await request(app)
       .post('/auth/refresh')
@@ -86,6 +98,15 @@ describe('auth API routes', () => {
       .send({});
     expect(response.status).toBe(403);
     expect(authService.refresh).not.toHaveBeenCalled();
+  });
+
+  it('rejects login CSRF from an unknown browser origin', async () => {
+    const response = await request(app)
+      .post('/auth/login')
+      .set('Origin', 'https://attacker.example')
+      .send({ email: 'qa@example.com', password: 'not-a-real-password' });
+    expect(response.status).toBe(403);
+    expect(authService.login).not.toHaveBeenCalled();
   });
 
   it('logs out using only the refresh cookie', async () => {

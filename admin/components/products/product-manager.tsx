@@ -389,12 +389,12 @@ export function ProductManager(): ReactNode {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <MiniStat label="Total Products" value={summaries.total} />
-        <MiniStat label="Visible Products" value={summaries.visible} tone="success" />
-        <MiniStat label="Low Stock" value={summaries.low} tone="warning" />
-        <MiniStat label="Out Of Stock" value={summaries.out} tone="danger" />
-        <MiniStat label="Draft/Hidden" value={summaries.hidden} />
-        <MiniStat label="Recently Updated" value={summaries.updated} />
+        <MiniStat label="Total Results" value={summaries.total} />
+        <MiniStat label="Visible This Page" value={summaries.visible} tone="success" />
+        <MiniStat label="Low Stock This Page" value={summaries.low} tone="warning" />
+        <MiniStat label="Out Of Stock This Page" value={summaries.out} tone="danger" />
+        <MiniStat label="Hidden This Page" value={summaries.hidden} />
+        <MiniStat label="Updated This Page" value={summaries.updated} />
       </div>
 
       <div className="grid gap-4 border border-border bg-background-elevated p-4">

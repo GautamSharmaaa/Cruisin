@@ -18,7 +18,7 @@ export interface CatalogueExportOptions {
 
 const quote = (value: unknown): string => {
   const text = String(value ?? '');
-  const safe = /^[=+\-@]/.test(text) ? "'" + text : text;
+  const safe = typeof value === 'string' && (/^[\t\r]/.test(text) || /^[ ]*[=+\-@]/.test(text)) ? "'" + text : text;
   return '"' + safe.replace(/"/g, '""') + '"';
 };
 
@@ -26,7 +26,7 @@ const dateFilename = (): string => new Date().toISOString().replace('T', '_').sl
 
 const productTypeFromCategory = (category: { path?: string; slug?: string } | null | undefined): string => (category?.path ?? category?.slug ?? '').replace(/\//g, '__') || '';
 
-const rowForVariant = (product: Record<string, any>, variant: Record<string, any>, category: Record<string, any> | null): Record<string, unknown> => {
+export const rowForVariant = (product: Record<string, any>, variant: Record<string, any>, category: Record<string, any> | null): Record<string, unknown> => {
   const images = product.images ?? [];
   const attributes = product.normalizedAttributes ?? {};
   const row: Record<string, unknown> = {
@@ -49,6 +49,9 @@ const rowForVariant = (product: Record<string, any>, variant: Record<string, any
     'Size Type': 'size',
     Size: variant.size ?? '',
     Colour: variant.color ?? '',
+    'Colour HEX': variant.colorHex ?? '',
+    'Variant Image URLs': (variant.images ?? []).map((image: { url?: string }) => image.url ?? '').filter(Boolean).join(' | '),
+    'Variant Enabled': variant.enabled === false ? 'false' : 'true',
     Description: product.richDescription ?? product.description ?? '',
     'Return/Exchange Condition': product.returnExchangeCondition ?? product.shippingReturns ?? '',
     Visibility: product.isActive !== false && product.visibility !== 'hidden' ? 'true' : 'false',

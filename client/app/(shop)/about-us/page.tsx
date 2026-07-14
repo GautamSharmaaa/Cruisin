@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { LegalPage } from '@/components/content/legal-page';
 
@@ -9,3 +10,4 @@ export default function AboutUsPage(): ReactNode {
     { heading: 'Support', body: 'Our customer support team is available 24/7 at support@cruisin.co.in and +91 - 8287846203.' }
   ]} />;
 }
+export const metadata: Metadata = { title: 'About Us', description: 'Learn about Cruisin streetwear, fits, and customer support.', alternates: { canonical: '/about-us' } };

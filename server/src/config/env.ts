@@ -10,6 +10,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(8000),
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   CLIENT_URL: z.string().url().default('http://localhost:3000'),
   ADMIN_URL: z.string().url().default('http://localhost:3001'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
@@ -53,7 +54,12 @@ const envSchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['UPSTASH_REDIS_REST_URL'], message: 'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be provided together' });
   }
   if (value.APP_ENV === 'development') return;
+  for (const [key, url] of [['CLIENT_URL', value.CLIENT_URL], ['ADMIN_URL', value.ADMIN_URL]] as const) {
+    if (new URL(url).hostname === 'localhost' || new URL(url).hostname === '127.0.0.1') context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must be a deployed HTTPS origin outside development` });
+    if (new URL(url).protocol !== 'https:') context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must use HTTPS outside development` });
+  }
   if (!value.RAZORPAY_WEBHOOK_SECRET) context.addIssue({ code: z.ZodIssueCode.custom, path: ['RAZORPAY_WEBHOOK_SECRET'], message: 'RAZORPAY_WEBHOOK_SECRET is required outside development' });
+  if (value.APP_ENV === 'production' && value.PAYMENT_MODE !== 'live') context.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYMENT_MODE'], message: 'Production requires PAYMENT_MODE=live' });
   if (value.PAYMENT_MODE === 'live' && !value.RAZORPAY_KEY_ID.startsWith('rzp_live_')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['PAYMENT_MODE'], message: 'Live payment mode requires Razorpay live credentials' });
   if (value.PARTIAL_PAYMENT_ENABLED && !value.PARTIAL_PAYMENT_PERCENTAGE && !value.PARTIAL_PAYMENT_FIXED_AMOUNT) context.addIssue({ code: z.ZodIssueCode.custom, path: ['PARTIAL_PAYMENT_PERCENTAGE'], message: 'Configure a partial payment percentage or fixed amount' });
   const requiredIdentityVariables: Array<keyof typeof value> = [
@@ -68,6 +74,7 @@ const envSchema = z.object({
   if (value.COOKIE_SAME_SITE === 'none' && value.NODE_ENV !== 'production') {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['COOKIE_SAME_SITE'], message: 'SameSite=None cookies require NODE_ENV=production so Secure is enabled' });
   }
+  if (value.EMAIL_FROM.endsWith('@yourbrand.com')) context.addIssue({ code: z.ZodIssueCode.custom, path: ['EMAIL_FROM'], message: 'Configure a verified production EMAIL_FROM address' });
 });
 
 const parsed = envSchema.safeParse(process.env);

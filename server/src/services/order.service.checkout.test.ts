@@ -21,7 +21,7 @@ process.env.SENDGRID_API_KEY = 'test';
 const { cartModel, couponModel, orderModel, productModel, webhookEventModel, userModel, paymentService, sendEmail } = vi.hoisted(() => ({
   cartModel: { findOne: vi.fn(), updateOne: vi.fn(), deleteOne: vi.fn() },
   couponModel: { findOne: vi.fn(), findByIdAndUpdate: vi.fn() },
-  orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn() },
+  orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), countDocuments: vi.fn() },
   productModel: { find: vi.fn(), updateOne: vi.fn() },
   webhookEventModel: { create: vi.fn() },
   userModel: { findById: vi.fn() },
@@ -46,10 +46,11 @@ describe('OrderService authenticated checkout', () => {
     const productId = new Types.ObjectId();
     const variantId = new Types.ObjectId();
     const orderId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValueOnce(null);
     cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
     productModel.find
       .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'TEST-S', stock: 2, price: 1_000, images: [] }] }]) });
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'TEST-S', size: 'S', color: 'Black', stock: 2, price: 1_000, images: [] }] }]) });
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-TEST', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
@@ -57,14 +58,475 @@ describe('OrderService authenticated checkout', () => {
     const { OrderService } = await import('./order.service.js');
 
     const result = await OrderService.checkout(customerId, {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
       paymentMethod: 'razorpay',
       paymentMode: 'online',
       shippingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
       billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
     });
 
-    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', total: 2_080, amountPaid: 0, amountDue: 2_080 }));
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', total: 2_080, amountPaid: 0, amountDue: 2_080, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 2_080 });
+  });
+
+  it('reuses the original provider order for a repeated checkout idempotency key', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const existing = {
+      _id: new Types.ObjectId(),
+      user: customerId,
+      paymentMode: 'online',
+      paymentProvider: 'razorpay',
+      razorpayOrderId: 'order_existing',
+      paymentAttempts: [{ providerOrderId: 'order_existing', amount: 2_080, status: 'created' }]
+    };
+    orderModel.findOne.mockResolvedValueOnce(existing);
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.checkout(customerId, {
+      idempotencyKey: '33333333-3333-4333-8333-333333333333',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: {},
+      billingAddress: {}
+    });
+
+    expect(result).toMatchObject({ order: existing, payment: { id: 'order_existing', amount: 2_080 }, amountToPay: 2_080, reused: true });
+    expect(cartModel.findOne).not.toHaveBeenCalled();
+    expect(paymentService.getProvider).not.toHaveBeenCalled();
+    expect(orderModel.create).not.toHaveBeenCalled();
+  });
+
+  it('reconciles a captured online payment to fully paid with no amount due', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId,
+      user: customerId,
+      items: [],
+      total: 2_080,
+      amountPaid: 0,
+      amountDue: 2_080,
+      paymentMode: 'online',
+      paymentStatus: 'pending',
+      orderStatus: 'pending',
+      stockReserved: false,
+      razorpayOrderId: 'order_test_provider',
+      razorpayPaymentId: undefined,
+      stripePaymentIntentId: undefined,
+      paymentAttempts: [{ providerOrderId: 'order_test_provider', amount: 2_080, status: 'created' }],
+      timeline: [],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(order);
+    orderModel.findById
+      .mockResolvedValueOnce(order)
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-TEST' }) });
+    cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_test_provider',
+      razorpay_payment_id: 'pay_test_provider',
+      razorpay_signature: 'valid-test-signature'
+    }, customerId);
+
+    expect(order.paymentStatus).toBe('paid');
+    expect(order.amountPaid).toBe(2_080);
+    expect(order.amountDue).toBe(0);
+    expect(order.paymentAttempts.at(-1)).toMatchObject({ amount: 2_080, status: 'captured' });
+    expect(order.paymentAttempts).toHaveLength(1);
+  });
+
+  it('records only the captured advance for a partial payment', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId,
+      user: customerId,
+      items: [],
+      total: 10_000,
+      amountPaid: 0,
+      amountDue: 10_000,
+      paymentMode: 'partial',
+      paymentStatus: 'pending',
+      orderStatus: 'pending',
+      stockReserved: false,
+      razorpayOrderId: 'order_test_partial',
+      razorpayPaymentId: undefined,
+      stripePaymentIntentId: undefined,
+      paymentAttempts: [{ providerOrderId: 'order_test_partial', amount: 2_500, status: 'created' }],
+      timeline: [],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(order);
+    orderModel.findById
+      .mockResolvedValueOnce(order)
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-PARTIAL' }) });
+    cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_test_partial',
+      razorpay_payment_id: 'pay_test_partial',
+      razorpay_signature: 'valid-test-signature'
+    }, customerId);
+
+    expect(order.paymentStatus).toBe('partially_paid');
+    expect(order.amountPaid).toBe(2_500);
+    expect(order.amountDue).toBe(7_500);
+    expect(order.paymentAttempts.at(-1)).toMatchObject({ amount: 2_500, status: 'captured' });
+    expect(order.paymentAttempts).toHaveLength(1);
+  });
+
+  it('durably records an authorized payment when stock cannot be reserved', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId, user: customerId, items: [{ product: new Types.ObjectId(), variant: new Types.ObjectId(), quantity: 1, sku: 'SOLD-OUT' }],
+      total: 2_080, amountPaid: 0, amountDue: 2_080, paymentMode: 'online', paymentStatus: 'pending', orderStatus: 'pending',
+      stockReserved: false, razorpayOrderId: 'order_stock_conflict', razorpayPaymentId: undefined,
+      paymentAttempts: [{ providerOrderId: 'order_stock_conflict', amount: 2_080, status: 'created' }], timeline: [], save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(order);
+    orderModel.findById.mockResolvedValue(order);
+    productModel.updateOne.mockResolvedValue({ modifiedCount: 0 });
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_stock_conflict', razorpay_payment_id: 'pay_stock_conflict', razorpay_signature: 'valid-test-signature'
+    }, customerId);
+
+    expect(result.order).toMatchObject({ paymentStatus: 'authorized', amountPaid: 2_080, amountDue: 0, paymentSettlementStartedAt: undefined });
+    expect(order.paymentAttempts.at(-1)).toMatchObject({ status: 'authorized', providerPaymentId: 'pay_stock_conflict' });
+    expect(cartModel.deleteOne).not.toHaveBeenCalled();
+  });
+
+  it('rejects an impossible order status transition', async () => {
+    const orderId = new Types.ObjectId().toString();
+    orderModel.findById.mockResolvedValue({ _id: orderId, orderStatus: 'cancelled' });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.updateStatus(orderId, { status: 'shipped' })).rejects.toThrow('Order cannot move from cancelled to shipped');
+    expect(orderModel.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a duplicate payment callback while settlement is in progress', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = { _id: orderId, user: customerId, paymentStatus: 'pending', paymentSettlementStartedAt: new Date() };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(null);
+    orderModel.findById.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_settling',
+      razorpay_payment_id: 'pay_duplicate',
+      razorpay_signature: 'valid-test-signature'
+    }, customerId)).rejects.toThrow('Payment settlement is already in progress');
+  });
+
+  it('keeps sequential duplicate verification idempotent for balances and stock', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const productId = new Types.ObjectId();
+    const variantId = new Types.ObjectId();
+    const order = {
+      _id: orderId, user: customerId, items: [{ product: productId, variant: variantId, quantity: 1 }], total: 2_080, amountPaid: 0, amountDue: 2_080,
+      paymentMode: 'online', paymentStatus: 'pending', orderStatus: 'pending', stockReserved: false, razorpayOrderId: 'order_idempotent', razorpayPaymentId: undefined,
+      paymentAttempts: [{ providerOrderId: 'order_idempotent', amount: 2_080, status: 'created' }], timeline: [], save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValueOnce(order).mockResolvedValueOnce(null);
+    orderModel.findById
+      .mockResolvedValueOnce(order)
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-IDEMPOTENT' }) })
+      .mockResolvedValueOnce(order);
+    productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const { OrderService } = await import('./order.service.js');
+    const payload = { razorpay_order_id: 'order_idempotent', razorpay_payment_id: 'pay_idempotent', razorpay_signature: 'valid-test-signature' };
+
+    await OrderService.verifyPayment('razorpay', payload, customerId);
+    await OrderService.verifyPayment('razorpay', payload, customerId);
+
+    expect(order.amountPaid).toBe(2_080);
+    expect(order.amountDue).toBe(0);
+    expect(productModel.updateOne).toHaveBeenCalledTimes(1);
+    expect(order.paymentAttempts.filter((attempt) => attempt.status === 'captured')).toHaveLength(1);
+    expect(order.paymentAttempts).toHaveLength(1);
+  });
+
+  it('does not overwrite a fully refunded order when payment verification is replayed', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId,
+      user: customerId,
+      total: 2_080,
+      amountPaid: 2_080,
+      amountDue: 0,
+      refundAmount: 2_080,
+      paymentMode: 'online',
+      paymentStatus: 'refunded',
+      orderStatus: 'confirmed',
+      stockReserved: true,
+      razorpayOrderId: 'order_refunded_replay',
+      razorpayPaymentId: 'pay_refunded_replay',
+      paymentAttempts: [{ providerOrderId: 'order_refunded_replay', providerPaymentId: 'pay_refunded_replay', amount: 2_080, status: 'captured' }],
+      timeline: [{ status: 'refunded', timestamp: new Date(), note: 'Razorpay refund processed' }],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(null);
+    orderModel.findById.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_refunded_replay', razorpay_payment_id: 'pay_refunded_replay', razorpay_signature: 'valid-test-signature'
+    }, customerId);
+
+    expect(order).toMatchObject({ paymentStatus: 'refunded', amountPaid: 2_080, amountDue: 0, refundAmount: 2_080 });
+    expect(order.timeline).toHaveLength(1);
+    expect(productModel.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('folds a legacy created/captured pair into one attempt during a verified replay', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId, user: customerId, total: 2_080, amountPaid: 2_080, amountDue: 0,
+      paymentMode: 'online', paymentStatus: 'paid', orderStatus: 'confirmed', razorpayOrderId: 'order_legacy', razorpayPaymentId: 'pay_legacy',
+      paymentAttempts: [
+        { providerOrderId: 'order_legacy', amount: 2_080, status: 'created' },
+        { providerOrderId: 'order_legacy', providerPaymentId: 'pay_legacy', amount: 2_080, status: 'captured', method: 'wallet' }
+      ],
+      timeline: [{ status: 'paid', timestamp: new Date(), note: 'Payment signature verified' }],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(null);
+    orderModel.findById.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.verifyPayment('razorpay', {
+      razorpay_order_id: 'order_legacy', razorpay_payment_id: 'pay_legacy', razorpay_signature: 'valid-test-signature'
+    }, customerId);
+
+    expect(order.paymentAttempts).toEqual([expect.objectContaining({ providerOrderId: 'order_legacy', providerPaymentId: 'pay_legacy', status: 'captured', method: 'wallet' })]);
+    expect(order.timeline).toHaveLength(1);
+    expect(order.save).toHaveBeenCalledOnce();
+  });
+
+  it('serializes concurrent verify and webhook settlement with one recoverable conflict', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const productId = new Types.ObjectId();
+    const variantId = new Types.ObjectId();
+    const order = {
+      _id: orderId, user: customerId, items: [{ product: productId, variant: variantId, quantity: 1 }], total: 3_000, amountPaid: 0, amountDue: 3_000,
+      paymentMode: 'online', paymentStatus: 'pending', orderStatus: 'pending', stockReserved: false, razorpayOrderId: 'order_race', razorpayPaymentId: undefined,
+      paymentAttempts: [{ providerOrderId: 'order_race', amount: 3_000, status: 'created' }], timeline: [], save: vi.fn().mockResolvedValue(undefined)
+    };
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValueOnce(order).mockResolvedValueOnce(null);
+    let findByIdCalls = 0;
+    orderModel.findById.mockImplementation(() => {
+      findByIdCalls += 1;
+      if (findByIdCalls <= 2) return Promise.resolve(order);
+      return { lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-RACE' }) };
+    });
+    productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
+    const { OrderService } = await import('./order.service.js');
+    const payload = { razorpay_order_id: 'order_race', razorpay_payment_id: 'pay_race', razorpay_signature: 'valid-test-signature' };
+
+    const results = await Promise.allSettled([
+      OrderService.verifyPayment('razorpay', payload, customerId),
+      OrderService.markPaymentStatus('order_race', 'paid', { paymentId: 'pay_race', event: 'Razorpay payment captured' })
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(order.amountPaid).toBe(3_000);
+    expect(order.amountDue).toBe(0);
+    expect(order.paymentStatus).toBe('paid');
+    expect(productModel.updateOne).toHaveBeenCalledTimes(1);
+    expect(orderModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ $or: expect.arrayContaining([expect.objectContaining({ paymentSettlementStartedAt: expect.objectContaining({ $lt: expect.any(Date) }) })]) }),
+      expect.anything(),
+      expect.anything()
+    );
+  });
+
+  it('marks the remaining partial-payment balance collected exactly once', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const order = { _id: orderId, total: 10_000, amountPaid: 2_500, amountDue: 7_500, paymentMode: 'partial', paymentStatus: 'partially_paid', paymentProvider: 'razorpay', timeline: [], save: vi.fn().mockResolvedValue(undefined) };
+    orderModel.findById.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.markCollectionPaid(orderId, new Types.ObjectId().toString(), true);
+    await OrderService.markCollectionPaid(orderId, new Types.ObjectId().toString(), true);
+
+    expect(order).toMatchObject({ amountPaid: 10_000, amountDue: 0, paymentStatus: 'paid', paymentProvider: 'manual' });
+  });
+
+  it('enforces refund bounds before calling the provider', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const order = { _id: orderId, paymentProvider: 'razorpay', razorpayPaymentId: 'pay_refund', amountPaid: 2_000, refunds: [{ amount: 500, status: 'processed' }], timeline: [], save: vi.fn() };
+    orderModel.findById.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.refund(orderId, 1_501, 'too much', new Types.ObjectId().toString(), '44444444-4444-4444-8444-444444444444')).rejects.toThrow('Refund exceeds amount paid');
+    expect(paymentService.refund).not.toHaveBeenCalled();
+  });
+
+  it('records a processed provider refund and reuses the same idempotency key exactly once', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const adminId = new Types.ObjectId().toString();
+    const idempotencyKey = '55555555-5555-4555-8555-555555555555';
+    const order = {
+      _id: orderId,
+      paymentProvider: 'razorpay',
+      razorpayPaymentId: 'pay_refund_once',
+      amountPaid: 2_000,
+      refundAmount: 0,
+      paymentStatus: 'paid',
+      refunds: [],
+      timeline: [],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    orderModel.findById.mockResolvedValue(order);
+    paymentService.refund.mockResolvedValue({ id: 'rfnd_once', amount: 500, status: 'processed' });
+    const { OrderService } = await import('./order.service.js');
+
+    const created = await OrderService.refund(orderId, 500, 'partial QA', adminId, idempotencyKey);
+    const replayed = await OrderService.refund(orderId, 500, 'partial QA', adminId, idempotencyKey);
+
+    expect(created).toEqual({ id: 'rfnd_once', amount: 500, status: 'processed' });
+    expect(replayed).toEqual({ id: 'rfnd_once', amount: 500, status: 'processed', reused: true });
+    expect(paymentService.refund).toHaveBeenCalledTimes(1);
+    expect(paymentService.refund).toHaveBeenCalledWith('razorpay', 'pay_refund_once', 500, idempotencyKey, { orderId, reason: 'partial QA' });
+    expect(order).toMatchObject({ refundAmount: 500, paymentStatus: 'partially_refunded' });
+    expect(order.refunds).toEqual([expect.objectContaining({ providerRefundId: 'rfnd_once', idempotencyKey, amount: 500, status: 'processed', reason: 'partial QA' })]);
+    expect(order.timeline).toHaveLength(1);
+  });
+
+  it('rejects reuse of a refund idempotency key with different details', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const idempotencyKey = '66666666-6666-4666-8666-666666666666';
+    orderModel.findById.mockResolvedValue({
+      _id: orderId,
+      paymentProvider: 'razorpay',
+      razorpayPaymentId: 'pay_refund_conflict',
+      amountPaid: 2_000,
+      refunds: [{ providerRefundId: 'rfnd_existing', idempotencyKey, amount: 500, status: 'processed', reason: 'original' }],
+      timeline: [],
+      save: vi.fn()
+    });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.refund(orderId, 600, 'changed', new Types.ObjectId().toString(), idempotencyKey)).rejects.toThrow('Refund idempotency key was already used with different details');
+    expect(paymentService.refund).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an order refunded when a refund.failed webhook arrives', async () => {
+    const refund = { providerRefundId: 'rfnd_failed', amount: 500, status: 'created' };
+    const order = { paymentStatus: 'paid', amountPaid: 2_000, refundAmount: 0, refunds: [refund], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
+    orderModel.findOne.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.recordRefundWebhook('pay_failed_refund', 'rfnd_failed', 'failed');
+
+    expect(refund.status).toBe('failed');
+    expect(order).toMatchObject({ paymentStatus: 'paid', refundAmount: 0 });
+    expect(order.timeline).toEqual([expect.objectContaining({ status: 'refund_failed' })]);
+  });
+
+  it('leaves balances unpaid when provider verification fails', async () => {
+    const customerId = new Types.ObjectId().toString();
+    paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(false) });
+    const { OrderService } = await import('./order.service.js');
+    const result = await OrderService.verifyPayment('razorpay', { razorpay_order_id: 'tampered', razorpay_signature: 'invalid' }, customerId);
+    expect(result).toEqual({ verified: false });
+    expect(orderModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it('ignores duplicate provider webhook event IDs', async () => {
+    webhookEventModel.create.mockRejectedValue(Object.assign(new Error('duplicate'), { code: 11000 }));
+    const { OrderService } = await import('./order.service.js');
+    await expect(OrderService.processRazorpayWebhook('evt_duplicate', 'payment.captured', {})).resolves.toBe(false);
+    expect(orderModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cancelled', 'processing'],
+    ['delivered', 'processing'],
+    ['returned', 'processing']
+  ])('rejects terminal or backward order transition %s -> %s', async (from, to) => {
+    const orderId = new Types.ObjectId().toString();
+    orderModel.findById.mockResolvedValue({ _id: orderId, orderStatus: from });
+    const { OrderService } = await import('./order.service.js');
+    await expect(OrderService.updateStatus(orderId, { status: to })).rejects.toThrow(`Order cannot move from ${from} to ${to}`);
+  });
+
+  it('accepts a valid transition and rejects a concurrent stale write', async () => {
+    const orderId = new Types.ObjectId().toString();
+    orderModel.findById.mockResolvedValue({ _id: orderId, orderStatus: 'placed' });
+    orderModel.findOneAndUpdate.mockResolvedValueOnce({ _id: orderId, orderStatus: 'confirmed' }).mockResolvedValueOnce(null);
+    const { OrderService } = await import('./order.service.js');
+    await expect(OrderService.updateStatus(orderId, { status: 'confirmed' })).resolves.toMatchObject({ orderStatus: 'confirmed' });
+    await expect(OrderService.updateStatus(orderId, { status: 'confirmed' })).rejects.toThrow('Order status changed; refresh and try again');
+  });
+
+  it('stores only a data-minimized webhook audit payload', async () => {
+    webhookEventModel.create.mockResolvedValue({});
+    const { OrderService } = await import('./order.service.js');
+    await OrderService.processRazorpayWebhook('evt_qa', 'payment.pending', {
+      payment: { entity: { id: 'pay_qa', order_id: 'order_qa', amount: 2500, status: 'created', email: 'customer@example.com', contact: '+919876543210', notes: { address: 'private' } } }
+    });
+    expect(webhookEventModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      payload: { payment: { id: 'pay_qa', order_id: 'order_qa', amount: 2500, status: 'created' } }
+    }));
+  });
+
+  it('enforces the configured per-customer coupon usage limit at checkout', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const productId = new Types.ObjectId();
+    const variantId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValueOnce(null);
+    cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
+    productModel.find
+      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Coupon Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'COUPON-S', stock: 2, price: 1_000, images: [] }] }]) });
+    couponModel.findOne.mockResolvedValue({ code: 'ONCE', userUsageLimit: 1 });
+    orderModel.countDocuments.mockResolvedValue(1);
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '22222222-2222-4222-8222-222222222222',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      couponCode: 'once',
+      shippingAddress: {},
+      billingAddress: {}
+    })).rejects.toThrow('Coupon usage limit reached for this customer');
+    expect(orderModel.create).not.toHaveBeenCalled();
   });
 });

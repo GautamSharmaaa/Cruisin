@@ -23,5 +23,5 @@ export function WishlistButton({ productId, next }: WishlistButtonProps): ReactN
     setLoading(true);
     try { await api.post(`/wishlist/${productId}`); } catch { toggle(productId); } finally { setLoading(false); }
   };
-  return <><Button variant="secondary" onClick={handleClick} disabled={loading}><Heart size={16} className={has ? 'text-accent-gold' : 'text-text-primary'} fill={has ? 'currentColor' : 'none'} /><span className="ml-2">{COPY.nav.wishlist}</span></Button><LoginRequiredModal open={prompt} onOpenChange={setPrompt} next={next} action="wishlist" /></>;
+  return <><Button variant="secondary" onClick={handleClick} disabled={loading} aria-pressed={has} aria-label={has ? 'Remove from wishlist' : 'Add to wishlist'}><Heart size={16} className={has ? 'text-accent-gold' : 'text-text-primary'} fill={has ? 'currentColor' : 'none'} /><span className="ml-2">{COPY.nav.wishlist}</span></Button><LoginRequiredModal open={prompt} onOpenChange={setPrompt} next={next} action="wishlist" /></>;
 }

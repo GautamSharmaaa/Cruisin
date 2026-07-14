@@ -9,7 +9,7 @@ export interface CollectionPageProps { params: Promise<{ slug: string }>; }
 export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
   const { slug } = await params;
   const collection = await loadCollectionServer(slug);
-  return metadataFromSettings(collection, (collection?.title ?? 'Collection') + ' | Cruisin', collection?.description);
+  return metadataFromSettings(collection, collection?.title ?? 'Collection', collection?.description);
 }
 
 export default async function CollectionPage({ params }: CollectionPageProps): Promise<ReactNode> {

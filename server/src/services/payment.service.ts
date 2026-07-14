@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
+import axios from 'axios';
 import Razorpay from 'razorpay';
 import Stripe from 'stripe';
 import { env } from '../config/env.js';
@@ -38,7 +39,7 @@ class LocalPaymentProvider implements PaymentProvider {
     return mockVerified === true || mockVerified === 'true';
   }
 
-  public async createRefund(_paymentId: string, amount: number): Promise<Refund> {
+  public async createRefund(_paymentId: string, amount: number, _idempotencyKey: string): Promise<Refund> {
     return { id: localPaymentId('refund'), amount, status: 'processed' };
   }
 }
@@ -64,9 +65,43 @@ export class RazorpayProvider implements PaymentProvider {
     return signature.length > 0 && digest.length === signature.length && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
   }
 
-  public async createRefund(paymentId: string, amount: number): Promise<Refund> {
-    const refund = await this.client.payments.refund(paymentId, { amount: toPaise(amount) });
-    return { id: refund.id, amount, status: String(refund.status) };
+  public async createRefund(paymentId: string, amount: number, idempotencyKey: string, metadata: Record<string, unknown> = {}): Promise<Refund> {
+    try {
+      const auth = { username: env.RAZORPAY_KEY_ID, password: env.RAZORPAY_KEY_SECRET };
+      const requestedAmount = toPaise(amount);
+      const paymentResponse = await axios.get(
+        `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`,
+        { auth }
+      );
+      const payment = paymentResponse.data as { amount?: unknown; amount_refunded?: unknown };
+      const capturedAmount = Number(payment.amount);
+      const refundedAmount = Number(payment.amount_refunded ?? 0);
+      const remainingAmount = capturedAmount - refundedAmount;
+      if (!Number.isSafeInteger(remainingAmount) || remainingAmount <= 0 || requestedAmount > remainingAmount) throw new ApiError(400, 'Refund exceeds provider refundable balance');
+      const requestBody: Record<string, unknown> = {
+        receipt: idempotencyKey,
+        notes: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value).slice(0, 256)]))
+      };
+      if (requestedAmount < remainingAmount) requestBody.amount = requestedAmount;
+      const response = await axios.post(
+        `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`,
+        requestBody,
+        {
+          auth,
+          headers: { 'Content-Type': 'application/json', 'X-Refund-Idempotency': idempotencyKey }
+        }
+      );
+      const refund = response.data as { id: string; status: string };
+      return { id: refund.id, amount, status: String(refund.status) };
+    } catch (error: unknown) {
+      const providerError = axios.isAxiosError(error) && typeof error.response?.data === 'object' && error.response.data !== null && 'error' in error.response.data
+        ? (error.response.data as { error?: { description?: unknown } }).error
+        : undefined;
+      const description = typeof providerError?.description === 'string' ? providerError.description : '';
+      const statusCode = axios.isAxiosError(error) && error.response?.status === 400 ? 400 : 502;
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(statusCode, description || 'Refund provider unavailable');
+    }
   }
 }
 
@@ -91,8 +126,8 @@ export class StripeProvider implements PaymentProvider {
     return intent.status === 'succeeded';
   }
 
-  public async createRefund(paymentId: string, amount: number): Promise<Refund> {
-    const refund = await this.client.refunds.create({ payment_intent: paymentId, amount: Math.round(amount * 100) });
+  public async createRefund(paymentId: string, amount: number, idempotencyKey: string): Promise<Refund> {
+    const refund = await this.client.refunds.create({ payment_intent: paymentId, amount: Math.round(amount * 100) }, { idempotencyKey });
     return { id: refund.id, amount, status: refund.status ?? 'pending' };
   }
 }
@@ -122,7 +157,7 @@ export class PaymentService {
     return stripe.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
   }
 
-  public static async refund(method: PaymentMethod, paymentId: string, amount: number): Promise<Refund> {
-    return this.getProvider(method).createRefund(paymentId, amount);
+  public static async refund(method: PaymentMethod, paymentId: string, amount: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<Refund> {
+    return this.getProvider(method).createRefund(paymentId, amount, idempotencyKey, metadata);
   }
 }

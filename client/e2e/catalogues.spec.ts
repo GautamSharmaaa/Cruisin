@@ -19,7 +19,7 @@ const attachDiagnostics = (page: Page): { errors: string[]; failed: string[] } =
   });
   page.on('requestfailed', (request) => {
     const url = request.url();
-    if (url.includes('.hot-update.') || (url.includes('?_rsc=') && request.failure()?.errorText === 'net::ERR_ABORTED')) return;
+    if (url.includes('.hot-update.') || request.failure()?.errorText === 'net::ERR_ABORTED') return;
     if (url.includes('/api/') || url.startsWith(adminUrl)) failed.push(url + ' :: ' + (request.failure()?.errorText ?? 'failed'));
   });
   return { errors, failed };

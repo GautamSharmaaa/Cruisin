@@ -8,6 +8,7 @@ type RedisValue = string | null;
 interface RedisClient {
   readonly status: string;
   connect: () => Promise<void>;
+  ping: () => Promise<string>;
   get: (key: string) => Promise<RedisValue>;
   set: (key: string, value: string, mode?: 'EX', seconds?: number) => Promise<unknown>;
   del: (keyOrKeys: string | string[]) => Promise<number>;
@@ -34,6 +35,7 @@ const createUpstashRedis = (): RedisClient => ({
   connect: async (): Promise<void> => {
     await upstashCommand(['PING']);
   },
+  ping: () => upstashCommand<string>(['PING']),
   get: (key) => upstashCommand<RedisValue>(['GET', key]),
   set: (key, value, mode, seconds) => mode === 'EX' && seconds
     ? upstashCommand(['SET', key, value, 'EX', seconds])
@@ -56,6 +58,7 @@ const createIoredisClient = (): RedisClient => {
     connect: async (): Promise<void> => {
       await client.connect();
     },
+    ping: () => client.ping(),
     get: (key) => client.get(key),
     set: (key, value, mode, seconds) => mode === 'EX' && seconds
       ? client.set(key, value, 'EX', seconds)

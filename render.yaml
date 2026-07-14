@@ -14,6 +14,12 @@ services:
         value: production
       - key: PORT
         value: 8000
+      - key: TRUST_PROXY
+        value: 1
+      - key: CLIENT_URL
+        sync: false
+      - key: ADMIN_URL
+        sync: false
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -36,11 +42,27 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: PAYMENT_MODE
+        value: live
+      - key: COD_ENABLED
+        value: true
+      - key: COD_FEE
+        value: 0
+      - key: PARTIAL_PAYMENT_ENABLED
+        value: false
+      - key: MAX_COD_ORDER_VALUE
+        value: 50000
+      - key: MIN_PARTIAL_PAYMENT_ORDER_VALUE
+        value: 0
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
       - key: SENDGRID_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -52,3 +74,7 @@ services:
         sync: false
       - key: COOKIE_SAME_SITE
         value: none
+      - key: COOKIE_DOMAIN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

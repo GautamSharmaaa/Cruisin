@@ -4,7 +4,6 @@
 import { useState, type ReactNode } from 'react';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { formatPrice } from '@/lib/utils';
@@ -24,9 +23,7 @@ export function CartSummary({ subtotal, discount = 0, freeShipping = false, onCh
       {discount > 0 ? <div className="flex justify-between text-success"><span>Discount</span><span>-{formatPrice(discount)}</span></div> : null}
       <div className="flex justify-between"><span>{COPY.cart.shipping}</span><span>{formatPrice(shipping)}</span></div>
       <div className="flex justify-between font-mono text-lg text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(total)}</span></div>
-      <Link href={ROUTES.checkout} className="block" onClick={(event) => { if (!user) { event.preventDefault(); setPrompt(true); return; } onCheckout?.(); }}>
-        <Button className="mt-4 w-full">{COPY.cart.checkout}</Button>
-      </Link>
+      <Link href={ROUTES.checkout} className="mt-4 inline-flex h-11 w-full min-w-11 items-center justify-center bg-accent-gold px-6 font-body text-xs font-medium uppercase tracking-[0.1em] text-text-inverse shadow-gold transition duration-300 hover:brightness-110 active:scale-[0.98]" onClick={(event) => { if (!user) { event.preventDefault(); setPrompt(true); return; } onCheckout?.(); }}>{COPY.cart.checkout}</Link>
       <LoginRequiredModal open={prompt} onOpenChange={setPrompt} next={ROUTES.checkout} action="checkout" />
     </div>
   );

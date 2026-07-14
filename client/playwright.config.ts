@@ -31,6 +31,8 @@ export default defineConfig({
   ],
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } } },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 5'] } }
+    { name: 'mobile-chromium', testMatch: /cross-browser\.spec\.ts/, use: { ...devices['Pixel 5'] } },
+    { name: 'firefox', testMatch: /cross-browser\.spec\.ts/, use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 900 } } },
+    { name: 'webkit', testMatch: /cross-browser\.spec\.ts/, use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 900 } } }
   ]
 });

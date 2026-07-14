@@ -6,6 +6,7 @@ import type { ApiEnvelope, PaginatedResult } from '@/types/api.types';
 import type { Product } from '@/types/product.types';
 
 export interface UseProductsInput {
+  enabled?: boolean;
   category?: string;
   subcategory?: string;
   collection?: string;
@@ -28,10 +29,14 @@ export interface UseProductsInput {
   limit?: number;
 }
 
-export const useProducts = (input: UseProductsInput = {}) => useQuery({
-  queryKey: ['products', input],
+export const useProducts = (input: UseProductsInput = {}) => {
+  const { enabled = true, ...params } = input;
+  return useQuery({
+  queryKey: ['products', params],
   queryFn: async (): Promise<PaginatedResult<Product>> => {
-    const response = await api.get<ApiEnvelope<PaginatedResult<ApiProduct>>>('/products', { params: input });
+    const response = await api.get<ApiEnvelope<PaginatedResult<ApiProduct>>>('/products', { params });
     return { ...response.data.data, items: response.data.data.items.map(mapProduct) };
-  }
+  },
+  enabled
 });
+};

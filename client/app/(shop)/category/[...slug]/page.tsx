@@ -10,11 +10,12 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   const { slug } = await params;
   const path = slug.join('/');
   const category = await loadCategoryServer(path);
-  return metadataFromSettings(category, (category?.name ?? 'Category') + ' | Cruisin', category?.description);
+  return metadataFromSettings(category, category?.name ?? 'Category', category?.description);
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps): Promise<ReactNode> {
   const { slug } = await params;
   const path = slug.join('/');
-  return <ProductListingPage pageType="category" pageSlug={path} categoryPath={path} />;
+  const category = await loadCategoryServer(path);
+  return <ProductListingPage pageType="category" pageSlug={path} categoryPath={path} initialCategory={category} />;
 }

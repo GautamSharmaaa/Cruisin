@@ -146,7 +146,7 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
           </div>
 
           {method === 'email' && tab === 'signin' ? (
-            <form onSubmit={emailLoginForm.handleSubmit((data) => login.mutate(data, { onSuccess: (result) => finishAuth(result.user) }))} className="mt-8 grid gap-4 border-t border-border pt-7">
+            <form noValidate onSubmit={emailLoginForm.handleSubmit((data) => login.mutate(data, { onSuccess: (result) => finishAuth(result.user) }))} className="mt-8 grid gap-4 border-t border-border pt-7">
               <Input label={COPY.auth.email} type="email" autoComplete="email" error={emailLoginForm.formState.errors.email?.message} {...emailLoginForm.register('email')} />
               <Input label={COPY.auth.password} type="password" autoComplete="current-password" error={emailLoginForm.formState.errors.password?.message} {...emailLoginForm.register('password')} />
               <Button type="submit" className="w-full" isLoading={login.isPending}>{COPY.auth.signIn}</Button>
@@ -154,13 +154,13 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
           ) : null}
 
           {method === 'email' && tab === 'signup' ? (
-            <form onSubmit={emailRegisterForm.handleSubmit((data) => registerMutation.mutate({ name: data.name, email: data.email, password: data.password }, { onSuccess: () => setRegistrationComplete(true) }))} className="mt-8 grid gap-4 border-t border-border pt-7">
+            <form noValidate onSubmit={emailRegisterForm.handleSubmit((data) => registerMutation.mutate({ name: data.name, email: data.email, password: data.password }, { onSuccess: () => setRegistrationComplete(true) }))} className="mt-8 grid gap-4 border-t border-border pt-7">
               <Input label={COPY.auth.name} autoComplete="name" error={emailRegisterForm.formState.errors.name?.message} {...emailRegisterForm.register('name')} />
               <Input label={COPY.auth.email} type="email" autoComplete="email" error={emailRegisterForm.formState.errors.email?.message} {...emailRegisterForm.register('email')} />
               <Input label={COPY.auth.password} type="password" autoComplete="new-password" error={emailRegisterForm.formState.errors.password?.message} {...emailRegisterForm.register('password')} />
               <Input label={COPY.auth.confirmPassword} type="password" autoComplete="new-password" error={emailRegisterForm.formState.errors.confirmPassword?.message} {...emailRegisterForm.register('confirmPassword')} />
               {registrationComplete ? <p className="text-sm text-success" aria-live="polite">Account created. Check your email to verify it, then sign in.</p> : null}
-              <Button type="submit" className="w-full" isLoading={registerMutation.isPending}>{COPY.auth.createAccount}</Button>
+              <Button type="submit" className="w-full" isLoading={registerMutation.isPending} disabled={registrationComplete}>{registrationComplete ? 'Account created' : COPY.auth.createAccount}</Button>
             </form>
           ) : null}
 
@@ -175,7 +175,7 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
               </Button>
 
               {requestOtp.data ? (
-                <form onSubmit={verifyForm.handleSubmit((data) => verifyOtp.mutate(data, { onSuccess: (result) => finishAuth(result.user) }))} className="grid gap-4 border-t border-border pt-5">
+                <form noValidate onSubmit={verifyForm.handleSubmit((data) => verifyOtp.mutate(data, { onSuccess: (result) => finishAuth(result.user) }))} className="grid gap-4 border-t border-border pt-5">
                   <p className="text-sm text-success" aria-live="polite">OTP sent on {channelLabel}. It expires in 5 minutes.</p>
                   <Input label={COPY.auth.otp} inputMode="numeric" autoComplete="one-time-code" maxLength={6} error={verifyForm.formState.errors.otp?.message} {...verifyForm.register('otp')} />
                   <input type="hidden" {...verifyForm.register('requestId')} />

@@ -57,11 +57,11 @@ export function CouponInput(_props: CouponInputProps): ReactNode {
   };
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <Input label={COPY.cart.coupon} error={formState.errors.code?.message} {...register('code')} />
-        <Button type="submit" variant="secondary">{COPY.cart.apply}</Button>
+        <Button type="submit" variant="secondary" className="mt-6 h-12 shrink-0" isLoading={formState.isSubmitting} disabled={formState.isSubmitting}>{COPY.cart.apply}</Button>
       </div>
-      {coupon ? <p className="text-xs text-success" aria-live="polite">{coupon} applied</p> : null}
+      {coupon ? <div className="flex items-center justify-between gap-3" aria-live="polite"><p className="text-xs text-success">{coupon} applied</p><button type="button" className="min-h-11 px-2 text-xs uppercase tracking-[0.08em] text-text-secondary underline-offset-4 hover:text-text-primary hover:underline" onClick={clearCoupon}>Remove coupon</button></div> : null}
     </form>
   );
 }

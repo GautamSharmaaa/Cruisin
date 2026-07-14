@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogueColumns, suggestCategory } from './catalogueMapper.service.js';
 import { parseCatalogueCsv } from './catalogueParser.service.js';
 import { validateCatalogue } from './catalogueValidator.service.js';
+import { rowForVariant } from './catalogueExport.service.js';
 
 const fixture = [
   catalogueColumns.join(','),
@@ -36,6 +37,9 @@ const fixture = [
     'size',
     'S',
     'Black',
+    '#000000',
+    'https://example.com/tee-black.jpg',
+    'true',
     '<Ul><Li><Strong>Soft</Strong> tee</Li></Ul>',
     '7 day return',
     'true',
@@ -50,7 +54,7 @@ const fixture = [
     'Men',
     'Oversized',
     '1',
-    ...Array.from({ length: catalogueColumns.length - 43 }, () => '')
+    ...Array.from({ length: catalogueColumns.length - 46 }, () => '')
   ].map((value) => '"' + value + '"').join(','),
   [
     'CRU-TEE-BLK',
@@ -82,6 +86,9 @@ const fixture = [
     'size',
     'M',
     '',
+    '#000000',
+    'https://example.com/tee-black.jpg',
+    'true',
     '',
     '',
     'true',
@@ -95,7 +102,7 @@ const fixture = [
     '',
     '',
     '',
-    ...Array.from({ length: catalogueColumns.length - 43 }, () => '')
+    ...Array.from({ length: catalogueColumns.length - 46 }, () => '')
   ].map((value) => '"' + value + '"').join(',')
 ].join('\n');
 
@@ -114,6 +121,8 @@ describe('catalogue parser', () => {
     expect(group?.images).toEqual(['https://example.com/tee-1.jpg', 'https://example.com/tee-2.jpg']);
     expect(group?.categorySuggestion.path).toEqual(['Men', 'Clothing', 'T-Shirts']);
     expect(group?.variants[1]?.color).toBe('Black');
+    expect(group?.variants[1]?.colorHex).toBe('#000000');
+    expect(group?.variants[1]?.images).toEqual(['https://example.com/tee-black.jpg']);
   });
 
   it('normalizes category fallbacks and validation warnings', () => {
@@ -140,5 +149,41 @@ describe('catalogue parser', () => {
     const validation = validateCatalogue(parseCatalogueCsv(bad));
     expect(validation.valid).toBe(false);
     expect(validation.errors.some((issue) => issue.field === 'Description')).toBe(true);
+  });
+
+  it('rejects invalid visual colors, duplicate SKUs, and duplicate color-size combinations', () => {
+    const invalidHex = validateCatalogue(parseCatalogueCsv(fixture.replaceAll('#000000', 'black')));
+    expect(invalidHex.errors.some((issue) => issue.field === 'Colour HEX')).toBe(true);
+
+    const duplicated = fixture + '\n' + fixture.split('\n')[1];
+    const duplicateValidation = validateCatalogue(parseCatalogueCsv(duplicated));
+    expect(duplicateValidation.errors.some((issue) => issue.field === 'Sku Id')).toBe(true);
+    expect(duplicateValidation.errors.some((issue) => issue.field === 'Colour / Size')).toBe(true);
+  });
+
+  it('keeps legacy catalogues importable by inferring missing color HEX values with warnings', () => {
+    const legacy = fixture.replaceAll('"#000000"', '""');
+    const parsed = parseCatalogueCsv(legacy);
+    const validation = validateCatalogue(parsed);
+    expect(validation.valid).toBe(true);
+    expect(parsed.groups[0]?.variants.every((variant) => variant.colorHex === '#000000')).toBe(true);
+    expect(validation.warnings.some((issue) => issue.field === 'Colour HEX' && issue.message.includes('inferred'))).toBe(true);
+  });
+
+  it('exports color-size metadata needed for a lossless variant round trip', () => {
+    const row = rowForVariant(
+      { productCode: 'QA-CATALOGUE-TEE', title: 'QA Tee', basePrice: 1999, images: [], isActive: true, visibility: 'visible' },
+      { sku: 'QA-CATALOGUE-TEE-BLK-M', size: 'M', color: 'Black', colorHex: '#050505', stock: 7, price: 1999, enabled: false, images: [{ url: 'https://example.com/black.jpg' }] },
+      null
+    );
+    expect(row).toMatchObject({
+      'Sku Id': 'QA-CATALOGUE-TEE-BLK-M',
+      Size: 'M',
+      Colour: 'Black',
+      'Colour HEX': '#050505',
+      'Variant Image URLs': 'https://example.com/black.jpg',
+      'Variant Enabled': 'false',
+      Quantity: 7
+    });
   });
 });

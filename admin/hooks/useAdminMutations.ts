@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { productPayloadFromInput } from '@/lib/product-payload';
 import type { CmsMediaDto, CmsSectionDto, CmsSectionType, CmsStatus, ProductDto } from '@/types/dto.types';
 
 export interface AdminProductInput {
@@ -41,17 +42,26 @@ export interface AdminProductInput {
   gstPercent?: number;
   hsnCode?: string;
   productCode?: string;
-  sku: string;
-  size: string;
-  color: string;
-  colorHex: string;
-  stock: number;
+  variants: AdminProductVariantInput[];
   image: string;
   hoverImage?: string;
   videoUrl?: string;
   mobileVideoUrl?: string;
   videoPosterImage?: string;
   imageAltText?: string;
+}
+
+export interface AdminProductVariantInput {
+  _id?: string;
+  sku: string;
+  size: string;
+  color: string;
+  colorHex: string;
+  stock: number;
+  priceOverride?: number;
+  lowStockThreshold?: number;
+  enabled: boolean;
+  image: string;
 }
 
 export interface AdminCategoryInput {
@@ -166,50 +176,7 @@ export interface CmsMediaInput {
 
 const listFromCsv = (value?: string): string[] => (value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
 
-const productPayload = (input: AdminProductInput): Record<string, unknown> => ({
-  title: input.title,
-  slug: input.slug,
-  description: input.description,
-  shortDescription: input.shortDescription ?? '',
-  richDescription: input.richDescription,
-  brand: 'Cruisin',
-  category: input.category,
-  categoryIds: Array.from(new Set([input.category, ...listFromCsv(input.categoryIds)])),
-  collections: listFromCsv(input.collections),
-  images: [{ url: input.image, alt: input.imageAltText || input.title, width: 1200, height: 1600 }],
-  hoverImage: input.hoverImage ? { url: input.hoverImage, alt: input.imageAltText || input.title, width: 1200, height: 1600 } : null,
-  videoUrl: input.videoUrl ?? '',
-  mobileVideoUrl: input.mobileVideoUrl ?? '',
-  videoPosterImage: input.videoPosterImage ?? '',
-  imageAltText: input.imageAltText ?? '',
-  basePrice: input.basePrice,
-  comparePrice: input.comparePrice,
-  costPrice: input.costPrice,
-  gstPercent: input.gstPercent,
-  hsnCode: input.hsnCode ?? '',
-  productCode: input.productCode ?? '',
-  variants: [{ size: input.size, color: input.color, colorHex: input.colorHex, sku: input.sku, price: input.basePrice, stock: input.stock, images: [{ url: input.image, alt: input.imageAltText || input.title, width: 1200, height: 1600 }] }],
-  tags: listFromCsv(input.tags),
-  gender: input.gender ?? 'unisex',
-  status: input.status ?? 'published',
-  visibility: input.visibility ?? 'visible',
-  isSale: input.isSale ?? Boolean(input.comparePrice),
-  isFeatured: input.isFeatured ?? false,
-  isBestseller: input.isBestseller ?? false,
-  isNewArrival: input.isNewArrival ?? false,
-  isLatestDrop: input.isLatestDrop ?? false,
-  isActive: input.status !== 'draft' && input.visibility !== 'hidden',
-  materialCare: input.materialCare ?? '',
-  fitDetails: input.fitDetails ?? '',
-  shippingReturns: input.shippingReturns ?? '',
-  sizeGuide: input.sizeGuide ?? '',
-  productHighlights: listFromCsv(input.productHighlights),
-  pickupAddress: input.pickupAddress ?? '',
-  lowStockThreshold: input.lowStockThreshold ?? 10,
-  weight: input.weight,
-  dimensions: { length: input.length, width: input.width, height: input.height },
-  seo: { metaTitle: input.seoTitle || input.title, metaDesc: input.seoDescription || input.description, ogImage: input.ogImage || input.image }
-});
+export const productPayload = (input: AdminProductInput): Record<string, unknown> => productPayloadFromInput(input);
 
 export const useCreateProduct = () => {
   const queryClient = useQueryClient();
@@ -365,8 +332,8 @@ export const useUpdateOrderStatus = () => {
 export const useOrderPaymentAction = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; action: 'mark-cod-paid' | 'mark-partial-paid' | 'refund'; amount?: number; reason?: string }): Promise<void> => {
-      if (input.action === 'refund') await api.post('/admin/orders/' + input.id + '/refund', { amount: input.amount, reason: input.reason });
+    mutationFn: async (input: { id: string; action: 'mark-cod-paid' | 'mark-partial-paid' | 'refund'; amount?: number; reason?: string; idempotencyKey?: string }): Promise<void> => {
+      if (input.action === 'refund') await api.post('/admin/orders/' + input.id + '/refund', { amount: input.amount, reason: input.reason, idempotencyKey: input.idempotencyKey });
       else await api.post('/admin/orders/' + input.id + '/' + input.action);
     },
     onSuccess: async (_data, input): Promise<void> => {

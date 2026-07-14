@@ -408,7 +408,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onDuplicate, onA
   const [productQuery, setProductQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [collectionQuery, setCollectionQuery] = useState('');
-  const products = useAdminProducts({ q: productQuery, status: 'visible', limit: 24 });
+  const products = useAdminProducts({ q: productQuery.trim() || undefined, status: 'visible', limit: 24 });
   const categoriesData = useAdminCategories();
   const collectionsData = useAdminCollections();
   const selectedProductIds = Array.from(new Set([...draft.products, ...parseIds(contentValue(draft.content.productIds))]));
@@ -473,7 +473,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onDuplicate, onA
       <div className="flex flex-wrap gap-2 border border-border-subtle bg-background-primary p-4">
         <Button type="button" onClick={onSave}><Save size={16} />{saveState === 'saving' ? COPY.common.loading : 'Save Draft'}</Button>
         <Button type="button" variant="secondary" onClick={() => onDuplicate(selected)}><Copy size={16} />Duplicate</Button>
-        <Button type="button" variant="secondary" onClick={() => window.open('/cms', '_blank')}><Eye size={16} />Preview</Button>
+        <Button type="button" variant="secondary" onClick={() => window.open('/cms', '_blank', 'noopener,noreferrer')}><Eye size={16} />Preview</Button>
         <Button type="button" variant="danger" onClick={() => onArchive(selected)}><Trash2 size={16} />Delete</Button>
       </div>
     </div> : <div className="mt-6"><EmptyPanel title="No section selected" message="Create a section to edit its campaign fields." /></div>}

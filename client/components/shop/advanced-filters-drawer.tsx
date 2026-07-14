@@ -29,6 +29,8 @@ export interface AdvancedFiltersDrawerProps {
   onClear: () => void;
   categories: CategoryDto[];
   collections: CollectionDto[];
+  sizes: string[];
+  colors: Array<{ label: string; hex: string }>;
 }
 
 const sortOptions = [
@@ -38,7 +40,7 @@ const sortOptions = [
   ['best-selling', 'Bestsellers']
 ] as const;
 
-export function AdvancedFiltersDrawer({ open, onOpenChange, values, onChange, onApply, onClear, categories, collections }: AdvancedFiltersDrawerProps): ReactNode {
+export function AdvancedFiltersDrawer({ open, onOpenChange, values, onChange, onApply, onClear, categories, collections, sizes, colors }: AdvancedFiltersDrawerProps): ReactNode {
   const patch = (key: keyof AdvancedFilterValues, value: string | boolean): void => onChange({ ...values, [key]: value });
   return (
     <Drawer open={open} onOpenChange={onOpenChange} title="Advanced Filters">
@@ -57,16 +59,17 @@ export function AdvancedFiltersDrawer({ open, onOpenChange, values, onChange, on
           <option value="women">Women</option>
           <option value="unisex">Unisex</option>
         </Select>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select label={COPY.product.size} value={values.size} onChange={(value) => patch('size', value)}>
-            <option value="">All sizes</option>
-            {COPY.filters.sizes.map((size) => <option key={size} value={size}>{size}</option>)}
-          </Select>
-          <Select label={COPY.product.color} value={values.color} onChange={(value) => patch('color', value)}>
-            <option value="">All colors</option>
-            {COPY.filters.colors.map((color) => <option key={color} value={color}>{color}</option>)}
-          </Select>
-        </div>
+        <fieldset className="grid gap-3">
+          <legend className="text-[11px] uppercase tracking-[0.14em] text-text-muted">{COPY.product.size}</legend>
+          {sizes.length ? <div className="flex flex-wrap gap-2">{sizes.map((size) => <button type="button" key={size.toLowerCase()} aria-pressed={values.size.toLowerCase() === size.toLowerCase()} onClick={() => patch('size', values.size.toLowerCase() === size.toLowerCase() ? '' : size)} className={'h-11 min-w-11 border px-3 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold ' + (values.size.toLowerCase() === size.toLowerCase() ? 'border-accent-gold bg-accent-gold/5 text-accent-gold' : 'border-border text-text-secondary hover:border-border-strong hover:text-text-primary')}>{size}</button>)}</div> : <p className="text-sm text-text-muted">No published size options are available.</p>}
+        </fieldset>
+        <fieldset className="grid gap-3">
+          <legend className="text-[11px] uppercase tracking-[0.14em] text-text-muted">{COPY.product.color}</legend>
+          {colors.length ? <div className="flex flex-wrap gap-2">{colors.map((color) => {
+            const selected = values.color.toLowerCase() === color.label.toLowerCase();
+            return <button type="button" key={color.label.toLowerCase()} aria-label={`Filter by ${color.label}`} aria-pressed={selected} onClick={() => patch('color', selected ? '' : color.label)} className={'flex min-h-11 items-center border px-3 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold ' + (selected ? 'border-accent-gold bg-accent-gold/5 text-accent-gold' : 'border-border text-text-secondary hover:border-border-strong hover:text-text-primary')}><span aria-hidden="true" className="mr-2 h-4 w-4 rounded-full border border-border-strong shadow-inner" style={{ backgroundColor: /^#[0-9a-f]{6}$/i.test(color.hex) ? color.hex : '#777777' }} />{color.label}</button>;
+          })}</div> : <p className="text-sm text-text-muted">No published color options are available.</p>}
+        </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Min price" value={values.priceMin} onChange={(value) => patch('priceMin', value)} />
           <Field label="Max price" value={values.priceMax} onChange={(value) => patch('priceMax', value)} />

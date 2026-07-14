@@ -6,6 +6,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { COPY } from '@/constants/copy';
+import { csvCell } from '@/lib/export-csv';
 export interface DataTableProps { title: string; columns: string[]; rows: string[][]; }
 export function DataTable({ title, columns, rows }: DataTableProps): ReactNode {
   const [query, setQuery] = useState('');
@@ -16,7 +17,7 @@ export function DataTable({ title, columns, rows }: DataTableProps): ReactNode {
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const exportCsv = (): void => {
-    const csv = [columns, ...filtered].map((row) => row.map((cell) => '"' + cell.replaceAll('"', '""') + '"').join(',')).join('\n');
+    const csv = [columns, ...filtered].map((row) => row.map(csvCell).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const link = document.createElement('a');
     link.href = url;

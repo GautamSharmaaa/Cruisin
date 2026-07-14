@@ -149,8 +149,8 @@ export function UserManager({ users, isLoading }: UserManagerProps): ReactNode {
 }
 
 function UserDetailDrawer({ user, onClose }: { user: UserDto; onClose: () => void }): ReactNode {
-  return <div className="fixed inset-0 z-50 bg-background-primary/70 backdrop-blur-sm">
-    <aside className="ml-auto grid h-full w-full max-w-xl grid-rows-[auto_1fr] border-l border-border bg-background-elevated shadow-2xl">
+  return <div className="fixed inset-0 z-50 overflow-hidden bg-background-primary/70 backdrop-blur-sm">
+    <aside role="dialog" aria-modal="true" aria-label="Customer detail" className="ml-auto grid h-full min-w-0 w-full max-w-xl grid-rows-[auto_1fr] overflow-hidden border-l border-border bg-background-elevated shadow-2xl">
       <div className="flex items-start justify-between gap-4 border-b border-border p-5">
         <div className="min-w-0">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-gold">Customer detail</p>
@@ -160,7 +160,7 @@ function UserDetailDrawer({ user, onClose }: { user: UserDto; onClose: () => voi
         <button type="button" aria-label="Close customer details" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><X size={16} /></button>
       </div>
       <div className="min-h-0 overflow-y-auto p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
           <DetailCard icon={<ShieldCheck size={18} />} label="Role" value={COPY.users.roles[user.role] ?? user.role} helper={user.isActive ? 'Active account' : 'Inactive account'} />
           <DetailCard icon={<ShoppingBag size={18} />} label="Orders" value={String(user.orderCount ?? 0)} helper={formatCurrency(user.totalSpend)} />
           <DetailCard label="Last order" value={formatDate(user.lastOrderAt)} helper={user.lastOrderStatus ?? 'No order history'} />

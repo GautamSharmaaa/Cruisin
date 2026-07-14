@@ -6,7 +6,7 @@ import { loadPageSettingsServer, metadataFromSettings } from '@/lib/storefront-s
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await loadPageSettingsServer('landing', 'men');
-  return metadataFromSettings(settings, 'Men | Cruisin');
+  return metadataFromSettings(settings, 'Men');
 }
 
 export default function MenPage(): ReactNode {

@@ -13,6 +13,9 @@ export interface CatalogueColumnMapping {
   sizeType: string;
   size: string;
   color: string;
+  colorHex: string;
+  variantImages: string;
+  variantEnabled: string;
   description: string;
   returnExchangeCondition: string;
   visibility: string;
@@ -62,6 +65,9 @@ export const catalogueColumns = [
   'Size Type',
   'Size',
   'Colour',
+  'Colour HEX',
+  'Variant Image URLs',
+  'Variant Enabled',
   'Description',
   'Return/Exchange Condition',
   'Visibility',
@@ -136,6 +142,9 @@ export const defaultMapping: CatalogueColumnMapping = {
   sizeType: 'Size Type',
   size: 'Size',
   color: 'Colour',
+  colorHex: 'Colour HEX',
+  variantImages: 'Variant Image URLs',
+  variantEnabled: 'Variant Enabled',
   description: 'Description',
   returnExchangeCondition: 'Return/Exchange Condition',
   visibility: 'Visibility',
@@ -167,6 +176,36 @@ export const numberFromCell = (value: string | undefined): number | undefined =>
 };
 
 export const booleanFromCell = (value: string | undefined): boolean => !['false', '0', 'no', 'hidden', 'draft'].includes((value ?? '').trim().toLowerCase());
+
+const legacyColorHexes: Record<string, string> = {
+  black: '#000000',
+  white: '#FFFFFF',
+  'off white': '#F5F5F0',
+  cream: '#F5E6CC',
+  beige: '#D6C6A5',
+  coffee: '#6F4E37',
+  red: '#C1121F',
+  yellow: '#FACC15',
+  mustard: '#D4A017',
+  olive: '#708238',
+  blue: '#2563EB',
+  'electric blue': '#0066FF',
+  grey: '#808080',
+  gray: '#808080',
+  'light grey': '#D1D5DB',
+  'light gray': '#D1D5DB',
+  'dark grey': '#3F3F46',
+  'dark gray': '#3F3F46',
+  'blue and red': '#2563EB',
+  'grey and black': '#4B5563',
+  'mustard and blue': '#D4A017',
+  'yellow and grey': '#FACC15'
+};
+
+export const inferColorHex = (value: string): string => {
+  const normalized = value.trim().toLowerCase().replace(/&/g, ' and ').replace(/\s+/g, ' ');
+  return legacyColorHexes[normalized] ?? '#777777';
+};
 
 export const normalizeAttributes = (row: Record<string, string>): Record<string, string> => {
   const normalized: Record<string, string> = {};
@@ -202,4 +241,3 @@ export const suggestCategory = (rawProductType: string, productName: string, att
 };
 
 export const parseCollectionNames = (value: string | undefined): string[] => Array.from(new Set((value ?? '').split(',').map((item) => item.trim()).filter(Boolean)));
-

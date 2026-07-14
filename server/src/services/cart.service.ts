@@ -7,18 +7,28 @@ import { ApiError } from '../utils/api-error.js';
 import { calculateCouponDiscount } from '../utils/coupon-discount.js';
 
 const cartExpiry = (): Date => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-const ownerQuery = (userId?: string, sessionId?: string): Record<string, string> => userId ? { user: userId } : { sessionId: sessionId ?? '' };
+const ownerQuery = (userId?: string, sessionId?: string): Record<string, string> => {
+  if (userId) return { user: userId };
+  if (!sessionId || sessionId.length <= 8) throw new ApiError(400, 'A valid guest session is required');
+  return { sessionId };
+};
+const availableVariant = async (productId: string, variantId: string) => {
+  const product = await ProductModel.findOne({ _id: productId, status: 'published', visibility: 'visible', isActive: true, isArchived: { $ne: true } });
+  const variant = product?.variants.find((item) => String(item._id) === variantId && item.enabled !== false);
+  if (!product || !variant) throw new ApiError(400, 'Requested item is unavailable');
+  return variant;
+};
 export const CartService = {
   async get(userId?: string, sessionId?: string): Promise<unknown> {
     return await CartModel.findOne(ownerQuery(userId, sessionId)).populate('items.product').lean() ?? { items: [] };
   },
   async add(userId: string | undefined, sessionId: string | undefined, input: { product: string; variant: string; quantity: number }): Promise<unknown> {
-    const product = await ProductModel.findById(input.product);
-    const variant = product?.variants.find((item) => String(item._id) === input.variant);
-    if (!product || !variant || variant.stock < input.quantity) throw new ApiError(400, 'Requested item is unavailable');
+    const variant = await availableVariant(input.product, input.variant);
     const cart = await CartModel.findOneAndUpdate(ownerQuery(userId, sessionId), { $setOnInsert: { ...ownerQuery(userId, sessionId), expiresAt: cartExpiry() } }, { upsert: true, new: true });
     const existing = cart.items.find((item) => String(item.product) === input.product && String(item.variant) === input.variant);
-    if (existing) existing.quantity += input.quantity;
+    const nextQuantity = (existing?.quantity ?? 0) + input.quantity;
+    if (nextQuantity > 20 || nextQuantity > variant.stock) throw new ApiError(409, 'Requested quantity exceeds available stock');
+    if (existing) existing.quantity = nextQuantity;
     else cart.items.push({ product: new Types.ObjectId(input.product), variant: new Types.ObjectId(input.variant), quantity: input.quantity, price: variant.price });
     await cart.save();
     return cart.populate('items.product');
@@ -28,6 +38,8 @@ export const CartService = {
     if (!cart) throw new ApiError(404, 'Cart not found');
     const item = cart.items.find((entry) => String(entry.product) === input.product && String(entry.variant) === input.variant);
     if (!item) throw new ApiError(404, 'Cart item not found');
+    const variant = await availableVariant(input.product, input.variant);
+    if (input.quantity > variant.stock) throw new ApiError(409, 'Requested quantity exceeds available stock');
     item.quantity = input.quantity;
     await cart.save();
     return cart.populate('items.product');

@@ -14,11 +14,31 @@ import { logger } from '../utils/logger.js';
 import { PaymentService } from './payment.service.js';
 
 type AddressInput = Record<string, unknown>;
-type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; couponCode?: string };
+type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; couponCode?: string; idempotencyKey: string };
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 const orderNumber = (): string => `CR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+const orderStatusTransitions: Record<string, string[]> = {
+  pending: ['confirmed', 'cancelled'],
+  placed: ['confirmed', 'cancelled'],
+  confirmed: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: ['returned'],
+  returned: [],
+  cancelled: []
+};
+const webhookEntity = (value: unknown): Record<string, unknown> | undefined => value && typeof value === 'object' && 'entity' in value && (value as { entity?: unknown }).entity && typeof (value as { entity?: unknown }).entity === 'object' ? (value as { entity: Record<string, unknown> }).entity : undefined;
+const webhookAuditPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  const allowed = ['id', 'order_id', 'payment_id', 'amount', 'currency', 'status', 'method', 'captured', 'error_code', 'error_source', 'error_step', 'error_reason'];
+  const select = (entity: Record<string, unknown> | undefined): Record<string, unknown> | undefined => entity ? Object.fromEntries(allowed.flatMap((key) => entity[key] === undefined ? [] : [[key, entity[key]]])) : undefined;
+  return Object.fromEntries([
+    ['payment', select(webhookEntity(payload.payment))],
+    ['refund', select(webhookEntity(payload.refund))],
+    ['order', select(webhookEntity(payload.order))]
+  ].filter((entry) => entry[1] !== undefined));
+};
 
 const notifyOrderConfirmation = async (orderId: string): Promise<void> => {
   const order = await OrderModel.findById(orderId).lean();
@@ -68,8 +88,75 @@ const createPricedItems = async (cartItems: Array<{ product: unknown; variant: u
     if (!product || product.status !== 'published' || product.visibility !== 'visible' || !product.isActive || product.isArchived) throw new ApiError(409, 'A product in your bag is no longer available');
     const variant = product.variants.find((candidate) => String(candidate._id) === variantId);
     if (!variant || variant.enabled === false || variant.stock < cartItem.quantity) throw new ApiError(409, `Selected variant is unavailable for ${product.title}`);
-    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
+    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
   });
+};
+
+const enforceCustomerCouponLimit = async (userId: string, coupon: { code: string; userUsageLimit?: number | null }): Promise<void> => {
+  const limit = coupon.userUsageLimit ?? 1;
+  const uses = await OrderModel.countDocuments({
+    user: userId,
+    couponCode: coupon.code,
+    orderStatus: { $ne: 'cancelled' },
+    paymentStatus: { $nin: ['failed', 'cancelled'] }
+  });
+  if (uses >= limit) throw new ApiError(400, 'Coupon usage limit reached for this customer');
+};
+
+const existingCheckoutResult = <T extends {
+  paymentMode?: string | null;
+  paymentProvider?: string | null;
+  razorpayOrderId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paymentAttempts?: Array<{ providerOrderId?: string | null; amount: number; status: string }>;
+}>(order: T): { order: T; payment: Record<string, unknown> | null; amountToPay: number; reused: true } => {
+  const providerOrderId = order.razorpayOrderId ?? order.stripePaymentIntentId;
+  const attempt = [...(order.paymentAttempts ?? [])].reverse().find((candidate) => candidate.providerOrderId === providerOrderId && candidate.status === 'created');
+  return {
+    order,
+    payment: providerOrderId ? { id: providerOrderId, amount: attempt?.amount ?? 0, currency: 'INR', provider: order.paymentProvider } : null,
+    amountToPay: attempt?.amount ?? 0,
+    reused: true
+  };
+};
+
+const duplicateKey = (error: unknown): boolean => typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000;
+
+type MutablePaymentAttempt = { providerOrderId?: string | null; providerPaymentId?: string | null; amount: number; status: string; method?: string | null; errorDescription?: string | null };
+type MutablePaymentOrder = { razorpayOrderId?: string | null; stripePaymentIntentId?: string | null; paymentAttempts: MutablePaymentAttempt[] };
+
+const reconcilePaymentAttempt = (order: MutablePaymentOrder, paymentId: string, amount: number, status: 'authorized' | 'captured', method?: string, errorDescription?: string): boolean => {
+  const providerOrderId = order.razorpayOrderId ?? order.stripePaymentIntentId;
+  const attempts = order.paymentAttempts;
+  const capturedIndex = attempts.findIndex((attempt) => attempt.providerOrderId === providerOrderId && attempt.providerPaymentId === paymentId);
+  const placeholderIndex = attempts.findIndex((attempt) => attempt.providerOrderId === providerOrderId && !attempt.providerPaymentId);
+  let target = capturedIndex >= 0 ? attempts[capturedIndex] : placeholderIndex >= 0 ? attempts[placeholderIndex] : undefined;
+  let changed = false;
+
+  // Older orders recorded `created` and `captured` as two rows for one provider
+  // attempt. Fold only that empty-payment placeholder into the matching payment;
+  // distinct failed/retried provider payment IDs remain separate attempts.
+  if (capturedIndex >= 0 && placeholderIndex >= 0 && capturedIndex !== placeholderIndex) {
+    target = attempts[placeholderIndex];
+    Object.assign(target, attempts[capturedIndex]);
+    attempts.splice(capturedIndex, 1);
+    changed = true;
+  }
+  if (!target) {
+    target = { providerOrderId, amount, status };
+    attempts.push(target);
+    changed = true;
+  }
+  const next = { providerOrderId, providerPaymentId: paymentId, amount, status, method, errorDescription };
+  for (const [key, value] of Object.entries(next)) {
+    if (value === undefined) continue;
+    const field = key as keyof MutablePaymentAttempt;
+    if (target[field] !== value) {
+      (target as Record<string, unknown>)[key] = value;
+      changed = true;
+    }
+  }
+  return changed;
 };
 
 // A cart can outlive a product import or catalogue deletion. Remove only references
@@ -88,25 +175,56 @@ const priceCart = async (cart: { _id: unknown; items: Array<{ product: unknown; 
 };
 
 const completeOnlinePayment = async (orderId: string, paymentId: string, note: string, method?: string): Promise<unknown> => {
-  const order = await OrderModel.findById(orderId);
-  if (!order) throw new ApiError(404, 'Order not found');
-  if (order.paymentStatus === 'paid' || order.paymentStatus === 'partially_paid') return order;
+  const settlementStartedAt = new Date();
+  const staleSettlement = new Date(settlementStartedAt.getTime() - 5 * 60_000);
+  const order = await OrderModel.findOneAndUpdate(
+    {
+      _id: orderId,
+      paymentStatus: { $nin: ['paid', 'partially_paid', 'partially_refunded', 'refunded'] },
+      $or: [{ paymentSettlementStartedAt: { $exists: false } }, { paymentSettlementStartedAt: { $lt: staleSettlement } }]
+    },
+    { $set: { paymentSettlementStartedAt: settlementStartedAt } },
+    { new: true }
+  );
+  if (!order) {
+    const current = await OrderModel.findById(orderId);
+    if (!current) throw new ApiError(404, 'Order not found');
+    if (['paid', 'partially_paid', 'partially_refunded', 'refunded'].includes(current.paymentStatus)) {
+      const existingAttempt = [...current.paymentAttempts].reverse().find((attempt) => attempt.providerPaymentId === paymentId || (!attempt.providerPaymentId && attempt.providerOrderId === (current.razorpayOrderId ?? current.stripePaymentIntentId)));
+      if (reconcilePaymentAttempt(current as unknown as MutablePaymentOrder, paymentId, existingAttempt?.amount ?? current.amountPaid, 'captured', existingAttempt?.method ?? undefined)) await current.save();
+      return current;
+    }
+    throw new ApiError(409, 'Payment settlement is already in progress');
+  }
+  const paymentAttempt = [...order.paymentAttempts].reverse().find((attempt) => attempt.providerOrderId === order.razorpayOrderId || attempt.providerOrderId === order.stripePaymentIntentId);
+  const capturedAmount = order.paymentMode === 'partial' ? money(paymentAttempt?.amount ?? 0) : order.total;
+  if (capturedAmount <= 0 || capturedAmount > order.total) {
+    await OrderModel.updateOne({ _id: orderId, paymentSettlementStartedAt: settlementStartedAt }, { $unset: { paymentSettlementStartedAt: 1 } });
+    throw new ApiError(409, 'Payment amount could not be reconciled');
+  }
+  const reconcileAmounts = (): void => {
+    order.amountPaid = money(Math.min(order.total, order.amountPaid + capturedAmount));
+    order.amountDue = money(Math.max(0, order.total - order.amountPaid));
+  };
   try {
     await reserveStock(orderId);
   } catch (error) {
+    reconcileAmounts();
     order.paymentStatus = 'authorized';
     order.razorpayPaymentId = paymentId;
-    order.paymentAttempts.push({ providerOrderId: order.razorpayOrderId, providerPaymentId: paymentId, amount: order.paymentMode === 'partial' ? order.amountPaid : order.total, status: 'authorized', errorDescription: 'Payment received; stock requires manual resolution' });
+    reconcilePaymentAttempt(order as unknown as MutablePaymentOrder, paymentId, capturedAmount, 'authorized', method, 'Payment received; stock requires manual resolution');
     order.timeline.push({ status: 'authorized', timestamp: new Date(), note: 'Payment received; inventory review required' });
+    order.paymentSettlementStartedAt = undefined;
     await order.save();
     return order;
   }
-  const paid = order.paymentMode === 'partial' ? order.amountPaid : order.total;
+  reconcileAmounts();
   order.razorpayPaymentId = paymentId;
   order.paymentStatus = order.paymentMode === 'partial' ? 'partially_paid' : 'paid';
   order.orderStatus = 'confirmed';
-  order.paymentAttempts.push({ providerOrderId: order.razorpayOrderId, providerPaymentId: paymentId, amount: paid, status: 'captured', method });
+  reconcilePaymentAttempt(order as unknown as MutablePaymentOrder, paymentId, capturedAmount, 'captured', method);
   order.timeline.push({ status: order.paymentStatus, timestamp: new Date(), note });
+  order.paymentSettlementStartedAt = undefined;
   await order.save();
   await CartModel.deleteOne({ user: order.user });
   await notifyOrderConfirmation(orderId);
@@ -116,6 +234,8 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
 export const OrderService = {
   async checkout(userId: string, input: CheckoutInput): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
+    const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
+    if (existing) return existingCheckoutResult(existing);
     const mode = input.paymentMode ?? (input.paymentMethod === 'cod' ? 'cod' : 'online');
     if (mode === 'cod' || input.paymentMethod === 'cod') return this.createCodOrder(userId, input);
     if (input.paymentMethod !== 'razorpay' && input.paymentMethod !== 'stripe') throw new ApiError(400, 'Unsupported payment method');
@@ -125,6 +245,7 @@ export const OrderService = {
     const items = await priceCart(cart);
     const subtotal = money(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const coupon = input.couponCode ? await CouponModel.findOne({ code: input.couponCode.toUpperCase(), isActive: true }) : null;
+    if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
     const shipping = couponResult?.freeShipping || subtotal - discount >= 25000 ? 0 : 900;
@@ -133,7 +254,15 @@ export const OrderService = {
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
     const advance = mode === 'partial' ? money(Math.min(total, env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? total * ((env.PARTIAL_PAYMENT_PERCENTAGE ?? 0) / 100))) : total;
     if (advance <= 0) throw new ApiError(400, 'Invalid partial-payment configuration');
-    const order = await OrderModel.create({ orderNumber: orderNumber(), user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: mode === 'partial' ? advance : 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
+    let order;
+    try {
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
+    } catch (error) {
+      if (!duplicateKey(error)) throw error;
+      const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
+      if (!duplicate) throw error;
+      return existingCheckoutResult(duplicate);
+    }
     try {
       const payment = await PaymentService.getProvider(input.paymentMethod).createOrder(advance, 'INR', { localOrderId: String(order._id), orderNumber: order.orderNumber ?? String(order._id), paymentMode: mode });
       if (input.paymentMethod === 'razorpay') order.razorpayOrderId = payment.id;
@@ -153,18 +282,29 @@ export const OrderService = {
   async createCodOrder(userId: string, input: CheckoutInput): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
     if (!env.COD_ENABLED) throw new ApiError(400, 'Cash on delivery is unavailable');
+    const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
+    if (existing) return existingCheckoutResult(existing);
     const cart = await CartModel.findOne({ user: userId }).lean();
     if (!cart?.items.length) throw new ApiError(400, 'Cart is empty');
     const items = await priceCart(cart);
     const subtotal = money(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const coupon = input.couponCode ? await CouponModel.findOne({ code: input.couponCode.toUpperCase(), isActive: true }) : null;
+    if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
     const shipping = couponResult?.freeShipping || subtotal - discount >= 25000 ? 0 : 900;
     const tax = Math.round((subtotal - discount) * 0.18);
     const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
-    const order = await OrderModel.create({ orderNumber: orderNumber(), user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+    let order;
+    try {
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+    } catch (error) {
+      if (!duplicateKey(error)) throw error;
+      const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
+      if (!duplicate) throw error;
+      return existingCheckoutResult(duplicate);
+    }
     await reserveStock(String(order._id));
     if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
     await CartModel.deleteOne({ user: order.user });
@@ -202,7 +342,7 @@ export const OrderService = {
   },
 
   async processRazorpayWebhook(eventId: string, eventType: string, payload: Record<string, unknown>): Promise<boolean> {
-    try { await PaymentWebhookEventModel.create({ provider: 'razorpay', eventId, eventType, payload }); } catch (error: unknown) { if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) return false; throw error; }
+    try { await PaymentWebhookEventModel.create({ provider: 'razorpay', eventId, eventType, payload: webhookAuditPayload(payload) }); } catch (error: unknown) { if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) return false; throw error; }
     const payment = payload.payment && typeof payload.payment === 'object' && 'entity' in payload.payment ? (payload.payment as { entity?: Record<string, unknown> }).entity : undefined;
     const refund = payload.refund && typeof payload.refund === 'object' && 'entity' in payload.refund ? (payload.refund as { entity?: Record<string, unknown> }).entity : undefined;
     const providerOrderId = typeof payment?.order_id === 'string' ? payment.order_id : typeof payload.order === 'object' && payload.order && 'entity' in payload.order ? String((payload.order as { entity?: { id?: string } }).entity?.id ?? '') : '';
@@ -218,24 +358,37 @@ export const OrderService = {
     if (!order) return;
     const refund = order.refunds.find((candidate) => candidate.providerRefundId === refundId);
     if (!refund) return;
+    const statusChanged = refund.status !== status;
     refund.status = status;
     const refunded = order.refunds.filter((candidate) => candidate.status === 'processed').reduce((sum, candidate) => sum + candidate.amount, 0);
     order.refundAmount = refunded;
-    order.paymentStatus = refunded >= order.amountPaid ? 'refunded' : 'partially_refunded';
-    order.timeline.push({ status: order.paymentStatus, timestamp: new Date(), note: `Razorpay refund ${status}` });
+    if (status === 'processed') order.paymentStatus = refunded >= order.amountPaid ? 'refunded' : 'partially_refunded';
+    if (statusChanged) order.timeline.push({ status: status === 'processed' ? order.paymentStatus : 'refund_failed', timestamp: new Date(), note: `Razorpay refund ${status}` });
     await order.save();
   },
 
-  async refund(orderId: string, amount: number, reason: string | undefined, adminId: string): Promise<unknown> {
+  async refund(orderId: string, amount: number, reason: string | undefined, adminId: string, idempotencyKey: string): Promise<unknown> {
+    if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(400, 'Refund amount must be positive');
     const order = await OrderModel.findById(orderId);
     if (!order) throw new ApiError(404, 'Order not found');
+    const existingRequest = order.refunds.find((candidate) => candidate.idempotencyKey === idempotencyKey);
+    if (existingRequest) {
+      if (existingRequest.amount !== amount || (existingRequest.reason ?? '') !== (reason ?? '')) throw new ApiError(409, 'Refund idempotency key was already used with different details');
+      return { id: existingRequest.providerRefundId, amount: existingRequest.amount, status: existingRequest.status, reused: true };
+    }
     if (order.paymentProvider !== 'razorpay' || !order.razorpayPaymentId) throw new ApiError(400, 'Only captured online payments can be refunded through Razorpay');
     const alreadyRefunded = order.refunds.filter((refund) => ['created', 'processed'].includes(refund.status)).reduce((sum, refund) => sum + refund.amount, 0);
     if (amount > order.amountPaid - alreadyRefunded) throw new ApiError(400, 'Refund exceeds amount paid');
-    const refund = await PaymentService.refund('razorpay', order.razorpayPaymentId, amount);
+    const refund = await PaymentService.refund('razorpay', order.razorpayPaymentId, amount, idempotencyKey, { orderId, reason: reason ?? '' });
     if (order.refunds.some((existing) => existing.providerRefundId === refund.id)) return refund;
-    order.refunds.push({ providerRefundId: refund.id, amount, status: refund.status, reason, requestedBy: new Types.ObjectId(adminId) });
-    order.timeline.push({ status: 'refund_pending', timestamp: new Date(), note: reason ? `Refund requested: ${reason}` : 'Refund requested' });
+    order.refunds.push({ providerRefundId: refund.id, idempotencyKey, amount, status: refund.status, reason, requestedBy: new Types.ObjectId(adminId) });
+    if (refund.status === 'processed') {
+      order.refundAmount = money(order.refunds.filter((candidate) => candidate.status === 'processed').reduce((sum, candidate) => sum + candidate.amount, 0));
+      order.paymentStatus = order.refundAmount >= order.amountPaid ? 'refunded' : 'partially_refunded';
+      order.timeline.push({ status: order.paymentStatus, timestamp: new Date(), note: reason ? `Razorpay refund processed: ${reason}` : 'Razorpay refund processed' });
+    } else {
+      order.timeline.push({ status: 'refund_pending', timestamp: new Date(), note: reason ? `Refund requested: ${reason}` : 'Refund requested' });
+    }
     await order.save();
     return refund;
   },
@@ -244,6 +397,7 @@ export const OrderService = {
     const order = await OrderModel.findById(id);
     if (!order) throw new ApiError(404, 'Order not found');
     if (partial ? order.paymentMode !== 'partial' : order.paymentMode !== 'cod') throw new ApiError(400, 'Payment mode does not match this action');
+    if (order.paymentStatus === 'paid' && order.amountDue === 0) return order;
     order.amountPaid = order.total;
     order.amountDue = 0;
     order.paymentStatus = 'paid';
@@ -275,5 +429,20 @@ export const OrderService = {
     if (!user || !order.user || String(order.user) !== user.userId) throw new ApiError(403, 'Order access denied');
     return order;
   },
-  async updateStatus(id: string, input: { status: string; note?: string; trackingNumber?: string }): Promise<unknown> { if (input.status === 'cancelled') return this.cancel(id, input.note); const order = await OrderModel.findByIdAndUpdate(id, { orderStatus: input.status, trackingNumber: input.trackingNumber, $push: { timeline: { status: input.status, timestamp: new Date(), note: input.note } } }, { new: true }); if (!order) throw new ApiError(404, 'Order not found'); return order; }
+  async updateStatus(id: string, input: { status: string; note?: string; trackingNumber?: string }): Promise<unknown> {
+    const order = await OrderModel.findById(id);
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (order.orderStatus === input.status) return order;
+    if (!(orderStatusTransitions[order.orderStatus] ?? []).includes(input.status)) {
+      throw new ApiError(409, `Order cannot move from ${order.orderStatus} to ${input.status}`);
+    }
+    if (input.status === 'cancelled') return this.cancel(id, input.note);
+    const updated = await OrderModel.findOneAndUpdate(
+      { _id: id, orderStatus: order.orderStatus },
+      { orderStatus: input.status, trackingNumber: input.trackingNumber, $push: { timeline: { status: input.status, timestamp: new Date(), note: input.note } } },
+      { new: true }
+    );
+    if (!updated) throw new ApiError(409, 'Order status changed; refresh and try again');
+    return updated;
+  }
 };

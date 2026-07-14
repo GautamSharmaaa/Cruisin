@@ -93,7 +93,14 @@ const tagList = (tags?: string | string[]): string[] => {
 };
 
 const isTrue = (value: unknown): boolean => value === true || value === 'true';
+const exactCaseInsensitive = (value: string): RegExp => new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const totalStock = (product: { variants?: Array<{ stock?: number }> }): number => (product.variants ?? []).reduce((sum, variant) => sum + (variant.stock ?? 0), 0);
+const sanitizePublicProduct = <TProduct>(product: TProduct): TProduct => {
+  if (!product || typeof product !== 'object') return product;
+  const record = product as Record<string, unknown>;
+  if (!Array.isArray(record.variants)) return product;
+  return { ...record, variants: record.variants.filter((variant) => !variant || typeof variant !== 'object' || (variant as { enabled?: boolean }).enabled !== false) } as TProduct;
+};
 const hasHealthIssues = (product: Record<string, unknown>): boolean => {
   const variants = Array.isArray(product.variants) ? product.variants : [];
   const images = Array.isArray(product.images) ? product.images : [];
@@ -105,7 +112,10 @@ export const ProductService = {
   async list(filters: ProductFilters): Promise<PaginatedResult<unknown>> {
     const query: Record<string, unknown> = { ...publicProductQuery };
     const and: Record<string, unknown>[] = [];
-    if (filters.q) query.$text = { $search: filters.q };
+    if (filters.q?.trim()) {
+      const expression = new RegExp(filters.q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      and.push({ $or: [{ title: expression }, { slug: expression }, { productCode: expression }, { 'variants.sku': expression }] });
+    }
     const categoryFilter = filters.subcategory ?? filters.category;
     if (categoryFilter) {
       const categoryDoc = await categoryFromFilter(categoryFilter, true);
@@ -125,17 +135,20 @@ export const ProductService = {
     if (isTrue(filters.featured)) query.isFeatured = true;
     if (isTrue(filters.bestseller)) query.isBestseller = true;
     if (isTrue(filters.latestDrop)) query.isLatestDrop = true;
-    if (filters.size) query['variants.size'] = filters.size;
-    if (filters.color) query['variants.color'] = filters.color;
+    const variantQuery: Record<string, unknown> = { enabled: { $ne: false } };
+    if (filters.size) variantQuery.size = exactCaseInsensitive(filters.size);
+    if (filters.color) variantQuery.color = exactCaseInsensitive(filters.color);
+    if (filters.availability === 'in-stock') variantQuery.stock = { $gt: 0 };
+    if (filters.availability === 'out-of-stock' && (filters.size || filters.color)) variantQuery.stock = { $lte: 0 };
+    query.variants = { $elemMatch: variantQuery };
     const minPrice = filters.priceMin ?? filters.minPrice;
     const maxPrice = filters.priceMax ?? filters.maxPrice;
     if (minPrice !== undefined || maxPrice !== undefined) query.basePrice = { ...(minPrice !== undefined ? { $gte: minPrice } : {}), ...(maxPrice !== undefined ? { $lte: maxPrice } : {}) };
-    if (filters.availability === 'in-stock') query['variants.stock'] = { $gt: 0 };
-    if (filters.availability === 'out-of-stock') query['variants.stock'] = { $not: { $gt: 0 } };
+    if (filters.availability === 'out-of-stock' && !filters.size && !filters.color) and.push({ variants: { $not: { $elemMatch: { enabled: { $ne: false }, stock: { $gt: 0 } } } } });
     if (and.length > 0) query.$and = and;
     const skip = (filters.page - 1) * filters.limit;
       const [items, total] = await Promise.all([ProductModel.find(query).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').sort(sortMap[filters.sort]).skip(skip).limit(filters.limit).lean(), ProductModel.countDocuments(query)]);
-      return { items, total, page: filters.page, pages: Math.ceil(total / filters.limit) };
+      return { items: items.map(sanitizePublicProduct), total, page: filters.page, pages: Math.ceil(total / filters.limit) };
   },
   async adminList(filters: AdminProductFilters): Promise<PaginatedResult<unknown>> {
     const query: Record<string, unknown> = {};
@@ -189,7 +202,7 @@ export const ProductService = {
     const items = filteredItems.slice(start, start + filters.limit);
     return { items, total: filteredItems.length, page: filters.page, pages: Math.ceil(filteredItems.length / filters.limit) };
   },
-  async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
+  async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return sanitizePublicProduct(product); },
   async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
   async create(input: ProductInput): Promise<unknown> { const product = await ProductModel.create(input); markCatalogueStale(); return product; },
   async update(id: string, input: ProductInput): Promise<unknown> { const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }); if (!product) throw new ApiError(404, 'Product not found'); markCatalogueStale(); return product; },

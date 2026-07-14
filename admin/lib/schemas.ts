@@ -3,9 +3,22 @@ import { z } from 'zod';
 
 const optionalNumber = (schema: z.ZodNumber) => z.preprocess((value) => value === '' || value === null || value === undefined ? undefined : value, schema.optional());
 
+export const adminProductVariantSchema = z.object({
+  _id: z.string().optional(),
+  sku: z.string().min(2),
+  size: z.string().min(1),
+  color: z.string().min(1),
+  colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  stock: z.coerce.number().int().min(0),
+  priceOverride: optionalNumber(z.coerce.number().min(0)),
+  lowStockThreshold: optionalNumber(z.coerce.number().int().min(0)),
+  enabled: z.boolean().default(true),
+  image: z.string().url()
+});
+
 export const adminProductSchema = z.object({
   title: z.string().min(2),
-  slug: z.string().min(2),
+  slug: z.string().optional().default(''),
   description: z.string().min(10),
   shortDescription: z.string().optional().default(''),
   richDescription: z.string().min(10),
@@ -41,17 +54,26 @@ export const adminProductSchema = z.object({
   gstPercent: z.coerce.number().min(0).max(100).optional(),
   hsnCode: z.string().optional().default(''),
   productCode: z.string().optional().default(''),
-  sku: z.string().min(2),
-  size: z.string().min(1),
-  color: z.string().min(1),
-  colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  stock: z.coerce.number().int().min(0),
+  variants: z.array(adminProductVariantSchema).min(1),
   image: z.string().url(),
   hoverImage: z.string().optional().default(''),
   videoUrl: z.string().optional().default(''),
   mobileVideoUrl: z.string().optional().default(''),
   videoPosterImage: z.string().optional().default(''),
   imageAltText: z.string().optional().default('')
+}).superRefine((product, context) => {
+  const skus = new Map<string, number>();
+  const combinations = new Map<string, number>();
+  product.variants.forEach((variant, index) => {
+    const sku = variant.sku.trim().toUpperCase();
+    const combination = `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+    const skuIndex = skus.get(sku);
+    if (skuIndex !== undefined) context.addIssue({ code: 'custom', path: ['variants', index, 'sku'], message: `Duplicate SKU also used by variant ${skuIndex + 1}` });
+    else skus.set(sku, index);
+    const combinationIndex = combinations.get(combination);
+    if (combinationIndex !== undefined) context.addIssue({ code: 'custom', path: ['variants', index, 'size'], message: `Duplicate color-size combination also used by variant ${combinationIndex + 1}` });
+    else combinations.set(combination, index);
+  });
 });
 
 export const adminCouponSchema = z.object({

@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { LegalPage } from '@/components/content/legal-page';
 
@@ -10,3 +11,4 @@ export default function TermsAndConditionPage(): ReactNode {
     { heading: 'Contact', body: 'For help with these terms, email support@cruisin.co.in.' }
   ]} />;
 }
+export const metadata: Metadata = { title: 'Terms and Conditions', description: 'Terms for browsing, ordering, and receiving support from Cruisin.', alternates: { canonical: '/terms-and-condition' } };

@@ -19,8 +19,9 @@ import { COPY } from '@/constants/copy';
 import { useCategoryByPath, useCategories } from '@/hooks/useCategories';
 import { useCollections, usePageSettings, useSiteSettings, useTags } from '@/hooks/useMerchandising';
 import { useProducts, type UseProductsInput } from '@/hooks/useProducts';
+import { compareSizes } from '@/lib/variant-utils';
 import { cn } from '@/lib/utils';
-import type { CollectionDto, PageSettingsDto } from '@/types/dto.types';
+import type { CategoryDto, CollectionDto, PageSettingsDto } from '@/types/dto.types';
 
 export interface ProductListingPageProps {
   pageType: string;
@@ -36,6 +37,7 @@ export interface ProductListingPageProps {
   categoryPath?: string;
   collectionSlug?: string;
   selectedCollection?: CollectionDto | null;
+  initialCategory?: CategoryDto | null;
   showCollectionCarousel?: boolean;
 }
 
@@ -58,7 +60,7 @@ const defaultGridView = (settings?: { defaultGridView?: GridView } | null, siteD
 
 const titleFromSlug = (slug: string): string => slug.split('/').at(-1)?.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') ?? slug;
 
-export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eyebrow, title, subtitle, gender, sale, featured, bestseller, latestDrop, categoryPath, collectionSlug, selectedCollection = null, showCollectionCarousel = false }: ProductListingPageProps): ReactNode {
+export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eyebrow, title, subtitle, gender, sale, featured, bestseller, latestDrop, categoryPath, collectionSlug, selectedCollection = null, initialCategory = null, showCollectionCarousel = false }: ProductListingPageProps): ReactNode {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -72,8 +74,9 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const [limit, setLimit] = useState(24);
   const [spotlight, setSpotlight] = useState(false);
   const [view, setView] = useState<GridView>(4);
+  const [hydrated, setHydrated] = useState(initialCategory === null);
   const settings = pageSettings.data;
-  const categoryData = category.data;
+  const categoryData = initialCategory ?? category.data;
   const browsingSettings = {
     defaultSort: selectedCollection?.defaultSort ?? categoryData?.defaultSort ?? settings?.defaultSort ?? 'newest',
     defaultGridView: selectedCollection?.defaultGridView ?? categoryData?.defaultGridView ?? settings?.defaultGridView,
@@ -85,10 +88,15 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const activeCategory = categoryPath ?? params.get('category') ?? undefined;
   const activeCollection = collectionSlug ?? params.get('collection') ?? undefined;
   const activeTags = params.get('tags') ?? undefined;
+  const activeQuery = params.get('q')?.trim() || undefined;
   const activeGender = (params.get('gender') as 'men' | 'women' | 'unisex' | null) ?? gender;
   const activeSale = sale || params.get('sale') === 'true';
 
   const [draft, setDraft] = useState<AdvancedFilterValues>(emptyValues);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     const fallback = defaultGridView(browsingSettings, siteSettings.data?.defaultGridView);
@@ -111,6 +119,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   }, [params, sort]);
 
   const products = useProducts({
+    q: activeQuery,
     category: activeCategory,
     collection: activeCollection,
     tags: activeTags,
@@ -128,8 +137,36 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
     limit
   });
 
+  const facetProducts = useProducts({
+    q: activeQuery,
+    category: activeCategory,
+    collection: activeCollection,
+    tags: activeTags,
+    gender: activeGender,
+    sale: activeSale ? true : undefined,
+    featured: featured ? true : undefined,
+    bestseller: bestseller ? true : undefined,
+    latestDrop: latestDrop ? true : undefined,
+    priceMin: params.get('priceMin') ? Number(params.get('priceMin')) : undefined,
+    priceMax: params.get('priceMax') ? Number(params.get('priceMax')) : undefined,
+    availability: 'all',
+    sort: 'newest',
+    limit: 100
+  });
+
   const items = products.data?.items ?? [];
   const total = products.data?.total ?? items.length;
+  const facetVariants = (facetProducts.data?.items ?? []).flatMap((product) => product.variants.filter((variant) => variant.enabled !== false));
+  const sizeFacets = Array.from(new Map(facetVariants.filter((variant) => variant.size.trim()).map((variant) => [variant.size.trim().toLowerCase(), variant.size.trim()])).values()).sort(compareSizes);
+  const colorFacets = Array.from(new Map(facetVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex }])).values()).sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
+  const appliedVariantFilters = [
+    activeQuery ? { key: 'q', label: `Search: ${activeQuery}` } : null,
+    params.get('color') ? { key: 'color', label: `Color: ${params.get('color')}` } : null,
+    params.get('size') ? { key: 'size', label: `Size: ${params.get('size')}` } : null,
+    params.get('availability') ? { key: 'availability', label: `Availability: ${params.get('availability')?.replace('-', ' ')}` } : null,
+    params.get('priceMin') ? { key: 'priceMin', label: `From ₹${params.get('priceMin')}` } : null,
+    params.get('priceMax') ? { key: 'priceMax', label: `Up to ₹${params.get('priceMax')}` } : null
+  ].filter((item): item is { key: string; label: string } => Boolean(item));
   const heroImage = selectedCollection?.heroImage || settings?.heroImage || categoryData?.heroImage || categoryData?.image;
   const mobileHeroImage = selectedCollection?.mobileHeroImage || selectedCollection?.mobileImage || settings?.mobileHeroImage || categoryData?.mobileHeroImage || heroImage;
   const heroVideo = selectedCollection?.collectionVideo || settings?.heroVideo || categoryData?.categoryVideo || categoryData?.backgroundVideo;
@@ -147,6 +184,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const filtersVisible = browsingSettings.areFiltersVisible;
   const advancedVisible = browsingSettings.isAdvancedFilterEnabled && (siteSettings.data?.isAdvancedFilterEnabled ?? true);
   const flashlightVisible = browsingSettings.isFlashlightEnabled && (siteSettings.data?.isFlashlightEnabled ?? true);
+  const bypassImageOptimizer = (source?: string): boolean => Boolean(source && /^https:\/\/(placehold\.co|s3\.ap-south-1\.amazonaws\.com)\//.test(source));
 
   const chips = useMemo<FilterChip[]>(() => {
     const sourceTags: FilterChip[] = (tags.data ?? []).filter((tag) => tag.isVisible).map((tag) => ({ label: tag.name, value: tag.slug, kind: tag.slug === 'view-all' ? 'clear' : 'tag' }));
@@ -195,9 +233,24 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
 
   const clearAdvanced = (): void => {
     setDraft(emptyValues);
-    pushParams({ category: null, collection: null, gender: null, size: null, color: null, priceMin: null, priceMax: null, availability: null, sale: null, sort: null, tags: null });
+    pushParams({ q: null, category: null, collection: null, gender: null, size: null, color: null, priceMin: null, priceMax: null, availability: null, sale: null, sort: null, tags: null });
     setAdvancedOpen(false);
   };
+
+  if (!hydrated && initialCategory) {
+    const initialTitle = initialCategory.heroTitle || initialCategory.name || titleFromSlug(pageSlug);
+    const initialSubtitle = initialCategory.heroSubtitle || initialCategory.description || '';
+    return <main className="px-6 pb-24 pt-10 lg:px-20 lg:pt-14">
+      <section className="border-b border-border-subtle pb-10">
+        <p className="font-accent text-xs uppercase tracking-[0.2em] text-accent-gold">{eyebrow}</p>
+        <h1 className="mt-3 font-display text-5xl font-light text-text-primary md:text-hero">{initialTitle}</h1>
+        {initialSubtitle ? <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">{initialSubtitle}</p> : null}
+      </section>
+      <section className="grid grid-cols-1 gap-3 pt-10 md:grid-cols-2 md:gap-px xl:grid-cols-4" aria-label="Loading products">
+        {[0, 1, 2, 3].map((item) => <SkeletonCard key={item} />)}
+      </section>
+    </main>;
+  }
 
   return (
     <main className="px-6 pb-24 pt-10 lg:px-20 lg:pt-14">
@@ -207,8 +260,8 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
             <video src={heroVideo} poster={videoPoster} className="hidden h-full w-full object-cover sm:block" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
             <video src={mobileHeroVideo || heroVideo} poster={videoPoster} className="h-full w-full object-cover sm:hidden" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
           </> : <>
-            {heroImage ? <Image src={heroImage} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className={(mobileHeroImage && mobileHeroImage !== heroImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
-            {mobileHeroImage && mobileHeroImage !== heroImage ? <Image src={mobileHeroImage} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className="object-cover sm:hidden" /> : null}
+            {heroImage ? <Image src={heroImage} unoptimized={bypassImageOptimizer(heroImage)} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className={(mobileHeroImage && mobileHeroImage !== heroImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
+            {mobileHeroImage && mobileHeroImage !== heroImage ? <Image src={mobileHeroImage} unoptimized={bypassImageOptimizer(mobileHeroImage)} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className="object-cover sm:hidden" /> : null}
           </>}
           <div className="absolute inset-0 bg-gradient-to-b from-background-primary/20 to-background-primary" />
         </div> : null}
@@ -228,14 +281,15 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
           </div>
         </div>
         {filtersVisible ? <div className="mt-8"><FilterChips chips={chips} activeValue={activeCategory ?? activeTags} onSelect={selectChip} /></div> : null}
+        {appliedVariantFilters.length ? <div className="mt-5 flex flex-wrap items-center gap-2" aria-label="Applied product filters"><span className="text-xs uppercase tracking-[0.14em] text-text-muted">Applied</span>{appliedVariantFilters.map((filter) => <button type="button" key={filter.key} onClick={() => pushParams({ [filter.key]: null })} aria-label={`Remove ${filter.label}`} className="min-h-10 border border-accent-gold/70 bg-accent-gold/5 px-3 text-xs text-accent-gold transition hover:border-accent-gold hover:text-text-primary">{filter.label} <span aria-hidden="true" className="ml-2">×</span></button>)}<button type="button" onClick={clearAdvanced} className="min-h-10 px-2 text-xs text-text-secondary underline underline-offset-4 hover:text-text-primary">Clear all</button></div> : null}
         {bannerVisible && (bannerImage || bannerVideo || bannerTitle || bannerSubtitle) ? <div className="mt-10 overflow-hidden border border-border-subtle bg-background-elevated">
           {(bannerVideo || bannerImage) ? <div className="relative aspect-[16/6] min-h-48 overflow-hidden">
             {bannerVideo ? <>
               <video src={bannerVideo} poster={videoPoster} className="hidden h-full w-full object-cover sm:block" autoPlay muted loop playsInline />
               <video src={mobileBannerVideo || bannerVideo} poster={videoPoster} className="h-full w-full object-cover sm:hidden" autoPlay muted loop playsInline />
             </> : <>
-              {bannerImage ? <Image src={bannerImage} alt="" fill sizes="100vw" className={(mobileBannerImage && mobileBannerImage !== bannerImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
-              {mobileBannerImage && mobileBannerImage !== bannerImage ? <Image src={mobileBannerImage} alt="" fill sizes="100vw" className="object-cover sm:hidden" /> : null}
+              {bannerImage ? <Image src={bannerImage} unoptimized={bypassImageOptimizer(bannerImage)} alt="" fill sizes="100vw" className={(mobileBannerImage && mobileBannerImage !== bannerImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
+              {mobileBannerImage && mobileBannerImage !== bannerImage ? <Image src={mobileBannerImage} unoptimized={bypassImageOptimizer(mobileBannerImage)} alt="" fill sizes="100vw" className="object-cover sm:hidden" /> : null}
             </>}
             <div className="absolute inset-0 bg-gradient-to-t from-background-primary/85 to-transparent" />
           </div> : null}
@@ -248,13 +302,13 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
       </section>
 
       <section className={cn('pt-10 transition duration-300', spotlight && 'bg-[radial-gradient(circle_at_50%_0%,rgba(200,169,126,0.12),transparent_28rem)]')}>
-        {products.isLoading ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-px xl:grid-cols-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : items.length > 0 ? <ProductGrid products={items} view={view} spotlight={spotlight} /> : <EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href={pathname} />}
-        <div className="mt-16 flex justify-center">
+        {products.isLoading ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-px xl:grid-cols-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></div> : products.isError ? <div className="mx-auto max-w-lg border border-danger/60 bg-background-elevated p-8 text-center" role="alert"><h2 className="font-display text-2xl text-text-primary">We couldn&apos;t load the collection</h2><p className="mt-3 text-sm text-text-secondary">Check your connection and try again. Your filters are still here.</p><Button className="mt-6" variant="secondary" onClick={() => void products.refetch()}>{COPY.common.retry}</Button></div> : items.length > 0 ? <ProductGrid products={items} view={view} spotlight={spotlight} preferredColor={params.get('color') ?? undefined} preferredSize={params.get('size') ?? undefined} /> : <EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href={pathname} />}
+        {!products.isError ? <div className="mt-16 flex justify-center">
           <Button variant="secondary" disabled={items.length >= total} onClick={() => setLimit((current) => current + 24)}>{COPY.shop.loadMore}</Button>
-        </div>
+        </div> : null}
       </section>
 
-      <AdvancedFiltersDrawer open={advancedOpen} onOpenChange={setAdvancedOpen} values={draft} onChange={setDraft} onApply={applyAdvanced} onClear={clearAdvanced} categories={categories.data ?? []} collections={collections.data ?? []} />
+      <AdvancedFiltersDrawer open={advancedOpen} onOpenChange={setAdvancedOpen} values={draft} onChange={setDraft} onApply={applyAdvanced} onClear={clearAdvanced} categories={categories.data ?? []} collections={collections.data ?? []} sizes={sizeFacets} colors={colorFacets} />
     </main>
   );
 }

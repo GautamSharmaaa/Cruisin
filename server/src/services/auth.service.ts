@@ -121,7 +121,17 @@ export const AuthService = {
     const token = randomToken();
     await redis.set('verify:' + token, String(user._id), 'EX', 24 * 60 * 60);
     const url = verificationUrl(token);
-    await sendEmail({ to: email, subject: 'Verify your Cruisin account', text: 'Verify your account: ' + url, html: '<p><a href="' + url + '">Verify your Cruisin account</a></p>' });
+    try {
+      await sendEmail({ to: email, subject: 'Verify your Cruisin account', text: 'Verify your account: ' + url, html: '<p><a href="' + url + '">Verify your Cruisin account</a></p>' });
+    } catch (error) {
+      await Promise.allSettled([
+        redis.del('verify:' + token),
+        AuthProviderModel.deleteMany({ user: user._id }),
+        UserPreferenceModel.deleteMany({ user: user._id }),
+        UserModel.deleteOne({ _id: user._id })
+      ]);
+      throw error;
+    }
     return toUserDto(user);
   },
   async login(input: { email: string; password: string }, context: RequestContext = {}): Promise<{ user: AuthUserDto; tokens: AuthTokens }> {

@@ -6,7 +6,7 @@ import { loadPageSettingsServer, metadataFromSettings } from '@/lib/storefront-s
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await loadPageSettingsServer('landing', 'new-featured');
-  return metadataFromSettings(settings, 'New & Featured | Cruisin');
+  return metadataFromSettings(settings, 'New & Featured');
 }
 
 export default function NewFeaturedPage(): ReactNode {

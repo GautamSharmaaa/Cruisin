@@ -135,6 +135,31 @@ export const useCreateAddress = () => {
   });
 };
 
+export const useUpdateAddress = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ addressId, input }: { addressId: string; input: Omit<AddressBookEntry, '_id'> }): Promise<AddressBookEntry> => {
+      const response = await api.patch<ApiEnvelope<AddressBookEntry>>('/auth/addresses/' + addressId, input);
+      return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['account', 'address-book'] });
+    }
+  });
+};
+
+export const useDeleteAddress = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (addressId: string): Promise<void> => {
+      await api.delete('/auth/addresses/' + addressId);
+    },
+    onSuccess: async (): Promise<void> => {
+      await queryClient.invalidateQueries({ queryKey: ['account', 'address-book'] });
+    }
+  });
+};
+
 export const usePreferences = () => useQuery({
   queryKey: ['account', 'preferences'],
   queryFn: async (): Promise<UserPreferences> => {

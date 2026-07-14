@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { LegalPage } from '@/components/content/legal-page';
 
@@ -10,3 +11,4 @@ export default function PrivacyPolicyPage(): ReactNode {
     { heading: 'Contact', body: 'For privacy questions, email support@cruisin.co.in.' }
   ]} />;
 }
+export const metadata: Metadata = { title: 'Privacy Policy', description: 'How Cruisin handles customer, order, and support information.', alternates: { canonical: '/privacy-policy' } };

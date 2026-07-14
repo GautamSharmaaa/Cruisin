@@ -19,5 +19,5 @@ export interface Refund {
 export interface PaymentProvider {
   createOrder(amount: number, currency: string, metadata: Record<string, unknown>): Promise<PaymentOrder>;
   verifyPayment(payload: Record<string, unknown>): Promise<boolean>;
-  createRefund(paymentId: string, amount: number): Promise<Refund>;
+  createRefund(paymentId: string, amount: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<Refund>;
 }

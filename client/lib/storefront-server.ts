@@ -42,7 +42,7 @@ export const metadataFromSettings = (settings: PageSettingsDto | CategoryDto | C
   const description = 'seoDescription' in (settings ?? {}) ? settings?.seoDescription : undefined;
   const ogImage = 'ogImage' in (settings ?? {}) ? settings?.ogImage : undefined;
   return {
-    title: title || fallbackTitle,
+    title: (title || fallbackTitle).replace(/\s*\|\s*Cruisin$/i, ''),
     description: description || fallbackDescription,
     openGraph: { images: ogImage ? [ogImage] : [] }
   };

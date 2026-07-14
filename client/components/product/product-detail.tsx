@@ -19,9 +19,12 @@ import type { Product, ProductVariant } from '@/types/product.types';
 export interface ProductDetailProps { product: Product; }
 export function ProductDetail({ product }: ProductDetailProps): ReactNode {
   const [variant, setVariant] = useState<ProductVariant | null>(null);
-  const stock = variant?.stock ?? product.variants[0]?.stock ?? 0;
+  const [colorVariant, setColorVariant] = useState<ProductVariant | null>(product.variants.find((item) => item.enabled !== false && item.stock > 0) ?? product.variants[0] ?? null);
+  const stock = variant?.stock ?? colorVariant?.stock ?? 0;
   const share = (): void => { void navigator.clipboard.writeText(window.location.href); };
-  const displayImages = variant?.images && variant.images.length > 0 ? variant.images : product.images;
+  const galleryVariant = variant ?? colorVariant;
+  const displayImages = galleryVariant?.images && galleryVariant.images.length > 0 ? galleryVariant.images : product.images;
+  const displayPrice = variant?.price ?? product.basePrice;
 
   return (
     <main className="px-6 pb-20 pt-24 lg:px-20">
@@ -34,11 +37,12 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
         <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
           <p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{product.brand}</p>
           <h1 className="mt-3 font-display text-4xl font-light text-text-primary">{product.title}</h1>
-          <p className="mt-4 font-mono text-xl text-accent-gold">{formatPrice(product.basePrice)}</p>
+          <p className="mt-4 font-mono text-xl text-accent-gold" aria-live="polite">{formatPrice(displayPrice)}</p>
           {stock > 0 && stock < 5 ? <p className="mt-3 text-sm text-warning">{COPY.product.onlyLeft.replace('{count}', String(stock))}</p> : null}
           <div className="mt-10">
-            <VariantSelector variants={product.variants} onChange={setVariant} />
+            <VariantSelector variants={product.variants} onChange={setVariant} onColorChange={setColorVariant} />
           </div>
+          {variant ? <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-y border-border py-3 text-xs uppercase tracking-[0.12em] text-text-secondary" aria-live="polite"><span>SKU <strong className="ml-2 font-mono font-normal text-text-primary">{variant.sku}</strong></span><span>Stock <strong className="ml-2 font-mono font-normal text-text-primary">{variant.stock}</strong></span></div> : <p className="mt-5 text-sm text-text-muted">Choose a size to confirm the exact SKU and availability.</p>}
           <div className="mt-6 flex flex-wrap gap-3">
             <SizeGuideModal />
             <WishlistButton productId={product.id} next={'/product/' + product.slug} />

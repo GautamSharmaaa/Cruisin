@@ -144,8 +144,10 @@ const buildProductPatch = async (group: CatalogueProductGroup, options: Catalogu
   const title = inherited[mapping.name] || group.productCode;
   const description = sanitizeDescription(inherited[mapping.description] || title);
   const textDescription = plainText(description) || title;
-  const primaryImage = group.images[0] || placeholderImage;
-  const images = (group.images.length ? group.images : [placeholderImage]).map((url) => imageObject(url, title));
+  const variantImageUrls = Array.from(new Set(group.variants.flatMap((variant) => variant.images)));
+  const productImageUrls = group.images.length ? group.images : variantImageUrls;
+  const primaryImage = productImageUrls[0] || placeholderImage;
+  const images = (productImageUrls.length ? productImageUrls : [placeholderImage]).map((url) => imageObject(url, title));
   const category = await ensureCategoryPath(categoryPathForGroup(group, options.categoryMapping));
   const collections = await ensureCollections(collectionsForGroup(group, options.collectionMapping));
   const basePrice = numberFromCell(inherited[mapping.sellingPrice]) ?? group.variants.find((variant) => variant.price > 0)?.price ?? 0;
@@ -214,18 +216,18 @@ const buildVariants = (group: CatalogueProductGroup, existingVariants: Array<Rec
   for (const variant of group.variants) {
     const sku = variant.sku.toUpperCase();
     const existing = existingBySku.get(sku);
-    const image = group.images[0] || placeholderImage;
+    const image = variant.images[0] || group.images[0] || placeholderImage;
     const next = {
       ...(existing ?? {}),
       sku,
       size: variant.size || 'Free Size',
       color: variant.color || group.inherited.Colour || 'Default',
-      colorHex: String(existing?.colorHex ?? '#111111'),
+      colorHex: variant.colorHex,
       price: variant.price,
       priceOverride: variant.price,
       stock: variant.stock,
-      enabled: variant.visible,
-      images: existing?.images ?? [imageObject(image, group.inherited.Name || group.productCode)]
+      enabled: variant.enabled,
+      images: variant.images.length ? variant.images.map((url) => imageObject(url, group.inherited.Name || group.productCode)) : existing?.images ?? [imageObject(image, group.inherited.Name || group.productCode)]
     };
     if (existing) updated += 1;
     else created += 1;
@@ -281,7 +283,7 @@ export const CatalogueImportService = {
       originalFilename: options.originalFilename || filename,
       fileSize: options.fileSize ?? Buffer.byteLength(csv),
       uploadedBy: options.uploadedBy ? new Types.ObjectId(options.uploadedBy) : null,
-      status: 'pending',
+      status: validation.errors.length > 0 ? 'failed' : 'pending',
       rowCount: parsed.rows.length,
       productGroupCount: parsed.groups.length,
       warningsCount: validation.warnings.length,
@@ -290,7 +292,8 @@ export const CatalogueImportService = {
       mapping: { ...defaultMapping, ...options.mapping },
       summary: { ...summary, validation },
       errorReportData: issuesToCsv([...validation.errors, ...validation.warnings]),
-      originalFileData: csv
+      originalFileData: csv,
+      completedAt: validation.errors.length > 0 ? new Date() : null
     });
     return { importId: doc._id, filename: doc.filename, parsed: this.previewPayload(parsed, validation, summary) };
   },

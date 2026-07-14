@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import { defaultMapping, normalizeAttributes, numberFromCell, parseCollectionNames, suggestCategory, type CatalogueColumnMapping } from './catalogueMapper.service.js';
+import { booleanFromCell, defaultMapping, inferColorHex, normalizeAttributes, numberFromCell, parseCollectionNames, suggestCategory, type CatalogueColumnMapping } from './catalogueMapper.service.js';
 
 export interface CatalogueRow {
   rowNumber: number;
@@ -11,11 +11,14 @@ export interface CatalogueVariantDraft {
   sku: string;
   size: string;
   color: string;
+  colorHex: string;
+  colorHexInferred: boolean;
+  images: string[];
   stock: number;
   price: number;
   comparePrice?: number;
   costPrice?: number;
-  visible: boolean;
+  enabled: boolean;
 }
 
 export interface CatalogueProductGroup {
@@ -103,6 +106,8 @@ const mediaUrls = (rows: CatalogueRow[], prefix: 'Image' | 'Video', count: numbe
   return urls;
 };
 
+const variantMediaUrls = (value: string): string[] => Array.from(new Set(value.split(/[|;\n]+/).map((item) => item.trim()).filter(Boolean)));
+
 export const parseCatalogueCsv = (input: string, mapping: Partial<CatalogueColumnMapping> = {}, delimiter?: string): ParsedCatalogue => {
   const detectedDelimiter = delimiter || detectDelimiter(input);
   const rawRows = parseDelimited(input, detectedDelimiter);
@@ -130,20 +135,32 @@ export const parseCatalogueCsv = (input: string, mapping: Partial<CatalogueColum
     }
     const attributes = normalizeAttributes(rawAttributes);
     const fallbackColor = inherited[mergedMapping.color] || attributes['Primary Color'] || '';
+    const explicitHexByColor = new Map<string, string>();
+    for (const row of groupRows) {
+      const rowColor = cell(row.data, mergedMapping.color) || fallbackColor;
+      const rowHex = cell(row.data, mergedMapping.colorHex).toUpperCase();
+      if (rowColor && rowHex) explicitHexByColor.set(rowColor.trim().toLowerCase(), rowHex);
+    }
     const variants = groupRows.map((row) => {
       const size = cell(row.data, mergedMapping.size);
       const color = cell(row.data, mergedMapping.color) || fallbackColor;
+      const explicitColorHex = cell(row.data, mergedMapping.colorHex).toUpperCase() || explicitHexByColor.get(color.trim().toLowerCase()) || '';
+      const colorHexInferred = !explicitColorHex;
+      const colorHex = explicitColorHex || inferColorHex(color);
       const sku = cell(row.data, mergedMapping.sku) || [productCode, size, color].filter(Boolean).join('-');
       return {
         rowNumber: row.rowNumber,
         sku,
         size,
         color,
+        colorHex,
+        colorHexInferred,
+        images: variantMediaUrls(cell(row.data, mergedMapping.variantImages)),
         stock: numberFromCell(cell(row.data, mergedMapping.quantity)) ?? 0,
         price: numberFromCell(cell(row.data, mergedMapping.sellingPrice)) ?? numberFromCell(inherited[mergedMapping.sellingPrice]) ?? 0,
         comparePrice: numberFromCell(cell(row.data, mergedMapping.mrp)) ?? numberFromCell(inherited[mergedMapping.mrp]),
         costPrice: numberFromCell(cell(row.data, mergedMapping.costPrice)) ?? numberFromCell(inherited[mergedMapping.costPrice]),
-        visible: !['false', '0', 'no', 'hidden'].includes((cell(row.data, mergedMapping.visibility) || inherited[mergedMapping.visibility]).toLowerCase())
+        enabled: booleanFromCell(cell(row.data, mergedMapping.variantEnabled) || 'true')
       };
     });
     return {

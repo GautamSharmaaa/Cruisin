@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Page, test } from '@playwright/test';
+import fs from 'node:fs/promises';
 
 const storefrontUrl = process.env.PLAYWRIGHT_STOREFRONT_URL ?? 'http://localhost:3000';
 const adminUrl = process.env.PLAYWRIGHT_ADMIN_URL ?? 'http://localhost:3001';
@@ -111,7 +112,7 @@ test.describe('full admin dashboard browser QA', () => {
       { path: '/users', heading: 'Users', checks: ['Search customers', 'Role', 'Account status'] },
       { path: '/discounts', heading: 'Discounts', checks: ['Campaign Basics', 'Eligible products and categories', 'Coupons'] },
       { path: '/cms', heading: 'CMS Builder', checks: ['Add Section', 'Save Draft', 'Publish', 'Builder'] },
-      { path: '/analytics', heading: 'Analytics', checks: ['Full 60 days', 'Last 30 days', 'Refresh'] }
+      { path: '/analytics', heading: 'Analytics', checks: ['Today', '30 days', '90 days', 'Refresh'] }
     ];
 
     for (const route of routes) {
@@ -144,11 +145,47 @@ test.describe('full admin dashboard browser QA', () => {
 
     await page.goto(adminUrl + '/analytics');
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-    await page.getByRole('button', { name: 'Last 7 days' }).click();
-    await expect(page.getByRole('button', { name: 'Last 7 days' })).toBeVisible();
+    await page.getByRole('button', { name: '7 days' }).click();
+    await expect(page.getByRole('button', { name: '7 days' })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Refresh analytics' }).click();
-    await expect(page.getByText('Revenue And Orders Trend')).toBeVisible();
+    await expect(page.getByText('Revenue trend')).toBeVisible();
 
+    expectNoImportantBrowserFailures(diagnostics);
+  });
+
+  test('analytics date ranges, comparison KPIs, export, and responsive layout work', async ({ page, request }) => {
+    const diagnostics = attachDiagnostics(page);
+    await adminLogin(page);
+    await page.goto(adminUrl + '/analytics');
+    await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+    await expect(page.getByText('Net revenue', { exact: true })).toBeVisible();
+    await expect(page.getByText('Units sold', { exact: true })).toBeVisible();
+    await expect(page.getByLabel(/^Refunds:/).getByText('Refunds', { exact: true })).toBeVisible();
+    await expect(page.getByText('Revenue trend', { exact: true })).toBeVisible();
+    await expect(page.getByText('Payment modes', { exact: true })).toBeVisible();
+    await expect(page.getByText('Recent orders', { exact: true })).toBeVisible();
+
+    const today = page.getByRole('button', { name: 'Today', exact: true });
+    await today.click();
+    await expect(today).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText(/comparison \d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}/)).toBeVisible();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export CSV' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('analytics-summary.csv');
+    const downloadPath = await download.path();
+    expect(downloadPath).toBeTruthy();
+    const exportedCsv = await fs.readFile(downloadPath as string, 'utf8');
+    const token = await loginToken(request);
+    const summaryResponse = await request.get(apiUrl + '/admin/analytics/summary', { headers: headers(token), params: { preset: 'today' } });
+    expect(summaryResponse.ok()).toBeTruthy();
+    const summaryBody = await summaryResponse.json();
+    const exportedSummary = summaryBody.data;
+    expect(exportedCsv).toContain(`"Net revenue","${exportedSummary.summary.netRevenue}","${exportedSummary.comparison.summary.netRevenue}"`);
+    expect(exportedCsv).toContain(`"Orders","${exportedSummary.summary.totalOrders}","${exportedSummary.comparison.summary.totalOrders}"`);
+    expect(exportedCsv).toContain(`"Refunds","${exportedSummary.summary.refunds}","${exportedSummary.comparison.summary.refunds}"`);
+    await expectNoHorizontalOverflow(page);
     expectNoImportantBrowserFailures(diagnostics);
   });
 
@@ -156,6 +193,8 @@ test.describe('full admin dashboard browser QA', () => {
     test.setTimeout(180000);
     test.skip(isMobile, 'full browser CRUD and storefront verification is covered in the desktop project');
     const diagnostics = attachDiagnostics(page);
+    const storefrontPage = await page.context().newPage();
+    const storefrontDiagnostics = attachDiagnostics(storefrontPage);
     const token = await loginToken(request);
     records = { token };
     const stamp = Date.now();
@@ -180,18 +219,18 @@ test.describe('full admin dashboard browser QA', () => {
       return category?.name;
     }).toBe(categoryName);
 
-    await page.goto(storefrontUrl + '/category/' + slug);
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-    await expect(page.locator('main')).toBeVisible();
-    await expect(page.getByRole('heading', { name: categoryName })).toBeVisible();
-    await expectNoHorizontalOverflow(page);
+    await storefrontPage.goto(storefrontUrl + '/category/' + slug);
+    await storefrontPage.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
+    await expect(storefrontPage.locator('main').last()).toBeVisible();
+    await expect(storefrontPage.getByRole('heading', { name: categoryName })).toBeVisible();
+    await expectNoHorizontalOverflow(storefrontPage);
 
     await page.goto(adminUrl + '/products/new');
     await page.getByLabel('Product Title').fill(productTitle);
     await page.getByLabel('Product Slug').fill(slug);
-    await page.getByLabel('Product Short Description').fill('Browser QA short copy.');
-    await page.getByLabel('Product Description').fill('Browser-created product for full dashboard QA.');
-    await page.getByLabel('Product Rich Description').fill('Browser-created rich product copy for full dashboard QA.');
+    await page.getByLabel('Product Short Description').fill('Automated merchandising verification copy.');
+    await page.getByLabel('Product Description').fill('Temporary product created for dashboard verification.');
+    await page.getByLabel('Product Rich Description').fill('Temporary rich product copy for dashboard verification.');
 
     await page.getByRole('button', { name: 'Media' }).click();
     await page.getByLabel('Main image URL').fill(imageUrl);
@@ -203,7 +242,7 @@ test.describe('full admin dashboard browser QA', () => {
 
     await page.getByRole('button', { name: 'Inventory' }).click();
     await page.getByLabel('Main SKU').fill('LBA-' + stamp);
-    await page.getByLabel('Size').fill('M');
+    await page.getByRole('textbox', { name: 'Size *', exact: true }).fill('M');
     await page.getByLabel('Color *', { exact: true }).fill('Black');
     await page.getByLabel('Color hex *', { exact: true }).fill('#000000');
     await page.getByLabel('Stock *', { exact: true }).fill('8');
@@ -232,16 +271,16 @@ test.describe('full admin dashboard browser QA', () => {
     await page.getByPlaceholder('Search products, SKU, product code, or slug').fill(slug);
     await expect.poll(async () => page.locator('input').evaluateAll((inputs, title) => inputs.some((input) => (input as HTMLInputElement).value === title), productTitle)).toBe(true);
 
-    await page.goto(storefrontUrl + '/product/' + slug);
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-    await expect(page.getByRole('heading', { name: productTitle })).toBeVisible();
-    await expect(page.getByRole('main').getByText('₹1,999').first()).toBeVisible();
-    await page.getByRole('main').getByRole('button', { name: 'M', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Add To Cart' })).toBeEnabled();
+    await storefrontPage.goto(storefrontUrl + '/product/' + slug);
+    await storefrontPage.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
+    await expect(storefrontPage.getByRole('heading', { name: productTitle })).toBeVisible();
+    await expect(storefrontPage.getByRole('main').getByText('₹1,999').first()).toBeVisible();
+    await storefrontPage.getByRole('group', { name: 'Available sizes' }).getByRole('button', { name: 'Size M', exact: true }).click();
+    await expect(storefrontPage.getByRole('button', { name: 'Add To Cart' })).toBeEnabled();
 
-    await page.goto(storefrontUrl + '/category/' + slug);
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-    await expect(page.getByText(productTitle)).toBeVisible();
+    await storefrontPage.goto(storefrontUrl + '/category/' + slug);
+    await storefrontPage.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
+    await expect(storefrontPage.getByText(productTitle)).toBeVisible();
 
     await page.goto(adminUrl + '/discounts');
     await page.getByLabel('Code').fill(couponCode);
@@ -261,17 +300,18 @@ test.describe('full admin dashboard browser QA', () => {
       return coupon?.code;
     }).toBe(couponCode);
 
-    await page.goto(storefrontUrl + '/product/' + slug);
-    await page.evaluate(() => window.localStorage.clear());
-    await page.reload();
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-    await page.getByRole('main').getByRole('button', { name: 'M', exact: true }).click();
-    await page.getByRole('button', { name: 'Add To Cart' }).click();
-    await expect(page.getByRole('dialog').getByText(productTitle)).toBeVisible();
-    await page.getByLabel('Coupon code').fill(couponCode);
-    await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(page.getByText(couponCode + ' applied')).toBeVisible();
+    await storefrontPage.goto(storefrontUrl + '/product/' + slug);
+    await storefrontPage.evaluate(() => window.localStorage.clear());
+    await storefrontPage.reload();
+    await storefrontPage.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
+    await storefrontPage.getByRole('group', { name: 'Available sizes' }).getByRole('button', { name: 'Size M', exact: true }).click();
+    await storefrontPage.getByRole('button', { name: 'Add To Cart' }).click();
+    await expect(storefrontPage.getByRole('dialog').getByText(productTitle)).toBeVisible();
+    await storefrontPage.getByLabel('Coupon code').fill(couponCode);
+    await storefrontPage.getByRole('button', { name: 'Apply' }).click();
+    await expect(storefrontPage.getByText(couponCode + ' applied')).toBeVisible();
 
     expectNoImportantBrowserFailures(diagnostics);
+    expectNoImportantBrowserFailures(storefrontDiagnostics);
   });
 });

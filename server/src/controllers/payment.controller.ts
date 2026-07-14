@@ -51,8 +51,8 @@ export const PaymentController = {
     res.json(new ApiResponse({ received: true, processed }, processed ? 'Razorpay webhook processed' : 'Duplicate Razorpay webhook ignored'));
   }),
 
-  refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { amount: number; reason?: string }>, res: Response): Promise<void> => {
-    const refund = await OrderService.refund(String(req.params.id ?? ''), req.body.amount, req.body.reason, req.user?.userId ?? '');
+  refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { amount: number; reason?: string; idempotencyKey: string }>, res: Response): Promise<void> => {
+    const refund = await OrderService.refund(String(req.params.id ?? ''), req.body.amount, req.body.reason, req.user?.userId ?? '', req.body.idempotencyKey);
     res.status(201).json(new ApiResponse(refund, 'Refund created'));
   })
 };

@@ -316,7 +316,7 @@ export interface OrderDto {
   orderNumber?: string;
   user?: string;
   sessionId?: string;
-  items?: Array<{ title: string; sku: string; quantity: number; price: number; image?: string }>;
+  items?: Array<{ title: string; sku: string; size?: string; color?: string; quantity: number; price: number; image?: string }>;
   shippingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   paymentMethod?: 'razorpay' | 'stripe' | 'cod';
@@ -450,12 +450,29 @@ export interface AdminAnalyticsSummaryDto {
     customers: number;
     newCustomers: number;
     returningCustomers: number;
+    unitsSold: number;
+    refunds: number;
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; orders: number; paidOrders: number }>;
-  topProducts: Array<{ productId: string; title: string; sku: string; quantity: number; revenue: number; orders: number }>;
+  comparison: {
+    range: AdminAnalyticsSummaryDto['range'];
+    summary: AdminAnalyticsSummaryDto['summary'];
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+    outstanding: { cod: number; partial: number; total: number };
+  };
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+  topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
   coupons: Array<{ code: string; orders: number; discount: number; revenue: number }>;
   ordersByStatus: Record<string, number>;
   paymentStatus: Record<string, number>;
+  paymentModes: Record<string, number>;
+  outstanding: { cod: number; partial: number; total: number };
+  inventory: {
+    lowStock: number;
+    outOfStock: number;
+    estimatedValue: number;
+    products: Array<{ productId: string; title: string; slug: string; productCode: string; stock: number; threshold: number; status: 'low_stock' | 'out_of_stock' }>;
+  };
+  recentOrders: Array<{ orderId: string; orderNumber: string; customer: string; date: string; total: number; paymentMode: string; paymentStatus: string; orderStatus: string }>;
 }

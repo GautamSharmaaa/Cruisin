@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { LegalPage } from '@/components/content/legal-page';
 
@@ -9,3 +10,4 @@ export default function ReturnPolicyPage(): ReactNode {
     { heading: 'Review', body: 'Returned items are reviewed before approval, replacement, store credit, or refund processing.' }
   ]} />;
 }
+export const metadata: Metadata = { title: 'Return Policy', description: 'Cruisin return eligibility, request, and review information.', alternates: { canonical: '/return-policy' } };

@@ -10,12 +10,12 @@ import { idParamSchema } from '../../validators/common.validator.js';
 
 export const authRouter = Router();
 authRouter.post('/register', authLimiter, validate({ body: registerSchema }), AuthController.register);
-authRouter.post('/login', authLimiter, validate({ body: loginSchema }), AuthController.login);
+authRouter.post('/login', authLimiter, requireBrowserOrigin, validate({ body: loginSchema }), AuthController.login);
 authRouter.post('/refresh', authLimiter, requireBrowserOrigin, validate({ body: refreshSchema }), AuthController.refresh);
 authRouter.post('/logout', requireBrowserOrigin, AuthController.logout);
-authRouter.post('/google', authLimiter, validate({ body: googleLoginSchema }), AuthController.googleLogin);
+authRouter.post('/google', authLimiter, requireBrowserOrigin, validate({ body: googleLoginSchema }), AuthController.googleLogin);
 authRouter.post('/otp/request', otpRequestLimiter, validate({ body: otpRequestSchema }), AuthController.requestOtp);
-authRouter.post('/otp/verify', otpVerifyLimiter, validate({ body: otpVerifySchema }), AuthController.verifyOtp);
+authRouter.post('/otp/verify', otpVerifyLimiter, requireBrowserOrigin, validate({ body: otpVerifySchema }), AuthController.verifyOtp);
 authRouter.post('/verify-email', authLimiter, validate({ body: verifyEmailSchema }), AuthController.verifyEmail);
 authRouter.post('/forgot-pw', authLimiter, validate({ body: forgotPasswordSchema }), AuthController.forgotPassword);
 authRouter.post('/reset-pw', authLimiter, validate({ body: resetPasswordSchema }), AuthController.resetPassword);

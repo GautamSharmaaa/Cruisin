@@ -4,9 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useDropzone } from 'react-dropzone';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Eye, ImageIcon, Save, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Archive, Eye, ImageIcon, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { AdminActionBar, AdminCard, AdminFormSection, AdminSectionHeader, AdminTabs } from '@/components/dashboard/admin-ui';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,18 @@ const normalizeProductSlug = (value: string, fallback: string): string => {
   return normalized;
 };
 
+const emptyVariant = (image: string = PRODUCT_FORM_DEFAULTS.image): ProductFormValues['variants'][number] => ({
+  sku: '',
+  size: '',
+  color: '',
+  colorHex: PRODUCT_FORM_DEFAULTS.colorHex,
+  stock: 0,
+  enabled: true,
+  image
+});
+
+const skuPart = (value: string): string => slugify(value).replaceAll('-', '').toUpperCase().slice(0, 12) || 'VAR';
+
 const formValuesFromProduct = (product: ProductDto | undefined): Partial<ProductFormValues> => {
   if (!product) return {
     ...PRODUCT_FORM_DEFAULTS,
@@ -68,10 +80,7 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     richDescription: '',
     category: '',
     basePrice: 0,
-    sku: '',
-    size: '',
-    color: '',
-    stock: 0,
+    variants: [emptyVariant()],
     lowStockThreshold: 10,
     status: 'published',
     visibility: 'visible',
@@ -124,11 +133,18 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     mobileVideoUrl: product.mobileVideoUrl ?? '',
     videoPosterImage: product.videoPosterImage ?? '',
     imageAltText: product.imageAltText ?? image?.alt ?? product.title,
-    sku: variant?.sku ?? '',
-    size: variant?.size ?? '',
-    color: variant?.color ?? '',
-    colorHex: variant?.colorHex ?? PRODUCT_FORM_DEFAULTS.colorHex,
-    stock: variant?.stock ?? 0
+    variants: (product.variants?.length ? product.variants : [variant].filter(Boolean)).map((item) => ({
+      _id: item?._id ?? item?.id,
+      sku: item?.sku ?? '',
+      size: item?.size ?? '',
+      color: item?.color ?? '',
+      colorHex: item?.colorHex ?? PRODUCT_FORM_DEFAULTS.colorHex,
+      stock: item?.stock ?? 0,
+      priceOverride: item?.priceOverride,
+      lowStockThreshold: item?.lowStockThreshold,
+      enabled: item?.enabled !== false,
+      image: item?.images?.[0]?.url ?? image?.url ?? PRODUCT_FORM_DEFAULTS.image
+    }))
   };
 };
 
@@ -143,18 +159,80 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const [activeTab, setActiveTab] = useState<FormTab>('basic');
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const { register, handleSubmit, formState, setValue, watch, reset } = useForm<ProductFormValues>({ resolver: zodResolver(adminProductSchema), defaultValues: formValuesFromProduct(product) });
+  const { register, handleSubmit, formState, setValue, watch, reset, control, getValues, trigger } = useForm<ProductFormValues>({ resolver: zodResolver(adminProductSchema), defaultValues: formValuesFromProduct(product) });
+  const { fields: variantFields, append: appendVariant, remove: removeVariant, replace: replaceVariants } = useFieldArray({ control, name: 'variants' });
   const productId = product?.id ?? product?._id;
   const imagePreview = watch('image');
   const price = Number(watch('basePrice') ?? 0);
   const mrp = Number(watch('comparePrice') ?? 0);
   const selectedAdditionalCategories = watch('categoryIds') ?? '';
   const selectedCollections = watch('collections') ?? '';
+  const watchedVariants = watch('variants') ?? [];
+  const variantValidationKey = useMemo(() => watchedVariants.map((variant) => [variant.sku, variant.color, variant.size, variant.colorHex].join('|')).join('::'), [watchedVariants]);
+  const [newColor, setNewColor] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#000000');
+  const [newColorImage, setNewColorImage] = useState('');
+  const [newSize, setNewSize] = useState('');
 
   useEffect(() => { reset(formValuesFromProduct(product)); }, [product, reset]);
+  useEffect(() => {
+    if (formState.submitCount > 0) void trigger('variants');
+  }, [formState.submitCount, trigger, variantValidationKey]);
 
   const selectedCollectionCount = useMemo(() => selectedCollections.split(',').map((item) => item.trim()).filter(Boolean).length, [selectedCollections]);
   const saleHelper = mrp > 0 && price > 0 ? Math.max(0, Math.round(((mrp - price) / mrp) * 100)) + '% off MRP' : 'Set MRP to show markdown context.';
+  const colors = useMemo(() => Array.from(new Map(watchedVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex, image: variant.image }])).values()), [watchedVariants]);
+  const sizes = useMemo(() => Array.from(new Set(watchedVariants.map((variant) => variant.size.trim()).filter(Boolean))), [watchedVariants]);
+
+  const generatedSku = (color: string, size: string, offset: number): string => {
+    const base = getValues('productCode') || getValues('slug') || getValues('title') || 'QA-VARIANT';
+    return [skuPart(base), skuPart(color), skuPart(size || String(offset + 1))].join('-');
+  };
+
+  const addColor = (): void => {
+    const label = newColor.trim();
+    const hex = newColorHex.trim().toUpperCase();
+    if (!label || !/^#[0-9A-F]{6}$/.test(hex)) {
+      setFeedback({ type: 'error', message: 'Add a color name and a valid six-digit HEX value.' });
+      return;
+    }
+    if (colors.some((color) => color.label.toLowerCase() === label.toLowerCase())) {
+      setFeedback({ type: 'error', message: `${label} already exists.` });
+      return;
+    }
+    const current = getValues('variants');
+    const meaningful = current.filter((variant) => variant.sku || variant.size || variant.color);
+    const complete = current.filter((variant) => variant.color.trim() && variant.size.trim());
+    const targetSizes = sizes.length ? sizes : [''];
+    const image = newColorImage.trim() || getValues('image') || PRODUCT_FORM_DEFAULTS.image;
+    const additions = targetSizes.map((size, index) => ({ ...emptyVariant(image), color: label, colorHex: hex, size, sku: generatedSku(label, size, meaningful.length + index) }));
+    const partialColors = current.filter((variant) => variant.color.trim() && !variant.size.trim());
+    replaceVariants(targetSizes[0] ? [...complete, ...additions] : [...partialColors, ...additions]);
+    setNewColor('');
+    setNewColorImage('');
+    setFeedback({ type: 'success', message: sizes.length ? `${label} added across ${targetSizes.length} size${targetSizes.length === 1 ? '' : 's'}.` : `${label} added. Add a size to generate sellable combinations.` });
+  };
+
+  const addSize = (): void => {
+    const size = newSize.trim().toUpperCase();
+    if (!size) {
+      setFeedback({ type: 'error', message: 'Enter a size before adding it.' });
+      return;
+    }
+    if (sizes.some((candidate) => candidate.toLowerCase() === size.toLowerCase())) {
+      setFeedback({ type: 'error', message: `Size ${size} already exists.` });
+      return;
+    }
+    const current = getValues('variants');
+    const meaningful = current.filter((variant) => variant.sku || variant.size || variant.color);
+    const complete = current.filter((variant) => variant.color.trim() && variant.size.trim());
+    const targetColors = colors.length ? colors : [{ label: '', hex: PRODUCT_FORM_DEFAULTS.colorHex, image: getValues('image') || PRODUCT_FORM_DEFAULTS.image }];
+    const additions = targetColors.map((color, index) => ({ ...emptyVariant(color.image), color: color.label, colorHex: color.hex, size, sku: generatedSku(color.label, size, meaningful.length + index) }));
+    const partialSizes = current.filter((variant) => variant.size.trim() && !variant.color.trim());
+    replaceVariants(targetColors[0]?.label ? [...complete, ...additions] : [...partialSizes, ...additions]);
+    setNewSize('');
+    setFeedback({ type: 'success', message: colors.length ? `Size ${size} added across ${targetColors.length} color${targetColors.length === 1 ? '' : 's'}.` : `Size ${size} added. Add a color to generate sellable combinations.` });
+  };
 
   const onDropHandler = useCallback(async (files: File[]) => {
     if (!files.length) return;
@@ -245,14 +323,87 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       <div className="border border-border bg-background-primary p-4 md:col-span-2"><p className="font-mono text-sm text-accent-gold">{saleHelper}</p><p className="mt-2 text-sm text-text-secondary">Cost price remains admin/API-only and is stripped from public storefront product payloads.</p></div>
     </AdminFormSection> : null}
 
-    {activeTab === 'inventory' ? <AdminFormSection title="Inventory & Variants" description="This form edits the primary variant. Additional SKU creation can be added as a dedicated variant manager." columns={3}>
-      <Input label="Product code" error={formState.errors.productCode?.message} {...register('productCode')} />
-      <Input label="Main SKU *" error={formState.errors.sku?.message} {...register('sku')} />
-      <Input label="Size *" error={formState.errors.size?.message} {...register('size')} />
-      <Input label="Color *" error={formState.errors.color?.message} {...register('color')} />
-      <Input label="Color hex *" error={formState.errors.colorHex?.message} {...register('colorHex')} />
-      <Input label="Stock *" type="number" error={formState.errors.stock?.message} {...register('stock')} />
-      <Input label="Low-stock threshold" type="number" error={formState.errors.lowStockThreshold?.message} {...register('lowStockThreshold')} />
+    {activeTab === 'inventory' ? <AdminFormSection title="Inventory & Variants" description="Build a complete color-size matrix. Every combination keeps its own SKU, stock, availability, image, optional price, and low-stock threshold." columns={1}>
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+        <Input label="Product code" error={formState.errors.productCode?.message} {...register('productCode')} />
+        <Input label="Default low-stock threshold" type="number" min={0} error={formState.errors.lowStockThreshold?.message} {...register('lowStockThreshold')} />
+        <div className="flex h-12 min-w-40 items-center border border-border bg-background-primary px-4 text-sm text-text-secondary">
+          <span className="font-mono text-accent-gold">{variantFields.length}</span>
+          <span className="ml-2">combination{variantFields.length === 1 ? '' : 's'}</span>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="grid gap-4 border border-border bg-background-primary p-4" aria-labelledby="add-color-heading">
+          <div>
+            <h3 id="add-color-heading" className="font-display text-xl text-text-primary">Add Color</h3>
+            <p className="mt-1 text-sm text-text-secondary">Creates this color for every existing size and uses its image for the PDP gallery.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+            <Input label="New color name" value={newColor} onChange={(event) => setNewColor(event.target.value)} />
+            <label className="block text-xs uppercase tracking-[0.15em] text-text-secondary">
+              <span>New color HEX</span>
+              <span className="mt-2 flex h-12 items-center gap-3 border border-border-subtle bg-background-input px-3">
+                <input type="color" aria-label="New color visual picker" value={newColorHex} onChange={(event) => setNewColorHex(event.target.value.toUpperCase())} className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0" />
+                <input aria-label="New color HEX value" value={newColorHex} onChange={(event) => setNewColorHex(event.target.value)} className="min-w-0 flex-1 bg-transparent font-mono text-sm uppercase text-text-primary outline-none" />
+              </span>
+            </label>
+          </div>
+          <Input label="Color image URL" type="url" value={newColorImage} placeholder={String(imagePreview || PRODUCT_FORM_DEFAULTS.image)} onChange={(event) => setNewColorImage(event.target.value)} />
+          <div><Button type="button" onClick={addColor}><Plus size={15} className="mr-2" />Add Color</Button></div>
+        </section>
+
+        <section className="grid content-start gap-4 border border-border bg-background-primary p-4" aria-labelledby="add-size-heading">
+          <div>
+            <h3 id="add-size-heading" className="font-display text-xl text-text-primary">Add Size</h3>
+            <p className="mt-1 text-sm text-text-secondary">Creates this size for every existing color, preserving each color image and visual value.</p>
+          </div>
+          <Input label="New size" value={newSize} placeholder="S, M, XL, 32…" onChange={(event) => setNewSize(event.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={addSize}><Plus size={15} className="mr-2" />Add Size</Button>
+            <Button type="button" variant="secondary" onClick={() => appendVariant(emptyVariant(getValues('image') || PRODUCT_FORM_DEFAULTS.image))}><Plus size={15} className="mr-2" />Add Variant</Button>
+          </div>
+        </section>
+      </div>
+
+      {formState.errors.variants?.root?.message ? <p className="text-sm text-danger" role="alert">{formState.errors.variants.root.message}</p> : null}
+
+      <div className="grid gap-4">
+        {variantFields.map((field, index) => {
+          const current = watchedVariants[index];
+          const variantError = formState.errors.variants?.[index];
+          const label = current?.color && current?.size ? `${current.color} / ${current.size}` : `Variant ${index + 1}`;
+          return <section key={field.id} className="grid gap-4 border border-border bg-background-elevated p-4 sm:p-5" aria-labelledby={`variant-${field.id}-heading`}>
+            <input type="hidden" {...register(`variants.${index}._id` as const)} />
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span aria-hidden="true" className="h-10 w-10 shrink-0 rounded-full border border-border shadow-inner" style={{ backgroundColor: current?.colorHex || PRODUCT_FORM_DEFAULTS.colorHex }} />
+                <div className="min-w-0">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-gold">Combination {index + 1}</p>
+                  <h3 id={`variant-${field.id}-heading`} className="truncate font-display text-xl text-text-primary">{label}</h3>
+                </div>
+              </div>
+              <Button type="button" variant="danger" disabled={variantFields.length === 1} aria-label={`Remove ${label}`} title={variantFields.length === 1 ? 'A product must keep at least one variant.' : `Remove ${label}`} onClick={() => {
+                if (window.confirm(`Remove ${label}? This only affects the unsaved product form.`)) removeVariant(index);
+              }}><Trash2 size={15} className="mr-2" />Remove</Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Input label={index === 0 ? 'Main SKU *' : `Variant ${index + 1} SKU *`} error={variantError?.sku?.message} {...register(`variants.${index}.sku` as const)} />
+              <Input label={index === 0 ? 'Size *' : `Variant ${index + 1} size *`} error={variantError?.size?.message} {...register(`variants.${index}.size` as const)} />
+              <Input label={index === 0 ? 'Color *' : `Variant ${index + 1} color *`} error={variantError?.color?.message} {...register(`variants.${index}.color` as const)} />
+              <Input label={index === 0 ? 'Color hex *' : `Variant ${index + 1} color hex *`} error={variantError?.colorHex?.message} {...register(`variants.${index}.colorHex` as const)} />
+              <Input label={index === 0 ? 'Stock *' : `Variant ${index + 1} stock *`} type="number" min={0} error={variantError?.stock?.message} {...register(`variants.${index}.stock` as const)} />
+              <Input label="Price override" type="number" min={0} step="0.01" error={variantError?.priceOverride?.message} {...register(`variants.${index}.priceOverride` as const)} />
+              <Input label="Variant low-stock threshold" type="number" min={0} error={variantError?.lowStockThreshold?.message} {...register(`variants.${index}.lowStockThreshold` as const)} />
+              <Toggle label="Enabled for sale" value={current?.enabled !== false} onChange={(enabled) => setValue(`variants.${index}.enabled`, enabled, { shouldDirty: true, shouldValidate: true })} />
+              <div className="md:col-span-2 xl:col-span-4">
+                <Input label="Color-specific image URL *" type="url" error={variantError?.image?.message} {...register(`variants.${index}.image` as const)} />
+              </div>
+            </div>
+          </section>;
+        })}
+      </div>
     </AdminFormSection> : null}
 
     {activeTab === 'taxonomy' ? <AdminFormSection title="Categorization" description="Use selectors instead of raw category or collection IDs." columns={2}>

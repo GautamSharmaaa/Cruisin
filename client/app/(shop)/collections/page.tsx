@@ -6,7 +6,7 @@ import { loadPageSettingsServer, metadataFromSettings } from '@/lib/storefront-s
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await loadPageSettingsServer('collections', 'index');
-  return metadataFromSettings(settings, 'Collections | Cruisin');
+  return metadataFromSettings(settings, 'Collections');
 }
 
 export default function CollectionsPage(): ReactNode {

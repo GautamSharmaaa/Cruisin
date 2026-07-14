@@ -54,7 +54,7 @@ export const productBodySchema = z.object({
   seo: z.object({ metaTitle: z.string().optional(), metaDesc: z.string().optional(), ogImage: z.string().url().optional() }).default({})
 });
 export const productQuerySchema = z.object({
-  q: z.string().optional(),
+  q: z.string().trim().min(1).max(120).optional(),
   category: z.string().optional(),
   subcategory: z.string().optional(),
   collection: z.string().optional(),
@@ -74,7 +74,7 @@ export const productQuerySchema = z.object({
   sort: z.enum(['newest','price-asc','price-desc','best-selling','top-rated']).default('newest'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(24)
-});
+}).strict();
 export const adminProductQuerySchema = productQuerySchema.extend({
   status: z.enum(['all', 'visible', 'hidden', 'draft', 'archived']).default('all'),
   stock: z.enum(['all', 'in-stock', 'low-stock', 'out-of-stock']).default('all'),

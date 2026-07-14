@@ -236,11 +236,11 @@ test.describe('storefront browser QA', () => {
     await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
     await expect(menuSections.getByRole('button', { name: 'Collections', exact: true })).toBeVisible();
     await menuSections.getByRole('button', { name: 'Collections', exact: true }).click();
-    await expect(desktopDialog.getByRole('link', { name: 'Quiet Uniform' })).toBeVisible();
+    await expect(desktopDialog.getByRole('link', { name: 'Signature Series Signature Series' })).toBeVisible();
     await expect(desktopDialog.getByRole('link', { name: 'View All Collections' })).toBeVisible();
     await menuSections.getByRole('button', { name: 'Men', exact: true }).click();
     await expect(desktopDialog.getByRole('link', { name: 'T-Shirts', exact: true })).toBeVisible();
-    await expect(desktopDialog.getByRole('link', { name: 'Quiet Uniform' })).toHaveCount(0);
+    await expect(desktopDialog.getByRole('link', { name: 'Signature Series Signature Series' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Cruisin menu' })).toHaveCount(0);
     expectNoImportantBrowserFailures(diagnostics);

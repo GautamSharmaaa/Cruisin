@@ -2,7 +2,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root { --font-body:"DM Sans","Helvetica Neue",Inter,sans-serif; --font-mono:"JetBrains Mono","SFMono-Regular","Courier New",monospace; --bg-primary:#080808; --bg-elevated:#0f0f0f; --bg-overlay:#141414; --bg-input:#1a1a1a; --border-subtle:#1c1c1c; --border-default:#2a2a2a; --border-strong:#3d3d3d; --text-primary:#f0ede8; --text-secondary:#9a9a9a; --text-muted:#555555; --text-inverse:#080808; --accent-gold:#c8a97e; --accent-gold-dim:#8a7355; --color-success:#4a7c59; --color-warning:#b8860b; --color-danger:#8b3a3a; }
+:root { --font-body:"DM Sans","Helvetica Neue",Inter,sans-serif; --font-mono:"JetBrains Mono","SFMono-Regular","Courier New",monospace; --bg-primary:#080808; --bg-elevated:#0f0f0f; --bg-overlay:#141414; --bg-input:#1a1a1a; --border-subtle:#1c1c1c; --border-default:#2a2a2a; --border-strong:#3d3d3d; --text-primary:#f0ede8; --text-secondary:#9a9a9a; --text-muted:#7d7d7d; --text-inverse:#080808; --accent-gold:#c8a97e; --accent-gold-dim:#8a7355; --color-success:#4a7c59; --color-warning:#b8860b; --color-danger:#8b3a3a; }
 html, body { min-width:0; min-height:100dvh; margin:0; background:var(--bg-primary); color:var(--text-primary); font-family:var(--font-body), Inter, sans-serif; }
 * { box-sizing:border-box; }
 img, video, canvas, svg { max-width:100%; }
