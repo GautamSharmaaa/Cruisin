@@ -1,9 +1,11 @@
 // Governed by .rules v1.0
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'node:crypto';
 import { connectDb } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { BannerModel } from '../models/banner.model.js';
 import { CategoryModel } from '../models/category.model.js';
+import { CMSPageModel, CMSSectionModel, CMSVersionModel } from '../models/cms.model.js';
 import { CollectionModel } from '../models/collection.model.js';
 import { CouponModel } from '../models/coupon.model.js';
 import { ProductModel } from '../models/product.model.js';
@@ -443,9 +445,84 @@ const seed = async (): Promise<void> => {
     );
   }));
 
+  const homePage = await CMSPageModel.findOneAndUpdate(
+    { slug: 'home' },
+    {
+      $set: {
+        title: 'Homepage',
+        status: 'published',
+        seoTitle: 'Cruisin',
+        seoDescription: 'Luxury streetwear campaign homepage.'
+      },
+      $setOnInsert: { previewToken: randomUUID() }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  await CMSSectionModel.deleteMany({ pageId: homePage._id });
+  const homepageSections = await CMSSectionModel.insertMany([
+    {
+      pageId: homePage._id,
+      pageTarget: 'home',
+      type: 'hero_campaign',
+      title: 'Cruisin Current Catalogue',
+      subtitle: 'The latest Cruisin silhouettes, built for movement.',
+      content: {
+        campaignLabel: 'Current Catalogue',
+        desktopMedia: imageBase + '/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=1800&q=85',
+        mobileMedia: imageBase + '/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=900&q=85',
+        ctaText: 'Shop Catalogue',
+        ctaLink: '/shop',
+        overlayOpacity: 44
+      },
+      products: [],
+      categories: [],
+      sortOrder: 0,
+      active: true,
+      status: 'published'
+    },
+    {
+      pageId: homePage._id,
+      pageTarget: 'home',
+      type: 'product_carousel',
+      title: 'The Drop',
+      subtitle: 'New-season technical layers and everyday essentials.',
+      content: { source: 'new arrivals', limit: 8 },
+      products: products.slice(0, 8).map((product) => product._id),
+      categories: [],
+      sortOrder: 1,
+      active: true,
+      status: 'published'
+    },
+    {
+      pageId: homePage._id,
+      pageTarget: 'home',
+      type: 'best_sellers',
+      title: 'Best Sellers',
+      subtitle: 'The Cruisin pieces moving fastest.',
+      content: { source: 'best sellers', limit: 8 },
+      products: products.slice(5, 13).map((product) => product._id),
+      categories: [],
+      sortOrder: 2,
+      active: true,
+      status: 'published'
+    }
+  ]);
+  const homepageVersion = await CMSVersionModel.create({
+    pageId: homePage._id,
+    sectionsSnapshot: homepageSections.map((section) => section.toObject()),
+    status: 'published',
+    label: 'Seeded CI homepage'
+  });
+  await CMSPageModel.findByIdAndUpdate(homePage._id, { publishedVersionId: homepageVersion._id });
+
   await CouponModel.findOneAndUpdate(
     { code: 'PRIVATE10' },
     { code: 'PRIVATE10', type: 'percentage', value: 10, minOrderValue: 10000, maxDiscount: 5000, usageLimit: 500, userUsageLimit: 1, applicableProducts: [], applicableCategories: [], isActive: true, validFrom: new Date('2026-01-01'), validUntil: new Date('2027-01-01') },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  await CouponModel.findOneAndUpdate(
+    { code: 'CMSHOME10' },
+    { code: 'CMSHOME10', type: 'percentage', value: 10, minOrderValue: 0, maxDiscount: 5000, usageLimit: 500, userUsageLimit: 10, applicableProducts: [], applicableCategories: [], isActive: true, validFrom: new Date('2026-01-01'), validUntil: new Date('2027-01-01') },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 

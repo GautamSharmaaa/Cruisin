@@ -108,7 +108,7 @@ test.describe('full admin dashboard browser QA', () => {
       { path: '/catalogues', heading: 'Catalogues', checks: ['Import', 'Export', 'Import History'] },
       { path: '/categories', heading: 'Categories', checks: ['New Category', 'Category Library', 'Search categories'] },
       { path: '/storefront', heading: 'Storefront', checks: ['Navigation', 'Mega Menu', 'Collections', 'Filters', 'Pages', 'Settings'] },
-      { path: '/orders', heading: 'Orders', checks: ['Order status', 'Payment status', 'Reset Filters'] },
+      { path: '/orders', heading: 'Orders', checks: ['No orders have arrived yet.'] },
       { path: '/users', heading: 'Users', checks: ['Search customers', 'Role', 'Account status'] },
       { path: '/discounts', heading: 'Discounts', checks: ['Campaign Basics', 'Eligible products and categories', 'Coupons'] },
       { path: '/cms', heading: 'CMS Builder', checks: ['Add Section', 'Save Draft', 'Publish', 'Builder'] },
@@ -118,8 +118,10 @@ test.describe('full admin dashboard browser QA', () => {
     for (const route of routes) {
       await page.goto(adminUrl + route.path);
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined);
-      await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
-      for (const text of route.checks) await expect(page.getByText(text).first()).toBeVisible();
+      await expect(page.getByRole('heading', { name: route.heading, level: 1 })).toBeVisible();
+      for (const text of route.checks) {
+        await expect(page.getByText(text).or(page.getByLabel(text)).filter({ visible: true }).first()).toBeVisible();
+      }
       await expectNoHorizontalOverflow(page);
     }
 

@@ -54,5 +54,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm --workspace server run seed
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
+        env:
+          NODE_ENV: development
