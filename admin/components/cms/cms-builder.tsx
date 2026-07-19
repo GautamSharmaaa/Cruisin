@@ -255,7 +255,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
             <Metric icon={<LayoutTemplate size={16} />} value={sectionList.length} label="Sections" />
             <Metric icon={<Save size={16} />} value={saveState === 'saved' ? 1 : 0} label={saveState === 'saved' ? 'Saved' : 'Draft'} />
           </div>
-          <SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent} />
+          <SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={() => setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent} />
           <div className="grid gap-5 lg:grid-cols-2">
             <VersionHistory versions={versions.data ?? []} isRestoring={restoreVersion.isPending} onRestore={(id) => restoreVersion.mutate(id)} />
             <MediaManager media={media.data ?? []} isSaving={createMedia.isPending} onCreate={(input) => createMedia.mutate(input)} />
@@ -404,7 +404,7 @@ function EmptyHomepageState({ onQuickAdd, onTemplate }: { onQuickAdd: (type: Cms
   </div>;
 }
 
-function SectionInspector({ selected, draft, saveState, onSave, onDuplicate, onArchive, onField, onContent }: { selected?: CmsSectionDto; draft: CmsSectionInput; saveState: SaveState; onSave: () => void; onDuplicate: (section: CmsSectionDto) => void; onArchive: (section: CmsSectionDto) => void; onField: <TKey extends keyof CmsSectionInput>(key: TKey, value: CmsSectionInput[TKey]) => void; onContent: (key: string, value: ContentValue) => void; }): ReactNode {
+function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDuplicate, onArchive, onField, onContent }: { selected?: CmsSectionDto; draft: CmsSectionInput; saveState: SaveState; onSave: () => void; onPreview: () => void; onDuplicate: (section: CmsSectionDto) => void; onArchive: (section: CmsSectionDto) => void; onField: <TKey extends keyof CmsSectionInput>(key: TKey, value: CmsSectionInput[TKey]) => void; onContent: (key: string, value: ContentValue) => void; }): ReactNode {
   const [productQuery, setProductQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [collectionQuery, setCollectionQuery] = useState('');
@@ -473,7 +473,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onDuplicate, onA
       <div className="flex flex-wrap gap-2 border border-border-subtle bg-background-primary p-4">
         <Button type="button" onClick={onSave}><Save size={16} />{saveState === 'saving' ? COPY.common.loading : 'Save Draft'}</Button>
         <Button type="button" variant="secondary" onClick={() => onDuplicate(selected)}><Copy size={16} />Duplicate</Button>
-        <Button type="button" variant="secondary" onClick={() => window.open('/cms', '_blank', 'noopener,noreferrer')}><Eye size={16} />Preview</Button>
+        <Button type="button" variant="secondary" onClick={onPreview}><Eye size={16} />Preview</Button>
         <Button type="button" variant="danger" onClick={() => onArchive(selected)}><Trash2 size={16} />Delete</Button>
       </div>
     </div> : <div className="mt-6"><EmptyPanel title="No section selected" message="Create a section to edit its campaign fields." /></div>}
@@ -586,6 +586,20 @@ function PreviewSection({ section, device, includeInactive }: { section: CmsSect
   if (['product_carousel', 'trending_now', 'hot_drop', 'featured_collection', 'recently_viewed', 'best_sellers'].includes(String(section.type))) return <section className="px-5 py-10"><p className="text-[10px] uppercase tracking-[0.18em] text-[#c8a97e]">{template.name}</p><h3 className="mt-3 font-display text-3xl">{section.title}</h3><div className="mt-6 grid grid-cols-2 gap-2">{mockProductImages.map((image, item) => <div key={image} className="border border-white/10 bg-white/[0.04]"><div className="aspect-[3/4] overflow-hidden bg-white/10"><img src={image} alt="" className="h-full w-full object-cover opacity-85" /></div><div className="p-2"><p className="truncate text-[11px] text-text-primary">{item === 0 ? 'Transit Jacket' : item === 1 ? 'Ribbed Tank' : item === 2 ? 'Wide Trouser' : 'Leather Tote'}</p><p className="mt-1 font-mono text-[10px] text-[#c8a97e]">Rs. {item === 0 ? '4,999' : item === 1 ? '2,499' : item === 2 ? '3,999' : '6,299'}</p></div></div>)}</div></section>;
   if (section.type === 'shop_the_look') return <section className="grid gap-px bg-white/10 md:grid-cols-[1.2fr_0.8fr]"><div className="relative min-h-[360px] overflow-hidden bg-white/10"><img src={String(content.image || mockProductImages[0])} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" /><span className="absolute left-[42%] top-[34%] h-4 w-4 rounded-full border-2 border-black bg-[#c8a97e]" /><span className="absolute bottom-[24%] left-[58%] h-4 w-4 rounded-full border-2 border-black bg-[#c8a97e]" /></div><div className="p-5"><p className="text-[10px] uppercase tracking-[0.18em] text-[#c8a97e]">Shop The Look</p><h3 className="mt-3 font-display text-3xl">{section.title}</h3><p className="mt-3 text-sm text-text-secondary">{section.subtitle}</p></div></section>;
   if (section.type === 'category_editorial_grid') return <section className="grid grid-cols-2 gap-px p-5">{String(content.tiles ?? '').split('\n').slice(0, 4).map((tile) => { const [label, url] = tile.split('|'); return <div key={tile} className="relative aspect-[3/4] overflow-hidden bg-white/10">{url ? <img src={url} alt="" className="h-full w-full object-cover opacity-80" /> : null}<p className="absolute bottom-4 left-4 font-display text-2xl">{label}</p></div>; })}</section>;
+  if (section.type === 'video_landing') {
+    const videoUrl = String(content.videoUrl || '');
+    const posterImage = String(content.posterImage || content.mobileFallbackImage || image || '');
+    return <section className="relative min-h-[520px] overflow-hidden bg-background-primary">
+      {videoUrl ? <video src={videoUrl} poster={posterImage} autoPlay={Boolean(content.autoplay ?? true)} muted={Boolean(content.muted ?? true)} loop={Boolean(content.loop ?? true)} playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : posterImage ? <img src={posterImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative flex min-h-[520px] flex-col justify-end p-6">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-[#c8a97e]">{template.name}</p>
+        <h3 className="mt-4 max-w-lg font-display text-4xl text-text-primary">{section.title}</h3>
+        <p className="mt-3 max-w-md text-sm text-text-secondary">{section.subtitle}</p>
+        <p className="mt-7 text-xs uppercase tracking-[0.14em]">{String(content.ctaText || 'Explore')}</p>
+      </div>
+    </section>;
+  }
   return <section className="relative min-h-[520px] overflow-hidden bg-background-primary">
     {image ? <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}
     <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlay})` }} />

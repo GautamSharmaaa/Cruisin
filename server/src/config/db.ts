@@ -3,20 +3,33 @@ import mongoose from 'mongoose';
 import { env } from './env.js';
 import { logger } from '../utils/logger.js';
 
-const redactMongoUri = (uri: string): string => uri.replace(/\/\/([^:@/]+):([^@/]+)@/, '//[user]:[password]@');
+const wait = async (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export const connectDb = async (): Promise<void> => {
+  if (mongoose.connection.readyState === 1) return;
+  if (mongoose.connection.readyState === 2) {
+    await mongoose.connection.asPromise();
+    return;
+  }
   mongoose.set('strictQuery', true);
-  try {
-    await mongoose.connect(env.MONGODB_URI, { autoIndex: env.NODE_ENV !== 'production', serverSelectionTimeoutMS: 5000 });
-    logger.info('MongoDB connected', { uri: redactMongoUri(env.MONGODB_URI) });
-  } catch (error) {
-    logger.error('MongoDB connection failed', {
-      uri: redactMongoUri(env.MONGODB_URI),
-      hint: 'Start local MongoDB with `docker compose up -d mongo` or set MONGODB_URI to a reachable MongoDB Atlas/local connection string.',
-      error
-    });
-    throw error;
+  const attempts = env.NODE_ENV === 'test' ? 1 : 5;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await mongoose.connect(env.MONGODB_URI, {
+        autoIndex: env.NODE_ENV !== 'production',
+        maxPoolSize: 10,
+        minPoolSize: 0,
+        maxIdleTimeMS: 60_000,
+        serverSelectionTimeoutMS: 5_000
+      });
+      logger.info('MongoDB connected', { database: mongoose.connection.name });
+      return;
+    } catch (error) {
+      logger.error('MongoDB connection attempt failed', { attempt, attempts, error });
+      if (attempt === attempts) throw error;
+      await mongoose.disconnect().catch(() => undefined);
+      await wait(Math.min(1_000 * (2 ** (attempt - 1)), 8_000));
+    }
   }
 };
 

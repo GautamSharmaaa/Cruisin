@@ -321,6 +321,7 @@ export interface OrderDto {
   billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   paymentMethod?: 'razorpay' | 'stripe' | 'cod';
   paymentMode?: 'online' | 'cod' | 'partial';
+  shippingMethod?: 'standard' | 'express';
   paymentProvider?: 'razorpay' | 'stripe' | 'cod' | 'manual';
   paymentStatus: string;
   orderStatus: string;

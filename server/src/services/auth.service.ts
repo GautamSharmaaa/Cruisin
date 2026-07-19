@@ -1,7 +1,6 @@
 // Governed by .rules v1.0
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { redis } from '../config/redis.js';
 import { env } from '../config/env.js';
@@ -15,7 +14,7 @@ import { UserPreferenceModel } from '../models/user-preference.model.js';
 import { UserSessionModel } from '../models/user-session.model.js';
 import { WishlistModel } from '../models/wishlist.model.js';
 import { ApiError } from '../utils/api-error.js';
-import { generateAccessToken, generateRefreshToken, randomToken, sha256 } from '../utils/generate-token.js';
+import { generateAccessToken, generateRefreshToken, randomToken, sha256, verifyRefreshToken } from '../utils/generate-token.js';
 import { normalizePhone } from '../utils/phone.js';
 import { normalizeEmail, sanitizeString } from '../utils/sanitize.js';
 import { sendEmail } from '../utils/send-email.js';
@@ -78,7 +77,7 @@ const issueTokens = async (payload: AccessTokenPayload, context: RequestContext)
 };
 
 const rotateRefresh = async (refreshToken: string, context: RequestContext): Promise<AuthTokens> => {
-  const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as AccessTokenPayload;
+  const decoded = verifyRefreshToken(refreshToken);
   const payload: AccessTokenPayload = { userId: decoded.userId, email: decoded.email, role: decoded.role };
   const tokenHash = sha256(refreshToken);
   const redisStored = await redis.get(refreshKey(decoded.userId, refreshToken));
@@ -168,7 +167,7 @@ export const AuthService = {
   async logout(refreshToken: string): Promise<void> {
     let userId = '';
     try {
-      const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as AccessTokenPayload;
+      const decoded = verifyRefreshToken(refreshToken);
       userId = decoded.userId;
     } catch {
       return;

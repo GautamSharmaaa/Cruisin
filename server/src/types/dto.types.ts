@@ -71,6 +71,7 @@ export interface OrderDto {
   user?: string;
   sessionId?: string;
   paymentMethod: PaymentMethod;
+  shippingMethod?: 'standard' | 'express';
   paymentStatus: string;
   orderStatus: string;
   subtotal: number;

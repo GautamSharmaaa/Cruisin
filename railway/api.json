@@ -1,0 +1,22 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "npm --workspace server run build",
+    "watchPatterns": [
+      "/server/**",
+      "/package.json",
+      "/package-lock.json"
+    ]
+  },
+  "deploy": {
+    "preDeployCommand": [
+      "npm --workspace server run db:indexes:production"
+    ],
+    "startCommand": "node server/dist/index.js",
+    "healthcheckPath": "/ready",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}

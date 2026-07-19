@@ -382,7 +382,6 @@ export const MerchandisingService = {
   ensureDefaults,
 
   async navigation(admin = false): Promise<unknown[]> {
-    await ensureDefaults();
     if (!admin) {
       const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('isStorefrontNavigationVisible').lean();
       if (settings?.isStorefrontNavigationVisible === false) return [];
@@ -519,12 +518,10 @@ export const MerchandisingService = {
   },
 
   async collections(admin = false): Promise<unknown[]> {
-    await ensureDefaults();
     return CollectionModel.find(publishedVisibleQuery(admin)).sort({ sortOrder: 1, createdAt: 1 }).lean();
   },
 
   async collectionBySlug(slug: string, admin = false): Promise<unknown> {
-    await ensureDefaults();
     const query = CollectionModel.findOne({ slug: slug.toLowerCase(), ...publishedVisibleQuery(admin) });
     if (admin) {
       query.populate('productIds').populate('categoryIds');
@@ -558,7 +555,6 @@ export const MerchandisingService = {
   },
 
   async pageSettings(filters: { pageType?: string; pageSlug?: string; page?: number; limit?: number }): Promise<PaginatedResult<unknown>> {
-    await ensureDefaults();
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 50;
     const skip = (page - 1) * limit;
@@ -571,7 +567,6 @@ export const MerchandisingService = {
   },
 
   async pageSetting(pageType: string, pageSlug = 'index'): Promise<unknown> {
-    await ensureDefaults();
     const setting = await PageSettingsModel.findOne({ pageType, pageSlug: pageSlug.toLowerCase(), isPublished: true }).lean();
     return setting ?? null;
   },
@@ -589,7 +584,6 @@ export const MerchandisingService = {
   },
 
   async siteSettings(): Promise<unknown> {
-    await ensureDefaults();
     return SiteSettingsModel.findOne({ singletonKey: 'global' }).lean();
   },
 
@@ -598,7 +592,6 @@ export const MerchandisingService = {
   },
 
   async tags(admin = false): Promise<unknown[]> {
-    await ensureDefaults();
     return TagModel.find(visibleQuery(admin)).sort({ sortOrder: 1, name: 1 }).lean();
   },
 

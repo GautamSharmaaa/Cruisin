@@ -51,7 +51,7 @@ vi.mock('../../controllers/catalogue.controller.js', () => ({
 
 let app: express.Express;
 
-const tokenFor = (role: 'customer' | 'admin'): string => jwt.sign({ userId: role + '-id', email: role + '@cruisin.local', role }, process.env.JWT_ACCESS_SECRET as string);
+const tokenFor = (role: 'customer' | 'admin' | 'manager' | 'superadmin' | 'viewer'): string => jwt.sign({ userId: role + '-id', email: role + '@cruisin.local', role }, process.env.JWT_ACCESS_SECRET as string);
 
 beforeAll(async () => {
   const { adminRouter } = await import('./admin.routes.js');
@@ -86,6 +86,21 @@ describe('admin analytics route auth', () => {
       expect(response.status).toBe(403);
     });
   }
+
+  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund']) {
+    it(`blocks read-only viewers from financial mutation ${path}`, async () => {
+      const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('viewer')).send({ amount: 1 });
+      expect(response.status).toBe(403);
+    });
+  }
+
+  it('blocks read-only viewers from changing order status', async () => {
+    const response = await request(app)
+      .patch('/admin/orders/000000000000000000000000/status')
+      .set('Authorization', 'Bearer ' + tokenFor('viewer'))
+      .send({ status: 'processing' });
+    expect(response.status).toBe(403);
+  });
 
   it('allows analytics summary for admins', async () => {
     adminService.analyticsSummary.mockResolvedValue({ summary: { netRevenue: 123 }, revenueByDay: [] });

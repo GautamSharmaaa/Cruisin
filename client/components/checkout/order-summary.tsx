@@ -5,11 +5,12 @@ import type { ReactNode } from 'react';
 import { SafeImage } from '@/components/shared/safe-image';
 import { COPY } from '@/constants/copy';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import { calculateShippingCharge, type ShippingMethod } from '@/lib/shipping';
 import { formatPrice } from '@/lib/utils';
 import { useCartStore } from '@/store/cartStore';
 
-export interface OrderSummaryProps { }
-export function OrderSummary(_props: OrderSummaryProps): ReactNode {
+export interface OrderSummaryProps { shippingMethod?: ShippingMethod; }
+export function OrderSummary({ shippingMethod = 'standard' }: OrderSummaryProps): ReactNode {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
 
@@ -21,7 +22,7 @@ export function OrderSummary(_props: OrderSummaryProps): ReactNode {
 	const items = cartItems.filter((item) => isCustomerVisibleProduct(item.product));
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	const discountedSubtotal = Math.max(0, subtotal - discount);
-	const shipping = freeShipping || discountedSubtotal >= 25000 ? 0 : 900;
+	const shipping = calculateShippingCharge(discountedSubtotal, freeShipping, shippingMethod);
 	const tax = Math.round(discountedSubtotal * 0.18);
 	return (
 		<aside className="border border-border bg-background-elevated/70 p-6 shadow-lg backdrop-blur-xl lg:sticky lg:top-28">

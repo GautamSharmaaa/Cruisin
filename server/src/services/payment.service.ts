@@ -17,7 +17,7 @@ const localPaymentId = (prefix: string): string => `${prefix}_mock_${crypto.rand
 const usesLocalPaymentKeys = (provider: PaymentMethod): boolean => env.APP_ENV === 'development' && (
   provider === 'razorpay'
     ? env.RAZORPAY_KEY_ID.includes('mock') || env.RAZORPAY_KEY_SECRET.includes('mock')
-    : provider === 'stripe' && env.STRIPE_SECRET_KEY.includes('mock')
+    : provider === 'stripe' && Boolean(env.STRIPE_SECRET_KEY?.includes('mock'))
 );
 
 class LocalPaymentProvider implements PaymentProvider {
@@ -106,7 +106,12 @@ export class RazorpayProvider implements PaymentProvider {
 }
 
 export class StripeProvider implements PaymentProvider {
-  private readonly client = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+  private readonly client: Stripe;
+
+  public constructor() {
+    if (!env.STRIPE_SECRET_KEY) throw new ApiError(503, 'Stripe payments are not configured');
+    this.client = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+  }
 
   public async createOrder(amount: number, currency: string, metadata: Record<string, unknown>): Promise<PaymentOrder> {
     try {
@@ -153,6 +158,7 @@ export class PaymentService {
   }
 
   public static stripeWebhook(rawBody: Buffer, signature: string): Stripe.Event {
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET) throw new ApiError(503, 'Stripe webhooks are not configured');
     const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
     return stripe.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
   }

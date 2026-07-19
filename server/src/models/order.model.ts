@@ -53,6 +53,7 @@ const orderSchema = new Schema(
     checkoutIdempotencyKey: { type: String, unique: true, sparse: true, index: true },
     paymentMethod: { type: String, enum: ['razorpay', 'stripe', 'cod'], required: true },
     paymentMode: { type: String, enum: ['online', 'cod', 'partial'], default: 'online', index: true },
+    shippingMethod: { type: String, enum: ['standard', 'express'], default: 'standard' },
     paymentProvider: { type: String, enum: ['razorpay', 'stripe', 'cod', 'manual'], default: 'razorpay' },
     paymentStatus: { type: String, enum: ['pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'refunded', 'partially_refunded', 'cancelled'], default: 'pending', index: true },
     orderStatus: { type: String, enum: ['pending', 'placed', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'], default: 'pending', index: true },

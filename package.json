@@ -3,6 +3,9 @@
   "private": true,
   "name": "cruisin-luxury-ecom",
   "version": "1.0.0",
+  "engines": {
+    "node": "22.x"
+  },
   "workspaces": [
     "client",
     "admin",

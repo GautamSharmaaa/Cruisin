@@ -2,6 +2,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import type { ShippingMethod } from '@/lib/shipping';
 import { useCartStore } from '@/store/cartStore';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { Address, CheckoutPaymentDto } from '@/types/order.types';
@@ -11,6 +12,7 @@ export interface CheckoutInput {
   billingAddress: Address;
   paymentMethod: 'razorpay' | 'cod';
   paymentMode: 'online' | 'cod' | 'partial';
+  shippingMethod: ShippingMethod;
   couponCode?: string;
   idempotencyKey?: string;
 }
@@ -41,6 +43,7 @@ const checkoutFingerprint = (input: CheckoutInput, items: ReturnType<typeof useC
   const source = JSON.stringify({
     items: items.map((item) => [item.product.id, item.variantId, item.quantity]).sort(),
     paymentMode: input.paymentMode,
+    shippingMethod: input.shippingMethod,
     coupon: coupon ?? '',
     shippingAddress: input.shippingAddress,
     billingAddress: input.billingAddress

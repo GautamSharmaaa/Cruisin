@@ -55,6 +55,8 @@ npm run build
 npm run test
 ```
 
+For the complete three-service Railway setup, Atlas URI requirements, environment-variable matrix, one-time bootstrap, and Razorpay test-to-live procedure, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ## Ports
 
 - Storefront: http://localhost:3000

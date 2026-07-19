@@ -7,6 +7,7 @@ import { AccountGuard } from '@/components/account/account-guard';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useOrder } from '@/hooks/useOrders';
+import { isOrderPaymentConfirmed, isOrderPaymentFailed } from '@/lib/payment-status';
 import { formatPrice } from '@/lib/utils';
 
 export interface CheckoutSuccessProps { orderId?: string; }
@@ -21,9 +22,19 @@ function SuccessContent({ orderId }: CheckoutSuccessProps): ReactNode {
   const data = order.data;
   const due = data.amountDue ?? data.total;
   const paid = data.amountPaid ?? 0;
-  const message = data.paymentMode === 'cod' ? `Order placed — ${formatPrice(due)} is due on delivery.` : data.paymentMode === 'partial' ? `Advance payment of ${formatPrice(paid)} received; ${formatPrice(due)} remains due.` : data.paymentStatus === 'pending' ? 'Payment received. We are confirming its final status.' : 'Payment confirmed.';
   const orderPath = data.id ?? data._id;
-  return <main className="px-6 py-32 text-center lg:px-20"><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">{data.orderNumber ?? orderPath ?? COPY.checkout.pendingOrder}</p><h1 className="mt-4 font-display text-5xl">{COPY.checkout.success}</h1><p className="mx-auto mt-4 max-w-xl text-text-secondary">{message}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">{orderPath ? <Link href={ROUTES.orders + '/' + orderPath} className={primaryLink}>View order details</Link> : null}<Link href={ROUTES.orders} className={secondaryLink}>My orders</Link></div></main>;
+  if (isOrderPaymentFailed(data)) {
+    return <main className="px-6 py-32 text-center lg:px-20"><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">{data.orderNumber ?? orderPath ?? COPY.checkout.pendingOrder}</p><h1 className="mt-4 font-display text-5xl">{COPY.checkout.failure}</h1><p className="mx-auto mt-4 max-w-xl text-text-secondary">{COPY.checkout.failureBody}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href={ROUTES.checkout} className={primaryLink}>{COPY.checkout.retry}</Link><Link href={ROUTES.orders} className={secondaryLink}>{COPY.checkout.myOrders}</Link></div></main>;
+  }
+  if (!isOrderPaymentConfirmed(data)) {
+    return <main className="px-6 py-32 text-center lg:px-20"><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">{data.orderNumber ?? orderPath ?? COPY.checkout.pendingOrder}</p><h1 className="mt-4 font-display text-5xl">{COPY.checkout.pending}</h1><p className="mx-auto mt-4 max-w-xl text-text-secondary">{COPY.checkout.pendingBody}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">{orderPath ? <Link href={ROUTES.checkoutPending + '?order=' + encodeURIComponent(orderPath)} className={primaryLink}>{COPY.common.retry}</Link> : null}<Link href={ROUTES.orders} className={secondaryLink}>{COPY.checkout.myOrders}</Link></div></main>;
+  }
+  const message = data.paymentMode === 'cod'
+    ? COPY.checkout.codConfirmed.replace('{amount}', formatPrice(due))
+    : data.paymentMode === 'partial'
+      ? COPY.checkout.partialConfirmed.replace('{paid}', formatPrice(paid)).replace('{due}', formatPrice(due))
+      : COPY.checkout.onlineConfirmed;
+  return <main className="px-6 py-32 text-center lg:px-20"><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">{data.orderNumber ?? orderPath ?? COPY.checkout.pendingOrder}</p><h1 className="mt-4 font-display text-5xl">{COPY.checkout.success}</h1><p className="mx-auto mt-4 max-w-xl text-text-secondary">{message}</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">{orderPath ? <Link href={ROUTES.orders + '/' + orderPath} className={primaryLink}>{COPY.checkout.viewOrder}</Link> : null}<Link href={ROUTES.orders} className={secondaryLink}>{COPY.checkout.myOrders}</Link></div></main>;
 }
 
 export function CheckoutSuccess({ orderId }: CheckoutSuccessProps): ReactNode { return <AccountGuard><SuccessContent orderId={orderId} /></AccountGuard>; }

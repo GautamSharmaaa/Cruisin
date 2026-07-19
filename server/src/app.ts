@@ -19,17 +19,18 @@ import { ApiResponse } from './utils/api-response.js';
 
 export const createApp = (): Express => {
   const app = express();
+  morgan.token('safe-path', (req) => req.url?.split('?')[0] ?? '-');
   app.set('trust proxy', env.TRUST_PROXY);
-  if (env.SENTRY_DSN) Sentry.init({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV });
+  if (env.SENTRY_DSN) Sentry.init({ dsn: env.SENTRY_DSN, environment: env.APP_ENV });
   app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' ? { directives: { defaultSrc: ["'self'"], imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], connectSrc: ["'self'", env.CLIENT_URL, env.ADMIN_URL] } } : false }));
   app.use(cors({ origin: allowedBrowserOrigins, credentials: true }));
   app.use('/api/v1/payments/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use('/api/v1/payments/webhooks/razorpay', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use(cookieParser());
   app.use(mongoSanitizeMiddleware);
-  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+  app.use(morgan(env.NODE_ENV === 'production' ? ':remote-addr :method :safe-path :status :res[content-length] - :response-time ms' : 'dev'));
   app.get('/health', (_req, res) => { res.json(new ApiResponse({ status: 'ok' }, 'API healthy')); });
   app.get('/ready', async (_req, res) => {
     try {
