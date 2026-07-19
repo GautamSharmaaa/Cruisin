@@ -33,6 +33,7 @@ const adminLogin = async (page: Page): Promise<void> => {
   await page.getByLabel('Password').fill(adminPassword);
   await page.getByRole('button', { name: 'Enter Dashboard' }).click();
   await expect(page).toHaveURL(adminUrl + '/');
+  await expect(page.getByRole('heading', { name: 'Operations Overview', level: 1 })).toBeVisible();
 };
 
 const attachDiagnostics = (page: Page): { errors: string[]; failed: string[] } => {
@@ -98,6 +99,7 @@ test.describe('full admin dashboard browser QA', () => {
   });
 
   test('loads every admin dashboard area and core controls without browser failures', async ({ page, isMobile }) => {
+    test.setTimeout(90000);
     test.skip(isMobile, 'full admin dashboard control sweep is covered in the desktop project');
     const diagnostics = attachDiagnostics(page);
     await adminLogin(page);

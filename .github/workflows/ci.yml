@@ -54,9 +54,12 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+        env:
+          NODE_ENV: production
       - run: npm --workspace server run db:indexes
       - run: npm --workspace server run seed
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
         env:
           NODE_ENV: development
+          PLAYWRIGHT_PRODUCTION_SERVERS: 'true'

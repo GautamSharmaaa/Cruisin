@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const useProductionServers = process.env.PLAYWRIGHT_PRODUCTION_SERVERS === 'true';
+const frontendNodeEnv = useProductionServers ? 'production' : (process.env.NODE_ENV ?? 'development');
+const apiNodeEnv = useProductionServers ? 'test' : (process.env.NODE_ENV ?? 'development');
+
 export default defineConfig({
   testDir: './e2e',
   workers: 1,
@@ -11,22 +15,25 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'cd .. && npm --workspace client run dev',
+      command: useProductionServers ? 'cd .. && npm --workspace client run start' : 'cd .. && npm --workspace client run dev',
       url: process.env.PLAYWRIGHT_STOREFRONT_URL ?? 'http://localhost:3000',
       reuseExistingServer: true,
-      timeout: 120000
+      timeout: 120000,
+      env: { ...process.env, NODE_ENV: frontendNodeEnv }
     },
     {
-      command: 'cd .. && npm --workspace admin run dev',
+      command: useProductionServers ? 'cd .. && npm --workspace admin run start' : 'cd .. && npm --workspace admin run dev',
       url: process.env.PLAYWRIGHT_ADMIN_URL ?? 'http://localhost:3001',
       reuseExistingServer: true,
-      timeout: 120000
+      timeout: 120000,
+      env: { ...process.env, NODE_ENV: frontendNodeEnv }
     },
     {
-      command: 'cd .. && npm --workspace server run dev',
+      command: useProductionServers ? 'cd .. && npm --workspace server run start' : 'cd .. && npm --workspace server run dev',
       url: (process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000/api/v1').replace(/\/api\/v1$/, '') + '/health',
       reuseExistingServer: true,
-      timeout: 120000
+      timeout: 120000,
+      env: { ...process.env, NODE_ENV: apiNodeEnv }
     }
   ],
   projects: [

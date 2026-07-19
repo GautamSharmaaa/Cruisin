@@ -46,6 +46,7 @@ test.describe('supported cross-browser smoke contract', () => {
     await page.getByLabel('Password').fill(adminPassword);
     await page.getByRole('button', { name: 'Enter Dashboard' }).click();
     await expect(page).toHaveURL(adminUrl + '/');
+    await expect(page.getByRole('heading', { name: 'Operations Overview', exact: true })).toBeVisible();
     await page.goto(adminUrl + '/analytics');
     await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
     await expect(page.getByText('Net revenue', { exact: true })).toBeVisible();
