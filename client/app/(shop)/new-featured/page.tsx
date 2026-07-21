@@ -9,6 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return metadataFromSettings(settings, 'New & Featured');
 }
 
-export default function NewFeaturedPage(): ReactNode {
-  return <ProductListingPage pageType="landing" pageSlug="new-featured" featured />;
+export default async function NewFeaturedPage(): Promise<ReactNode> {
+  const settings = await loadPageSettingsServer('landing', 'new-featured');
+  return <ProductListingPage pageType="landing" pageSlug="new-featured" initialSettings={settings} featured />;
 }

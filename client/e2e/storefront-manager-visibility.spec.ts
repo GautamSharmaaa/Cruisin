@@ -64,7 +64,7 @@ const rowByText = (page: Page, text: string) => page.locator('tbody tr').filter(
 
 const expectOneRow = async (page: Page, text: string) => {
   const row = rowByText(page, text);
-  await expect(row).toHaveCount(1);
+  await expect(row).toHaveCount(1, { timeout: 15_000 });
   return row;
 };
 
@@ -168,10 +168,14 @@ const cleanupRecords = async (request: APIRequestContext, records?: Records): Pr
 const cleanupUiCrudRecords = async (request: APIRequestContext, records?: UiCrudRecords): Promise<void> => {
   if (!records) return;
   const authHeaders = headers(records.token);
-  if (records.navId) await request.delete(apiUrl + '/admin/navigation/' + records.navId, { headers: authHeaders }).catch(() => undefined);
-  if (records.collectionId) await request.put(apiUrl + '/admin/collections/' + records.collectionId, { headers: authHeaders, data: { isVisible: false, isPublished: false } }).catch(() => undefined);
-  if (records.tagId) await request.put(apiUrl + '/admin/tags/' + records.tagId, { headers: authHeaders, data: { isVisible: false } }).catch(() => undefined);
-  if (records.pageId) await request.put(apiUrl + '/admin/page-settings/' + records.pageId, { headers: authHeaders, data: { isPublished: false } }).catch(() => undefined);
+  const navId = records.navId ?? (records.navSlug ? (await adminNavigationBySlug(request, records.token, records.navSlug))?._id : undefined);
+  const collectionId = records.collectionId ?? (records.collectionSlug ? (await adminCollectionBySlug(request, records.token, records.collectionSlug))?._id : undefined);
+  const tagId = records.tagId ?? (records.tagSlug ? (await adminTagBySlug(request, records.token, records.tagSlug))?._id : undefined);
+  const pageId = records.pageId ?? (records.pageSlug ? (await adminPageBySlug(request, records.token, records.pageSlug))?._id : undefined);
+  if (navId) await request.delete(apiUrl + '/admin/navigation/' + navId, { headers: authHeaders }).catch(() => undefined);
+  if (collectionId) await request.put(apiUrl + '/admin/collections/' + collectionId, { headers: authHeaders, data: { isVisible: false, isPublished: false } }).catch(() => undefined);
+  if (tagId) await request.put(apiUrl + '/admin/tags/' + tagId, { headers: authHeaders, data: { isVisible: false } }).catch(() => undefined);
+  if (pageId) await request.put(apiUrl + '/admin/page-settings/' + pageId, { headers: authHeaders, data: { isPublished: false } }).catch(() => undefined);
 };
 
 test.describe('storefront manager visibility controls', () => {
@@ -283,7 +287,7 @@ test.describe('storefront manager visibility controls', () => {
       await adminLogin(page);
       await page.goto(adminUrl + '/storefront');
       await expect(page.getByRole('heading', { name: 'Storefront' })).toBeVisible();
-      for (const label of ['Navigation', 'Mega Menu', 'Collections', 'Filters', 'Pages', 'Settings']) {
+      for (const label of ['Navigation', 'Mega Menu', 'Collections', 'Filters', 'Pages', 'Delivery', 'Settings']) {
         await clickManagerTab(page, label);
         await expectNoHorizontalOverflow(page);
       }
@@ -303,8 +307,8 @@ test.describe('storefront manager button and CRUD coverage', () => {
     test.setTimeout(120000);
     test.skip(isMobile, 'button-by-button CRUD pass is covered in the desktop project');
     const token = await loginToken(request);
-    records = { token };
     const slug = 'button-crud-' + Date.now();
+    records = { token, navSlug: slug, collectionSlug: slug, tagSlug: slug, pageSlug: slug };
     const updatedSlug = slug + '-updated';
     const navLabel = 'Button CRUD Nav ' + slug;
     const navLabelUpdated = navLabel + ' Updated';
@@ -565,7 +569,49 @@ test.describe('storefront manager button and CRUD coverage', () => {
     await row.getByRole('button', { name: 'Show ' + pageTitleUpdated }).click();
     await expect(row.getByRole('button', { name: 'Hide ' + pageTitleUpdated })).toBeVisible();
 
-    const siteBefore = (await (await request.get(apiUrl + '/admin/site-settings', { headers: headers(token) })).json()).data as { defaultGridView: 1 | 2 | 4; isFlashlightEnabled: boolean };
+    const siteBefore = (await (await request.get(apiUrl + '/admin/site-settings', { headers: headers(token) })).json()).data as {
+      defaultGridView: 1 | 2 | 4;
+      isFlashlightEnabled: boolean;
+      standardShippingRate: number;
+      standardShippingCompareAt: number;
+      expressShippingRate: number;
+      freeStandardShippingThreshold: number;
+    };
+    await clickManagerTab(page, 'Delivery');
+    await page.getByLabel('Standard delivery charge (₹)').fill('99');
+    await page.getByLabel('Original price to strike out (₹)').fill('99');
+    await page.getByLabel('Express delivery charge (₹)').fill('199');
+    await page.getByLabel('Free standard delivery above (₹)').fill('1000');
+    await expect(page.getByText('Cart preview at threshold').locator('..')).toContainText('₹99');
+    await expect(page.getByText('Cart preview at threshold').locator('..')).toContainText('Free');
+    const deliverySave = page.waitForResponse((response) => response.url().endsWith('/admin/site-settings') && response.request().method() === 'PUT');
+    await page.getByRole('button', { name: 'Save Delivery Settings' }).click();
+    const deliverySaveBody = await (await deliverySave).json();
+    expect(deliverySaveBody.data).toMatchObject({
+      standardShippingRate: 99,
+      standardShippingCompareAt: 99,
+      expressShippingRate: 199,
+      freeStandardShippingThreshold: 1000
+    });
+    await expect.poll(async () => {
+      const body = await (await request.get(apiUrl + '/site-settings')).json();
+      return {
+        standardShippingRate: body.data.standardShippingRate,
+        standardShippingCompareAt: body.data.standardShippingCompareAt,
+        expressShippingRate: body.data.expressShippingRate,
+        freeStandardShippingThreshold: body.data.freeStandardShippingThreshold
+      };
+    }).toEqual({
+      standardShippingRate: 99,
+      standardShippingCompareAt: 99,
+      expressShippingRate: 199,
+      freeStandardShippingThreshold: 1000
+    });
+    await page.getByLabel('Standard delivery charge (₹)').fill('0');
+    await page.getByLabel('Free standard delivery above (₹)').fill('0');
+    await expect(page.getByText('Cart preview below threshold').locator('..')).toContainText('₹99');
+    await expect(page.getByText('Cart preview below threshold').locator('..')).toContainText('Free');
+
     await clickManagerTab(page, 'Settings');
     const nextGrid = siteBefore.defaultGridView === 4 ? 2 : 4;
     const gridSelect = page.getByLabel('Default Grid');

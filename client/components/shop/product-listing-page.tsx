@@ -38,6 +38,7 @@ export interface ProductListingPageProps {
   collectionSlug?: string;
   selectedCollection?: CollectionDto | null;
   initialCategory?: CategoryDto | null;
+  initialSettings?: PageSettingsDto | null;
   showCollectionCarousel?: boolean;
 }
 
@@ -60,7 +61,36 @@ const defaultGridView = (settings?: { defaultGridView?: GridView } | null, siteD
 
 const titleFromSlug = (slug: string): string => slug.split('/').at(-1)?.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') ?? slug;
 
-export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eyebrow, title, subtitle, gender, sale, featured, bestseller, latestDrop, categoryPath, collectionSlug, selectedCollection = null, initialCategory = null, showCollectionCarousel = false }: ProductListingPageProps): ReactNode {
+const legacyCategorySubtitle = /admin[-\s]managed cruisin category page\.?/i;
+
+const editorialSubtitle = (value: string, title: string): string => {
+  if (value && !legacyCategorySubtitle.test(value.trim())) return value;
+  return `The ${title} edit—considered proportions, everyday utility, and pieces built for repeat wear.`;
+};
+
+function ListingEditorialHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }): ReactNode {
+  return <div data-testid="listing-editorial-header" className="relative isolate overflow-hidden border-y border-border-subtle py-7 md:py-10">
+    <div className="flex items-center gap-3">
+      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rotate-45 bg-accent-gold" />
+      <p className="font-accent text-[10px] uppercase tracking-[0.24em] text-accent-gold md:text-xs">{eyebrow}</p>
+    </div>
+
+    <div className="grid gap-8 py-9 md:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.5fr)] md:items-end md:gap-16 md:py-12">
+      <h1 className="max-w-[13ch] break-words font-display text-[clamp(54px,8vw,108px)] font-light leading-[0.9] tracking-[-0.05em] text-text-primary">{title}</h1>
+
+      <aside className="max-w-md border-t border-border-subtle pt-5 md:border-l md:border-t-0 md:pl-7 md:pt-0">
+        <p className="font-accent text-[10px] uppercase tracking-[0.22em] text-accent-gold">Edition note</p>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">{subtitle}</p>
+      </aside>
+    </div>
+
+    <div data-testid="listing-running-strip" aria-hidden="true" className="relative h-px overflow-hidden bg-border-subtle">
+      <span className="listing-index-scan absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-accent-gold to-transparent" />
+    </div>
+  </div>;
+}
+
+export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eyebrow, title, subtitle, gender, sale, featured, bestseller, latestDrop, categoryPath, collectionSlug, selectedCollection = null, initialCategory = null, initialSettings = null, showCollectionCarousel = false }: ProductListingPageProps): ReactNode {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -75,7 +105,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const [spotlight, setSpotlight] = useState(false);
   const [view, setView] = useState<GridView>(4);
   const [hydrated, setHydrated] = useState(initialCategory === null);
-  const settings = pageSettings.data;
+  const settings = pageSettings.data ?? initialSettings;
   const categoryData = initialCategory ?? category.data;
   const browsingSettings = {
     defaultSort: selectedCollection?.defaultSort ?? categoryData?.defaultSort ?? settings?.defaultSort ?? 'newest',
@@ -173,7 +203,8 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const mobileHeroVideo = selectedCollection?.mobileCollectionVideo || settings?.mobileHeroVideo || categoryData?.mobileCategoryVideo || heroVideo;
   const videoPoster = selectedCollection?.videoPosterImage || settings?.videoPosterImage || categoryData?.videoPosterImage || mobileHeroImage || heroImage;
   const pageTitle = selectedCollection?.heroTitle || selectedCollection?.title || categoryData?.heroTitle || categoryData?.name || settings?.title || title || titleFromSlug(pageSlug);
-  const pageSubtitle = selectedCollection?.heroSubtitle || selectedCollection?.description || categoryData?.heroSubtitle || categoryData?.description || settings?.subtitle || subtitle || '';
+  const rawPageSubtitle = selectedCollection?.heroSubtitle || selectedCollection?.description || categoryData?.heroSubtitle || categoryData?.description || settings?.subtitle || subtitle || '';
+  const pageSubtitle = editorialSubtitle(rawPageSubtitle, pageTitle);
   const bannerVisible = selectedCollection?.isBannerVisible ?? settings?.isBannerVisible ?? Boolean(categoryData?.bannerImage || categoryData?.bannerTitle);
   const bannerImage = selectedCollection?.bannerImage || settings?.bannerImage || categoryData?.bannerImage;
   const mobileBannerImage = selectedCollection?.mobileBannerImage || settings?.mobileBannerImage || categoryData?.mobileBannerImage || bannerImage;
@@ -181,6 +212,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const mobileBannerVideo = settings?.mobileBannerVideo || bannerVideo;
   const bannerTitle = categoryData?.bannerTitle || settings?.ctaText || pageTitle;
   const bannerSubtitle = categoryData?.bannerSubtitle || settings?.subtitle || '';
+  const heroMediaVisible = siteSettings.isSuccess && (siteSettings.data?.isListingHeroMediaEnabled ?? true);
   const filtersVisible = browsingSettings.areFiltersVisible;
   const advancedVisible = browsingSettings.isAdvancedFilterEnabled && (siteSettings.data?.isAdvancedFilterEnabled ?? true);
   const flashlightVisible = browsingSettings.isFlashlightEnabled && (siteSettings.data?.isFlashlightEnabled ?? true);
@@ -239,12 +271,10 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
 
   if (!hydrated && initialCategory) {
     const initialTitle = initialCategory.heroTitle || initialCategory.name || titleFromSlug(pageSlug);
-    const initialSubtitle = initialCategory.heroSubtitle || initialCategory.description || '';
+    const initialSubtitle = editorialSubtitle(initialCategory.heroSubtitle || initialCategory.description || '', initialTitle);
     return <main className="px-6 pb-24 pt-10 lg:px-20 lg:pt-14">
-      <section className="border-b border-border-subtle pb-10">
-        <p className="font-accent text-xs uppercase tracking-[0.2em] text-accent-gold">{eyebrow}</p>
-        <h1 className="mt-3 font-display text-5xl font-light text-text-primary md:text-hero">{initialTitle}</h1>
-        {initialSubtitle ? <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">{initialSubtitle}</p> : null}
+      <section className="pb-10">
+        <ListingEditorialHeader eyebrow={eyebrow} title={initialTitle} subtitle={initialSubtitle} />
       </section>
       <section className="grid grid-cols-1 gap-3 pt-10 md:grid-cols-2 md:gap-px xl:grid-cols-4" aria-label="Loading products">
         {[0, 1, 2, 3].map((item) => <SkeletonCard key={item} />)}
@@ -255,7 +285,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   return (
     <main className="px-6 pb-24 pt-10 lg:px-20 lg:pt-14">
       <section className="relative overflow-hidden border-b border-border-subtle pb-10">
-        {heroVideo || heroImage ? <div className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-20">
+        {heroMediaVisible && (heroVideo || heroImage) ? <div data-testid="listing-hero-media" className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-20">
           {heroVideo ? <>
             <video src={heroVideo} poster={videoPoster} className="hidden h-full w-full object-cover sm:block" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
             <video src={mobileHeroVideo || heroVideo} poster={videoPoster} className="h-full w-full object-cover sm:hidden" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
@@ -266,13 +296,9 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
           <div className="absolute inset-0 bg-gradient-to-b from-background-primary/20 to-background-primary" />
         </div> : null}
         {showCollectionCarousel && (siteSettings.data?.isCollectionCarouselEnabled ?? true) ? <div className="mb-10"><CollectionCarousel collections={collections.data ?? []} activeSlug={collectionSlug} /></div> : null}
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-3xl">
-            <p className="font-accent text-xs uppercase tracking-[0.2em] text-accent-gold">{eyebrow}</p>
-            <h1 className="mt-3 font-display text-5xl font-light text-text-primary md:text-hero">{pageTitle}</h1>
-            {pageSubtitle ? <p className="mt-4 max-w-2xl text-sm leading-6 text-text-secondary">{pageSubtitle}</p> : null}
-            <p className="mt-4 text-sm text-text-secondary">{COPY.shop.showing} {items.length} of {total} {COPY.shop.items}</p>
-          </div>
+        <ListingEditorialHeader eyebrow={eyebrow} title={pageTitle} subtitle={pageSubtitle} />
+        <div data-testid="listing-toolbar" className="mt-5 flex flex-col gap-4 border-b border-border-subtle pb-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3 font-accent text-[10px] uppercase tracking-[0.2em] text-text-muted"><span aria-hidden="true" className="h-px w-8 bg-accent-gold" />Refine the edit</div>
           <div className="flex flex-wrap items-center gap-3">
             {flashlightVisible ? <FlashlightToggle active={spotlight} onToggle={() => setSpotlight((current) => !current)} /> : null}
             <GridViewToggle value={view} onChange={updateView} />

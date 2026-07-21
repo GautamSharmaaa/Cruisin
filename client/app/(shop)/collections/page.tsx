@@ -9,6 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return metadataFromSettings(settings, 'Collections');
 }
 
-export default function CollectionsPage(): ReactNode {
-  return <ProductListingPage pageType="collections" pageSlug="index" showCollectionCarousel />;
+export default async function CollectionsPage(): Promise<ReactNode> {
+  const settings = await loadPageSettingsServer('collections', 'index');
+  return <ProductListingPage pageType="collections" pageSlug="index" initialSettings={settings} showCollectionCarousel />;
 }

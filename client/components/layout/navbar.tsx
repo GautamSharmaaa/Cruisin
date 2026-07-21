@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 
-import { Heart, Search, ShoppingBag } from 'lucide-react';
+import { Heart, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -11,6 +11,7 @@ import { MobileNav } from '@/components/layout/mobile-nav';
 import { AccountMenu } from '@/components/layout/account-menu';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { SearchModal } from '@/components/shared/search-modal';
+import { RevolvingBag } from '@/components/shared/revolving-bag';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useNavigation, useSiteSettings } from '@/hooks/useMerchandising';
@@ -98,9 +99,9 @@ export function Navbar(_props: NavbarProps): ReactNode {
         <div className="flex min-w-0 items-center justify-start gap-2">
           {navItems.length > 0 ? <AnimatedMenuButton open={Boolean(activeId) || mobile} onClick={openMenu} /> : null}
         </div>
-        <Link href={ROUTES.home} className="min-w-0 text-center font-display text-xl leading-none text-text-primary transition duration-300 hover:text-accent-gold lg:text-2xl">
+        <Link href={ROUTES.home} className="brand-wordmark-script min-w-0 text-center text-[28px] leading-none text-text-primary transition duration-300 hover:text-accent-gold lg:text-[30px]">
           <span className="block leading-none">{COPY.brand.name}</span>
-          <span className="mt-1 hidden font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted xl:block">{COPY.brand.tagline}</span>
+          <span data-testid="animated-brand-tagline" className="brand-tagline-motion mt-1 hidden font-accent text-[9px] uppercase tracking-[0.2em] xl:block">{COPY.brand.tagline}</span>
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
           <button aria-label={COPY.nav.search} className="hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-text-primary md:flex" onClick={() => { setActiveId(null); setMobile(false); setSearch(true); }}><Search size={18} /></button>
@@ -110,7 +111,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           </button>
           <AccountMenu />
           <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
-            <ShoppingBag size={18} />
+            <RevolvingBag size="icon" />
             {cartCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{cartCount}</span> : null}
           </button>
         </div>
@@ -146,27 +147,30 @@ function AnimatedMenuButton({ open, onClick }: { open: boolean; onClick: () => v
       className="group relative flex h-11 w-11 items-center justify-center text-text-primary transition duration-300 hover:text-accent-gold"
     >
       <span className="sr-only">{COPY.nav.menu}</span>
-      <span className="relative block h-4 w-6">
+      <span data-testid="sleek-menu-mark" className="relative block h-[18px] w-7">
         <motion.span
           aria-hidden="true"
-          className="absolute left-0 top-0 h-px w-6 bg-current"
-          animate={open ? { y: 7, rotate: 45, width: 24 } : { y: 0, rotate: 0, width: 24 }}
+          data-menu-line="top"
+          className="absolute left-0 top-0.5 h-px w-7 origin-center rounded-full bg-current"
+          animate={open ? { x: 2, y: 7, rotate: 45, width: 24, opacity: 1 } : { x: 0, y: 0, rotate: 0, width: 28, opacity: 1 }}
           transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
         />
         <motion.span
           aria-hidden="true"
-          className="absolute left-0 top-[7px] h-px w-4 bg-current"
-          animate={open ? { opacity: 0, x: 8, width: 0 } : { opacity: 1, x: 0, width: 16 }}
+          data-menu-line="middle"
+          className="absolute left-1 top-2 h-px w-5 rounded-full bg-current"
+          animate={open ? { opacity: 0, x: 10, width: 0 } : { opacity: 0.78, x: 0, width: 20 }}
           transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
         />
         <motion.span
           aria-hidden="true"
-          className="absolute bottom-0 left-0 h-px w-6 bg-current"
-          animate={open ? { y: -7, rotate: -45, width: 24 } : { y: 0, rotate: 0, width: 24 }}
+          data-menu-line="bottom"
+          className="absolute bottom-0.5 left-2 h-px w-3 origin-center rounded-full bg-current"
+          animate={open ? { x: -6, y: -7, rotate: -45, width: 24, opacity: 1 } : { x: 0, y: 0, rotate: 0, width: 12, opacity: 0.56 }}
           transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
         />
       </span>
-      <span className="absolute inset-0 scale-75 border border-accent-gold/0 opacity-0 transition duration-300 group-hover:scale-100 group-hover:border-accent-gold/35 group-hover:opacity-100" />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-2 scale-75 rounded-full bg-accent-gold/0 blur-md transition duration-300 group-hover:scale-100 group-hover:bg-accent-gold/10" />
     </button>
   );
 }

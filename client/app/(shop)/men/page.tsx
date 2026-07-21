@@ -9,6 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return metadataFromSettings(settings, 'Men');
 }
 
-export default function MenPage(): ReactNode {
-  return <ProductListingPage pageType="landing" pageSlug="men" gender="men" />;
+export default async function MenPage(): Promise<ReactNode> {
+  const settings = await loadPageSettingsServer('landing', 'men');
+  return <ProductListingPage pageType="landing" pageSlug="men" initialSettings={settings} gender="men" />;
 }

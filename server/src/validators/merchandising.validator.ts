@@ -160,7 +160,12 @@ export const siteSettingsBodySchema = z.object({
   isFlashlightEnabled: z.boolean().default(true),
   isCollectionCarouselEnabled: z.boolean().default(true),
   isAdvancedFilterEnabled: z.boolean().default(true),
+  isListingHeroMediaEnabled: z.boolean().default(true),
   isStorefrontNavigationVisible: z.boolean().default(true),
+  standardShippingRate: z.number().min(0).max(100_000).default(900),
+  expressShippingRate: z.number().min(0).max(100_000).default(1800),
+  freeStandardShippingThreshold: z.number().min(0).max(1_000_000).default(25_000),
+  standardShippingCompareAt: z.number().min(0).max(100_000).default(0),
   globalFilterSettings: z.record(z.unknown()).default({})
 });
 

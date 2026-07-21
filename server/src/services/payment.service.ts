@@ -79,10 +79,10 @@ export class RazorpayProvider implements PaymentProvider {
       const remainingAmount = capturedAmount - refundedAmount;
       if (!Number.isSafeInteger(remainingAmount) || remainingAmount <= 0 || requestedAmount > remainingAmount) throw new ApiError(400, 'Refund exceeds provider refundable balance');
       const requestBody: Record<string, unknown> = {
+        amount: requestedAmount,
         receipt: idempotencyKey,
         notes: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value).slice(0, 256)]))
       };
-      if (requestedAmount < remainingAmount) requestBody.amount = requestedAmount;
       const response = await axios.post(
         `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`,
         requestBody,
@@ -101,6 +101,25 @@ export class RazorpayProvider implements PaymentProvider {
       const statusCode = axios.isAxiosError(error) && error.response?.status === 400 ? 400 : 502;
       if (error instanceof ApiError) throw error;
       throw new ApiError(statusCode, description || 'Refund provider unavailable');
+    }
+  }
+
+  public async fetchRefund(refundId: string): Promise<Refund> {
+    try {
+      const auth = { username: env.RAZORPAY_KEY_ID, password: env.RAZORPAY_KEY_SECRET };
+      const response = await axios.get(`https://api.razorpay.com/v1/refunds/${encodeURIComponent(refundId)}`, { auth });
+      const refund = response.data as { id?: unknown; amount?: unknown; status?: unknown };
+      const amountInPaise = Number(refund.amount);
+      if (typeof refund.id !== 'string' || typeof refund.status !== 'string' || !Number.isSafeInteger(amountInPaise) || amountInPaise < 0) throw new ApiError(502, 'Invalid refund response from provider');
+      return { id: refund.id, amount: amountInPaise / 100, status: refund.status };
+    } catch (error: unknown) {
+      if (error instanceof ApiError) throw error;
+      const providerError = axios.isAxiosError(error) && typeof error.response?.data === 'object' && error.response.data !== null && 'error' in error.response.data
+        ? (error.response.data as { error?: { description?: unknown } }).error
+        : undefined;
+      const description = typeof providerError?.description === 'string' ? providerError.description : '';
+      const statusCode = axios.isAxiosError(error) && error.response?.status === 400 ? 400 : 502;
+      throw new ApiError(statusCode, description || 'Refund status unavailable');
     }
   }
 }
@@ -165,5 +184,9 @@ export class PaymentService {
 
   public static async refund(method: PaymentMethod, paymentId: string, amount: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<Refund> {
     return this.getProvider(method).createRefund(paymentId, amount, idempotencyKey, metadata);
+  }
+
+  public static async fetchRazorpayRefund(refundId: string): Promise<Refund> {
+    return new RazorpayProvider().fetchRefund(refundId);
   }
 }

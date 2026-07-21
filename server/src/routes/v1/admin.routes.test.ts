@@ -80,14 +80,14 @@ describe('admin analytics route auth', () => {
     expect(response.status).toBe(403);
   });
 
-  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund']) {
+  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund', '/admin/orders/000000000000000000000000/sync-refund']) {
     it(`blocks customer access to ${path}`, async () => {
       const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('customer')).send({ amount: 1 });
       expect(response.status).toBe(403);
     });
   }
 
-  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund']) {
+  for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund', '/admin/orders/000000000000000000000000/sync-refund']) {
     it(`blocks read-only viewers from financial mutation ${path}`, async () => {
       const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('viewer')).send({ amount: 1 });
       expect(response.status).toBe(403);

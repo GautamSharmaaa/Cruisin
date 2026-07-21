@@ -9,6 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return metadataFromSettings(settings, 'Sale');
 }
 
-export default function SalePage(): ReactNode {
-  return <ProductListingPage pageType="landing" pageSlug="sale" sale />;
+export default async function SalePage(): Promise<ReactNode> {
+  const settings = await loadPageSettingsServer('landing', 'sale');
+  return <ProductListingPage pageType="landing" pageSlug="sale" initialSettings={settings} sale />;
 }

@@ -1,10 +1,11 @@
 // Governed by .rules v1.0
 'use client';
 
-import { GoogleLogin } from '@react-oauth/google';
+import { useGoogleOAuth, type CredentialResponse, type GsiButtonConfiguration, type IdConfiguration } from '@react-oauth/google';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,21 @@ type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
 type OtpVerifyForm = z.infer<typeof otpVerifySchema>;
 
+interface GoogleAuthButtonProps {
+  tab: AuthTab;
+  width: number;
+  onCredential: (credential: string) => void;
+}
+
+interface GoogleIdentityApi {
+  initialize: (configuration: IdConfiguration) => void;
+  renderButton: (parent: HTMLElement, configuration: GsiButtonConfiguration & { locale?: string }) => void;
+}
+
+interface GoogleIdentityWindow extends Window {
+  google?: { accounts: { id: GoogleIdentityApi } };
+}
+
 const destinationFor = (user: User): string => user.profileIncomplete ? ROUTES.account + '?complete=1' : ROUTES.account;
 
 export interface AuthPageProps {
@@ -38,6 +54,8 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   const [phoneError, setPhoneError] = useState('');
   const [secondsRemaining, setSecondsRemaining] = useState(0);
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [googleButtonWidth, setGoogleButtonWidth] = useState(360);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const login = useLogin();
   const registerMutation = useRegister();
   const googleLogin = useGoogleLogin();
@@ -57,6 +75,16 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
     const timer = window.setInterval(() => setSecondsRemaining((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(timer);
   }, [secondsRemaining]);
+
+  useEffect(() => {
+    const element = googleButtonRef.current;
+    if (!element || !IDENTITY_CONFIG.googleClientId) return;
+    const updateWidth = (): void => setGoogleButtonWidth(Math.max(220, Math.min(400, Math.floor(element.clientWidth - 2))));
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const resetOtp = (): void => {
     requestOtp.reset();
@@ -105,14 +133,21 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   const channelLabel = 'WhatsApp';
 
   return (
-    <main className="min-h-dvh px-6 py-28 lg:px-20">
-      <div className="mx-auto grid max-w-[1100px] overflow-hidden border border-border bg-background-elevated lg:grid-cols-[0.8fr_1.2fr]">
-        <section className="hidden min-h-[720px] flex-col justify-between bg-background-overlay p-10 lg:flex">
-          <div>
-            <p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{COPY.brand.label}</p>
-            <h1 className="mt-6 font-display text-5xl text-text-primary">{COPY.brand.name}</h1>
+    <main className="min-h-dvh px-6 pb-28 pt-4 sm:pt-6 lg:px-20 lg:py-28">
+      <div data-testid="auth-shell" className="mx-auto grid max-w-[1100px] overflow-hidden border border-border bg-background-elevated lg:grid-cols-[0.8fr_1.2fr]">
+        <section data-testid="auth-brand-panel" className="relative hidden min-h-[720px] flex-col justify-between overflow-hidden bg-background-overlay p-10 lg:flex">
+          <div data-testid="auth-brand-artwork" className="absolute inset-0" aria-hidden="true">
+            <div data-testid="auth-brand-image-stage" className="absolute inset-x-0 top-0 h-[960px]">
+              <Image src="/cruisin-auth-monogram.webp" alt="" fill priority sizes="(min-width: 1024px) 440px, 0px" className="object-cover object-[50%_48%] opacity-95" />
+            </div>
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,15,15,0.96)_0%,rgba(15,15,15,0.42)_24%,rgba(15,15,15,0.06)_58%,rgba(15,15,15,0.88)_100%)]" />
+            <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,8,8,0.16),transparent_30%,transparent_70%,rgba(8,8,8,0.2))]" />
           </div>
-          <p className="max-w-sm text-base leading-7 text-text-secondary">{COPY.brand.tagline}</p>
+          <div className="relative z-10 shrink-0">
+            <h1 data-testid="auth-brand-wordmark" className="brand-wordmark-script auth-wordmark-motion -ml-4 text-[5.5rem] leading-none">{COPY.brand.name}</h1>
+            <p data-testid="auth-brand-label" className="mt-5 font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{COPY.brand.label}</p>
+          </div>
+          <p className="relative z-10 max-w-sm shrink-0 text-base leading-7 text-text-secondary">{COPY.brand.tagline}</p>
         </section>
 
         <section className="p-6 sm:p-10 lg:p-14">
@@ -121,28 +156,27 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
             <button type="button" role="tab" aria-selected={tab === 'signup'} onClick={() => selectTab('signup')} className={'h-12 text-xs uppercase tracking-[0.1em] ' + (tab === 'signup' ? 'bg-accent-gold text-text-inverse' : 'text-text-secondary')}>Create Account</button>
           </div>
 
-          <h2 className="mt-8 font-display text-4xl text-text-primary">{tab === 'signin' ? COPY.auth.signIn : COPY.auth.createAccount}</h2>
-          <p className="mt-3 text-sm text-text-secondary">Choose how you would like to continue.</p>
+          <h2 className="sr-only">{tab === 'signin' ? COPY.auth.signIn : COPY.auth.createAccount}</h2>
+          <p className="mt-8 text-sm text-text-secondary">Choose how you would like to continue.</p>
 
-          <div className="mt-7 grid gap-3">
-            {IDENTITY_CONFIG.googleClientId ? (
-              <div className="flex min-h-11 items-center justify-center overflow-hidden border border-border">
-                <GoogleLogin
-                  onSuccess={(response) => {
-                    if (response.credential) googleLogin.mutate(response.credential, { onSuccess: (data) => finishAuth(data.user) });
-                  }}
-                  onError={() => undefined}
-                  width="360"
-                  theme="filled_black"
-                  shape="rectangular"
-                  text={tab === 'signup' ? 'signup_with' : 'continue_with'}
-                />
-              </div>
-            ) : (
-              <Button type="button" variant="secondary" disabled className="w-full">{COPY.auth.googleMethod}</Button>
-            )}
-            <Button type="button" variant={method === 'whatsapp' ? 'primary' : 'secondary'} onClick={() => selectMethod('whatsapp')} className="w-full">Continue with WhatsApp OTP</Button>
-            <Button type="button" variant={method === 'email' ? 'primary' : 'secondary'} onClick={() => selectMethod('email')} className="w-full">Continue with Email</Button>
+          <div className="mt-7">
+            <p className="text-center font-accent text-[10px] uppercase tracking-[0.22em] text-accent-gold">Secure account access</p>
+            <div data-testid="auth-method-stack" className="mx-auto mt-4 grid w-full max-w-[400px] gap-3">
+              {IDENTITY_CONFIG.googleClientId ? (
+                <div ref={googleButtonRef} data-testid="google-auth-frame" className="flex min-h-12 w-full items-center justify-center overflow-hidden border border-accent-gold/30 bg-[#202124] p-px shadow-[0_10px_32px_rgba(0,0,0,0.28)] transition duration-300 hover:border-accent-gold/60">
+                  <GoogleAuthButton
+                    tab={tab}
+                    width={googleButtonWidth}
+                    onCredential={(credential) => googleLogin.mutate(credential, { onSuccess: (data) => finishAuth(data.user) })}
+                  />
+                </div>
+              ) : (
+                <Button type="button" variant="secondary" disabled className="w-full">{COPY.auth.googleMethod}</Button>
+              )}
+              <div className="flex items-center gap-3 py-1" aria-hidden="true"><span className="h-px flex-1 bg-border" /><span className="font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">Other secure methods</span><span className="h-px flex-1 bg-border" /></div>
+              <Button type="button" variant={method === 'whatsapp' ? 'primary' : 'secondary'} onClick={() => selectMethod('whatsapp')} className="w-full">Continue with WhatsApp OTP</Button>
+              <Button type="button" variant={method === 'email' ? 'primary' : 'secondary'} onClick={() => selectMethod('email')} className="w-full">Continue with Email</Button>
+            </div>
           </div>
 
           {method === 'email' && tab === 'signin' ? (
@@ -192,4 +226,42 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
       </div>
     </main>
   );
+}
+
+function GoogleAuthButton({ tab, width, onCredential }: GoogleAuthButtonProps): ReactNode {
+  const buttonRef = useRef<HTMLDivElement | null>(null);
+  const onCredentialRef = useRef(onCredential);
+  const { clientId, locale, scriptLoadedSuccessfully } = useGoogleOAuth();
+  onCredentialRef.current = onCredential;
+
+  useEffect(() => {
+    if (!scriptLoadedSuccessfully) return;
+    const identity = (window as GoogleIdentityWindow).google?.accounts.id;
+    identity?.initialize({
+      client_id: clientId,
+      callback: (response: CredentialResponse) => {
+        if (response.credential) onCredentialRef.current(response.credential);
+      }
+    });
+  }, [clientId, scriptLoadedSuccessfully]);
+
+  useEffect(() => {
+    const element = buttonRef.current;
+    if (!element || !scriptLoadedSuccessfully) return;
+    const identity = (window as GoogleIdentityWindow).google?.accounts.id;
+    if (!identity) return;
+    element.replaceChildren();
+    identity.renderButton(element, {
+      type: 'standard',
+      theme: 'filled_black',
+      size: 'large',
+      text: tab === 'signup' ? 'signup_with' : 'continue_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      width,
+      locale
+    });
+  }, [locale, scriptLoadedSuccessfully, tab, width]);
+
+  return <div ref={buttonRef} className="h-10" />;
 }

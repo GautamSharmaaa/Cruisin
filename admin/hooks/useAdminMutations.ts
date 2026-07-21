@@ -332,7 +332,7 @@ export const useUpdateOrderStatus = () => {
 export const useOrderPaymentAction = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; action: 'mark-cod-paid' | 'mark-partial-paid' | 'refund'; amount?: number; reason?: string; idempotencyKey?: string }): Promise<void> => {
+    mutationFn: async (input: { id: string; action: 'mark-cod-paid' | 'mark-partial-paid' | 'refund' | 'sync-refund'; amount?: number; reason?: string; idempotencyKey?: string }): Promise<void> => {
       if (input.action === 'refund') await api.post('/admin/orders/' + input.id + '/refund', { amount: input.amount, reason: input.reason, idempotencyKey: input.idempotencyKey });
       else await api.post('/admin/orders/' + input.id + '/' + input.action);
     },

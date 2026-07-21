@@ -5,6 +5,7 @@ import { CouponModel } from '../models/coupon.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { PaymentWebhookEventModel } from '../models/payment-webhook-event.model.js';
 import { ProductModel } from '../models/product.model.js';
+import { SiteSettingsModel } from '../models/site-settings.model.js';
 import { UserModel } from '../models/user.model.js';
 import type { CheckoutPaymentMode, PaymentMethod } from '../types/payment.types.js';
 import { ApiError } from '../utils/api-error.js';
@@ -19,6 +20,10 @@ type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInp
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const shippingSettings = async (): Promise<{ standardShippingRate?: number; expressShippingRate?: number; freeStandardShippingThreshold?: number }> => {
+  const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('standardShippingRate expressShippingRate freeStandardShippingThreshold').lean();
+  return settings ?? {};
+};
 const orderNumber = (): string => `CR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 const orderStatusTransitions: Record<string, string[]> = {
   pending: ['confirmed', 'cancelled'],
@@ -29,6 +34,40 @@ const orderStatusTransitions: Record<string, string[]> = {
   delivered: ['returned'],
   returned: [],
   cancelled: []
+};
+const customerCancellationReasons = {
+  changed_mind: 'Changed my mind',
+  wrong_item: 'Ordered the wrong size or item',
+  delivery_too_slow: 'Delivery timing no longer works',
+  found_better_option: 'Found a better alternative',
+  other: 'Other reason'
+} as const;
+type CustomerCancellationReasonCode = keyof typeof customerCancellationReasons;
+type CustomerCancellationInput = { reasonCode: CustomerCancellationReasonCode; details?: string };
+const customerCancellableStatuses = new Set(['pending', 'placed', 'confirmed', 'processing']);
+const normalizeOrderRead = (order: unknown): unknown => {
+  if (!order || typeof order !== 'object') return order;
+  const view = order as { orderStatus?: string; amountDue?: number };
+  return view.orderStatus === 'cancelled' && view.amountDue !== 0 ? { ...order, amountDue: 0 } : order;
+};
+type CancellationRefundOrder = {
+  amountPaid: number;
+  refundAmount?: number | null;
+  refunds: Array<{ amount: number; status: string }>;
+  cancellation?: { refundStatus: string; refundAmount: number } | null;
+};
+const reconcileCancellationRefundState = (order: CancellationRefundOrder): void => {
+  if (!order.cancellation) return;
+  const processed = money(order.refunds.filter((refund) => refund.status === 'processed').reduce((sum, refund) => sum + refund.amount, 0));
+  const pending = order.refunds.some((refund) => ['created', 'pending'].includes(refund.status));
+  const failed = order.refunds.some((refund) => refund.status === 'failed');
+  order.cancellation.refundAmount = processed;
+  if (order.amountPaid <= 0) order.cancellation.refundStatus = 'not_required';
+  else if (processed >= order.amountPaid) order.cancellation.refundStatus = 'refunded';
+  else if (pending) order.cancellation.refundStatus = 'pending';
+  else if (processed > 0) order.cancellation.refundStatus = 'partially_refunded';
+  else if (failed) order.cancellation.refundStatus = 'failed';
+  else order.cancellation.refundStatus = 'required';
 };
 const webhookEntity = (value: unknown): Record<string, unknown> | undefined => value && typeof value === 'object' && 'entity' in value && (value as { entity?: unknown }).entity && typeof (value as { entity?: unknown }).entity === 'object' ? (value as { entity: Record<string, unknown> }).entity : undefined;
 const webhookAuditPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
@@ -181,6 +220,7 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
   const order = await OrderModel.findOneAndUpdate(
     {
       _id: orderId,
+      orderStatus: { $ne: 'cancelled' },
       paymentStatus: { $nin: ['paid', 'partially_paid', 'partially_refunded', 'refunded'] },
       $or: [{ paymentSettlementStartedAt: { $exists: false } }, { paymentSettlementStartedAt: { $lt: staleSettlement } }]
     },
@@ -193,6 +233,21 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
     if (['paid', 'partially_paid', 'partially_refunded', 'refunded'].includes(current.paymentStatus)) {
       const existingAttempt = [...current.paymentAttempts].reverse().find((attempt) => attempt.providerPaymentId === paymentId || (!attempt.providerPaymentId && attempt.providerOrderId === (current.razorpayOrderId ?? current.stripePaymentIntentId)));
       if (reconcilePaymentAttempt(current as unknown as MutablePaymentOrder, paymentId, existingAttempt?.amount ?? current.amountPaid, 'captured', existingAttempt?.method ?? undefined)) await current.save();
+      return current;
+    }
+    if (current.orderStatus === 'cancelled') {
+      const matchingAttempt = [...current.paymentAttempts].reverse().find((attempt) => attempt.providerOrderId === (current.razorpayOrderId ?? current.stripePaymentIntentId));
+      const capturedAmount = current.paymentMode === 'partial' ? money(matchingAttempt?.amount ?? 0) : current.total;
+      if (capturedAmount <= 0 || capturedAmount > current.total) throw new ApiError(409, 'Cancelled-order payment amount could not be reconciled');
+      current.amountPaid = money(Math.min(current.total, current.amountPaid + capturedAmount));
+      current.amountDue = 0;
+      current.razorpayPaymentId = paymentId;
+      current.paymentStatus = current.paymentMode === 'partial' ? 'partially_paid' : 'paid';
+      reconcilePaymentAttempt(current as unknown as MutablePaymentOrder, paymentId, capturedAmount, 'captured', method);
+      reconcileCancellationRefundState(current as unknown as CancellationRefundOrder);
+      current.timeline.push({ status: 'refund_required', timestamp: new Date(), note: 'Payment captured after cancellation; admin refund required' });
+      current.paymentSettlementStartedAt = undefined;
+      await current.save();
       return current;
     }
     throw new ApiError(409, 'Payment settlement is already in progress');
@@ -250,7 +305,7 @@ export const OrderService = {
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
     const shippingMethod = input.shippingMethod ?? 'standard';
-    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod);
+    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
     const tax = Math.round((subtotal - discount) * 0.18);
     const total = money(subtotal - discount + shipping + tax);
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
@@ -295,7 +350,7 @@ export const OrderService = {
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
     const shippingMethod = input.shippingMethod ?? 'standard';
-    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod);
+    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
     const tax = Math.round((subtotal - discount) * 0.18);
     const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
@@ -366,6 +421,7 @@ export const OrderService = {
     const refunded = order.refunds.filter((candidate) => candidate.status === 'processed').reduce((sum, candidate) => sum + candidate.amount, 0);
     order.refundAmount = refunded;
     if (status === 'processed') order.paymentStatus = refunded >= order.amountPaid ? 'refunded' : 'partially_refunded';
+    reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
     if (statusChanged) order.timeline.push({ status: status === 'processed' ? order.paymentStatus : 'refund_failed', timestamp: new Date(), note: `Razorpay refund ${status}` });
     await order.save();
   },
@@ -380,7 +436,7 @@ export const OrderService = {
       return { id: existingRequest.providerRefundId, amount: existingRequest.amount, status: existingRequest.status, reused: true };
     }
     if (order.paymentProvider !== 'razorpay' || !order.razorpayPaymentId) throw new ApiError(400, 'Only captured online payments can be refunded through Razorpay');
-    const alreadyRefunded = order.refunds.filter((refund) => ['created', 'processed'].includes(refund.status)).reduce((sum, refund) => sum + refund.amount, 0);
+    const alreadyRefunded = order.refunds.filter((refund) => ['created', 'pending', 'processed'].includes(refund.status)).reduce((sum, refund) => sum + refund.amount, 0);
     if (amount > order.amountPaid - alreadyRefunded) throw new ApiError(400, 'Refund exceeds amount paid');
     const refund = await PaymentService.refund('razorpay', order.razorpayPaymentId, amount, idempotencyKey, { orderId, reason: reason ?? '' });
     if (order.refunds.some((existing) => existing.providerRefundId === refund.id)) return refund;
@@ -392,14 +448,35 @@ export const OrderService = {
     } else {
       order.timeline.push({ status: 'refund_pending', timestamp: new Date(), note: reason ? `Refund requested: ${reason}` : 'Refund requested' });
     }
+    reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
     await order.save();
     return refund;
+  },
+
+  async syncLatestRefund(orderId: string): Promise<unknown> {
+    const order = await OrderModel.findById(orderId);
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (order.paymentProvider !== 'razorpay' || !order.razorpayPaymentId) throw new ApiError(400, 'Only Razorpay refunds can be synchronized');
+    const latest = [...order.refunds].reverse().find((refund) => Boolean(refund.providerRefundId));
+    if (!latest?.providerRefundId) throw new ApiError(400, 'No provider refund is available to synchronize');
+    const providerRefund = await PaymentService.fetchRazorpayRefund(latest.providerRefundId);
+    const statusChanged = latest.status !== providerRefund.status;
+    latest.status = providerRefund.status;
+    const processed = money(order.refunds.filter((refund) => refund.status === 'processed').reduce((sum, refund) => sum + refund.amount, 0));
+    order.refundAmount = processed;
+    if (processed >= order.amountPaid && order.amountPaid > 0) order.paymentStatus = 'refunded';
+    else if (processed > 0) order.paymentStatus = 'partially_refunded';
+    reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
+    if (statusChanged) order.timeline.push({ status: providerRefund.status === 'processed' ? order.paymentStatus : `refund_${providerRefund.status}`, timestamp: new Date(), note: `Razorpay refund synchronized: ${providerRefund.status}` });
+    await order.save();
+    return order;
   },
 
   async markCollectionPaid(id: string, adminId: string, partial: boolean): Promise<unknown> {
     const order = await OrderModel.findById(id);
     if (!order) throw new ApiError(404, 'Order not found');
     if (partial ? order.paymentMode !== 'partial' : order.paymentMode !== 'cod') throw new ApiError(400, 'Payment mode does not match this action');
+    if (order.orderStatus === 'cancelled') throw new ApiError(409, 'Payment collection cannot be recorded for a cancelled order');
     if (order.paymentStatus === 'paid' && order.amountDue === 0) return order;
     order.amountPaid = order.total;
     order.amountDue = 0;
@@ -410,27 +487,76 @@ export const OrderService = {
     return order;
   },
 
+  async cancelByCustomer(id: string, userId: string, input: CustomerCancellationInput): Promise<unknown> {
+    if (!userId) throw new ApiError(401, 'Sign in is required to cancel an order');
+    const reason = customerCancellationReasons[input.reasonCode];
+    const details = input.details?.trim();
+    if (!reason) throw new ApiError(400, 'Select a valid cancellation reason');
+    if (input.reasonCode === 'other' && (!details || details.length < 10)) throw new ApiError(400, 'Please explain why you are cancelling this order');
+    const order = await OrderModel.findById(id);
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (!order.user || String(order.user) !== userId) throw new ApiError(403, 'Order access denied');
+    if (order.orderStatus === 'cancelled') return order;
+    if (!customerCancellableStatuses.has(order.orderStatus)) throw new ApiError(409, 'This order can no longer be cancelled online');
+    const cancelledAt = new Date();
+    const cancellation = { requestedBy: 'customer', reasonCode: input.reasonCode, reason, details, requestedAt: cancelledAt, cancelledAt, refundStatus: order.amountPaid > 0 ? 'required' : 'not_required', refundAmount: order.refundAmount ?? 0 };
+    reconcileCancellationRefundState({ amountPaid: order.amountPaid, refunds: order.refunds, cancellation } as CancellationRefundOrder);
+    const previous = await OrderModel.findOneAndUpdate(
+      { _id: id, user: userId, orderStatus: order.orderStatus, paymentStatus: order.paymentStatus, amountPaid: order.amountPaid, paymentSettlementStartedAt: { $exists: false } },
+      { $set: { orderStatus: 'cancelled', paymentStatus: order.amountPaid > 0 ? order.paymentStatus : 'cancelled', amountDue: 0, stockReserved: false, cancellation }, $push: { timeline: { status: 'cancelled', timestamp: cancelledAt, note: `Customer cancelled: ${reason}${details ? ` — ${details}` : ''}` } } },
+      { new: false }
+    );
+    if (!previous) {
+      const current = await OrderModel.findById(id);
+      if (current?.orderStatus === 'cancelled') return current;
+      if (current?.paymentSettlementStartedAt) throw new ApiError(409, 'Payment is being finalized; wait a moment before cancelling');
+      throw new ApiError(409, 'Order status changed; refresh and try again');
+    }
+    try {
+      await restoreStock(previous as never);
+    } catch (error) {
+      logger.error('Cancelled order stock could not be restored automatically', { orderId: id });
+      await OrderModel.updateOne({ _id: id }, { $push: { timeline: { status: 'inventory_review', timestamp: new Date(), note: 'Cancellation completed; inventory restoration requires admin review' } } });
+    }
+    return OrderModel.findById(id);
+  },
+
   async cancel(id: string, note?: string): Promise<unknown> {
     const order = await OrderModel.findById(id);
     if (!order) throw new ApiError(404, 'Order not found');
     if (order.orderStatus === 'cancelled') return order;
-    await restoreStock(order as never);
-    order.stockReserved = false;
-    order.orderStatus = 'cancelled';
-    order.paymentStatus = order.amountPaid > 0 ? order.paymentStatus : 'cancelled';
-    order.timeline.push({ status: 'cancelled', timestamp: new Date(), note: note ?? 'Order cancelled' });
-    await order.save();
-    return order;
+    const cancelledAt = new Date();
+    const details = note?.trim();
+    const cancellation = { requestedBy: 'admin', reasonCode: 'admin_cancelled', reason: 'Cancelled by Cruisin', details, requestedAt: cancelledAt, cancelledAt, refundStatus: order.amountPaid > 0 ? 'required' : 'not_required', refundAmount: order.refundAmount ?? 0 };
+    reconcileCancellationRefundState({ amountPaid: order.amountPaid, refunds: order.refunds, cancellation } as CancellationRefundOrder);
+    const previous = await OrderModel.findOneAndUpdate(
+      { _id: id, orderStatus: order.orderStatus, paymentStatus: order.paymentStatus, amountPaid: order.amountPaid, paymentSettlementStartedAt: { $exists: false } },
+      { $set: { orderStatus: 'cancelled', paymentStatus: order.amountPaid > 0 ? order.paymentStatus : 'cancelled', amountDue: 0, stockReserved: false, cancellation }, $push: { timeline: { status: 'cancelled', timestamp: cancelledAt, note: details || 'Order cancelled by Cruisin' } } },
+      { new: false }
+    );
+    if (!previous) {
+      const current = await OrderModel.findById(id);
+      if (current?.orderStatus === 'cancelled') return current;
+      if (current?.paymentSettlementStartedAt) throw new ApiError(409, 'Payment is being finalized; wait a moment before cancelling');
+      throw new ApiError(409, 'Order status changed; refresh and try again');
+    }
+    try {
+      await restoreStock(previous as never);
+    } catch (error) {
+      logger.error('Admin-cancelled order stock could not be restored automatically', { orderId: id });
+      await OrderModel.updateOne({ _id: id }, { $push: { timeline: { status: 'inventory_review', timestamp: new Date(), note: 'Cancellation completed; inventory restoration requires admin review' } } });
+    }
+    return OrderModel.findById(id);
   },
 
-  async list(userId: string): Promise<unknown[]> { return OrderModel.find({ user: userId }).sort({ createdAt: -1 }).lean(); },
-  async adminList(): Promise<unknown[]> { return OrderModel.find().sort({ createdAt: -1 }).limit(200).lean(); },
-  async adminById(id: string): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); return order; },
+  async list(userId: string): Promise<unknown[]> { const orders = await OrderModel.find({ user: userId }).sort({ createdAt: -1 }).lean(); return orders.map(normalizeOrderRead); },
+  async adminList(): Promise<unknown[]> { const orders = await OrderModel.find().sort({ createdAt: -1 }).limit(200).lean(); return orders.map(normalizeOrderRead); },
+  async adminById(id: string): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); return normalizeOrderRead(order); },
   async byId(id: string, user: { userId: string; role: string } | undefined): Promise<unknown> {
     const order = await OrderModel.findById(id).lean();
     if (!order) throw new ApiError(404, 'Order not found');
     if (!user || !order.user || String(order.user) !== user.userId) throw new ApiError(403, 'Order access denied');
-    return order;
+    return normalizeOrderRead(order);
   },
   async updateStatus(id: string, input: { status: string; note?: string; trackingNumber?: string }): Promise<unknown> {
     const order = await OrderModel.findById(id);

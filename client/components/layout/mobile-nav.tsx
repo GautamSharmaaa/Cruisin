@@ -2,13 +2,14 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronDown, Search, ShoppingBag, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { COPY } from '@/constants/copy';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
+import { RevolvingBag } from '@/components/shared/revolving-bag';
 import { ROUTES } from '@/constants/routes';
 import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
 import { useAuthStore } from '@/store/authStore';
@@ -118,11 +119,11 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
                 <X size={23} strokeWidth={1.25} />
               </button>
               <Link href={ROUTES.home} onClick={close} className="text-center">
-                <span className="block font-display text-2xl leading-none">{COPY.brand.name}</span>
+                <span data-testid="mobile-menu-wordmark" className="brand-wordmark-script block text-[28px] leading-none">{COPY.brand.name}</span>
                 <span className="mt-1 block font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">{COPY.brand.tagline}</span>
               </Link>
               <button type="button" aria-label={COPY.nav.cart} onClick={() => { close(); onCart(); }} className="relative grid h-11 w-11 place-items-center text-text-primary transition hover:text-accent-gold">
-                <ShoppingBag size={20} strokeWidth={1.35} />
+                <RevolvingBag size="icon" />
                 {cartCount > 0 ? <span className="absolute right-1 top-1 grid h-5 min-w-5 place-items-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse">{cartCount}</span> : null}
               </button>
             </div>

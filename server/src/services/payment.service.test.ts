@@ -58,13 +58,26 @@ describe('Razorpay payment primitives', () => {
     );
   });
 
-  it('omits amount when refunding the provider remaining balance in full', async () => {
+  it('sends the exact amount when refunding the provider remaining balance in full', async () => {
     axiosGet.mockResolvedValue({ data: { amount: 2_320_200, amount_refunded: 500_000 } });
     axiosPost.mockResolvedValue({ data: { id: 'rfnd_full', status: 'processed' } });
     const { RazorpayProvider } = await import('./payment.service.js');
 
     await new RazorpayProvider().createRefund('pay_test', 18_202, '88888888-8888-4888-8888-888888888888');
 
-    expect(axiosPost.mock.calls[0]?.[1]).not.toHaveProperty('amount');
+    expect(axiosPost.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ amount: 1_820_200 }));
+  });
+
+  it('fetches a refund status without exposing provider credentials', async () => {
+    axiosGet.mockResolvedValue({ data: { id: 'rfnd_sync', amount: 12_300, status: 'processed' } });
+    const { RazorpayProvider } = await import('./payment.service.js');
+
+    const refund = await new RazorpayProvider().fetchRefund('rfnd_sync');
+
+    expect(axiosGet).toHaveBeenCalledWith(
+      expect.stringContaining('/refunds/rfnd_sync'),
+      expect.objectContaining({ auth: expect.objectContaining({ username: expect.any(String), password: expect.any(String) }) })
+    );
+    expect(refund).toEqual({ id: 'rfnd_sync', amount: 123, status: 'processed' });
   });
 });

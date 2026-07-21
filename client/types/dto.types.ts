@@ -217,7 +217,12 @@ export interface SiteSettingsDto {
   isFlashlightEnabled: boolean;
   isCollectionCarouselEnabled: boolean;
   isAdvancedFilterEnabled: boolean;
+  isListingHeroMediaEnabled?: boolean;
   isStorefrontNavigationVisible: boolean;
+  standardShippingRate: number;
+  expressShippingRate: number;
+  freeStandardShippingThreshold: number;
+  standardShippingCompareAt: number;
   globalFilterSettings?: Record<string, unknown>;
 }
 

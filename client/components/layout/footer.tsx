@@ -36,7 +36,7 @@ export function Footer(_props: FooterProps): ReactNode {
   return <footer className="relative z-10 border-t border-border bg-background-primary px-6 py-10 lg:px-20">
     <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1.15fr_0.65fr_1.05fr]">
       <section className="max-w-2xl">
-        <h2 className="font-display text-3xl text-text-primary">CRUISIN</h2>
+        <h2 data-testid="footer-wordmark" className="brand-wordmark-script text-[34px] leading-none text-text-primary">Cruisin</h2>
         <p className="mt-4 max-w-xl text-sm leading-6 text-text-secondary">Minimal streetwear essentials cut for movement, restraint, and daily wear.</p>
         <div className="mt-6 flex items-center gap-3">
           <span className="text-sm text-text-secondary">Follow us on</span>

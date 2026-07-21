@@ -230,6 +230,9 @@ const dropLegacyCategorySlugUniqueIndex = async (): Promise<void> => {
 
 type CategorySeed = string | { name: string; slug?: string; children?: readonly CategorySeed[] };
 
+const legacyCategorySubtitle = 'Admin-managed Cruisin category page.';
+const editorialCategorySubtitle = (name: string): string => `The ${name} edit—considered proportions, everyday utility, and pieces built for repeat wear.`;
+
 const seedCategoryNode = async (seed: CategorySeed, parent: { _id: unknown; path: string; breadcrumb: Array<{ name: string; slug: string }> } | null, sortOrder: number): Promise<void> => {
   const name = typeof seed === 'string' ? seed : seed.name;
   const slug = typeof seed === 'string' ? slugify(seed) : seed.slug ?? slugify(seed.name);
@@ -246,7 +249,7 @@ const seedCategoryNode = async (seed: CategorySeed, parent: { _id: unknown; path
         image: defaultImage,
         description: 'Shop ' + name + ' from the Cruisin catalogue.',
         heroTitle: name,
-        heroSubtitle: 'Admin-managed Cruisin category page.',
+        heroSubtitle: editorialCategorySubtitle(name),
         thumbnailImage: defaultImage,
         sortOrder,
         isActive: true,
@@ -275,6 +278,11 @@ const seedCategories = async (): Promise<void> => {
   for (const [index, seed] of categorySeeds.entries()) {
     await seedCategoryNode(seed, null, index);
   }
+  const legacyCategories = await CategoryModel.find({ heroSubtitle: legacyCategorySubtitle }).select({ _id: 1, name: 1 }).lean();
+  await Promise.all(legacyCategories.map((category) => CategoryModel.updateOne(
+    { _id: category._id, heroSubtitle: legacyCategorySubtitle },
+    { $set: { heroSubtitle: editorialCategorySubtitle(category.name) } }
+  )));
 };
 
 const seedPageSettings = async (): Promise<void> => {
@@ -297,10 +305,24 @@ const seedPageSettings = async (): Promise<void> => {
   })));
 };
 
+const siteSettingsDefaults = {
+  defaultGridView: 4,
+  isFlashlightEnabled: true,
+  isCollectionCarouselEnabled: true,
+  isAdvancedFilterEnabled: true,
+  isListingHeroMediaEnabled: true,
+  isStorefrontNavigationVisible: true,
+  standardShippingRate: 900,
+  expressShippingRate: 1800,
+  freeStandardShippingThreshold: 25_000,
+  standardShippingCompareAt: 0,
+  globalFilterSettings: {}
+} as const;
+
 const seedSiteSettings = async (): Promise<void> => {
   await SiteSettingsModel.findOneAndUpdate(
     { singletonKey: 'global' },
-    { $setOnInsert: { singletonKey: 'global', defaultGridView: 4, isFlashlightEnabled: true, isCollectionCarouselEnabled: true, isAdvancedFilterEnabled: true, isStorefrontNavigationVisible: true } },
+    { $setOnInsert: { singletonKey: 'global', ...siteSettingsDefaults } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 };
@@ -584,7 +606,8 @@ export const MerchandisingService = {
   },
 
   async siteSettings(): Promise<unknown> {
-    return SiteSettingsModel.findOne({ singletonKey: 'global' }).lean();
+    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).lean();
+    return settings ? { ...siteSettingsDefaults, ...settings } : { singletonKey: 'global', ...siteSettingsDefaults };
   },
 
   async updateSiteSettings(input: MerchandisingInput): Promise<unknown> {

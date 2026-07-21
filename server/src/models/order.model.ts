@@ -41,6 +41,16 @@ const timelineSchema = new Schema(
 
 const paymentAttemptSchema = new Schema({ providerOrderId: { type: String, index: true }, providerPaymentId: { type: String, index: true }, amount: { type: Number, required: true, min: 0 }, status: { type: String, required: true }, method: { type: String, trim: true }, errorCode: { type: String, trim: true }, errorDescription: { type: String, trim: true }, createdAt: { type: Date, default: Date.now } }, { _id: true });
 const refundSchema = new Schema({ providerRefundId: { type: String, index: true }, idempotencyKey: { type: String, trim: true }, amount: { type: Number, required: true, min: 0 }, status: { type: String, required: true }, reason: { type: String, trim: true }, requestedBy: { type: Schema.Types.ObjectId, ref: 'User' }, createdAt: { type: Date, default: Date.now } }, { _id: true });
+const cancellationSchema = new Schema({
+  requestedBy: { type: String, enum: ['customer', 'admin'], required: true },
+  reasonCode: { type: String, enum: ['changed_mind', 'wrong_item', 'delivery_too_slow', 'found_better_option', 'other', 'admin_cancelled'], required: true },
+  reason: { type: String, required: true, trim: true },
+  details: { type: String, trim: true },
+  requestedAt: { type: Date, required: true, default: Date.now },
+  cancelledAt: { type: Date, required: true, default: Date.now },
+  refundStatus: { type: String, enum: ['not_required', 'required', 'pending', 'partially_refunded', 'refunded', 'failed'], required: true, default: 'not_required' },
+  refundAmount: { type: Number, min: 0, default: 0 }
+}, { _id: false });
 
 const orderSchema = new Schema(
   {
@@ -77,6 +87,7 @@ const orderSchema = new Schema(
     adminNotes: { type: String, trim: true },
     paymentAttempts: { type: [paymentAttemptSchema], default: [] },
     refunds: { type: [refundSchema], default: [] },
+    cancellation: { type: cancellationSchema },
     timeline: { type: [timelineSchema], default: [] },
     analyticsTestBatchId: { type: String, trim: true, index: true },
     isAnalyticsTestData: { type: Boolean, default: false, index: true }

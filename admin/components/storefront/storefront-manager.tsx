@@ -1,18 +1,18 @@
 // Governed by .rules v1.0
 'use client';
 
-import { Archive, Check, Columns3, Eye, EyeOff, Layers3, Pencil, Plus, Save, Settings, Tags, Trash2, X } from 'lucide-react';
+import { Archive, Check, Columns3, Eye, EyeOff, Layers3, Pencil, Plus, Save, Settings, Tags, Trash2, Truck, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { EmptyPanel } from '@/components/dashboard/empty-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAdminCategories, useAdminCollections, useAdminNavigation, useAdminPageSettings, useAdminProducts, useAdminSiteSettings, useAdminTags } from '@/hooks/useAdminResources';
 import { api } from '@/lib/api';
-import { slugify } from '@/lib/utils';
+import { formatPrice, slugify } from '@/lib/utils';
 import type { CategoryDto, CollectionDto, MegaMenuCollectionCardDto, MegaMenuColumnDto, MegaMenuLinkDto, MegaMenuPromoDto, NavigationItemDto, PageSettingsDto, ProductDto, SiteSettingsDto, TagDto } from '@/types/dto.types';
 
-type Tab = 'navigation' | 'mega-menu' | 'collections' | 'filters' | 'pages' | 'settings';
+type Tab = 'navigation' | 'mega-menu' | 'collections' | 'filters' | 'pages' | 'delivery' | 'settings';
 type Toast = { tone: 'success' | 'error'; message: string } | null;
 
 const navTypes = ['simple_link', 'mega_menu', 'collection_link', 'category_link', 'custom_url'] as const;
@@ -38,7 +38,11 @@ const collectionDefaults = { title: '', slug: '', description: '', heroTitle: ''
 const tagDefaults = { name: '', slug: '', sortOrder: 0, isVisible: true };
 const pageDefaults = { pageType: 'landing', pageSlug: '', title: '', subtitle: '', heroImage: '', mobileHeroImage: '', heroVideo: '', mobileHeroVideo: '', bannerImage: '', mobileBannerImage: '', bannerVideo: '', mobileBannerVideo: '', videoPosterImage: '', ctaText: '', ctaLink: '', isBannerVisible: false, defaultSort: 'newest', defaultGridView: 4, areFiltersVisible: true, isAdvancedFilterEnabled: true, isFlashlightEnabled: true, seoTitle: '', seoDescription: '', ogImage: '', isPublished: true };
 
-export function StorefrontManager(): ReactNode {
+export interface StorefrontManagerProps {
+  initialTab?: Tab;
+}
+
+export function StorefrontManager({ initialTab = 'navigation' }: StorefrontManagerProps = {}): ReactNode {
   const queryClient = useQueryClient();
   const navigation = useAdminNavigation();
   const collections = useAdminCollections();
@@ -47,7 +51,7 @@ export function StorefrontManager(): ReactNode {
   const tags = useAdminTags();
   const pages = useAdminPageSettings();
   const site = useAdminSiteSettings();
-  const [tab, setTab] = useState<Tab>('navigation');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [toast, setToast] = useState<Toast>(null);
   const [editingNav, setEditingNav] = useState<NavigationItemDto | null>(null);
   const [editingColumn, setEditingColumn] = useState<MegaMenuColumnDto | null>(null);
@@ -72,19 +76,21 @@ export function StorefrontManager(): ReactNode {
   const selectedNav = navItems.find((item) => idOf(item) === selectedNavId) ?? navItems[0];
   const columns = useMemo(() => selectedNav?.columns ?? [], [selectedNav]);
   const collectionCards = useMemo(() => selectedNav?.collectionCards ?? [], [selectedNav]);
+  const resourceQueryKeys = useMemo(() => [
+    ['admin', 'navigation'],
+    ['admin', 'collections'],
+    ['admin', 'tags'],
+    ['admin', 'page-settings'],
+    ['admin', 'site-settings']
+  ] as const, []);
 
   const invalidate = async (): Promise<void> => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['admin', 'navigation'] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'collections'] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tags'] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'page-settings'] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'site-settings'] })
-    ]);
+    await Promise.all(resourceQueryKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
   };
 
   const run = async (task: () => Promise<void>, message: string): Promise<void> => {
     try {
+      await Promise.all(resourceQueryKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
       await task();
       await invalidate();
       setToast({ tone: 'success', message });
@@ -243,7 +249,7 @@ export function StorefrontManager(): ReactNode {
 
   const saveSite = (patch: Record<string, unknown>): void => {
     void run(async () => {
-      const response = await api.put<{ data: SiteSettingsDto }>('/admin/site-settings', { ...site.data, ...patch });
+      const response = await api.put<{ data: SiteSettingsDto }>('/admin/site-settings', patch);
       queryClient.setQueryData(['admin', 'site-settings'], response.data.data);
     }, 'Site settings saved.');
   };
@@ -257,6 +263,7 @@ export function StorefrontManager(): ReactNode {
         ['collections', 'Collections', Archive],
         ['filters', 'Filters', Tags],
         ['pages', 'Pages', Pencil],
+        ['delivery', 'Delivery', Truck],
         ['settings', 'Settings', Settings]
       ].map(([key, label, Icon]) => <button key={String(key)} type="button" onClick={() => setTab(key as Tab)} className={(tab === key ? 'border-accent-gold text-accent-gold' : 'border-transparent text-text-secondary hover:text-text-primary') + ' inline-flex h-11 shrink-0 items-center gap-2 border px-3 text-xs uppercase tracking-[0.12em] transition'}><Icon size={15} />{String(label)}</button>)}
     </div>
@@ -265,6 +272,7 @@ export function StorefrontManager(): ReactNode {
     {tab === 'collections' ? <CollectionsPanel collections={collections.data ?? []} productOptions={products.data?.items ?? []} categoryOptions={categories.data ?? []} form={collectionForm} setForm={setCollectionForm} editing={editingCollection} pendingVisibility={pendingVisibility} onCancel={() => { setEditingCollection(null); setCollectionForm(collectionDefaults); }} onEdit={editCollection} onSubmit={saveCollection} onDelete={(collection) => void run(async () => { await api.delete('/admin/collections/' + idOf(collection)); }, 'Collection hidden.')} onToggleVisibility={(collection) => toggleVisibility('collection:' + idOf(collection), async () => { await api.put('/admin/collections/' + idOf(collection), { isVisible: !collection.isVisible }); }, collection.isVisible ? 'Collection hidden.' : 'Collection shown.')} /> : null}
     {tab === 'filters' ? <TagsPanel tags={tags.data ?? []} form={tagForm} setForm={setTagForm} editing={editingTag} pendingVisibility={pendingVisibility} onCancel={() => { setEditingTag(null); setTagForm(tagDefaults); }} onEdit={editTag} onSubmit={saveTag} onDelete={(tag) => void run(async () => { await api.delete('/admin/tags/' + idOf(tag)); }, 'Filter chip hidden.')} onToggleVisibility={(tag) => toggleVisibility('tag:' + idOf(tag), async () => { await api.put('/admin/tags/' + idOf(tag), { isVisible: !tag.isVisible }); }, tag.isVisible ? 'Filter chip hidden.' : 'Filter chip shown.')} /> : null}
     {tab === 'pages' ? <PagesPanel pages={pages.data ?? []} form={pageForm} setForm={setPageForm} editing={editingPage} pendingVisibility={pendingVisibility} onCancel={() => { setEditingPage(null); setPageForm(pageDefaults); }} onEdit={editPage} onSubmit={savePage} onToggleVisibility={(page) => toggleVisibility('page:' + idOf(page), async () => { await api.put('/admin/page-settings/' + idOf(page), { isPublished: !(page.isPublished ?? true) }); }, (page.isPublished ?? true) ? 'Page hidden.' : 'Page shown.')} /> : null}
+    {tab === 'delivery' ? <DeliveryPanel site={site.data} onSave={saveSite} /> : null}
     {tab === 'settings' ? <SettingsPanel site={site.data} onSave={saveSite} /> : null}
   </section>;
 }
@@ -600,7 +608,99 @@ function PagesPanel({ pages, form, setForm, editing, pendingVisibility, onCancel
   </Panel>;
 }
 
-function SettingsPanel({ site, onSave }: { site?: { defaultGridView: 1 | 2 | 4; isFlashlightEnabled: boolean; isCollectionCarouselEnabled: boolean; isAdvancedFilterEnabled: boolean; isStorefrontNavigationVisible: boolean }; onSave: (patch: Record<string, unknown>) => void }): ReactNode {
+type DeliveryForm = {
+  standardShippingRate: string;
+  standardShippingCompareAt: string;
+  expressShippingRate: string;
+  freeStandardShippingThreshold: string;
+};
+
+const deliveryFormFromSite = (site?: SiteSettingsDto): DeliveryForm => ({
+  standardShippingRate: String(site?.standardShippingRate ?? 900),
+  standardShippingCompareAt: String(site?.standardShippingCompareAt ?? 0),
+  expressShippingRate: String(site?.expressShippingRate ?? 1800),
+  freeStandardShippingThreshold: String(site?.freeStandardShippingThreshold ?? 25_000)
+});
+
+function DeliveryPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patch: Record<string, unknown>) => void }): ReactNode {
+  const [form, setForm] = useState<DeliveryForm>(() => deliveryFormFromSite(site));
+  const [initialized, setInitialized] = useState(Boolean(site));
+
+  useEffect(() => {
+    if (site && !initialized) {
+      setForm(deliveryFormFromSite(site));
+      setInitialized(true);
+    }
+  }, [initialized, site]);
+
+  if (!site) return <EmptyPanel title="Delivery settings" message="Loading delivery pricing and promotion settings." />;
+
+  const values = {
+    standardShippingRate: Number(form.standardShippingRate),
+    standardShippingCompareAt: Number(form.standardShippingCompareAt),
+    expressShippingRate: Number(form.expressShippingRate),
+    freeStandardShippingThreshold: Number(form.freeStandardShippingThreshold)
+  };
+  const invalidNumber = Object.values(form).some((value) => value.trim() === '')
+    || Object.values(values).some((value) => !Number.isFinite(value) || value < 0);
+  const invalidCompareAt = !invalidNumber && values.standardShippingCompareAt > 0 && values.standardShippingCompareAt < values.standardShippingRate;
+  const validationMessage = invalidNumber
+    ? 'Enter a valid non-negative rupee amount in every field.'
+    : invalidCompareAt
+      ? 'Original delivery price must be zero or at least the current standard charge.'
+      : '';
+  const setField = (key: keyof DeliveryForm, value: string): void => setForm((current) => ({ ...current, [key]: value }));
+  const submit = (event: FormEvent): void => {
+    event.preventDefault();
+    if (validationMessage) return;
+    onSave(values);
+  };
+  const standardIsDiscounted = values.standardShippingCompareAt > values.standardShippingRate;
+  const thresholdOriginalPrice = Math.max(values.standardShippingRate, values.standardShippingCompareAt);
+
+  return (
+    <Panel title="Delivery" body="Control delivery pricing and free-delivery promotions from one place. Checkout totals remain server-priced, so the amount saved here is the amount used for new orders.">
+      <form className="grid gap-5" onSubmit={submit}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="Standard delivery charge (₹)" type="number" min="0" max="100000" step="1" value={form.standardShippingRate} error={invalidNumber ? 'Required' : undefined} onChange={(event) => setField('standardShippingRate', event.target.value)} />
+          <Input label="Original price to strike out (₹)" type="number" min="0" max="100000" step="1" value={form.standardShippingCompareAt} error={invalidCompareAt ? 'Must be at least the current charge' : undefined} onChange={(event) => setField('standardShippingCompareAt', event.target.value)} />
+          <Input label="Express delivery charge (₹)" type="number" min="0" max="100000" step="1" value={form.expressShippingRate} error={invalidNumber ? 'Required' : undefined} onChange={(event) => setField('expressShippingRate', event.target.value)} />
+          <Input label="Free standard delivery above (₹)" type="number" min="0" max="1000000" step="1" value={form.freeStandardShippingThreshold} error={invalidNumber ? 'Required' : undefined} onChange={(event) => setField('freeStandardShippingThreshold', event.target.value)} />
+        </div>
+
+        <div className="grid gap-4 border border-border bg-background-primary p-4 md:grid-cols-2">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Cart preview below threshold</p>
+            <div className="mt-3 flex items-center gap-3 font-mono text-lg">
+              {standardIsDiscounted ? <span className="text-text-muted line-through decoration-danger">{formatPrice(values.standardShippingCompareAt)}</span> : null}
+              <span className={values.standardShippingRate === 0 ? 'text-success' : 'text-text-primary'}>{values.standardShippingRate === 0 ? 'Free' : formatPrice(values.standardShippingRate)}</span>
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-muted">Cart preview at threshold</p>
+            {values.freeStandardShippingThreshold > 0 ? (
+              <div className="mt-3 flex items-center gap-3 font-mono text-lg">
+                {thresholdOriginalPrice > 0 ? <span className="text-text-muted line-through decoration-danger">{formatPrice(thresholdOriginalPrice)}</span> : null}
+                <span className="text-success">Free</span>
+              </div>
+            ) : <p className="mt-3 text-sm text-text-secondary">Threshold promotion disabled</p>}
+          </div>
+        </div>
+
+        <div className="grid gap-2 text-xs leading-5 text-text-secondary">
+          <p>Example 1: set standard charge to ₹99 and threshold to ₹1,000. Orders below ₹1,000 pay ₹99; orders at or above ₹1,000 see ₹99 struck out and Free.</p>
+          <p>Example 2: set standard charge to ₹0 and original price to ₹99. Every cart sees ₹99 struck out and Free, without a coupon.</p>
+          <p>Set the threshold to ₹0 to disable threshold-based free delivery.</p>
+        </div>
+
+        {validationMessage ? <p className="text-sm text-danger" role="alert">{validationMessage}</p> : null}
+        <div><Button type="submit" disabled={Boolean(validationMessage)}><Save size={15} />Save Delivery Settings</Button></div>
+      </form>
+    </Panel>
+  );
+}
+
+function SettingsPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patch: Record<string, unknown>) => void }): ReactNode {
   if (!site) return <EmptyPanel title="Site settings" message="Loading global storefront settings." />;
   return <Panel title="Site Settings" body="Set global storefront defaults for browsing controls and feature visibility.">
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -608,6 +708,7 @@ function SettingsPanel({ site, onSave }: { site?: { defaultGridView: 1 | 2 | 4; 
       <Toggle label="Flashlight enabled" value={site.isFlashlightEnabled} onChange={(value) => onSave({ isFlashlightEnabled: value })} />
       <Toggle label="Collection carousel" value={site.isCollectionCarouselEnabled} onChange={(value) => onSave({ isCollectionCarouselEnabled: value })} />
       <Toggle label="Advanced filters" value={site.isAdvancedFilterEnabled} onChange={(value) => onSave({ isAdvancedFilterEnabled: value })} />
+      <Toggle label="Listing hero backgrounds" value={site.isListingHeroMediaEnabled ?? true} onChange={(value) => onSave({ isListingHeroMediaEnabled: value })} />
       <Toggle label="Storefront navigation" value={site.isStorefrontNavigationVisible} onChange={(value) => onSave({ isStorefrontNavigationVisible: value })} />
     </div>
   </Panel>;

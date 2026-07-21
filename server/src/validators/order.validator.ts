@@ -4,5 +4,15 @@ import { z } from 'zod';
 const addressSchema = z.object({ fullName: z.string().min(2), phone: z.string().min(7), line1: z.string().min(2), line2: z.string().optional(), city: z.string().min(2), state: z.string().min(2), postalCode: z.string().min(3), country: z.string().min(2) });
 export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe','cod']), paymentMode: z.enum(['online', 'cod', 'partial']).optional(), shippingMethod: z.enum(['standard', 'express']).default('standard'), couponCode: z.string().optional(), idempotencyKey: z.string().uuid() });
 export const paymentVerifySchema = z.object({ method: z.enum(['razorpay','stripe']), payload: z.record(z.unknown()) });
-export const orderStatusSchema = z.object({ status: z.enum(['pending','placed','confirmed','processing','shipped','delivered','cancelled','returned']), note: z.string().optional(), trackingNumber: z.string().optional() });
+export const orderStatusSchema = z.object({ status: z.enum(['pending','placed','confirmed','processing','shipped','delivered','cancelled','returned']), note: z.string().trim().max(500).optional(), trackingNumber: z.string().trim().max(120).optional() }).superRefine((value, context) => {
+  if (value.status === 'cancelled' && (!value.note || value.note.length < 3)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'An admin cancellation note is required' });
+});
+export const customerCancellationSchema = z.object({
+  reasonCode: z.enum(['changed_mind', 'wrong_item', 'delivery_too_slow', 'found_better_option', 'other']),
+  details: z.string().trim().max(500).optional()
+}).superRefine((value, context) => {
+  if (value.reasonCode === 'other' && (!value.details || value.details.length < 10)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['details'], message: 'Please provide at least 10 characters explaining the cancellation' });
+  }
+});
 export const refundSchema = z.object({ amount: z.number().positive(), reason: z.string().max(500).optional(), idempotencyKey: z.string().uuid() });

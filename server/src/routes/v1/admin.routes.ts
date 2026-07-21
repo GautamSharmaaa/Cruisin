@@ -23,6 +23,7 @@ adminRouter.patch('/orders/:id/status', requireRole(['manager', 'admin', 'supera
 adminRouter.post('/orders/:id/mark-cod-paid', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.markCodPaid);
 adminRouter.post('/orders/:id/mark-partial-paid', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.markPartialPaid);
 adminRouter.post('/orders/:id/refund', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema, body: refundSchema }), PaymentController.refund);
+adminRouter.post('/orders/:id/sync-refund', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.syncRefund);
 adminRouter.get('/uploads/signature', requireRole(['manager', 'admin', 'superadmin']), uploadLimiter, UploadController.signature);
 adminRouter.get('/catalogues/dashboard', CatalogueController.dashboard);
 adminRouter.post('/catalogues/import/upload', requireRole(['manager', 'admin', 'superadmin']), catalogueCsvUpload.single('file'), CatalogueController.upload);

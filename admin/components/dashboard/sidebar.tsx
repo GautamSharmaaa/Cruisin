@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 'use client';
-import { BarChart3, Boxes, ChevronRight, FilePenLine, Files, LayoutDashboard, Package, Percent, Rows3, ShoppingBag, Users, X } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, FilePenLine, Files, LayoutDashboard, Package, Percent, Rows3, ShoppingBag, Truck, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -17,6 +17,7 @@ const links = [
   { label: COPY.nav.catalogues, href: '/catalogues', icon: Files },
   { label: COPY.nav.categories, href: '/categories', icon: Boxes },
   { label: COPY.nav.storefront, href: '/storefront', icon: Rows3 },
+  { label: COPY.nav.delivery, href: '/delivery', icon: Truck },
   { label: COPY.nav.orders, href: '/orders', icon: ShoppingBag },
   { label: COPY.nav.users, href: '/users', icon: Users },
   { label: COPY.nav.discounts, href: '/discounts', icon: Percent },

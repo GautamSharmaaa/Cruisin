@@ -288,7 +288,12 @@ export interface SiteSettingsDto {
   isFlashlightEnabled: boolean;
   isCollectionCarouselEnabled: boolean;
   isAdvancedFilterEnabled: boolean;
+  isListingHeroMediaEnabled?: boolean;
   isStorefrontNavigationVisible: boolean;
+  standardShippingRate: number;
+  expressShippingRate: number;
+  freeStandardShippingThreshold: number;
+  standardShippingCompareAt: number;
   globalFilterSettings?: Record<string, unknown>;
 }
 
@@ -338,6 +343,16 @@ export interface OrderDto {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   refunds?: Array<{ providerRefundId?: string; amount: number; status: string; reason?: string; createdAt?: string }>;
+  cancellation?: {
+    requestedBy: 'customer' | 'admin';
+    reasonCode: 'changed_mind' | 'wrong_item' | 'delivery_too_slow' | 'found_better_option' | 'other' | 'admin_cancelled';
+    reason: string;
+    details?: string;
+    requestedAt: string;
+    cancelledAt: string;
+    refundStatus: 'not_required' | 'required' | 'pending' | 'partially_refunded' | 'refunded' | 'failed';
+    refundAmount?: number;
+  };
   createdAt?: string;
   trackingNumber?: string;
   timeline?: Array<{ status: string; timestamp: string; note?: string }>;

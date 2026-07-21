@@ -312,6 +312,7 @@ test.describe('storefront browser QA', () => {
       await page.waitForLoadState('networkidle').catch(() => undefined);
       await expect(page.locator('main')).toBeVisible();
       await expect(page.locator('a[href^="/product/"]').first()).toBeVisible();
+      if (width < 768) await expect(page.getByRole('button', { name: 'Quick Add', exact: true }).first()).toBeVisible();
       await expectNoHorizontalOverflow(page);
       expectNoImportantBrowserFailures(diagnostics);
     });
