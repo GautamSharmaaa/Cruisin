@@ -3,7 +3,14 @@ import { z } from 'zod';
 import { objectIdSchema } from './common.validator.js';
 
 const imageSchema = z.object({ url: z.string().url(), alt: z.string().min(2), width: z.number().int().positive(), height: z.number().int().positive(), publicId: z.string().optional() });
-const variantSchema = z.object({ _id: z.string().optional(), size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), priceOverride: z.number().min(0).optional(), stock: z.number().int().min(0), enabled: z.boolean().default(true), lowStockThreshold: z.number().int().min(0).optional(), images: z.array(imageSchema).default([]) });
+const orderedImagesSchema = z.array(imageSchema).max(24).superRefine((images, context) => {
+  const seen = new Set<string>();
+  images.forEach((image, index) => {
+    if (seen.has(image.url)) context.addIssue({ code: 'custom', path: [index, 'url'], message: 'Duplicate image URL' });
+    seen.add(image.url);
+  });
+});
+const variantSchema = z.object({ _id: z.string().optional(), size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), priceOverride: z.number().min(0).optional(), stock: z.number().int().min(0), enabled: z.boolean().default(true), lowStockThreshold: z.number().int().min(0).optional(), images: orderedImagesSchema.default([]) });
 const optionalUrlSchema = z.union([z.string().url(), z.literal('')]).optional();
 const optionalMediaSchema = z.union([z.string().url(), z.string().regex(/^\/[^\s]+$/), z.literal('')]).optional();
 export const productBodySchema = z.object({

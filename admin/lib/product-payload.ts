@@ -8,7 +8,7 @@ export interface ProductPayloadVariantInput {
   priceOverride?: number;
   lowStockThreshold?: number;
   enabled: boolean;
-  image: string;
+  images: string[];
 }
 
 export interface ProductPayloadInput {
@@ -93,7 +93,12 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
     stock: variant.stock,
     enabled: variant.enabled,
     ...(variant.lowStockThreshold !== undefined ? { lowStockThreshold: variant.lowStockThreshold } : {}),
-    images: [{ url: variant.image, alt: `${input.title} — ${variant.color}`, width: 1200, height: 1600 }]
+    images: variant.images.map((url, index) => ({
+      url,
+      alt: `${input.title} — ${variant.color} — photo ${index + 1}`,
+      width: 1200,
+      height: 1600
+    }))
   })),
   tags: listFromCsv(input.tags),
   gender: input.gender ?? 'unisex',

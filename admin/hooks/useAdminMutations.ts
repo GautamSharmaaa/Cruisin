@@ -61,7 +61,7 @@ export interface AdminProductVariantInput {
   priceOverride?: number;
   lowStockThreshold?: number;
   enabled: boolean;
-  image: string;
+  images: string[];
 }
 
 export interface AdminCategoryInput {

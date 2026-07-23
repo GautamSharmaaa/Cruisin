@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useDropzone } from 'react-dropzone';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Eye, ImageIcon, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Archive, Eye, ImageIcon, ImagePlus, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -19,6 +19,7 @@ import { useAdminCategories, useAdminCollections, useAdminTags } from '@/hooks/u
 import { externalUploadApi } from '@/lib/api';
 import { adminProductSchema } from '@/lib/schemas';
 import { cn, slugify } from '@/lib/utils';
+import { MAX_VARIANT_IMAGES, appendOrderedUploads, moveOrderedImage, parseOrderedImageUrls, setOrderedImagesForColor } from '@/lib/variant-media';
 import type { CollectionDto, ProductDto } from '@/types/dto.types';
 
 export interface ProductFormProps {
@@ -59,14 +60,14 @@ const normalizeProductSlug = (value: string, fallback: string): string => {
   return normalized;
 };
 
-const emptyVariant = (image: string = PRODUCT_FORM_DEFAULTS.image): ProductFormValues['variants'][number] => ({
+const emptyVariant = (images: string[] = [PRODUCT_FORM_DEFAULTS.image]): ProductFormValues['variants'][number] => ({
   sku: '',
   size: '',
   color: '',
   colorHex: PRODUCT_FORM_DEFAULTS.colorHex,
   stock: 0,
   enabled: true,
-  image
+  images: [...images]
 });
 
 const skuPart = (value: string): string => slugify(value).replaceAll('-', '').toUpperCase().slice(0, 12) || 'VAR';
@@ -143,7 +144,7 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
       priceOverride: item?.priceOverride,
       lowStockThreshold: item?.lowStockThreshold,
       enabled: item?.enabled !== false,
-      image: item?.images?.[0]?.url ?? image?.url ?? PRODUCT_FORM_DEFAULTS.image
+      images: item?.images?.length ? item.images.map((variantImage) => variantImage.url) : [image?.url ?? PRODUCT_FORM_DEFAULTS.image]
     }))
   };
 };
@@ -168,11 +169,12 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const selectedAdditionalCategories = watch('categoryIds') ?? '';
   const selectedCollections = watch('collections') ?? '';
   const watchedVariants = watch('variants') ?? [];
-  const variantValidationKey = useMemo(() => watchedVariants.map((variant) => [variant.sku, variant.color, variant.size, variant.colorHex].join('|')).join('::'), [watchedVariants]);
+  const variantValidationKey = useMemo(() => watchedVariants.map((variant) => [variant.sku, variant.color, variant.size, variant.colorHex, variant.images.join('~')].join('|')).join('::'), [watchedVariants]);
   const [newColor, setNewColor] = useState('');
   const [newColorHex, setNewColorHex] = useState('#000000');
-  const [newColorImage, setNewColorImage] = useState('');
+  const [newColorImages, setNewColorImages] = useState('');
   const [newSize, setNewSize] = useState('');
+  const [uploadingColor, setUploadingColor] = useState<string | null>(null);
 
   useEffect(() => { reset(formValuesFromProduct(product)); }, [product, reset]);
   useEffect(() => {
@@ -181,7 +183,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
 
   const selectedCollectionCount = useMemo(() => selectedCollections.split(',').map((item) => item.trim()).filter(Boolean).length, [selectedCollections]);
   const saleHelper = mrp > 0 && price > 0 ? Math.max(0, Math.round(((mrp - price) / mrp) * 100)) + '% off MRP' : 'Set MRP to show markdown context.';
-  const colors = useMemo(() => Array.from(new Map(watchedVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex, image: variant.image }])).values()), [watchedVariants]);
+  const colors = useMemo(() => Array.from(new Map(watchedVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex, images: variant.images }])).values()), [watchedVariants]);
   const sizes = useMemo(() => Array.from(new Set(watchedVariants.map((variant) => variant.size.trim()).filter(Boolean))), [watchedVariants]);
 
   const generatedSku = (color: string, size: string, offset: number): string => {
@@ -204,12 +206,13 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     const meaningful = current.filter((variant) => variant.sku || variant.size || variant.color);
     const complete = current.filter((variant) => variant.color.trim() && variant.size.trim());
     const targetSizes = sizes.length ? sizes : [''];
-    const image = newColorImage.trim() || getValues('image') || PRODUCT_FORM_DEFAULTS.image;
-    const additions = targetSizes.map((size, index) => ({ ...emptyVariant(image), color: label, colorHex: hex, size, sku: generatedSku(label, size, meaningful.length + index) }));
+    const images = parseOrderedImageUrls(newColorImages);
+    const orderedImages = images.length ? images : [getValues('image') || PRODUCT_FORM_DEFAULTS.image];
+    const additions = targetSizes.map((size, index) => ({ ...emptyVariant(orderedImages), color: label, colorHex: hex, size, sku: generatedSku(label, size, meaningful.length + index) }));
     const partialColors = current.filter((variant) => variant.color.trim() && !variant.size.trim());
     replaceVariants(targetSizes[0] ? [...complete, ...additions] : [...partialColors, ...additions]);
     setNewColor('');
-    setNewColorImage('');
+    setNewColorImages('');
     setFeedback({ type: 'success', message: sizes.length ? `${label} added across ${targetSizes.length} size${targetSizes.length === 1 ? '' : 's'}.` : `${label} added. Add a size to generate sellable combinations.` });
   };
 
@@ -226,21 +229,21 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     const current = getValues('variants');
     const meaningful = current.filter((variant) => variant.sku || variant.size || variant.color);
     const complete = current.filter((variant) => variant.color.trim() && variant.size.trim());
-    const targetColors = colors.length ? colors : [{ label: '', hex: PRODUCT_FORM_DEFAULTS.colorHex, image: getValues('image') || PRODUCT_FORM_DEFAULTS.image }];
-    const additions = targetColors.map((color, index) => ({ ...emptyVariant(color.image), color: color.label, colorHex: color.hex, size, sku: generatedSku(color.label, size, meaningful.length + index) }));
+    const targetColors = colors.length ? colors : [{ label: '', hex: PRODUCT_FORM_DEFAULTS.colorHex, images: [getValues('image') || PRODUCT_FORM_DEFAULTS.image] }];
+    const additions = targetColors.map((color, index) => ({ ...emptyVariant(color.images), color: color.label, colorHex: color.hex, size, sku: generatedSku(color.label, size, meaningful.length + index) }));
     const partialSizes = current.filter((variant) => variant.size.trim() && !variant.color.trim());
     replaceVariants(targetColors[0]?.label ? [...complete, ...additions] : [...partialSizes, ...additions]);
     setNewSize('');
     setFeedback({ type: 'success', message: colors.length ? `Size ${size} added across ${targetColors.length} color${targetColors.length === 1 ? '' : 's'}.` : `Size ${size} added. Add a color to generate sellable combinations.` });
   };
 
-  const onDropHandler = useCallback(async (files: File[]) => {
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const sig = await uploadSignature.mutateAsync();
+  const uploadFiles = useCallback(async (files: File[]): Promise<string[]> => {
+    if (!files.length) return [];
+    const sig = await uploadSignature.mutateAsync();
+    const urls: string[] = [];
+    for (const file of files) {
       const formData = new FormData();
-      formData.append('file', files[0]);
+      formData.append('file', file);
       formData.append('api_key', String(process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? ''));
       formData.append('timestamp', String(sig.timestamp));
       formData.append('signature', sig.signature);
@@ -248,15 +251,52 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
       if (!cloudName) throw new Error('Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME');
       const response = await externalUploadApi.post<CloudinaryUploadResponse>(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, formData);
-      if (response.data.secure_url) setValue('image', response.data.secure_url);
+      if (!response.data.secure_url) throw new Error(`Upload failed for ${file.name}`);
+      urls.push(response.data.secure_url);
+    }
+    return urls;
+  }, [uploadSignature]);
+
+  const onDropHandler = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const [url] = await uploadFiles(files.slice(0, 1));
+      if (url) setValue('image', url);
     } catch (error) {
       setFeedback({ type: 'error', message: error instanceof Error ? error.message : COPY.products.uploadFailed });
     } finally {
       setUploading(false);
     }
-  }, [setValue, uploadSignature]);
+  }, [setValue, uploadFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ accept: { 'image/*': [] }, maxFiles: 1, onDrop: onDropHandler });
+
+  const setColorImages = (color: string, images: string[]): void => {
+    setValue('variants', setOrderedImagesForColor(getValues('variants'), color, images), { shouldDirty: true, shouldValidate: true });
+  };
+
+  const uploadColorImages = async (color: string, files: File[]): Promise<void> => {
+    if (!files.length) return;
+    const existing = colors.find((candidate) => candidate.label.toLowerCase() === color.toLowerCase())?.images ?? [];
+    if (existing.length + files.length > MAX_VARIANT_IMAGES) {
+      setFeedback({ type: 'error', message: `${color} can use up to ${MAX_VARIANT_IMAGES} photos.` });
+      return;
+    }
+    setUploading(true);
+    setUploadingColor(color);
+    setFeedback(null);
+    try {
+      const uploaded = await uploadFiles(files);
+      setColorImages(color, appendOrderedUploads(existing, uploaded, [PRODUCT_FORM_DEFAULTS.image, getValues('image')]));
+      setFeedback({ type: 'success', message: `${uploaded.length} ${color} photo${uploaded.length === 1 ? '' : 's'} uploaded in the selected order and applied to every ${color} size.` });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error instanceof Error ? error.message : COPY.products.uploadFailed });
+    } finally {
+      setUploading(false);
+      setUploadingColor(null);
+    }
+  };
 
   const updateCsvSelection = (field: 'categoryIds' | 'collections', id: string, checked: boolean): void => {
     const current = (watch(field) ?? '').split(',').map((item) => item.trim()).filter(Boolean);
@@ -337,7 +377,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
         <section className="grid gap-4 border border-border bg-background-primary p-4" aria-labelledby="add-color-heading">
           <div>
             <h3 id="add-color-heading" className="font-display text-xl text-text-primary">Add Color</h3>
-            <p className="mt-1 text-sm text-text-secondary">Creates this color for every existing size and uses its image for the PDP gallery.</p>
+            <p className="mt-1 text-sm text-text-secondary">Creates this color for every existing size. After adding it, upload and order its complete PDP gallery directly from your laptop.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
             <Input label="New color name" value={newColor} onChange={(event) => setNewColor(event.target.value)} />
@@ -349,7 +389,16 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
               </span>
             </label>
           </div>
-          <Input label="Color image URL" type="url" value={newColorImage} placeholder={String(imagePreview || PRODUCT_FORM_DEFAULTS.image)} onChange={(event) => setNewColorImage(event.target.value)} />
+          <label className="grid gap-2">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-muted">Optional photo URLs</span>
+            <textarea
+              rows={4}
+              value={newColorImages}
+              placeholder={`Optional fallback: one URL per line. For laptop photos, add the color first and use Upload photos. Leave blank to start with ${String(imagePreview || PRODUCT_FORM_DEFAULTS.image)}`}
+              onChange={(event) => setNewColorImages(event.target.value)}
+              className="border border-border bg-background-input px-3 py-3 text-sm text-text-primary outline-none transition focus:border-accent-gold"
+            />
+          </label>
           <div><Button type="button" onClick={addColor}><Plus size={15} className="mr-2" />Add Color</Button></div>
         </section>
 
@@ -361,12 +410,82 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
           <Input label="New size" value={newSize} placeholder="S, M, XL, 32…" onChange={(event) => setNewSize(event.target.value)} />
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={addSize}><Plus size={15} className="mr-2" />Add Size</Button>
-            <Button type="button" variant="secondary" onClick={() => appendVariant(emptyVariant(getValues('image') || PRODUCT_FORM_DEFAULTS.image))}><Plus size={15} className="mr-2" />Add Variant</Button>
+            <Button type="button" variant="secondary" onClick={() => appendVariant(emptyVariant([getValues('image') || PRODUCT_FORM_DEFAULTS.image]))}><Plus size={15} className="mr-2" />Add Variant</Button>
           </div>
         </section>
       </div>
 
       {formState.errors.variants?.root?.message ? <p className="text-sm text-danger" role="alert">{formState.errors.variants.root.message}</p> : null}
+
+      {colors.length ? <div className="grid gap-4">
+        <div>
+          <h3 className="font-display text-2xl text-text-primary">Color photo order</h3>
+          <p className="mt-1 text-sm text-text-secondary">Upload once per color, then move photos into storefront gallery order. The exact ordered list is synchronized to every size of that color.</p>
+        </div>
+        {colors.map((color) => {
+          const images = color.images ?? [];
+          const colorVariantCount = watchedVariants.filter((variant) => variant.color.trim().toLowerCase() === color.label.toLowerCase()).length;
+          const imageErrors = watchedVariants.findIndex((variant) => variant.color.trim().toLowerCase() === color.label.toLowerCase());
+          const mediaError = imageErrors >= 0 ? formState.errors.variants?.[imageErrors]?.images : undefined;
+          return <section key={color.label.toLowerCase()} className="grid gap-4 border border-border bg-background-elevated p-4 sm:p-5" aria-labelledby={`color-media-${slugify(color.label)}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="h-10 w-10 rounded-full border border-border shadow-inner" style={{ backgroundColor: color.hex }} />
+                <div>
+                  <h4 id={`color-media-${slugify(color.label)}`} className="font-display text-xl text-text-primary">{color.label}</h4>
+                  <p className="text-sm text-text-secondary">{images.length} of {MAX_VARIANT_IMAGES} photos · shared across {colorVariantCount} size{colorVariantCount === 1 ? '' : 's'}</p>
+                </div>
+              </div>
+              <label className={cn('inline-flex h-11 cursor-pointer items-center border border-border px-4 text-sm text-text-primary transition hover:border-accent-gold hover:text-accent-gold', uploadingColor === color.label && 'cursor-wait opacity-60')}>
+                <ImagePlus size={15} className="mr-2" />
+                {uploadingColor === color.label ? 'Uploading in order…' : 'Upload photos'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={uploading}
+                  aria-label={`Upload ordered photos for ${color.label}`}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    event.target.value = '';
+                    void uploadColorImages(color.label, files);
+                  }}
+                />
+              </label>
+            </div>
+            {mediaError?.message ? <p className="text-sm text-danger" role="alert">{String(mediaError.message)}</p> : null}
+            <div className="grid gap-3">
+              {images.map((url, index) => <div key={`${url}-${index}`} className="grid min-w-0 gap-3 border border-border bg-background-primary p-3 md:grid-cols-[64px_44px_minmax(0,1fr)_auto] md:items-center">
+                <div className="relative aspect-[3/4] overflow-hidden border border-border bg-background-elevated">
+                  {url ? <img src={url} alt={`${color.label} gallery position ${index + 1}`} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-text-muted"><ImageIcon size={18} /></div>}
+                </div>
+                <span className="font-mono text-sm text-accent-gold">#{index + 1}</span>
+                <label className="grid min-w-0 gap-1 text-xs uppercase tracking-[0.12em] text-text-muted">
+                  Photo URL
+                  <input
+                    type="url"
+                    value={url}
+                    aria-label={`${color.label} photo ${index + 1} URL`}
+                    onChange={(event) => {
+                      const next = [...images];
+                      next[index] = event.target.value;
+                      setColorImages(color.label, next);
+                    }}
+                    className="h-11 min-w-0 border border-border bg-background-input px-3 font-mono text-xs normal-case tracking-normal text-text-primary outline-none focus:border-accent-gold"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" aria-label={`Move ${color.label} photo ${index + 1} up`} disabled={index === 0} onClick={() => setColorImages(color.label, moveOrderedImage(images, index, index - 1))}><ArrowUp size={15} /></Button>
+                  <Button type="button" variant="secondary" aria-label={`Move ${color.label} photo ${index + 1} down`} disabled={index === images.length - 1} onClick={() => setColorImages(color.label, moveOrderedImage(images, index, index + 1))}><ArrowDown size={15} /></Button>
+                  <Button type="button" variant="danger" aria-label={`Remove ${color.label} photo ${index + 1}`} disabled={images.length === 1} onClick={() => setColorImages(color.label, images.filter((_, imageIndex) => imageIndex !== index))}><Trash2 size={15} /></Button>
+                </div>
+              </div>)}
+              <Button type="button" variant="secondary" disabled={images.length >= MAX_VARIANT_IMAGES} onClick={() => setColorImages(color.label, [...images, ''])}><Plus size={15} className="mr-2" />Add photo URL</Button>
+            </div>
+          </section>;
+        })}
+      </div> : null}
 
       <div className="grid gap-4">
         {variantFields.map((field, index) => {
@@ -398,7 +517,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
               <Input label="Variant low-stock threshold" type="number" min={0} error={variantError?.lowStockThreshold?.message} {...register(`variants.${index}.lowStockThreshold` as const)} />
               <Toggle label="Enabled for sale" value={current?.enabled !== false} onChange={(enabled) => setValue(`variants.${index}.enabled`, enabled, { shouldDirty: true, shouldValidate: true })} />
               <div className="md:col-span-2 xl:col-span-4">
-                <Input label="Color-specific image URL *" type="url" error={variantError?.image?.message} {...register(`variants.${index}.image` as const)} />
+                <p className="border border-border bg-background-primary px-3 py-3 text-sm text-text-secondary">{current?.images.length ?? 0} ordered {current?.color || 'color'} photo{current?.images.length === 1 ? '' : 's'} attached. Manage their order in the color photo section above.</p>
               </div>
             </div>
           </section>;

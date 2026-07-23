@@ -1,7 +1,15 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
+import { MAX_VARIANT_IMAGES } from './variant-media';
 
 const optionalNumber = (schema: z.ZodNumber) => z.preprocess((value) => value === '' || value === null || value === undefined ? undefined : value, schema.optional());
+const orderedVariantImagesSchema = z.array(z.string().url()).min(1, 'Add at least one variant photo.').max(MAX_VARIANT_IMAGES, `Use no more than ${MAX_VARIANT_IMAGES} photos per color.`).superRefine((images, context) => {
+  const seen = new Set<string>();
+  images.forEach((image, index) => {
+    if (seen.has(image)) context.addIssue({ code: 'custom', path: [index], message: 'Remove the duplicate photo URL.' });
+    seen.add(image);
+  });
+});
 
 export const adminProductVariantSchema = z.object({
   _id: z.string().optional(),
@@ -13,7 +21,7 @@ export const adminProductVariantSchema = z.object({
   priceOverride: optionalNumber(z.coerce.number().min(0)),
   lowStockThreshold: optionalNumber(z.coerce.number().int().min(0)),
   enabled: z.boolean().default(true),
-  image: z.string().url()
+  images: orderedVariantImagesSchema
 });
 
 export const adminProductSchema = z.object({

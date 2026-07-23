@@ -3,10 +3,10 @@ import { productPayloadFromInput as productPayload, type ProductPayloadInput as 
 import { adminProductSchema } from './schemas';
 
 const variants: AdminProductInput['variants'] = [
-  { sku: 'QA-VARIANT-BLK-S', size: 'S', color: 'Black', colorHex: '#050505', stock: 4, enabled: true, image: 'https://example.com/black.jpg' },
-  { sku: 'QA-VARIANT-BLK-M', size: 'M', color: 'Black', colorHex: '#050505', stock: 0, enabled: true, image: 'https://example.com/black.jpg' },
-  { sku: 'QA-VARIANT-WHT-S', size: 'S', color: 'White', colorHex: '#FFFFFF', stock: 7, enabled: true, image: 'https://example.com/white.jpg' },
-  { sku: 'QA-VARIANT-WHT-M', size: 'M', color: 'White', colorHex: '#FFFFFF', stock: 3, enabled: false, image: 'https://example.com/white.jpg' }
+  { sku: 'QA-VARIANT-BLK-S', size: 'S', color: 'Black', colorHex: '#050505', stock: 4, enabled: true, images: ['https://example.com/black-hero.jpg', 'https://example.com/black-detail.jpg'] },
+  { sku: 'QA-VARIANT-BLK-M', size: 'M', color: 'Black', colorHex: '#050505', stock: 0, enabled: true, images: ['https://example.com/black-hero.jpg', 'https://example.com/black-detail.jpg'] },
+  { sku: 'QA-VARIANT-WHT-S', size: 'S', color: 'White', colorHex: '#FFFFFF', stock: 7, enabled: true, images: ['https://example.com/white-hero.jpg', 'https://example.com/white-detail.jpg'] },
+  { sku: 'QA-VARIANT-WHT-M', size: 'M', color: 'White', colorHex: '#FFFFFF', stock: 3, enabled: false, images: ['https://example.com/white-hero.jpg', 'https://example.com/white-detail.jpg'] }
 ];
 
 const product: AdminProductInput = {
@@ -35,12 +35,30 @@ describe('Admin product multi-variant contract', () => {
     }
   });
 
-  it('serializes every variant with its exact visual color, image, stock, and enabled state', () => {
+  it('serializes every variant with its exact visual color, ordered images, stock, and enabled state', () => {
     const payload = productPayload(product);
     expect(payload.variants).toHaveLength(4);
     expect(payload.variants).toEqual(expect.arrayContaining([
       expect.objectContaining({ sku: 'QA-VARIANT-BLK-M', colorHex: '#050505', stock: 0, enabled: true }),
-      expect.objectContaining({ sku: 'QA-VARIANT-WHT-M', colorHex: '#FFFFFF', stock: 3, enabled: false, images: [expect.objectContaining({ url: 'https://example.com/white.jpg' })] })
+      expect.objectContaining({
+        sku: 'QA-VARIANT-WHT-M',
+        colorHex: '#FFFFFF',
+        stock: 3,
+        enabled: false,
+        images: [
+          expect.objectContaining({ url: 'https://example.com/white-hero.jpg', alt: 'QA Variant Luxury Tee — White — photo 1' }),
+          expect.objectContaining({ url: 'https://example.com/white-detail.jpg', alt: 'QA Variant Luxury Tee — White — photo 2' })
+        ]
+      })
     ]));
+  });
+
+  it('rejects empty, duplicate, and over-limit photo lists', () => {
+    const empty = adminProductSchema.safeParse({ ...product, variants: [{ ...variants[0], images: [] }] });
+    const duplicate = adminProductSchema.safeParse({ ...product, variants: [{ ...variants[0], images: ['https://example.com/same.jpg', 'https://example.com/same.jpg'] }] });
+    const tooMany = adminProductSchema.safeParse({ ...product, variants: [{ ...variants[0], images: Array.from({ length: 25 }, (_, index) => `https://example.com/${index}.jpg`) }] });
+    expect(empty.success).toBe(false);
+    expect(duplicate.success).toBe(false);
+    expect(tooMany.success).toBe(false);
   });
 });
