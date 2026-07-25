@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Breadcrumb } from '@/components/shared/breadcrumb';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
+import { normalizeProductHighlights, parseProductDescription } from '@/lib/product-description';
 import { formatPrice } from '@/lib/utils';
 import type { Product, ProductVariant } from '@/types/product.types';
 
@@ -25,6 +26,9 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
   const galleryVariant = variant ?? colorVariant;
   const displayImages = galleryVariant?.images && galleryVariant.images.length > 0 ? galleryVariant.images : product.images;
   const displayPrice = variant?.price ?? product.basePrice;
+  const showComparePrice = Boolean(product.comparePrice && product.comparePrice > displayPrice);
+  const descriptionBlocks = parseProductDescription(product.richDescription);
+  const productHighlights = normalizeProductHighlights(product.productHighlights ?? []);
 
   return (
     <main className="px-6 pb-20 pt-24 lg:px-20">
@@ -37,7 +41,10 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
         <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
           <p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{product.brand}</p>
           <h1 className="mt-3 font-display text-4xl font-light text-text-primary">{product.title}</h1>
-          <p className="mt-4 font-mono text-xl text-accent-gold" aria-live="polite">{formatPrice(displayPrice)}</p>
+          <p className="mt-4 flex flex-wrap items-baseline gap-3 font-mono text-xl text-accent-gold" aria-live="polite">
+            <span>{formatPrice(displayPrice)}</span>
+            {showComparePrice ? <span className="text-base text-text-muted line-through decoration-text-muted/80">{formatPrice(product.comparePrice!)}</span> : null}
+          </p>
           {stock > 0 && stock < 5 ? <p className="mt-3 text-sm text-warning">{COPY.product.onlyLeft.replace('{count}', String(stock))}</p> : null}
           <div className="mt-10">
             <VariantSelector variants={product.variants} onChange={setVariant} onColorChange={setColorVariant} />
@@ -53,8 +60,14 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           </div>
           <details className="mt-10 border-t border-border py-6" open>
             <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.description}</summary>
-            <p className="mt-4 text-text-secondary">{product.richDescription}</p>
-            {product.productHighlights && product.productHighlights.length > 0 ? <ul className="mt-4 grid gap-2 text-sm text-text-secondary">{product.productHighlights.map((highlight) => <li key={highlight}>- {highlight}</li>)}</ul> : null}
+            <div className="mt-5 space-y-4 text-text-secondary">
+              {descriptionBlocks.map((block, index) => {
+                if (block.type === 'heading') return <h2 key={`${block.type}-${index}`} className="pt-2 font-accent text-sm uppercase tracking-[0.12em] text-text-primary">{block.text}</h2>;
+                if (block.type === 'list') return <ul key={`${block.type}-${index}`} className="grid list-disc gap-2 pl-5 text-sm leading-6">{block.items.map((item) => <li key={item} className="pl-1">{item}</li>)}</ul>;
+                return <p key={`${block.type}-${index}`} className="text-sm leading-7">{block.text}</p>;
+              })}
+            </div>
+            {productHighlights.length > 0 ? <div className="mt-6 border-t border-border-subtle pt-5"><h2 className="font-accent text-sm uppercase tracking-[0.12em] text-text-primary">Product Highlights</h2><ul className="mt-3 grid list-disc gap-2 pl-5 text-sm leading-6 text-text-secondary">{productHighlights.map((highlight) => <li key={highlight} className="pl-1">{highlight}</li>)}</ul></div> : null}
           </details>
           {product.videoUrl ? <div className="mt-8 hidden overflow-hidden border border-border-subtle bg-background-elevated lg:block">
             <video src={product.videoUrl} poster={product.videoPosterImage || product.images[0]?.url} className="aspect-video w-full object-cover" controls playsInline />

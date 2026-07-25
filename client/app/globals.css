@@ -48,6 +48,46 @@ input:-webkit-autofill, textarea:-webkit-autofill { -webkit-box-shadow: 0 0 0 10
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .luxury-noise::before { content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.025; background-image: linear-gradient(var(--text-primary) 1px, transparent 1px), linear-gradient(90deg, var(--text-primary) 1px, transparent 1px); background-size: 24px 24px; mask-image: linear-gradient(to bottom, black, transparent 75%); z-index: 1; }
 .brand-wordmark-script { font-family: var(--font-script); font-style: normal; font-weight: 400; letter-spacing: 0.025em; text-rendering: geometricPrecision; }
+.cms-marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: cms-marquee-roll 18s linear infinite;
+}
+@keyframes cms-marquee-roll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@property --video-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.video-landing-cta {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(200, 169, 126, 0.22);
+}
+.video-landing-title {
+  margin-inline-start: -0.135em;
+}
+.video-landing-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(from var(--video-border-angle), transparent 0deg 292deg, rgba(200, 169, 126, 0.15) 310deg, var(--accent-gold) 336deg, #f0d9ae 348deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: video-border-run 3.8s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(200, 169, 126, 0.55));
+}
+@keyframes video-border-run {
+  to { --video-border-angle: 360deg; }
+}
 .auth-wordmark-motion {
   color: transparent;
   background-image: linear-gradient(105deg, var(--accent-gold) 0%, var(--accent-gold) 35%, var(--text-primary) 48%, var(--text-primary) 52%, var(--accent-gold) 65%, var(--accent-gold) 100%);

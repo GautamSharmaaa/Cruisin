@@ -419,6 +419,11 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
   const updateProducts = (ids: string[]): void => {
     onField('products', ids);
     onContent('productIds', ids.join(', '));
+    const product = (products.data?.items ?? []).find((item) => ids[0] && itemId(item) === ids[0]);
+    if (product && draft.type === 'shop_the_look') {
+      onContent('ctaLink', '/product/' + product.slug);
+      onContent('ctaText', 'View Product');
+    }
   };
   const updateCategories = (ids: string[]): void => {
     onField('categories', ids);
@@ -463,7 +468,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
       <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
         <div className="grid gap-4 md:grid-cols-2">{contentEntries.map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
       </InspectorGroup>
-      <InspectorGroup title="Products / Categories / Collections" helper="Search by product, category, or collection name. Selections are saved as CMS references for storefront hydration.">
+      <InspectorGroup title="Products / Categories / Collections" helper={draft.type === 'shop_the_look' ? 'Select the product shown in the image. Its direct product-page link is filled automatically; you can also edit CTA Link above.' : 'Search by product, category, or collection name. Selections are saved as CMS references for storefront hydration.'}>
         <div className="grid gap-4 xl:grid-cols-3">
           <ReferencePicker<ProductDto> label="Products" query={productQuery} onQuery={setProductQuery} items={products.data?.items ?? []} selectedIds={selectedProductIds} isLoading={products.isLoading} getId={itemId} getLabel={productLabel} getMeta={(item) => item.slug + ' / ' + (item.status ?? 'published')} onChange={updateProducts} />
           <ReferencePicker<CategoryDto> label="Categories" query={categoryQuery} onQuery={setCategoryQuery} items={filteredCategories} selectedIds={selectedCategoryIds} isLoading={categoriesData.isLoading} getId={itemId} getLabel={categoryLabel} getMeta={(item) => item.slug} onChange={updateCategories} />
