@@ -19,22 +19,22 @@ process.env.STRIPE_SECRET_KEY = 'test';
 process.env.STRIPE_WEBHOOK_SECRET = 'test';
 process.env.SENDGRID_API_KEY = 'test';
 
-const { authService } = vi.hoisted(() => ({
+const { authService, identityProvider } = vi.hoisted(() => ({
   authService: {
     register: vi.fn(),
     login: vi.fn(),
     googleLogin: vi.fn(),
+    adminGoogleLogin: vi.fn(),
     refresh: vi.fn(),
     logout: vi.fn(),
     requestOtp: vi.fn(),
     verifyOtp: vi.fn()
-  }
+  },
+  identityProvider: { verifyGoogleCredential: vi.fn() }
 }));
 
 vi.mock('../../services/auth.service.js', () => ({ AuthService: authService }));
-vi.mock('../../services/identity-provider.service.js', () => ({
-  IdentityProviderService: { verifyGoogleCredential: vi.fn() }
-}));
+vi.mock('../../services/identity-provider.service.js', () => ({ IdentityProviderService: identityProvider }));
 
 let app: express.Express;
 
@@ -88,6 +88,24 @@ describe('auth API routes', () => {
     expect(response.status).toBe(200);
     expect(authService.refresh).toHaveBeenCalledWith('current-admin-refresh-token', expect.any(Object));
     expect(response.headers['set-cookie']?.[0]).toContain('adminRefreshToken=next-admin-refresh-token');
+  });
+
+  it('uses the admin-only Google login flow and admin refresh cookie', async () => {
+    const credential = 'credential-'.padEnd(120, 'x');
+    const identity = { providerUserId: 'google-admin-id', email: 'admin@cruisin.co.in', name: 'Cruisin Admin' };
+    identityProvider.verifyGoogleCredential.mockResolvedValue(identity);
+    authService.adminGoogleLogin.mockResolvedValue({
+      user: { id: '665f6d8403bd2edc93800000', name: 'Cruisin Admin', email: identity.email, role: 'admin', isVerified: true },
+      tokens: { accessToken: 'admin-google-access', refreshToken: 'admin-google-refresh' }
+    });
+    const response = await request(app)
+      .post('/auth/google/admin')
+      .set('Origin', 'http://localhost:3001')
+      .send({ credential });
+    expect(response.status).toBe(200);
+    expect(authService.adminGoogleLogin).toHaveBeenCalledWith(identity, expect.any(Object));
+    expect(response.body.data.user.role).toBe('admin');
+    expect(response.headers['set-cookie']?.[0]).toContain('adminRefreshToken=admin-google-refresh');
   });
 
   it('rejects cookie-auth requests from an unknown origin', async () => {

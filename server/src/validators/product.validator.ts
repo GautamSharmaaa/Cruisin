@@ -13,7 +13,7 @@ const orderedImagesSchema = z.array(imageSchema).max(24).superRefine((images, co
 const variantSchema = z.object({ _id: z.string().optional(), size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), priceOverride: z.number().min(0).optional(), stock: z.number().int().min(0), enabled: z.boolean().default(true), lowStockThreshold: z.number().int().min(0).optional(), images: orderedImagesSchema.default([]) });
 const optionalUrlSchema = z.union([z.string().url(), z.literal('')]).optional();
 const optionalMediaSchema = z.union([z.string().url(), z.string().regex(/^\/[^\s]+$/), z.literal('')]).optional();
-export const productBodySchema = z.object({
+const productFieldsSchema = z.object({
   title: z.string().min(2).max(160),
   slug: z.string().min(2).max(180),
   description: z.string().min(10),
@@ -60,6 +60,13 @@ export const productBodySchema = z.object({
   dimensions: z.object({ length: z.number().min(0).optional(), width: z.number().min(0).optional(), height: z.number().min(0).optional() }).optional(),
   seo: z.object({ metaTitle: z.string().optional(), metaDesc: z.string().optional(), ogImage: z.string().url().optional() }).default({})
 });
+const validatePriceRelationship = (product: { basePrice?: number; comparePrice?: number }, context: z.RefinementCtx): void => {
+  if (product.basePrice !== undefined && product.comparePrice !== undefined && product.comparePrice > 0 && product.comparePrice <= product.basePrice) {
+    context.addIssue({ code: 'custom', path: ['comparePrice'], message: 'MRP must be greater than the selling price' });
+  }
+};
+export const productBodySchema = productFieldsSchema.superRefine(validatePriceRelationship);
+export const productUpdateSchema = productFieldsSchema.partial().superRefine(validatePriceRelationship);
 export const productQuerySchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   category: z.string().optional(),

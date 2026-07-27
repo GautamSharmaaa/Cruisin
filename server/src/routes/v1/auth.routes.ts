@@ -14,6 +14,7 @@ authRouter.post('/login', authLimiter, requireBrowserOrigin, validate({ body: lo
 authRouter.post('/refresh', authLimiter, requireBrowserOrigin, validate({ body: refreshSchema }), AuthController.refresh);
 authRouter.post('/logout', requireBrowserOrigin, AuthController.logout);
 authRouter.post('/google', authLimiter, requireBrowserOrigin, validate({ body: googleLoginSchema }), AuthController.googleLogin);
+authRouter.post('/google/admin', authLimiter, requireBrowserOrigin, validate({ body: googleLoginSchema }), AuthController.adminGoogleLogin);
 authRouter.post('/otp/request', otpRequestLimiter, validate({ body: otpRequestSchema }), AuthController.requestOtp);
 authRouter.post('/otp/verify', otpVerifyLimiter, requireBrowserOrigin, validate({ body: otpVerifySchema }), AuthController.verifyOtp);
 authRouter.post('/verify-email', authLimiter, validate({ body: verifyEmailSchema }), AuthController.verifyEmail);

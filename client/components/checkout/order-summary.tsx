@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { DeliveryPrice } from '@/components/cart/delivery-price';
 import { SafeImage } from '@/components/shared/safe-image';
 import { COPY } from '@/constants/copy';
+import { taxInclusiveCheckoutTotals } from '@/lib/checkout-totals';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { shippingQuote, type ShippingMethod, type ShippingRateSettings } from '@/lib/shipping';
 import { formatPrice } from '@/lib/utils';
@@ -26,9 +27,9 @@ export function OrderSummary({ shippingMethod = 'standard', shippingSettings }: 
 	if (!mounted) return null;
 	const items = cartItems.filter((item) => isCustomerVisibleProduct(item.product));
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-	const discountedSubtotal = Math.max(0, subtotal - discount);
+	const discountedSubtotal = taxInclusiveCheckoutTotals(subtotal, discount, 0).discountedSubtotal;
 	const delivery = shippingQuote(discountedSubtotal, freeShipping, shippingMethod, shippingSettings);
-	const tax = Math.round(discountedSubtotal * 0.18);
+	const totals = taxInclusiveCheckoutTotals(subtotal, discount, delivery.amount);
 	return (
 		<aside className="border border-border bg-background-elevated/70 p-6 shadow-lg backdrop-blur-xl lg:sticky lg:top-28">
 			<p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{COPY.checkout.payment}</p>
@@ -38,8 +39,8 @@ export function OrderSummary({ shippingMethod = 'standard', shippingSettings }: 
 				<div className="flex justify-between"><span>{COPY.cart.subtotal}</span><span className="font-mono text-text-primary">{formatPrice(subtotal)}</span></div>
 				{discount > 0 ? <div className="flex justify-between text-success"><span>Discount</span><span className="font-mono">-{formatPrice(discount)}</span></div> : null}
 				<div className="flex items-center justify-between gap-4"><span>{COPY.cart.shipping}</span><DeliveryPrice quote={delivery} /></div>
-				<div className="flex justify-between"><span>{COPY.cart.tax}</span><span className="font-mono text-text-primary">{formatPrice(tax)}</span></div>
-				<div className="flex justify-between border-t border-border pt-5 font-mono text-xl text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(discountedSubtotal + delivery.amount + tax)}</span></div>
+				<div className="flex justify-between"><span>{COPY.cart.tax}</span><span className="font-mono text-success">{COPY.cart.taxIncluded}</span></div>
+				<div className="flex justify-between border-t border-border pt-5 font-mono text-xl text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(totals.total)}</span></div>
 			</div>
 		</aside>
 	);

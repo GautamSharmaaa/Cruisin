@@ -306,7 +306,7 @@ export const OrderService = {
     const discount = money(couponResult?.discount ?? 0);
     const shippingMethod = input.shippingMethod ?? 'standard';
     const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
-    const tax = Math.round((subtotal - discount) * 0.18);
+    const tax = 0;
     const total = money(subtotal - discount + shipping + tax);
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
     const advance = mode === 'partial' ? money(Math.min(total, env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? total * ((env.PARTIAL_PAYMENT_PERCENTAGE ?? 0) / 100))) : total;
@@ -351,7 +351,7 @@ export const OrderService = {
     const discount = money(couponResult?.discount ?? 0);
     const shippingMethod = input.shippingMethod ?? 'standard';
     const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
-    const tax = Math.round((subtotal - discount) * 0.18);
+    const tax = 0;
     const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     let order;

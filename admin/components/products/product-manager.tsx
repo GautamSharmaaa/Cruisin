@@ -152,9 +152,10 @@ export function ProductManager(): ReactNode {
     const comparePrice = draft.comparePrice ? Number(draft.comparePrice) : undefined;
     if (!draft.title.trim()) { showToast({ tone: 'error', message: 'Product title cannot be empty.' }); return; }
     if (!Number.isFinite(basePrice) || basePrice <= 0) { showToast({ tone: 'error', message: 'Price must be greater than zero.' }); return; }
-    if (comparePrice !== undefined && comparePrice > basePrice) { showToast({ tone: 'error', message: 'Sale price cannot be greater than regular price.' }); return; }
+    if (comparePrice !== undefined && comparePrice > 0 && comparePrice <= basePrice) { showToast({ tone: 'error', message: 'MRP must be greater than the selling price.' }); return; }
     try {
-      await patchProduct.mutateAsync({ id, patch: { title: draft.title.trim(), basePrice, comparePrice: comparePrice ?? 0 } });
+      const variants = product.variants?.map((variant) => ({ ...variant, price: variant.priceOverride ?? basePrice }));
+      await patchProduct.mutateAsync({ id, patch: { title: draft.title.trim(), basePrice, comparePrice: comparePrice ?? 0, variants } });
       setQuickDrafts((current) => {
         const next = { ...current };
         delete next[id];
@@ -322,7 +323,8 @@ export function ProductManager(): ReactNode {
     try {
       await Promise.all(selectedProducts.map((product) => {
         const basePrice = bulkPrice.mode === 'set' ? value : bulkPrice.mode === 'decrease' ? Math.max(1, Math.round(product.basePrice * (1 - value / 100))) : Math.round(product.basePrice * (1 + value / 100));
-        return patchProduct.mutateAsync({ id: productId(product), patch: { basePrice } });
+        const variants = product.variants?.map((variant) => ({ ...variant, price: variant.priceOverride ?? basePrice }));
+        return patchProduct.mutateAsync({ id: productId(product), patch: { basePrice, variants } });
       }));
       setModal(null);
       setBulkPriceOpen(false);
@@ -482,8 +484,8 @@ export function ProductManager(): ReactNode {
                     <p>Lifetime Sales: <span className="text-accent-gold">{product.lifetimeSales ?? 0}</span> · Rating: {product.ratings?.avg ? product.ratings.avg.toFixed(1) : '--'} · Variants: {(product.variants ?? []).length} · Total Stock: {stock}</p>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">Price<input value={draft.basePrice} onChange={(event) => setQuickDraft(product, { basePrice: event.target.value })} inputMode="numeric" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-accent-gold" /></label>
-                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">Sale Price<input value={draft.comparePrice} onChange={(event) => setQuickDraft(product, { comparePrice: event.target.value })} inputMode="numeric" placeholder="None" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-text-primary placeholder:text-text-muted" /></label>
+                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">Selling Price<input value={draft.basePrice} onChange={(event) => setQuickDraft(product, { basePrice: event.target.value })} inputMode="numeric" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-accent-gold" /></label>
+                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">MRP<input value={draft.comparePrice} onChange={(event) => setQuickDraft(product, { comparePrice: event.target.value })} inputMode="numeric" placeholder="None" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-text-primary placeholder:text-text-muted" /></label>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {quickDirty(product) ? <><Button onClick={() => void saveQuickDraft(product)} disabled={patchProduct.isPending}><Check size={15} className="mr-2" />Save</Button><Button variant="secondary" onClick={() => setQuickDrafts((current) => { const next = { ...current }; delete next[id]; return next; })}>Cancel</Button></> : null}

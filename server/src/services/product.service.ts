@@ -107,6 +107,10 @@ const hasHealthIssues = (product: Record<string, unknown>): boolean => {
   const seo = product.seo && typeof product.seo === 'object' ? product.seo as Record<string, unknown> : {};
   return images.length === 0 || !product.title || !product.description || !product.category || !product.basePrice || variants.length === 0 || totalStock(product as { variants?: Array<{ stock?: number }> }) === 0 || !product.slug || !seo.metaTitle || !seo.metaDesc;
 };
+const numberField = (record: ProductInput, key: 'basePrice' | 'comparePrice'): number | undefined => typeof record[key] === 'number' ? record[key] : undefined;
+const assertPriceRelationship = (basePrice: number | undefined, comparePrice: number | undefined): void => {
+  if (basePrice !== undefined && comparePrice !== undefined && comparePrice > 0 && comparePrice <= basePrice) throw new ApiError(400, 'MRP must be greater than the selling price');
+};
 
 export const ProductService = {
   async list(filters: ProductFilters): Promise<PaginatedResult<unknown>> {
@@ -204,8 +208,23 @@ export const ProductService = {
   },
   async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return sanitizePublicProduct(product); },
   async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
-  async create(input: ProductInput): Promise<unknown> { const product = await ProductModel.create(input); markCatalogueStale(); return product; },
-  async update(id: string, input: ProductInput): Promise<unknown> { const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }); if (!product) throw new ApiError(404, 'Product not found'); markCatalogueStale(); return product; },
+  async create(input: ProductInput): Promise<unknown> {
+    assertPriceRelationship(numberField(input, 'basePrice'), numberField(input, 'comparePrice'));
+    const product = await ProductModel.create(input);
+    markCatalogueStale();
+    return product;
+  },
+  async update(id: string, input: ProductInput): Promise<unknown> {
+    const current = await ProductModel.findById(id).select('basePrice comparePrice').lean();
+    if (!current) throw new ApiError(404, 'Product not found');
+    const basePrice = numberField(input, 'basePrice') ?? current.basePrice;
+    const comparePrice = Object.prototype.hasOwnProperty.call(input, 'comparePrice') ? numberField(input, 'comparePrice') : current.comparePrice ?? undefined;
+    assertPriceRelationship(basePrice, comparePrice);
+    const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true });
+    if (!product) throw new ApiError(404, 'Product not found');
+    markCatalogueStale();
+    return product;
+  },
   async duplicate(id: string): Promise<unknown> {
     const product = await ProductModel.findById(id).lean();
     if (!product) throw new ApiError(404, 'Product not found');

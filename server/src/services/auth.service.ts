@@ -18,7 +18,7 @@ import { generateAccessToken, generateRefreshToken, randomToken, sha256, verifyR
 import { normalizePhone } from '../utils/phone.js';
 import { normalizeEmail, sanitizeString } from '../utils/sanitize.js';
 import { sendEmail } from '../utils/send-email.js';
-import type { AccessTokenPayload, UserRole } from '../types/auth.types.js';
+import type { AccessTokenPayload, AdminRole, UserRole } from '../types/auth.types.js';
 import { IdentityProviderService, type GoogleIdentity } from './identity-provider.service.js';
 
 export interface AuthTokens { accessToken: string; refreshToken: string; }
@@ -34,6 +34,7 @@ interface PreferenceInput { language?: string; currency?: string; theme?: 'dark'
 
 const isPlaceholderEmail = (email: string): boolean => email.endsWith('@phone.cruisin.local');
 const isPlaceholderName = (name: string): boolean => name === 'Cruisin Member';
+const adminRoles: AdminRole[] = ['admin', 'superadmin', 'manager', 'viewer'];
 const toUserDto = (user: UserLike): AuthUserDto => {
   const profileIncomplete = isPlaceholderEmail(user.email) || isPlaceholderName(user.name);
   return {
@@ -159,6 +160,20 @@ export const AuthService = {
     const payload: AccessTokenPayload = { userId: String(user._id), email: user.email, role: user.role };
     const tokens = await issueTokens(payload, context);
     await Promise.all([UserModel.findByIdAndUpdate(user._id, { lastLogin: new Date(), isVerified: true, status: 'active' }), logSecurityEvent(String(user._id), 'google_login', context)]);
+    return { user: toUserDto(user), tokens };
+  },
+  async adminGoogleLogin(input: GoogleIdentity, context: RequestContext = {}): Promise<{ user: AuthUserDto; tokens: AuthTokens }> {
+    const email = normalizeEmail(input.email);
+    const existingProvider = await AuthProviderModel.findOne({ provider: 'google', providerUserId: input.providerUserId });
+    const user = existingProvider
+      ? await UserModel.findById(existingProvider.user)
+      : await UserModel.findOne({ email, isActive: true, status: { $ne: 'deleted' } });
+    if (!user || !adminRoles.includes(user.role as AdminRole) || !user.isActive || user.status === 'deleted') throw new ApiError(403, 'Admin access is not assigned to this Google account');
+    await AuthProviderModel.findOneAndUpdate({ provider: 'google', providerUserId: input.providerUserId }, { user: user._id, provider: 'google', providerUserId: input.providerUserId, providerEmail: email, isVerified: true, linkedAt: new Date() }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    await ensureEmailProvider(String(user._id), user.email, true);
+    const payload: AccessTokenPayload = { userId: String(user._id), email: user.email, role: user.role };
+    const tokens = await issueTokens(payload, context);
+    await Promise.all([UserModel.findByIdAndUpdate(user._id, { lastLogin: new Date(), isVerified: true, status: 'active' }), logSecurityEvent(String(user._id), 'admin_google_login', context)]);
     return { user: toUserDto(user), tokens };
   },
   async refresh(refreshToken: string, context: RequestContext = {}): Promise<AuthTokens> {

@@ -61,7 +61,7 @@ describe('OrderService authenticated checkout', () => {
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-TEST', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
-    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_test_provider', amount: 2_080, currency: 'INR', provider: 'razorpay' }) });
+    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_test_provider', amount: 1_900, currency: 'INR', provider: 'razorpay' }) });
     const { OrderService } = await import('./order.service.js');
 
     const result = await OrderService.checkout(customerId, {
@@ -72,9 +72,9 @@ describe('OrderService authenticated checkout', () => {
       billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
     });
 
-    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', total: 2_080, amountPaid: 0, amountDue: 2_080, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', tax: 0, total: 1_900, amountPaid: 0, amountDue: 1_900, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
-    expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 2_080 });
+    expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_900 });
   });
 
   it('uses the administrator delivery threshold as the server-authoritative order price', async () => {
@@ -99,7 +99,7 @@ describe('OrderService authenticated checkout', () => {
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-THRESHOLD', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
-    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_threshold', amount: 1_180, currency: 'INR', provider: 'razorpay' }) });
+    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_threshold', amount: 1_000, currency: 'INR', provider: 'razorpay' }) });
     const { OrderService } = await import('./order.service.js');
 
     const result = await OrderService.checkout(customerId, {
@@ -114,10 +114,10 @@ describe('OrderService authenticated checkout', () => {
     expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({
       subtotal: 1_000,
       shipping: 0,
-      tax: 180,
-      total: 1_180
+      tax: 0,
+      total: 1_000
     }));
-    expect(result).toMatchObject({ payment: { id: 'order_threshold', amount: 1_180 }, amountToPay: 1_180 });
+    expect(result).toMatchObject({ payment: { id: 'order_threshold', amount: 1_000 }, amountToPay: 1_000 });
   });
 
   it('reuses the original provider order for a repeated checkout idempotency key', async () => {

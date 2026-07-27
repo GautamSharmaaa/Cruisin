@@ -51,4 +51,10 @@ describe('product validator ordered variant media', () => {
     expect(duplicate.success).toBe(false);
     expect(tooMany.success).toBe(false);
   });
+
+  it('requires MRP to be greater than the selling price', () => {
+    expect(productBodySchema.safeParse({ ...product, comparePrice: 1_999 }).success).toBe(true);
+    expect(productBodySchema.safeParse({ ...product, comparePrice: 799 }).success).toBe(false);
+    expect(productBodySchema.safeParse({ ...product, comparePrice: 699 }).success).toBe(false);
+  });
 });

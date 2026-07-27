@@ -31,6 +31,20 @@ export const useAdminLogin = () => {
   });
 };
 
+export const useAdminGoogleLogin = () => {
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async (credential: string): Promise<LoginResponse> => {
+      const response = await api.post<ApiEnvelope<LoginResponse>>('/auth/google/admin', { credential });
+      return response.data.data;
+    },
+    onSuccess: (data): void => {
+      setAccessToken(data.accessToken);
+      router.push('/');
+    }
+  });
+};
+
 export const useAdminLogout = () => {
   const router = useRouter();
   return (): void => {

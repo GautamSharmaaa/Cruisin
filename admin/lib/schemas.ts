@@ -70,6 +70,9 @@ export const adminProductSchema = z.object({
   videoPosterImage: z.string().optional().default(''),
   imageAltText: z.string().optional().default('')
 }).superRefine((product, context) => {
+  if (product.comparePrice !== undefined && product.comparePrice > 0 && product.comparePrice <= product.basePrice) {
+    context.addIssue({ code: 'custom', path: ['comparePrice'], message: 'MRP must be greater than the selling price.' });
+  }
   const skus = new Map<string, number>();
   const combinations = new Map<string, number>();
   product.variants.forEach((variant, index) => {

@@ -32,4 +32,12 @@ describe('CartService ownership and stock guards', () => {
     cartModel.findOne.mockResolvedValue({ items: [{ product: productId, variant: variantId, quantity: 1 }], save: vi.fn() });
     await expect(CartService.update(undefined, 'qa-session-12345', { product: productId, variant: variantId, quantity: 3 })).rejects.toMatchObject({ statusCode: 409 });
   });
+
+  it('allows quantities above twenty when the variant has enough stock', async () => {
+    productModel.findOne.mockResolvedValue({ variants: [{ _id: variantId, enabled: true, stock: 50, price: 100 }] });
+    const cart = { items: [{ product: productId, variant: variantId, quantity: 20 }], save: vi.fn(), populate: vi.fn().mockResolvedValue({ items: [] }) };
+    cartModel.findOneAndUpdate.mockResolvedValue(cart);
+    await expect(CartService.add(undefined, 'qa-session-12345', { product: productId, variant: variantId, quantity: 10 })).resolves.toEqual({ items: [] });
+    expect(cart.items[0]?.quantity).toBe(30);
+  });
 });

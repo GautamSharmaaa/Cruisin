@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const apiOrigin = (() => { try { return new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').origin; } catch { return 'http://localhost:8000'; } })();
 const developmentScriptSource = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
 const securityHeaders = [
-  { key: 'Content-Security-Policy', value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'${developmentScriptSource}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com https://res.cloudinary.com https://placehold.co https://s3.ap-south-1.amazonaws.com; font-src 'self' data:; connect-src 'self' ${apiOrigin} https://api.cloudinary.com; media-src 'self' blob: https:; worker-src 'self' blob:` },
+  { key: 'Content-Security-Policy', value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'${developmentScriptSource} https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https://images.unsplash.com https://res.cloudinary.com https://placehold.co https://s3.ap-south-1.amazonaws.com https://*.googleusercontent.com; font-src 'self' data:; connect-src 'self' ${apiOrigin} https://accounts.google.com https://api.cloudinary.com; frame-src https://accounts.google.com; media-src 'self' blob: https:; worker-src 'self' blob:` },
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },

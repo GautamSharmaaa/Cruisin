@@ -27,7 +27,7 @@ export const CartService = {
     const cart = await CartModel.findOneAndUpdate(ownerQuery(userId, sessionId), { $setOnInsert: { ...ownerQuery(userId, sessionId), expiresAt: cartExpiry() } }, { upsert: true, new: true });
     const existing = cart.items.find((item) => String(item.product) === input.product && String(item.variant) === input.variant);
     const nextQuantity = (existing?.quantity ?? 0) + input.quantity;
-    if (nextQuantity > 20 || nextQuantity > variant.stock) throw new ApiError(409, 'Requested quantity exceeds available stock');
+    if (nextQuantity > variant.stock) throw new ApiError(409, 'Requested quantity exceeds available stock');
     if (existing) existing.quantity = nextQuantity;
     else cart.items.push({ product: new Types.ObjectId(input.product), variant: new Types.ObjectId(input.variant), quantity: input.quantity, price: variant.price });
     await cart.save();
