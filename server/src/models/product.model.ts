@@ -23,6 +23,12 @@ const variantSchema = new Schema(
     stock: { type: Number, required: true, min: 0, index: true },
     enabled: { type: Boolean, default: true, index: true },
     lowStockThreshold: { type: Number, min: 0 },
+    weight: { type: Number, min: 0, max: 100 },
+    dimensions: {
+      length: { type: Number, min: 0, max: 300 },
+      width: { type: Number, min: 0, max: 300 },
+      height: { type: Number, min: 0, max: 300 }
+    },
     images: { type: [imageSchema], default: [] }
   },
   { _id: true }
@@ -84,12 +90,15 @@ const productSchema = new Schema(
     sortOrder: { type: Number, default: 0, index: true },
     relatedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
     recommendedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
-    weight: { type: Number, min: 0 },
+    weight: { type: Number, min: 0, max: 100 },
     dimensions: {
-      length: { type: Number, min: 0 },
-      width: { type: Number, min: 0 },
-      height: { type: Number, min: 0 }
+      length: { type: Number, min: 0, max: 300 },
+      width: { type: Number, min: 0, max: 300 },
+      height: { type: Number, min: 0, max: 300 }
     },
+    packagingWeight: { type: Number, min: 0 },
+    defaultPackagePreset: { type: String, trim: true },
+    maximumQuantityPerPackage: { type: Number, min: 1, default: 10 },
     ratings: {
       avg: { type: Number, default: 0, min: 0, max: 5 },
       count: { type: Number, default: 0, min: 0 }

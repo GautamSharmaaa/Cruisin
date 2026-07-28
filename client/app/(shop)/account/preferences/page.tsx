@@ -7,10 +7,11 @@ import { COPY } from '@/constants/copy';
 import { usePreferences, useUpdatePreferences } from '@/hooks/useAccount';
 import type { UserPreferences } from '@/types/user.types';
 
-const preferenceKeys: Array<keyof Pick<UserPreferences, 'marketingEmails' | 'pushNotifications' | 'smsNotifications' | 'whatsappNotifications'>> = ['marketingEmails', 'pushNotifications', 'smsNotifications', 'whatsappNotifications'];
+const preferenceKeys: Array<keyof Pick<UserPreferences, 'marketingEmails' | 'orderEmails' | 'pushNotifications' | 'smsNotifications' | 'whatsappNotifications'>> = ['marketingEmails', 'orderEmails', 'pushNotifications', 'smsNotifications', 'whatsappNotifications'];
 
 const preferenceLabels = {
   marketingEmails: COPY.account.marketingEmails,
+  orderEmails: COPY.account.orderEmails,
   pushNotifications: COPY.account.pushNotifications,
   smsNotifications: COPY.account.smsNotifications,
   whatsappNotifications: COPY.account.whatsappNotifications

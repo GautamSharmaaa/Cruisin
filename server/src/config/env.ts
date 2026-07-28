@@ -5,6 +5,13 @@ import { z } from 'zod';
 config();
 
 const optionalSecret = z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional());
+const optionalString = z.preprocess((value) => value === '' ? undefined : value, z.string().trim().min(1).optional());
+const envBoolean = (defaultValue: boolean) => z.preprocess((value) => {
+  if (value === undefined || value === '') return defaultValue;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return value;
+}, z.boolean());
 
 const mongoDetails = (uri: string): { database: string; hostname: string; protocol: string } | null => {
   try {
@@ -56,9 +63,36 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: optionalSecret,
   TWILIO_AUTH_TOKEN: optionalSecret,
   TWILIO_WHATSAPP_FROM: optionalSecret,
+  TWILIO_SMS_FROM: optionalSecret,
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: optionalSecret,
-  SENTRY_DSN: z.string().optional()
+  SENTRY_DSN: z.string().optional(),
+  LOGISTICS_PROVIDER: z.literal('shiprocket').default('shiprocket'),
+  SHIPROCKET_ENABLED: envBoolean(false),
+  SHIPROCKET_MODE: z.enum(['mock', 'live-readonly', 'live']).default('mock'),
+  SHIPROCKET_ALLOW_LIVE_READS: envBoolean(false),
+  SHIPROCKET_ALLOW_LIVE_MUTATIONS: envBoolean(false),
+  SHIPROCKET_BASE_URL: z.literal('https://apiv2.shiprocket.in/v1/external').default('https://apiv2.shiprocket.in/v1/external'),
+  SHIPROCKET_API_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
+  SHIPROCKET_API_PASSWORD: optionalSecret,
+  SHIPROCKET_PICKUP_LOCATION: optionalString,
+  SHIPROCKET_PICKUP_POSTCODE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[1-9]\d{5}$/).optional()),
+  SHIPROCKET_WEBHOOK_SECRET: optionalSecret,
+  SHIPROCKET_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(12_000),
+  SHIPROCKET_TOKEN_REFRESH_BUFFER_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3_600),
+  SHIPROCKET_AUTO_CREATE_ORDER: envBoolean(false),
+  SHIPROCKET_AUTO_CREATE_COD_ORDER: envBoolean(false),
+  SHIPROCKET_AUTO_ASSIGN_AWB: envBoolean(false),
+  SHIPROCKET_AUTO_SCHEDULE_PICKUP: envBoolean(false),
+  LOGISTICS_NOTIFICATIONS_ENABLED: envBoolean(true),
+  LOGISTICS_EMAIL_NOTIFICATIONS_ENABLED: envBoolean(false),
+  LOGISTICS_SMS_NOTIFICATIONS_ENABLED: envBoolean(false),
+  LOGISTICS_WHATSAPP_NOTIFICATIONS_ENABLED: envBoolean(false),
+  LOGISTICS_DOCUMENT_TTL_SECONDS: z.coerce.number().int().min(300).max(86_400).default(3_600),
+  LOGISTICS_QUOTE_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
+  LOGISTICS_PACKAGING_WEIGHT_KG: z.coerce.number().positive().max(25).default(0.1),
+  LOGISTICS_WORKER_ENABLED: envBoolean(false),
+  LOGISTICS_WORKER_POLL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000)
 }).superRefine((value, context) => {
   const mongo = mongoDetails(value.MONGODB_URI);
   if (!mongo || !['mongodb:', 'mongodb+srv:'].includes(mongo.protocol)) {
@@ -75,6 +109,23 @@ const envSchema = z.object({
   if ((value.UPSTASH_REDIS_REST_URL && !value.UPSTASH_REDIS_REST_TOKEN) || (!value.UPSTASH_REDIS_REST_URL && value.UPSTASH_REDIS_REST_TOKEN)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['UPSTASH_REDIS_REST_URL'], message: 'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be provided together' });
   }
+  if (value.SHIPROCKET_MODE === 'mock' && (value.SHIPROCKET_ALLOW_LIVE_READS || value.SHIPROCKET_ALLOW_LIVE_MUTATIONS)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_MODE'], message: 'Mock Shiprocket mode cannot allow live operations' });
+  }
+  if (value.SHIPROCKET_MODE === 'live-readonly' && value.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_MUTATIONS'], message: 'Live-readonly Shiprocket mode cannot allow mutations' });
+  }
+  if (value.SHIPROCKET_ENABLED && value.SHIPROCKET_MODE !== 'mock') {
+    if (!value.SHIPROCKET_API_EMAIL) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_API_EMAIL'], message: 'Shiprocket API email is required outside mock mode' });
+    if (!value.SHIPROCKET_API_PASSWORD) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_API_PASSWORD'], message: 'Shiprocket API password is required outside mock mode' });
+    if (!value.SHIPROCKET_PICKUP_LOCATION) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_LOCATION'], message: 'Shiprocket pickup location is required outside mock mode' });
+    if (!value.SHIPROCKET_PICKUP_POSTCODE) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_POSTCODE'], message: 'Shiprocket pickup postcode is required outside mock mode' });
+  }
+  if (value.SHIPROCKET_ENABLED && value.APP_ENV !== 'development' && !value.SHIPROCKET_WEBHOOK_SECRET) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_WEBHOOK_SECRET'], message: 'Shiprocket webhook secret is required outside development' });
+  }
+  if (value.LOGISTICS_SMS_NOTIFICATIONS_ENABLED && !value.TWILIO_SMS_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_SMS_FROM'], message: 'TWILIO_SMS_FROM is required when logistics SMS notifications are enabled' });
+  if (value.LOGISTICS_WHATSAPP_NOTIFICATIONS_ENABLED && !value.TWILIO_WHATSAPP_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_WHATSAPP_FROM'], message: 'TWILIO_WHATSAPP_FROM is required when logistics WhatsApp notifications are enabled' });
   if (value.APP_ENV === 'development') return;
   if (value.NODE_ENV !== 'production') context.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'NODE_ENV must be production outside local development' });
   if (value.TRUST_PROXY < 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TRUST_PROXY'], message: 'TRUST_PROXY must be at least 1 behind Railway proxying' });

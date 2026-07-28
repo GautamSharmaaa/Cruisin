@@ -8,6 +8,7 @@ const userPreferenceSchema = new Schema(
     currency: { type: String, default: 'INR', trim: true },
     theme: { type: String, enum: ['dark'], default: 'dark' },
     marketingEmails: { type: Boolean, default: false },
+    orderEmails: { type: Boolean, default: true },
     pushNotifications: { type: Boolean, default: true },
     smsNotifications: { type: Boolean, default: true },
     whatsappNotifications: { type: Boolean, default: true }

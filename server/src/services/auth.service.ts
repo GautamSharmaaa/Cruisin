@@ -30,7 +30,7 @@ interface UserLike { _id: unknown; name: string; email: string; role: UserRole; 
 interface OtpRequestInput { phone: string; channel: 'whatsapp'; purpose: 'login' | 'link_account' | 'verify_phone'; deviceFingerprint?: string; }
 interface OtpVerifyInput { requestId: string; otp: string; deviceFingerprint?: string; }
 interface AddressBookInput { type: 'home' | 'office' | 'other'; fullName: string; phone: string; country: string; state: string; city: string; pincode: string; street: string; landmark?: string; latitude?: number; longitude?: number; isDefault: boolean; }
-interface PreferenceInput { language?: string; currency?: string; theme?: 'dark'; marketingEmails?: boolean; pushNotifications?: boolean; smsNotifications?: boolean; whatsappNotifications?: boolean; }
+interface PreferenceInput { language?: string; currency?: string; theme?: 'dark'; marketingEmails?: boolean; orderEmails?: boolean; pushNotifications?: boolean; smsNotifications?: boolean; whatsappNotifications?: boolean; }
 
 const isPlaceholderEmail = (email: string): boolean => email.endsWith('@phone.cruisin.local');
 const isPlaceholderName = (name: string): boolean => name === 'Cruisin Member';

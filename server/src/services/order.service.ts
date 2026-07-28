@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { env } from '../config/env.js';
+import { logisticsConfig } from '../config/logistics.js';
 import { CartModel } from '../models/cart.model.js';
 import { CouponModel } from '../models/coupon.model.js';
 import { OrderModel } from '../models/order.model.js';
@@ -14,9 +15,13 @@ import { sendEmail } from '../utils/send-email.js';
 import { logger } from '../utils/logger.js';
 import { calculateShippingRate, type ShippingMethod } from '../utils/shipping-rate.js';
 import { PaymentService } from './payment.service.js';
+import { LogisticsJobService } from './logistics/logistics-job.service.js';
+import { shouldAutoCreateProviderOrder } from './logistics/logistics-automation.service.js';
+import { LogisticsQuoteService } from './logistics/logistics-quote.service.js';
+import { LogisticsService } from './logistics/logistics.service.js';
 
 type AddressInput = Record<string, unknown>;
-type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; couponCode?: string; idempotencyKey: string };
+type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; idempotencyKey: string };
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -90,6 +95,26 @@ const notifyOrderConfirmation = async (orderId: string): Promise<void> => {
   } catch {
     // Order creation and payment settlement must not report failure after durable state is committed.
     logger.error('Order confirmation email could not be sent', { orderId });
+  }
+};
+
+const prepareFulfillment = async (orderId: string): Promise<void> => {
+  if (!logisticsConfig.enabled) return;
+  try {
+    await LogisticsService.ensureDraftForOrder(orderId);
+    const order = await OrderModel.findById(orderId).select('paymentMode').lean();
+    if (shouldAutoCreateProviderOrder(order?.paymentMode)) {
+      await LogisticsJobService.enqueue('create_order', { orderId }, `create-order:${orderId}`);
+    }
+  } catch (error) {
+    logger.error('Order fulfillment could not be prepared', { orderId, error });
+    await OrderModel.updateOne(
+      { _id: orderId },
+      {
+        $set: { fulfillmentStatus: 'logistics_error' },
+        $push: { timeline: { status: 'logistics_error', timestamp: new Date(), note: 'Payment is safe; shipping setup requires admin review' } }
+      }
+    );
   }
 };
 
@@ -283,6 +308,7 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
   order.paymentSettlementStartedAt = undefined;
   await order.save();
   await CartModel.deleteOne({ user: order.user });
+  await prepareFulfillment(orderId);
   await notifyOrderConfirmation(orderId);
   return order;
 };
@@ -304,8 +330,16 @@ export const OrderService = {
     if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
-    const shippingMethod = input.shippingMethod ?? 'standard';
-    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
+    const requestedShippingMethod = input.shippingMethod ?? 'standard';
+    const logisticsQuote = logisticsConfig.enabled ? await LogisticsQuoteService.validate(userId, {
+      quoteId: input.logisticsQuoteId,
+      shippingMethod: requestedShippingMethod,
+      paymentMode: 'prepaid',
+      deliveryPostcode: String(input.shippingAddress.postalCode ?? ''),
+      freeShipping: Boolean(couponResult?.freeShipping)
+    }) : null;
+    const shippingMethod = logisticsQuote?.shippingMethod ?? requestedShippingMethod;
+    const shipping = logisticsQuote?.shippingCharge ?? calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
     const tax = 0;
     const total = money(subtotal - discount + shipping + tax);
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
@@ -313,7 +347,7 @@ export const OrderService = {
     if (advance <= 0) throw new ApiError(400, 'Invalid partial-payment configuration');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
@@ -326,6 +360,7 @@ export const OrderService = {
       else order.stripePaymentIntentId = payment.id;
       order.paymentAttempts.push({ providerOrderId: payment.id, amount: advance, status: 'created' });
       await order.save();
+      if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId);
       if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
       return { order, payment, amountToPay: advance };
     } catch (error) {
@@ -349,14 +384,22 @@ export const OrderService = {
     if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
     const discount = money(couponResult?.discount ?? 0);
-    const shippingMethod = input.shippingMethod ?? 'standard';
-    const shipping = calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
+    const requestedShippingMethod = input.shippingMethod ?? 'standard';
+    const logisticsQuote = logisticsConfig.enabled ? await LogisticsQuoteService.validate(userId, {
+      quoteId: input.logisticsQuoteId,
+      shippingMethod: requestedShippingMethod,
+      paymentMode: 'cod',
+      deliveryPostcode: String(input.shippingAddress.postalCode ?? ''),
+      freeShipping: Boolean(couponResult?.freeShipping)
+    }) : null;
+    const shippingMethod = logisticsQuote?.shippingMethod ?? requestedShippingMethod;
+    const shipping = logisticsQuote?.shippingCharge ?? calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
     const tax = 0;
     const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
@@ -364,8 +407,10 @@ export const OrderService = {
       return existingCheckoutResult(duplicate);
     }
     await reserveStock(String(order._id));
+    if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId);
     if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
     await CartModel.deleteOne({ user: order.user });
+    await prepareFulfillment(String(order._id));
     await notifyOrderConfirmation(String(order._id));
     return { order, payment: null, amountToPay: 0 };
   },

@@ -13,6 +13,7 @@ export interface CheckoutInput {
   paymentMethod: 'razorpay' | 'cod';
   paymentMode: 'online' | 'cod' | 'partial';
   shippingMethod: ShippingMethod;
+  logisticsQuoteId?: string;
   couponCode?: string;
   idempotencyKey?: string;
 }

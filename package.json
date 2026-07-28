@@ -22,15 +22,19 @@
     "typecheck": "npm --workspaces run typecheck",
     "lint": "npm --workspaces run lint",
     "test": "npm --workspace server run test && npm --workspace client run test && npm --workspace admin run test",
-    "test:e2e": "npm --workspace client run test:e2e"
+    "test:e2e": "npm --workspace client run test:e2e",
+    "test:e2e:logistics": "npm --workspace client run test:e2e:logistics",
+    "verify:logistics": "SHIPROCKET_ENABLED=false SHIPROCKET_MODE=mock SHIPROCKET_ALLOW_LIVE_READS=false SHIPROCKET_ALLOW_LIVE_MUTATIONS=false npm-run-all --sequential lint typecheck test build verify:logistics:focused verify:logistics:secrets",
+    "verify:logistics:focused": "npm --workspace server run verify:logistics",
+    "verify:logistics:secrets": "node scripts/verify-logistics-secrets.mjs"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",
     "typescript": "^5.8.3"
   },
   "overrides": {
-    "next@15.5.19": {
-      "postcss": "8.5.15"
-    }
+    "next": "15.5.21",
+    "postcss": "8.5.18",
+    "sharp": "0.35.0"
   }
 }

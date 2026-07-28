@@ -119,6 +119,9 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     length: product.dimensions?.length,
     width: product.dimensions?.width,
     height: product.dimensions?.height,
+    packagingWeight: product.packagingWeight,
+    defaultPackagePreset: product.defaultPackagePreset ?? '',
+    maximumQuantityPerPackage: product.maximumQuantityPerPackage ?? 10,
     seoTitle: product.seo?.metaTitle ?? product.title,
     seoDescription: product.seo?.metaDesc ?? product.description ?? '',
     ogImage: product.seo?.ogImage ?? image?.url ?? PRODUCT_FORM_DEFAULTS.image,
@@ -535,11 +538,14 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       <Input label="Product highlights" error={formState.errors.productHighlights?.message} {...register('productHighlights')} />
     </AdminFormSection> : null}
 
-    {activeTab === 'shipping' ? <AdminFormSection title="Shipping & Attributes" description="Package dimensions improve fulfilment accuracy; attributes help product detail pages." columns={3}>
-      <Input label="Weight" type="number" error={formState.errors.weight?.message} {...register('weight')} />
-      <Input label="Length" type="number" error={formState.errors.length?.message} {...register('length')} />
-      <Input label="Width" type="number" error={formState.errors.width?.message} {...register('width')} />
-      <Input label="Height" type="number" error={formState.errors.height?.message} {...register('height')} />
+    {activeTab === 'shipping' ? <AdminFormSection title="Shipping & Attributes" description="Record measured kilograms and packed centimetres. Live shipment creation rejects missing or unconfirmed package data." columns={3}>
+      <Input label="Product weight (kg)" type="number" min={0} step="0.001" error={formState.errors.weight?.message} {...register('weight')} />
+      <Input label="Packed length (cm)" type="number" min={0} step="0.1" error={formState.errors.length?.message} {...register('length')} />
+      <Input label="Packed breadth (cm)" type="number" min={0} step="0.1" error={formState.errors.width?.message} {...register('width')} />
+      <Input label="Packed height (cm)" type="number" min={0} step="0.1" error={formState.errors.height?.message} {...register('height')} />
+      <Input label="Packaging weight (kg)" type="number" min={0} max={25} step="0.001" error={formState.errors.packagingWeight?.message} {...register('packagingWeight')} />
+      <Input label="Default package preset code" maxLength={80} error={formState.errors.defaultPackagePreset?.message} {...register('defaultPackagePreset')} />
+      <Input label="Maximum quantity per package" type="number" min={1} max={1000} step={1} error={formState.errors.maximumQuantityPerPackage?.message} {...register('maximumQuantityPerPackage')} />
       <Input label="Pickup / warehouse code" error={formState.errors.pickupAddress?.message} {...register('pickupAddress')} />
       <Input label="Fit details" error={formState.errors.fitDetails?.message} {...register('fitDetails')} />
       <Input label="Material & care" error={formState.errors.materialCare?.message} {...register('materialCare')} />

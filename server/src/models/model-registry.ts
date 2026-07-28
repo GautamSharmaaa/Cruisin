@@ -11,6 +11,12 @@ import { CMSMediaModel, CMSPageModel, CMSSectionModel, CMSVersionModel } from '.
 import { CollectionModel } from './collection.model.js';
 import { CouponModel } from './coupon.model.js';
 import { InventoryModel } from './inventory.model.js';
+import { ExchangeRequestModel } from './exchange-request.model.js';
+import { LogisticsAuditModel } from './logistics-audit.model.js';
+import { LogisticsJobModel } from './logistics-job.model.js';
+import { LogisticsNotificationEventModel } from './logistics-notification-event.model.js';
+import { LogisticsQuoteModel } from './logistics-quote.model.js';
+import { LogisticsWebhookEventModel } from './logistics-webhook-event.model.js';
 import {
   MegaMenuCollectionCardModel,
   MegaMenuColumnModel,
@@ -24,10 +30,13 @@ import { OrderModel } from './order.model.js';
 import { OtpModel } from './otp.model.js';
 import { PageSettingsModel } from './page-settings.model.js';
 import { PaymentWebhookEventModel } from './payment-webhook-event.model.js';
+import { PackagePresetModel } from './package-preset.model.js';
 import { ProductModel } from './product.model.js';
+import { ReturnRequestModel } from './return-request.model.js';
 import { ReviewModel } from './review.model.js';
 import { SecurityEventModel } from './security-event.model.js';
 import { SiteSettingsModel } from './site-settings.model.js';
+import { ShipmentModel } from './shipment.model.js';
 import { TagModel } from './tag.model.js';
 import { UserPreferenceModel } from './user-preference.model.js';
 import { UserSessionModel } from './user-session.model.js';
@@ -49,7 +58,13 @@ export const applicationModels = [
   CMSVersionModel,
   CollectionModel,
   CouponModel,
+  ExchangeRequestModel,
   InventoryModel,
+  LogisticsAuditModel,
+  LogisticsJobModel,
+  LogisticsNotificationEventModel,
+  LogisticsQuoteModel,
+  LogisticsWebhookEventModel,
   MegaMenuCollectionCardModel,
   MegaMenuColumnModel,
   MegaMenuLinkModel,
@@ -59,12 +74,15 @@ export const applicationModels = [
   NotificationModel,
   OrderModel,
   OtpModel,
+  PackagePresetModel,
   PageSettingsModel,
   PaymentWebhookEventModel,
   ProductModel,
+  ReturnRequestModel,
   ReviewModel,
   SecurityEventModel,
   SiteSettingsModel,
+  ShipmentModel,
   TagModel,
   UserPreferenceModel,
   UserSessionModel,

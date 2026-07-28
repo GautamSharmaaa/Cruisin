@@ -12,6 +12,7 @@ import { useOrderPaymentAction, useUpdateOrderStatus } from '@/hooks/useAdminMut
 import { useAdminOrder } from '@/hooks/useAdminResources';
 import { formatPrice } from '@/lib/utils';
 import type { OrderDto } from '@/types/dto.types';
+import { OrderShippingPanel } from '@/components/logistics/order-shipping-panel';
 
 export interface OrderDetailClientProps { id: string; }
 type OrderStatus = 'pending' | 'placed' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
@@ -103,6 +104,7 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
     <Input label={selectedStatus === 'cancelled' ? `${COPY.orders.note} (required for cancellation)` : COPY.orders.note} value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} />
 
     <CancellationReview order={current} />
+    <OrderShippingPanel orderId={displayId} />
 
     <div className="grid gap-6 lg:grid-cols-3">
       <article className="border border-border bg-background-elevated p-6"><div className="flex items-center gap-3"><CreditCard className="h-5 w-5 text-accent-gold" aria-hidden="true" /><h2 className="font-display text-xl">Payment</h2></div><p className="mt-4 text-sm text-text-secondary">{statusLabel(current.paymentMode ?? 'online')} · {statusLabel(current.paymentStatus)}</p><div className="mt-3 grid gap-2 font-mono text-sm"><p className="flex justify-between gap-3"><span className="text-text-muted">Paid</span><span className="text-text-primary">{formatPrice(current.amountPaid ?? 0)}</span></p><p className="flex justify-between gap-3"><span className="text-text-muted">Refunded</span><span className="text-text-primary">{formatPrice(current.refundAmount ?? 0)}</span></p>{pendingRefundTotal > 0 ? <p className="flex justify-between gap-3"><span className="text-text-muted">In refund processing</span><span className="text-text-primary">{formatPrice(pendingRefundTotal)}</span></p> : null}<p className="flex justify-between gap-3"><span className="text-text-muted">Due</span><span className="text-accent-gold">{formatPrice(currentStatus === 'cancelled' ? 0 : current.amountDue ?? current.total)}</span></p></div><p className="mt-4 break-all text-xs leading-5 text-text-muted">Razorpay order: {current.razorpayOrderId ?? '—'}<br />Payment: {current.razorpayPaymentId ?? '—'}</p></article>

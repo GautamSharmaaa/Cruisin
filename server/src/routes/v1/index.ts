@@ -14,6 +14,9 @@ import { collectionRouter, merchandisingAdminRouter, navigationRouter, pageSetti
 import { productRouter } from './product.routes.js';
 import { reviewRouter } from './review.routes.js';
 import { wishlistRouter } from './wishlist.routes.js';
+import { adminLogisticsRouter, logisticsRouter } from './logistics.routes.js';
+import { logisticsWebhookRouter } from './logistics-webhook.routes.js';
+import { adminExchangeRouter, adminReturnRouter, returnExchangeRouter } from './return-exchange.routes.js';
 
 export const v1Router = Router();
 v1Router.use('/auth', authRouter);
@@ -26,6 +29,9 @@ v1Router.use('/tags', tagRouter);
 v1Router.use('/categories', categoryRouter);
 v1Router.use('/cart', cartRouter);
 v1Router.use('/orders', orderRouter);
+v1Router.use('/logistics', logisticsRouter);
+v1Router.use('/webhooks', logisticsWebhookRouter);
+v1Router.use('/fulfillment', returnExchangeRouter);
 v1Router.use('/payments', paymentRouter);
 v1Router.use('/wishlist', wishlistRouter);
 v1Router.use('/notifications', notificationRouter);
@@ -35,3 +41,6 @@ v1Router.use('/reviews', reviewRouter);
 v1Router.use('/admin', adminRouter);
 v1Router.use('/admin', merchandisingAdminRouter);
 v1Router.use('/admin', adminManagementRouter);
+v1Router.use('/admin/logistics', adminLogisticsRouter);
+v1Router.use('/admin/returns', adminReturnRouter);
+v1Router.use('/admin/exchanges', adminExchangeRouter);
