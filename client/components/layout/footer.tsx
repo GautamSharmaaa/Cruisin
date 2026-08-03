@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Clock3, Instagram, Mail, MapPin, Phone } from 'lucide-react';
+import { Clock3, Instagram, Mail, Phone } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 
 export interface FooterProps { }
@@ -28,7 +28,6 @@ const searchedLinks = [
 const facebookUrl = 'https://www.facebook.com/profile.php?id=61586849806134';
 const instagramUrl = 'https://www.instagram.com/cruisin.in?igsh=MTAxejVucm83Z3k0Yw%3D%3D&utm_source=qr';
 const phone = '+91 - 8287846203';
-const phoneHref = 'tel:+918287846203';
 const whatsappHref = 'https://wa.me/918287846203';
 const email = 'support@cruisin.co.in';
 
@@ -55,11 +54,9 @@ export function Footer(_props: FooterProps): ReactNode {
       <section>
         <h3 className="font-display text-xl text-text-primary">Contact Us</h3>
         <div className="mt-5 grid gap-4 text-sm leading-6 text-text-secondary">
-          <a href={phoneHref} className="flex gap-3 transition hover:text-accent-gold"><Phone size={16} className="mt-1 shrink-0 text-accent-gold" />Call: {phone}</a>
           <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex gap-3 transition hover:text-accent-gold"><Phone size={16} className="mt-1 shrink-0 text-accent-gold" />WhatsApp: {phone}</a>
           <p className="flex gap-3"><Clock3 size={16} className="mt-1 shrink-0 text-accent-gold" /><span>Support: 24/7 on WhatsApp and email</span></p>
           <a href={'mailto:' + email} className="flex gap-3 transition hover:text-accent-gold"><Mail size={16} className="mt-1 shrink-0 text-accent-gold" />Email: {email}</a>
-          <p className="flex gap-3"><MapPin size={16} className="mt-1 shrink-0 text-accent-gold" /><span>Address: Ground Floor Right Side, Plot in Kh No-992/1, Gali No-2, Vill-Kapashera, Near rao mansaram school, New Delhi, South West Delhi, Delhi, 110037, Delhi New Delhi, 110037</span></p>
         </div>
       </section>
     </div>
