@@ -41,7 +41,7 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET is required'),
   RAZORPAY_WEBHOOK_SECRET: optionalSecret,
   PAYMENT_MODE: z.enum(['test', 'live']).default('test'),
-  COD_ENABLED: z.coerce.boolean().default(true),
+  COD_ENABLED: z.coerce.boolean().default(false),
   COD_FEE: z.coerce.number().min(0).default(0),
   PARTIAL_PAYMENT_ENABLED: z.coerce.boolean().default(false),
   PARTIAL_PAYMENT_PERCENTAGE: z.coerce.number().positive().max(100).optional(),
