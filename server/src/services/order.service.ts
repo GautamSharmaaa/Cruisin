@@ -338,7 +338,7 @@ export const OrderService = {
 
   async createCodOrder(userId: string, input: CheckoutInput): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
-    if (!env.COD_ENABLED) throw new ApiError(400, 'Cash on delivery is unavailable');
+    if (!env.COD_ENABLED || !env.COD_CHECKOUT_ENABLED) throw new ApiError(400, 'Cash on delivery is unavailable');
     const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
     if (existing) return existingCheckoutResult(existing);
     const cart = await CartModel.findOne({ user: userId }).lean();

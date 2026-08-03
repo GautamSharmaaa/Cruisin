@@ -18,7 +18,7 @@ export const PaymentController = {
   config: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     res.json(new ApiResponse({
       paymentMode: env.PAYMENT_MODE,
-      codEnabled: env.COD_ENABLED,
+      codEnabled: env.COD_ENABLED && env.COD_CHECKOUT_ENABLED,
       partialPaymentEnabled: env.PARTIAL_PAYMENT_ENABLED,
       partialPaymentPercentage: env.PARTIAL_PAYMENT_PERCENTAGE ?? null,
       partialPaymentFixedAmount: env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? null,
