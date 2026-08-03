@@ -32,7 +32,7 @@ const whatsappHref = 'https://wa.me/918287846203';
 const email = 'support@cruisin.co.in';
 
 export function Footer(_props: FooterProps): ReactNode {
-  return <footer className="relative z-10 border-t border-border bg-background-primary px-6 py-10 lg:px-20">
+  return <footer className="relative z-10 border-t border-border bg-background-primary px-6 pb-28 pt-10 md:py-10 lg:px-20">
     <div className="mx-auto grid max-w-[1440px] gap-10 lg:grid-cols-[1.15fr_0.65fr_1.05fr]">
       <section className="max-w-2xl">
         <h2 data-testid="footer-wordmark" className="brand-wordmark-script text-[34px] leading-none text-text-primary">Cruisin</h2>
