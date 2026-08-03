@@ -35,7 +35,7 @@ test.describe('authentication brand artwork', () => {
     expect(artworkBox).toEqual(panelBox);
     const googleFrame = page.getByTestId('google-auth-frame');
     const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
-    const whatsappButton = page.getByRole('button', { name: 'Continue with WhatsApp OTP' });
+    const emailButton = page.getByRole('button', { name: 'Continue with Email' });
     const googleMethod = await googleFrame.count() ? googleFrame : googleFallback;
     await expect(googleMethod).toBeVisible();
     if (await googleFrame.count()) {
@@ -45,8 +45,8 @@ test.describe('authentication brand artwork', () => {
     }
     await expect.poll(async () => {
       const googleBox = await googleMethod.boundingBox();
-      const whatsappBox = await whatsappButton.boundingBox();
-      return Boolean(googleBox && whatsappBox && Math.abs(googleBox.width - whatsappBox.width) <= 1);
+      const emailBox = await emailButton.boundingBox();
+      return Boolean(googleBox && emailBox && Math.abs(googleBox.width - emailBox.width) <= 1);
     }).toBe(true);
     await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveClass(/sr-only/);
     const signInImageBox = await imageStage.boundingBox();

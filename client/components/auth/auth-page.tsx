@@ -173,8 +173,10 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
               ) : (
                 <Button type="button" variant="secondary" disabled className="w-full">{COPY.auth.googleMethod}</Button>
               )}
-              <div className="flex items-center gap-3 py-1" aria-hidden="true"><span className="h-px flex-1 bg-border" /><span className="font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">Other secure methods</span><span className="h-px flex-1 bg-border" /></div>
-              <Button type="button" variant={method === 'whatsapp' ? 'primary' : 'secondary'} onClick={() => selectMethod('whatsapp')} className="w-full">Continue with WhatsApp OTP</Button>
+              {IDENTITY_CONFIG.whatsappOtpEnabled ? <>
+                <div className="flex items-center gap-3 py-1" aria-hidden="true"><span className="h-px flex-1 bg-border" /><span className="font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">Other secure methods</span><span className="h-px flex-1 bg-border" /></div>
+                <Button type="button" variant={method === 'whatsapp' ? 'primary' : 'secondary'} onClick={() => selectMethod('whatsapp')} className="w-full">Continue with WhatsApp OTP</Button>
+              </> : null}
               <Button type="button" variant={method === 'email' ? 'primary' : 'secondary'} onClick={() => selectMethod('email')} className="w-full">Continue with Email</Button>
             </div>
           </div>
