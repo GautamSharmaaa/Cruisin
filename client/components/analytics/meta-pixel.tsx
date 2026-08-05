@@ -48,7 +48,7 @@ export function MetaPixel({ pixelId }: MetaPixelProps): ReactNode {
 
   if (!normalizedPixelId) return null;
   return <>
-    <Script id="cruisin-meta-pixel-bootstrap" strategy="afterInteractive">{bootstrap}</Script>
+    <script id="cruisin-meta-pixel-bootstrap" dangerouslySetInnerHTML={{ __html: bootstrap }} />
     <Script id="cruisin-meta-pixel-library" src="https://connect.facebook.net/en_US/fbevents.js" strategy="afterInteractive" />
   </>;
 }
