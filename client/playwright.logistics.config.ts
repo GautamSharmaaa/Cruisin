@@ -20,6 +20,8 @@ const logisticsEnvironment = {
   RAZORPAY_KEY_ID: 'rzp_test_mock_logistics',
   RAZORPAY_KEY_SECRET: 'razorpay_mock_logistics_secret',
   RAZORPAY_WEBHOOK_SECRET: 'razorpay_logistics_webhook_secret',
+  COD_ENABLED: 'true',
+  COD_CHECKOUT_ENABLED: 'true',
   STRIPE_SECRET_KEY: 'stripe_mock_logistics_secret',
   STRIPE_WEBHOOK_SECRET: 'stripe_mock_logistics_webhook_secret',
   SENDGRID_API_KEY: 'SG.logistics-e2e',
