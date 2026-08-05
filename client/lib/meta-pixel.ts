@@ -65,6 +65,9 @@ export interface MetaFbq {
   (command: 'track', eventName: 'PageView'): void;
   (command: 'track', eventName: 'Search', parameters: MetaSearchParameters, options?: MetaEventOptions): void;
   (command: 'track', eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>, parameters: MetaCommerceParameters, options?: MetaEventOptions): void;
+  (command: 'trackSingle', pixelId: string, eventName: 'PageView'): void;
+  (command: 'trackSingle', pixelId: string, eventName: 'Search', parameters: MetaSearchParameters, options?: MetaEventOptions): void;
+  (command: 'trackSingle', pixelId: string, eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>, parameters: MetaCommerceParameters, options?: MetaEventOptions): void;
   callMethod?: (...args: unknown[]) => void;
   queue?: unknown[][];
   loaded?: boolean;
@@ -128,6 +131,8 @@ const eventOptions = (eventID?: string): MetaEventOptions | undefined => {
   return normalized ? { eventID: normalized } : undefined;
 };
 
+const configuredPixelId = (): string | undefined => getMetaPixelId() || undefined;
+
 const validContents = (contents: MetaContentInput[]): MetaContentInput[] => contents.flatMap((content) => {
   const id = cleanId(content.id);
   const quantity = Math.floor(content.quantity);
@@ -168,7 +173,11 @@ const sendCommerceEvent = (
     return false;
   }
   const options = eventOptions(eventID);
-  if (options) window.fbq('track', eventName, parameters, options);
+  const pixelId = configuredPixelId();
+  if (pixelId) {
+    if (options) window.fbq('trackSingle', pixelId, eventName, parameters, options);
+    else window.fbq('trackSingle', pixelId, eventName, parameters);
+  } else if (options) window.fbq('track', eventName, parameters, options);
   else window.fbq('track', eventName, parameters);
   markDispatch(eventName, dispatchStatus());
   return true;
@@ -185,7 +194,9 @@ export const trackPageView = (routeKey: string): boolean => {
     markDispatch('PageView', 'blocked-duplicate-or-empty-route');
     return false;
   }
-  window.fbq('track', 'PageView');
+  const pixelId = configuredPixelId();
+  if (pixelId) window.fbq('trackSingle', pixelId, 'PageView');
+  else window.fbq('track', 'PageView');
   lastPageViewRoute = normalizedRoute;
   markDispatch('PageView', dispatchStatus());
   return true;
@@ -212,7 +223,11 @@ export const trackSearch = (input: MetaSearchInput, eventID?: string): boolean =
     ...(resultCount !== undefined ? { num_results: resultCount } : {})
   };
   const options = eventOptions(eventID);
-  if (options) window.fbq('track', 'Search', parameters, options);
+  const pixelId = configuredPixelId();
+  if (pixelId) {
+    if (options) window.fbq('trackSingle', pixelId, 'Search', parameters, options);
+    else window.fbq('trackSingle', pixelId, 'Search', parameters);
+  } else if (options) window.fbq('track', 'Search', parameters, options);
   else window.fbq('track', 'Search', parameters);
   markDispatch('Search', dispatchStatus());
   return true;

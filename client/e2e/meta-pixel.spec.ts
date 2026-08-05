@@ -95,6 +95,9 @@ const installMockApi = async (page: Page, capturedCheckout: { logisticsQuoteId?:
 };
 
 const metaCalls = (page: Page): Promise<unknown[][]> => page.evaluate(() => (window as unknown as CapturedWindow).__metaCalls);
+const metaEventName = (call: unknown[]): unknown => call[0] === 'trackSingle' ? call[2] : call[1];
+const metaEventPayload = (call: unknown[]): unknown => call[0] === 'trackSingle' ? call[3] : call[2];
+const metaEventOptions = (call: unknown[]): unknown => call[0] === 'trackSingle' ? call[4] : call[3];
 
 test('tracks the mocked storefront funnel once without contacting Meta or creating a real order', async ({ page }) => {
   const capturedCheckout: { logisticsQuoteId?: string; metaEventId?: string } = {};
@@ -127,28 +130,28 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
   await page.goto('/shop');
   await expect(page.locator('html')).toHaveAttribute('data-cruisin-meta-bootstrap', 'ready');
   await expect(page.getByRole('heading', { name: 'Shop All' })).toBeVisible();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[0] === 'track' && call[1] === 'PageView').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'PageView').length).toBe(1);
 
   await page.getByRole('button', { name: 'Search' }).first().click();
   const searchDialog = page.getByRole('dialog');
   await searchDialog.getByLabel('Search').fill('meta jacket');
   await searchDialog.getByRole('button', { name: product.title }).click();
   await expect(page.getByRole('heading', { name: product.title })).toBeVisible();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[0] === 'track' && call[1] === 'PageView').length).toBe(2);
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[0] === 'track' && call[1] === 'ViewContent').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'PageView').length).toBe(2);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'ViewContent').length).toBe(1);
 
   await page.getByRole('button', { name: 'Add to wishlist' }).click();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'AddToWishlist').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'AddToWishlist').length).toBe(1);
 
   await page.getByRole('button', { name: 'Size M' }).click();
   await page.getByRole('button', { name: 'Add To Cart' }).click();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'AddToCart').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'AddToCart').length).toBe(1);
   await page.getByRole('dialog').getByRole('link', { name: 'Proceed To Checkout' }).click();
   await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'InitiateCheckout').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'InitiateCheckout').length).toBe(1);
 
   await page.getByRole('button', { name: /Cash on delivery/ }).click();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'AddPaymentInfo').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'AddPaymentInfo').length).toBe(1);
   await page.getByLabel('Full name').fill('Test Customer');
   await page.getByLabel('Phone').fill('+919876543210');
   await page.getByLabel('Address').fill('1 Test Street');
@@ -157,19 +160,19 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
   await page.getByLabel('Postal code').fill('110001');
   await page.getByRole('button', { name: 'Place COD order' }).click();
   await expect(page.getByRole('heading', { name: 'Order Confirmed' })).toBeVisible();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'Purchase').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'Purchase').length).toBe(1);
 
   const calls = await metaCalls(page);
-  const events = calls.filter((call) => call[0] === 'track').map((call) => call[1]);
+  const events = calls.filter((call) => call[0] === 'track' || call[0] === 'trackSingle').map(metaEventName);
   expect(events).toEqual(expect.arrayContaining(['PageView', 'Search', 'ViewContent', 'AddToWishlist', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo', 'Purchase']));
   expect(events.indexOf('ViewContent')).toBeLessThan(events.indexOf('AddToCart'));
   expect(events.indexOf('AddToCart')).toBeLessThan(events.indexOf('InitiateCheckout'));
   expect(events.indexOf('InitiateCheckout')).toBeLessThan(events.indexOf('Purchase'));
   expect(capturedCheckout.logisticsQuoteId).toBe(logisticsQuoteId);
   expect(capturedCheckout.metaEventId).toMatch(/^checkout:/);
-  const purchase = calls.find((call) => call[1] === 'Purchase');
-  expect(purchase?.[2]).toMatchObject({ content_ids: ['variant-1'], value: 2589, currency: 'INR', order_id: 'order-123' });
-  expect(purchase?.[3]).toEqual({ eventID: 'purchase:order-123' });
+  const purchase = calls.find((call) => metaEventName(call) === 'Purchase');
+  expect(purchase && metaEventPayload(purchase)).toMatchObject({ content_ids: ['variant-1'], value: 2589, currency: 'INR', order_id: 'order-123' });
+  expect(purchase && metaEventOptions(purchase)).toEqual({ eventID: 'purchase:order-123' });
   expect(JSON.stringify(calls)).not.toContain('test@example.invalid');
   expect(JSON.stringify(calls)).not.toContain('+919876543210');
   await expect(page.locator('script[src="https://connect.facebook.net/en_US/fbevents.js"]')).toHaveCount(1);
@@ -177,5 +180,5 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Order Confirmed' })).toBeVisible();
-  await expect.poll(async () => (await metaCalls(page)).filter((call) => call[1] === 'Purchase').length).toBe(1);
+  await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'Purchase').length).toBe(1);
 });
