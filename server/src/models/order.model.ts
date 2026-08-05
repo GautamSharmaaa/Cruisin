@@ -61,6 +61,7 @@ const orderSchema = new Schema(
     billingAddress: { type: addressSchema, required: true },
     orderNumber: { type: String, unique: true, sparse: true, index: true },
     checkoutIdempotencyKey: { type: String, unique: true, sparse: true, index: true },
+    metaCheckoutEventId: { type: String, trim: true, sparse: true, index: true },
     paymentMethod: { type: String, enum: ['razorpay', 'stripe', 'cod'], required: true },
     paymentMode: { type: String, enum: ['online', 'cod', 'partial'], default: 'online', index: true },
     shippingMethod: { type: String, enum: ['standard', 'express'], default: 'standard' },

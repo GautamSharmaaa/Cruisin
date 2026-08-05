@@ -52,7 +52,7 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           {variant ? <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-y border-border py-3 text-xs uppercase tracking-[0.12em] text-text-secondary" aria-live="polite"><span>SKU <strong className="ml-2 font-mono font-normal text-text-primary">{variant.sku}</strong></span><span>Stock <strong className="ml-2 font-mono font-normal text-text-primary">{variant.stock}</strong></span></div> : <p className="mt-5 text-sm text-text-muted">Choose a size to confirm the exact SKU and availability.</p>}
           <div className="mt-6 flex flex-wrap gap-3">
             <SizeGuideModal />
-            <WishlistButton productId={product.id} next={'/product/' + product.slug} />
+            <WishlistButton product={product} next={'/product/' + product.slug} />
             <Button variant="ghost" onClick={share}><Share2 size={16} /> {COPY.product.share}</Button>
           </div>
           <div className="mt-8">

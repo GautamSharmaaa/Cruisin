@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { customerCancellationSchema, orderStatusSchema } from './order.validator.js';
+import { checkoutSchema, customerCancellationSchema, orderStatusSchema } from './order.validator.js';
+
+const checkout = {
+  shippingAddress: { fullName: 'Test Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
+  billingAddress: { fullName: 'Test Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
+  paymentMethod: 'razorpay',
+  paymentMode: 'online',
+  shippingMethod: 'standard',
+  idempotencyKey: '11111111-1111-4111-8111-111111111111'
+};
+
+describe('checkoutSchema Meta event ID', () => {
+  it('accepts a non-sensitive checkout event ID for future CAPI deduplication', () => {
+    const result = checkoutSchema.parse({ ...checkout, metaEventId: 'checkout:11111111-1111-4111-8111-111111111111' });
+    expect(result.metaEventId).toBe('checkout:11111111-1111-4111-8111-111111111111');
+  });
+
+  it('rejects malformed or oversized event IDs', () => {
+    expect(checkoutSchema.safeParse({ ...checkout, metaEventId: 'customer@example.com' }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...checkout, metaEventId: `checkout:${'x'.repeat(200)}` }).success).toBe(false);
+  });
+});
 
 describe('customerCancellationSchema', () => {
   it('accepts a common cancellation reason without free text', () => {

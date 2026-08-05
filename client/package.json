@@ -14,7 +14,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:logistics": "playwright test --config=playwright.logistics.config.ts"
+    "test:e2e:logistics": "playwright test --config=playwright.logistics.config.ts",
+    "test:e2e:meta": "playwright test -c playwright.meta.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

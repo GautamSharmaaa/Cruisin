@@ -3,13 +3,14 @@
 
 import { Check, CreditCard, MapPin, PackageCheck, ReceiptText, Truck } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { AccountGuard } from '@/components/account/account-guard';
 import { SafeImage } from '@/components/shared/safe-image';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useOrder } from '@/hooks/useOrders';
 import { humanizeOrderStatus } from '@/lib/order-cancellation';
+import { trackConfirmedOrderPurchase } from '@/lib/meta-ecommerce';
 import { isOrderPaymentConfirmed, isOrderPaymentFailed } from '@/lib/payment-status';
 import { formatPrice } from '@/lib/utils';
 import type { Address, Order } from '@/types/order.types';
@@ -18,6 +19,11 @@ export interface CheckoutSuccessProps { orderId?: string; }
 
 const primaryLink = 'inline-flex min-h-11 min-w-11 items-center justify-center bg-accent-gold px-6 font-body text-xs font-medium uppercase tracking-[0.1em] text-text-inverse shadow-gold transition duration-300 hover:brightness-110 active:scale-[0.98]';
 const secondaryLink = 'inline-flex min-h-11 min-w-11 items-center justify-center border border-border px-6 font-body text-xs font-medium uppercase tracking-[0.1em] text-text-primary transition duration-300 hover:border-border-strong hover:bg-background-elevated active:scale-[0.98]';
+
+const PurchaseTracker = ({ order }: { order: Order }): null => {
+  useEffect(() => { trackConfirmedOrderPurchase(order); }, [order]);
+  return null;
+};
 
 const AddressBlock = ({ address }: { address?: Address }): ReactNode => address ? <address className="mt-4 not-italic text-sm leading-6 text-text-secondary">
   <p className="font-medium text-text-primary">{address.fullName}</p>
@@ -66,6 +72,7 @@ const ConfirmationDetails = ({ order, message }: { order: Order; message: string
       : `${COPY.checkout.confirmation.onlinePayment} · ${humanizeOrderStatus(order.paymentStatus)}`;
 
   return <main className="mx-auto max-w-7xl px-5 pb-24 pt-28 sm:px-8 lg:px-12 lg:pt-36">
+    <PurchaseTracker order={order} />
     <section className="relative overflow-hidden border border-accent-gold/40 bg-background-elevated p-6 shadow-lg sm:p-8 lg:p-10" aria-labelledby="order-confirmed-heading">
       <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gold/10 blur-3xl" aria-hidden="true" />
       <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">

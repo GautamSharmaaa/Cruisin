@@ -12,6 +12,7 @@ import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useProduct } from '@/hooks/useProduct';
 import { filterCustomerVisibleProducts, isCustomerVisibleProduct } from '@/lib/customer-state';
+import { trackProductView } from '@/lib/meta-ecommerce';
 
 export interface ProductPageClientProps {
   slug: string;
@@ -19,6 +20,9 @@ export interface ProductPageClientProps {
 
 export function ProductPageClient({ slug }: ProductPageClientProps): ReactNode {
   const product = useProduct(slug);
+  useEffect(() => {
+    if (product.data) trackProductView(product.data);
+  }, [product.data]);
   useEffect(() => {
     if (!product.data) return;
     try {

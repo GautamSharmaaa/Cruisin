@@ -7,11 +7,14 @@ import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
 import { api } from '@/lib/api';
+import { performWishlistToggle } from '@/lib/meta-actions';
 import { useAuthStore } from '@/store/authStore';
 import { useWishlistStore } from '@/store/wishlistStore';
+import type { Product } from '@/types/product.types';
 
-export interface WishlistButtonProps { productId: string; next: string; }
-export function WishlistButton({ productId, next }: WishlistButtonProps): ReactNode {
+export interface WishlistButtonProps { product: Product; next: string; }
+export function WishlistButton({ product, next }: WishlistButtonProps): ReactNode {
+  const productId = product.id;
   const toggle = useWishlistStore((state) => state.toggle);
   const has = useWishlistStore((state) => state.has(productId));
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -19,9 +22,9 @@ export function WishlistButton({ productId, next }: WishlistButtonProps): ReactN
   const [prompt, setPrompt] = useState(false);
   const handleClick = async (): Promise<void> => {
     if (!accessToken) { setPrompt(true); return; }
-    toggle(productId);
     setLoading(true);
-    try { await api.post(`/wishlist/${productId}`); } catch { toggle(productId); } finally { setLoading(false); }
+    await performWishlistToggle({ authenticated: true, product, isWishlisted: has, toggle: () => toggle(productId), request: () => api.post(`/wishlist/${productId}`) });
+    setLoading(false);
   };
   return <><Button variant="secondary" onClick={handleClick} disabled={loading} aria-pressed={has} aria-label={has ? 'Remove from wishlist' : 'Add to wishlist'}><Heart size={16} className={has ? 'text-accent-gold' : 'text-text-primary'} fill={has ? 'currentColor' : 'none'} /><span className="ml-2">{COPY.nav.wishlist}</span></Button><LoginRequiredModal open={prompt} onOpenChange={setPrompt} next={next} action="wishlist" /></>;
 }

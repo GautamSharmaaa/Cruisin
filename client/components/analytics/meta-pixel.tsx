@@ -1,0 +1,49 @@
+// Governed by .rules v1.0
+'use client';
+
+import Script from 'next/script';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { initializeMetaPixel, trackPageView } from '@/lib/meta-pixel';
+
+export interface MetaPixelProps {
+  pixelId?: string;
+}
+
+const bootstrap = `
+(function(w){
+  if(w.fbq)return;
+  var n=w.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!w._fbq)w._fbq=n;
+  n.push=n;
+  n.loaded=true;
+  n.version='2.0';
+  n.queue=[];
+})(window);
+`;
+
+export function MetaPixel({ pixelId }: MetaPixelProps): ReactNode {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [bootstrapReady, setBootstrapReady] = useState(false);
+  const normalizedPixelId = pixelId?.trim() ?? '';
+  const routeKey = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!normalizedPixelId) {
+      initializeMetaPixel('');
+      return;
+    }
+    if (!bootstrapReady || !initializeMetaPixel(normalizedPixelId)) return;
+    trackPageView(routeKey);
+  }, [bootstrapReady, normalizedPixelId, routeKey]);
+
+  if (!normalizedPixelId) return null;
+  return <>
+    <Script id="cruisin-meta-pixel-bootstrap" strategy="afterInteractive" onReady={() => setBootstrapReady(true)}>{bootstrap}</Script>
+    <Script id="cruisin-meta-pixel-library" src="https://connect.facebook.net/en_US/fbevents.js" strategy="afterInteractive" />
+  </>;
+}

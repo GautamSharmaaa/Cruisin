@@ -16,6 +16,7 @@ export interface CheckoutInput {
   logisticsQuoteId?: string;
   couponCode?: string;
   idempotencyKey?: string;
+  metaEventId?: string;
 }
 
 export interface CheckoutResult {

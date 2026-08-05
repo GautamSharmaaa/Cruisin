@@ -21,7 +21,7 @@ import { LogisticsQuoteService } from './logistics/logistics-quote.service.js';
 import { LogisticsService } from './logistics/logistics.service.js';
 
 type AddressInput = Record<string, unknown>;
-type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; idempotencyKey: string };
+type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; idempotencyKey: string; metaEventId?: string };
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -347,7 +347,7 @@ export const OrderService = {
     if (advance <= 0) throw new ApiError(400, 'Invalid partial-payment configuration');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
@@ -399,7 +399,7 @@ export const OrderService = {
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });

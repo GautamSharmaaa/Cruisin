@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Modal } from '@/components/shared/modal';
 import { COPY } from '@/constants/copy';
 import { useSearch } from '@/hooks/useSearch';
+import { defaultCommerceVariant } from '@/lib/meta-ecommerce';
+import { generateEventId, trackSearch } from '@/lib/meta-pixel';
 
 export interface SearchModalProps { open: boolean; onOpenChange: (open: boolean) => void; }
 export function SearchModal({ open, onOpenChange }: SearchModalProps): ReactNode {
@@ -20,11 +22,18 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps): ReactNode
     router.push(href);
   };
 
+  const trackCompletedSearch = (): void => {
+    const searchString = query.trim();
+    if (!searchString) return;
+    trackSearch({ search_string: searchString, content_ids: results.flatMap((product) => { const variant = defaultCommerceVariant(product); return variant ? [variant.id] : []; }), num_results: results.length }, generateEventId('search'));
+  };
+
   const onSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (!hasQuery) return;
+    trackCompletedSearch();
     closeAndNavigate('/shop?q=' + encodeURIComponent(query.trim()));
   };
 
-  return <Modal open={open} onOpenChange={onOpenChange} title={COPY.nav.search}><form className="space-y-6" onSubmit={onSubmit}><Input label={COPY.nav.search} value={query} onChange={(event) => setQuery(event.target.value)} autoFocus /><div className="space-y-3">{results.map((product) => <button key={product.id} type="button" onClick={() => closeAndNavigate('/product/' + product.slug)} className="flex min-h-11 w-full items-center gap-3 border-b border-border-subtle py-3 text-left text-text-primary transition hover:text-accent-gold"><Search size={16} /><span>{product.title}</span></button>)}{hasQuery && results.length === 0 ? <p className="border border-border-subtle px-4 py-5 text-sm text-text-secondary" role="status">No products found.</p> : null}</div></form></Modal>;
+  return <Modal open={open} onOpenChange={onOpenChange} title={COPY.nav.search}><form className="space-y-6" onSubmit={onSubmit}><Input label={COPY.nav.search} value={query} onChange={(event) => setQuery(event.target.value)} autoFocus /><div className="space-y-3">{results.map((product) => <button key={product.id} type="button" onClick={() => { trackCompletedSearch(); closeAndNavigate('/product/' + product.slug); }} className="flex min-h-11 w-full items-center gap-3 border-b border-border-subtle py-3 text-left text-text-primary transition hover:text-accent-gold"><Search size={16} /><span>{product.title}</span></button>)}{hasQuery && results.length === 0 ? <p className="border border-border-subtle px-4 py-5 text-sm text-text-secondary" role="status">No products found.</p> : null}</div></form></Modal>;
 }

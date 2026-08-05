@@ -66,13 +66,14 @@ describe('OrderService authenticated checkout', () => {
 
     const result = await OrderService.checkout(customerId, {
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      metaEventId: 'checkout:11111111-1111-4111-8111-111111111111',
       paymentMethod: 'razorpay',
       paymentMode: 'online',
       shippingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
       billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
     });
 
-    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', tax: 0, total: 1_900, amountPaid: 0, amountDue: 1_900, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, total: 1_900, amountPaid: 0, amountDue: 1_900, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_900 });
   });
