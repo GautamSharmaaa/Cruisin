@@ -20,7 +20,10 @@ export interface RootLayoutProps { children: ReactNode; }
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
   return <html lang="en" className="dark" data-scroll-behavior="smooth">
-    <head>{metaPixelId ? <script id="cruisin-meta-pixel-bootstrap" src="/meta-pixel-bootstrap.js" /> : null}</head>
+    <head>{metaPixelId ? <>
+      <script id="cruisin-meta-pixel-bootstrap" src="/meta-pixel-bootstrap.js" />
+      <script id="cruisin-meta-pixel-library" src="https://connect.facebook.net/en_US/fbevents.js" async />
+    </> : null}</head>
     <body>
     <Suspense fallback={null}><MetaPixel pixelId={metaPixelId} /></Suspense>
     {metaPixelId ? <noscript><img height="1" width="1" style={{ display: 'none' }} src={`https://www.facebook.com/tr?id=${encodeURIComponent(metaPixelId)}&ev=PageView&noscript=1`} alt="" /></noscript> : null}

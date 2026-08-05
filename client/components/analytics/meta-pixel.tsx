@@ -1,7 +1,6 @@
 // Governed by .rules v1.0
 'use client';
 
-import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { initializeMetaPixel, trackPageView } from '@/lib/meta-pixel';
@@ -33,8 +32,5 @@ export function MetaPixel({ pixelId }: MetaPixelProps): ReactNode {
     return () => window.removeEventListener('cruisin-meta-bootstrap-ready', initializeAndTrack);
   }, [normalizedPixelId, routeKey]);
 
-  if (!normalizedPixelId) return null;
-  return <>
-    <Script id="cruisin-meta-pixel-library" src="https://connect.facebook.net/en_US/fbevents.js" strategy="afterInteractive" />
-  </>;
+  return null;
 }
