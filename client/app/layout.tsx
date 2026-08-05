@@ -22,7 +22,6 @@ export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   return <html lang="en" className="dark" data-scroll-behavior="smooth">
     <head>{metaPixelId ? <>
       <script id="cruisin-meta-pixel-bootstrap" src="/meta-pixel-bootstrap.js" />
-      <script id="cruisin-meta-pixel-library" src="https://connect.facebook.net/en_US/fbevents.js" async />
     </> : null}</head>
     <body>
     <Suspense fallback={null}><MetaPixel pixelId={metaPixelId} /></Suspense>
