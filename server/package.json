@@ -23,6 +23,8 @@
     "verify:logistics": "SHIPROCKET_ENABLED=true SHIPROCKET_MODE=mock SHIPROCKET_ALLOW_LIVE_READS=false SHIPROCKET_ALLOW_LIVE_MUTATIONS=false vitest run src/services/logistics/logistics-core.test.ts src/services/logistics/logistics-automation.test.ts src/services/logistics/logistics-index-contract.test.ts src/services/logistics/logistics-notification-core.test.ts src/services/logistics/logistics-notification-dispatch.test.ts src/services/logistics/logistics-webhook-replay.test.ts src/utils/send-logistics-message.test.ts src/routes/v1/logistics-security.routes.test.ts src/routes/v1/logistics-webhook.routes.test.ts",
     "db:indexes": "tsx src/scripts/ensure-indexes.ts",
     "db:indexes:production": "node dist/src/scripts/ensure-indexes.js",
+    "db:shipment-indexes": "tsx src/scripts/migrate-shipment-indexes.ts",
+    "db:shipment-indexes:production": "node dist/src/scripts/migrate-shipment-indexes.js",
     "logistics:e2e:seed": "tsx src/scripts/seed-logistics-e2e.ts",
     "bootstrap:storefront": "tsx src/scripts/bootstrap-storefront.ts",
     "bootstrap:admin": "tsx src/scripts/bootstrap-admin.ts",

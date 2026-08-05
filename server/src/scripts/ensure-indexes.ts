@@ -12,6 +12,7 @@ import { ReturnRequestModel } from '../models/return-request.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
 import { logger } from '../utils/logger.js';
 import { validateIndexTarget } from './index-target.js';
+import { assertShipmentIndexesReadyForDeployment } from './shipment-index-migration.js';
 
 interface MongoErrorLike {
   code?: number;
@@ -32,6 +33,7 @@ const removeLegacyIndexes = async (): Promise<void> => {
 
 interface RequiredIndex {
   label: string;
+  name?: string;
   model: {
     modelName: string;
     collection: { indexes: () => Promise<unknown> };
@@ -51,6 +53,7 @@ const verifyCriticalIndexes = async (): Promise<void> => {
   const required: RequiredIndex[] = [
     {
       label: 'shipment AWB',
+      name: 'cruisin_awb_unique_string',
       model: ShipmentModel,
       key: { awb: 1 },
       unique: true,
@@ -58,6 +61,7 @@ const verifyCriticalIndexes = async (): Promise<void> => {
     },
     {
       label: 'shipment provider order ID',
+      name: 'cruisin_provider_order_unique_string',
       model: ShipmentModel,
       key: { provider: 1, providerOrderId: 1 },
       unique: true,
@@ -65,6 +69,7 @@ const verifyCriticalIndexes = async (): Promise<void> => {
     },
     {
       label: 'shipment provider shipment ID',
+      name: 'cruisin_provider_shipment_unique_string',
       model: ShipmentModel,
       key: { provider: 1, providerShipmentId: 1 },
       unique: true,
@@ -87,7 +92,11 @@ const verifyCriticalIndexes = async (): Promise<void> => {
       indexes = await requirement.model.collection.indexes() as unknown as Array<Record<string, unknown>>;
       cache.set(requirement.model.modelName, indexes);
     }
-    const match = indexes.find((index) => index.key && sameKey(index.key as Record<string, unknown>, requirement.key));
+    const match = indexes.find((index) => (
+      index.key
+      && sameKey(index.key as Record<string, unknown>, requirement.key)
+      && (requirement.name === undefined || index.name === requirement.name)
+    ));
     if (!match
       || (requirement.unique !== undefined && match.unique !== requirement.unique)
       || (requirement.expireAfterSeconds !== undefined && Number(match.expireAfterSeconds) !== requirement.expireAfterSeconds)
@@ -109,6 +118,10 @@ const ensureIndexes = async (): Promise<void> => {
   logger.info('Validated MongoDB index target', target);
   await connectDb();
   try {
+    if (target.mode === 'deployed') {
+      await assertShipmentIndexesReadyForDeployment(ShipmentModel.collection);
+      logger.info('Guarded shipment index migration verified');
+    }
     await removeLegacyIndexes();
     for (const model of applicationModels) {
       await model.createIndexes();

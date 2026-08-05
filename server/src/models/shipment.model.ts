@@ -111,15 +111,27 @@ const shipmentSchema = new Schema({
 
 shipmentSchema.index(
   { awb: 1 },
-  { unique: true, partialFilterExpression: { awb: { $type: 'string' } } }
+  {
+    name: 'cruisin_awb_unique_string',
+    unique: true,
+    partialFilterExpression: { awb: { $type: 'string' } }
+  }
 );
 shipmentSchema.index(
   { provider: 1, providerOrderId: 1 },
-  { unique: true, partialFilterExpression: { providerOrderId: { $type: 'string' } } }
+  {
+    name: 'cruisin_provider_order_unique_string',
+    unique: true,
+    partialFilterExpression: { providerOrderId: { $type: 'string' } }
+  }
 );
 shipmentSchema.index(
   { provider: 1, providerShipmentId: 1 },
-  { unique: true, partialFilterExpression: { providerShipmentId: { $type: 'string' } } }
+  {
+    name: 'cruisin_provider_shipment_unique_string',
+    unique: true,
+    partialFilterExpression: { providerShipmentId: { $type: 'string' } }
+  }
 );
 shipmentSchema.index({ provider: 1, idempotencyKey: 1 }, { unique: true });
 shipmentSchema.index({ order: 1, shipmentType: 1, createdAt: -1 });

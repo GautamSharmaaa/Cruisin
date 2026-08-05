@@ -28,14 +28,17 @@ describe('critical production logistics index contract', () => {
   it('declares every required unique, TTL, lease and dedupe index', () => {
     const shipment = ShipmentModel.schema.indexes() as Index[];
     expectIndex(shipment, { awb: 1 }, {
+      name: 'cruisin_awb_unique_string',
       unique: true,
       partialFilterExpression: { awb: { $type: 'string' } }
     });
     expectIndex(shipment, { provider: 1, providerOrderId: 1 }, {
+      name: 'cruisin_provider_order_unique_string',
       unique: true,
       partialFilterExpression: { providerOrderId: { $type: 'string' } }
     });
     expectIndex(shipment, { provider: 1, providerShipmentId: 1 }, {
+      name: 'cruisin_provider_shipment_unique_string',
       unique: true,
       partialFilterExpression: { providerShipmentId: { $type: 'string' } }
     });
