@@ -19,9 +19,8 @@ export const metadata: Metadata = {
 export interface RootLayoutProps { children: ReactNode; }
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
-  const metaPixelBootstrap = `(function(w){if(w.fbq)return;var n=w.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!w._fbq)w._fbq=n;n.push=n;n.loaded=true;n.version='2.0';n.queue=[];w.dispatchEvent(new Event('cruisin-meta-bootstrap-ready'))})(window);`;
   return <html lang="en" className="dark" data-scroll-behavior="smooth">
-    <head>{metaPixelId ? <script id="cruisin-meta-pixel-bootstrap" dangerouslySetInnerHTML={{ __html: metaPixelBootstrap }} /> : null}</head>
+    <head>{metaPixelId ? <script id="cruisin-meta-pixel-bootstrap" src="/meta-pixel-bootstrap.js" /> : null}</head>
     <body>
     <Suspense fallback={null}><MetaPixel pixelId={metaPixelId} /></Suspense>
     {metaPixelId ? <noscript><img height="1" width="1" style={{ display: 'none' }} src={`https://www.facebook.com/tr?id=${encodeURIComponent(metaPixelId)}&ev=PageView&noscript=1`} alt="" /></noscript> : null}

@@ -125,6 +125,7 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
   await installMockApi(page, capturedCheckout);
 
   await page.goto('/shop');
+  await expect(page.locator('html')).toHaveAttribute('data-cruisin-meta-bootstrap', 'ready');
   await expect(page.getByRole('heading', { name: 'Shop All' })).toBeVisible();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => call[0] === 'track' && call[1] === 'PageView').length).toBe(1);
 
