@@ -67,6 +67,8 @@ const orderSchema = new Schema(
     paymentProvider: { type: String, enum: ['razorpay', 'stripe', 'cod', 'manual'], default: 'razorpay' },
     paymentStatus: { type: String, enum: ['pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'refunded', 'partially_refunded', 'cancelled'], default: 'pending', index: true },
     orderStatus: { type: String, enum: ['pending', 'placed', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'], default: 'pending', index: true },
+    fulfillmentStatus: { type: String, enum: ['unfulfilled', 'pending_logistics', 'ready_to_ship', 'partially_fulfilled', 'fulfilled', 'logistics_error', 'cancelled', 'returned'], default: 'unfulfilled', index: true },
+    logisticsQuoteId: { type: String, trim: true, index: true },
     subtotal: { type: Number, required: true, min: 0 },
     tax: { type: Number, required: true, min: 0 },
     shipping: { type: Number, required: true, min: 0 },
@@ -98,6 +100,7 @@ const orderSchema = new Schema(
 orderSchema.index({ createdAt: -1, orderStatus: 1 });
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ createdAt: -1, paymentStatus: 1, orderStatus: 1 });
+orderSchema.index({ fulfillmentStatus: 1, createdAt: -1 });
 
 export type OrderDocument = InferSchemaType<typeof orderSchema>;
 export const OrderModel = model('Order', orderSchema);

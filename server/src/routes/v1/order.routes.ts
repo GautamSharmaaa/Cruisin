@@ -5,6 +5,7 @@ import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema } from '../../validators/common.validator.js';
 import { checkoutSchema, customerCancellationSchema, paymentVerifySchema } from '../../validators/order.validator.js';
+import { LogisticsController } from '../../controllers/logistics.controller.js';
 
 export const orderRouter = Router();
 orderRouter.post('/checkout', requireAuth, validate({ body: checkoutSchema }), OrderController.checkout);
@@ -15,3 +16,4 @@ orderRouter.get('/mine', requireAuth, OrderController.mine);
 orderRouter.post('/:id/cancel', requireAuth, validate({ params: idParamSchema, body: customerCancellationSchema }), OrderController.customerCancel);
 orderRouter.get('/:id', requireAuth, validate({ params: idParamSchema }), OrderController.byId);
 orderRouter.get('/:id/payment-status', requireAuth, validate({ params: idParamSchema }), OrderController.paymentStatus);
+orderRouter.get('/:id/tracking', requireAuth, validate({ params: idParamSchema }), LogisticsController.tracking);

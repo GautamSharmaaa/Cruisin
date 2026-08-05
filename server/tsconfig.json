@@ -18,6 +18,7 @@
   },
   "include": [
     "index.ts",
+    "logistics-worker.ts",
     "src/**/*.ts"
   ],
   "exclude": [

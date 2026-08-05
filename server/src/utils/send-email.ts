@@ -2,7 +2,15 @@
 import sendgrid from '@sendgrid/mail';
 import { env } from '../config/env.js';
 
-sendgrid.setApiKey(env.SENDGRID_API_KEY);
+let sendgridInitialized = false;
+
+const getSendgridClient = (): typeof sendgrid => {
+  if (!sendgridInitialized) {
+    sendgrid.setApiKey(env.SENDGRID_API_KEY);
+    sendgridInitialized = true;
+  }
+  return sendgrid;
+};
 
 export interface EmailPayload {
   to: string;
@@ -13,5 +21,5 @@ export interface EmailPayload {
 
 export const sendEmail = async (payload: EmailPayload): Promise<void> => {
   if (env.NODE_ENV !== 'production') return;
-  await sendgrid.send({ from: env.EMAIL_FROM, ...payload });
+  await getSendgridClient().send({ from: env.EMAIL_FROM, ...payload });
 };

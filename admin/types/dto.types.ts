@@ -71,6 +71,9 @@ export interface ProductDto {
   seo?: { metaTitle?: string; metaDesc?: string; ogImage?: string };
   weight?: number;
   dimensions?: { length?: number; width?: number; height?: number };
+  packagingWeight?: number;
+  defaultPackagePreset?: string;
+  maximumQuantityPerPackage?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -330,6 +333,8 @@ export interface OrderDto {
   paymentProvider?: 'razorpay' | 'stripe' | 'cod' | 'manual';
   paymentStatus: string;
   orderStatus: string;
+  fulfillmentStatus?: string;
+  logisticsQuoteId?: string;
   subtotal?: number;
   tax?: number;
   shipping?: number;

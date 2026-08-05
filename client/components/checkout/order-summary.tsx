@@ -14,9 +14,10 @@ import { useCartStore } from '@/store/cartStore';
 export interface OrderSummaryProps {
 	shippingMethod?: ShippingMethod;
 	shippingSettings?: ShippingRateSettings;
+	shippingAmountOverride?: number;
 }
 
-export function OrderSummary({ shippingMethod = 'standard', shippingSettings }: OrderSummaryProps): ReactNode {
+export function OrderSummary({ shippingMethod = 'standard', shippingSettings, shippingAmountOverride }: OrderSummaryProps): ReactNode {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
 
@@ -28,7 +29,7 @@ export function OrderSummary({ shippingMethod = 'standard', shippingSettings }: 
 	const items = cartItems.filter((item) => isCustomerVisibleProduct(item.product));
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	const discountedSubtotal = taxInclusiveCheckoutTotals(subtotal, discount, 0).discountedSubtotal;
-	const delivery = shippingQuote(discountedSubtotal, freeShipping, shippingMethod, shippingSettings);
+	const delivery = shippingAmountOverride === undefined ? shippingQuote(discountedSubtotal, freeShipping, shippingMethod, shippingSettings) : { amount: shippingAmountOverride, compareAt: 0, isFree: shippingAmountOverride === 0, promotionReason: freeShipping ? 'coupon' as const : null, remainingForFreeStandardShipping: 0 };
 	const totals = taxInclusiveCheckoutTotals(subtotal, discount, delivery.amount);
 	return (
 		<aside className="border border-border bg-background-elevated/70 p-6 shadow-lg backdrop-blur-xl lg:sticky lg:top-28">

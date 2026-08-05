@@ -16,6 +16,7 @@ export interface RedisClient {
   ping: () => Promise<string>;
   get: (key: string) => Promise<RedisValue>;
   set: (key: string, value: string, mode?: 'EX', seconds?: number) => Promise<unknown>;
+  setIfAbsent: (key: string, value: string, seconds: number) => Promise<boolean>;
   del: (keyOrKeys: string | string[]) => Promise<number>;
   decr: (key: string) => Promise<number>;
   incrementWithExpiry: (key: string, seconds: number) => Promise<RedisIncrementResult>;
@@ -64,6 +65,7 @@ const createUpstashRedis = (): RedisClient => ({
   set: (key, value, mode, seconds) => mode === 'EX' && seconds
     ? upstashCommand(['SET', key, value, 'EX', seconds])
     : upstashCommand(['SET', key, value]),
+  setIfAbsent: async (key, value, seconds) => (await upstashCommand<string | null>(['SET', key, value, 'EX', seconds, 'NX'])) === 'OK',
   del: async (keyOrKeys) => {
     const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
     if (keys.length === 0) return 0;
@@ -91,6 +93,7 @@ const createIoredisClient = (): RedisClient => {
     set: (key, value, mode, seconds) => mode === 'EX' && seconds
       ? client.set(key, value, 'EX', seconds)
       : client.set(key, value),
+    setIfAbsent: async (key, value, seconds) => (await client.set(key, value, 'EX', seconds, 'NX')) === 'OK',
     del: (keyOrKeys) => Array.isArray(keyOrKeys) ? client.del(...keyOrKeys) : client.del(keyOrKeys),
     decr: (key) => client.decr(key),
     incrementWithExpiry: async (key, seconds) => parseIncrementResult(

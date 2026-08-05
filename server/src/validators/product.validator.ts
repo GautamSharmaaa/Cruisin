@@ -10,7 +10,12 @@ const orderedImagesSchema = z.array(imageSchema).max(24).superRefine((images, co
     seen.add(image.url);
   });
 });
-const variantSchema = z.object({ _id: z.string().optional(), size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), priceOverride: z.number().min(0).optional(), stock: z.number().int().min(0), enabled: z.boolean().default(true), lowStockThreshold: z.number().int().min(0).optional(), images: orderedImagesSchema.default([]) });
+const packageDimensionsSchema = z.object({
+  length: z.number().positive().max(300).optional(),
+  width: z.number().positive().max(300).optional(),
+  height: z.number().positive().max(300).optional()
+});
+const variantSchema = z.object({ _id: z.string().optional(), size: z.string().min(1), color: z.string().min(1), colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/), sku: z.string().min(2), price: z.number().min(0), priceOverride: z.number().min(0).optional(), stock: z.number().int().min(0), enabled: z.boolean().default(true), lowStockThreshold: z.number().int().min(0).optional(), weight: z.number().positive().max(100).optional(), dimensions: packageDimensionsSchema.optional(), images: orderedImagesSchema.default([]) });
 const optionalUrlSchema = z.union([z.string().url(), z.literal('')]).optional();
 const optionalMediaSchema = z.union([z.string().url(), z.string().regex(/^\/[^\s]+$/), z.literal('')]).optional();
 const productFieldsSchema = z.object({
@@ -56,8 +61,11 @@ const productFieldsSchema = z.object({
   sortOrder: z.number().int().default(0),
   relatedProducts: z.array(objectIdSchema).default([]),
   recommendedProducts: z.array(objectIdSchema).default([]),
-  weight: z.number().min(0).optional(),
-  dimensions: z.object({ length: z.number().min(0).optional(), width: z.number().min(0).optional(), height: z.number().min(0).optional() }).optional(),
+  weight: z.number().positive().max(100).optional(),
+  dimensions: packageDimensionsSchema.optional(),
+  packagingWeight: z.number().min(0).max(25).optional(),
+  defaultPackagePreset: z.string().trim().max(80).optional(),
+  maximumQuantityPerPackage: z.number().int().min(1).max(1_000).default(10),
   seo: z.object({ metaTitle: z.string().optional(), metaDesc: z.string().optional(), ogImage: z.string().url().optional() }).default({})
 });
 const validatePriceRelationship = (product: { basePrice?: number; comparePrice?: number }, context: z.RefinementCtx): void => {

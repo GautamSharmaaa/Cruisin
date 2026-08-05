@@ -2,7 +2,7 @@
 import winston from 'winston';
 import { env } from '../config/env.js';
 
-const sensitiveKey = /(authorization|card|cookie|credential|password|secret|signature|token)/i;
+const sensitiveKey = /(address|authorization|card|cookie|credential|email|password|phone|recipient|secret|signature|token)/i;
 const redactString = (value: string): string => value
   .replace(/(mongodb(?:\+srv)?:\/\/)([^:\s/@]+):([^@\s/]+)@/gi, '$1[REDACTED]:[REDACTED]@')
   .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]');

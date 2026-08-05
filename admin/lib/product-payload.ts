@@ -40,6 +40,9 @@ export interface ProductPayloadInput {
   length?: number;
   width?: number;
   height?: number;
+  packagingWeight?: number;
+  defaultPackagePreset?: string;
+  maximumQuantityPerPackage?: number;
   seoTitle?: string;
   seoDescription?: string;
   ogImage?: string;
@@ -119,5 +122,8 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   lowStockThreshold: input.lowStockThreshold ?? 10,
   weight: input.weight,
   dimensions: { length: input.length, width: input.width, height: input.height },
+  packagingWeight: input.packagingWeight,
+  defaultPackagePreset: input.defaultPackagePreset?.trim() || undefined,
+  maximumQuantityPerPackage: input.maximumQuantityPerPackage ?? 10,
   seo: { metaTitle: input.seoTitle || input.title, metaDesc: input.seoDescription || input.description, ogImage: input.ogImage || input.image }
 });

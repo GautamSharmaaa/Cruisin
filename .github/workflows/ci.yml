@@ -44,6 +44,12 @@ jobs:
       STRIPE_WEBHOOK_SECRET: test
       SENDGRID_API_KEY: SG.test
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      SHIPROCKET_ENABLED: 'true'
+      SHIPROCKET_MODE: mock
+      SHIPROCKET_ALLOW_LIVE_READS: 'false'
+      SHIPROCKET_ALLOW_LIVE_MUTATIONS: 'false'
+      SHIPROCKET_PICKUP_LOCATION: Mock Warehouse
+      SHIPROCKET_PICKUP_POSTCODE: '560001'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -53,13 +59,20 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run verify:logistics
       - run: npm run build
         env:
           NODE_ENV: production
-      - run: npm --workspace server run db:indexes
+      - run: npm --workspace server run db:indexes:production
+        env:
+          NODE_ENV: production
+          APP_ENV: development
+          MONGODB_URI: mongodb://localhost:27017/cruisin-logistics-indexes
+          ALLOW_ISOLATED_INDEX_VALIDATION: 'true'
       - run: npm --workspace server run seed
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
         env:
           NODE_ENV: development
           PLAYWRIGHT_PRODUCTION_SERVERS: 'true'
+      - run: npm run test:e2e:logistics
