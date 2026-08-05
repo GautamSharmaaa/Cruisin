@@ -92,6 +92,7 @@ const markDispatch = (eventName: MetaStandardEventName | 'Init', status: string)
   document.documentElement.setAttribute('data-cruisin-meta-last-event', eventName);
   document.documentElement.setAttribute('data-cruisin-meta-last-status', status);
 };
+const dispatchStatus = (): string => window.fbq?.callMethod ? 'sent-ready' : 'queued-awaiting-library';
 
 const warnMissingPixelOnce = (): void => {
   if (!isDevelopment() || missingPixelWarningIssued) return;
@@ -118,7 +119,7 @@ export const initializeMetaPixel = (pixelId = getMetaPixelId()): boolean => {
     window.fbq('init', normalizedPixelId);
     initialized[normalizedPixelId] = true;
   }
-  markDispatch('Init', 'sent');
+  markDispatch('Init', dispatchStatus());
   return true;
 };
 
@@ -169,7 +170,7 @@ const sendCommerceEvent = (
   const options = eventOptions(eventID);
   if (options) window.fbq('track', eventName, parameters, options);
   else window.fbq('track', eventName, parameters);
-  markDispatch(eventName, 'sent');
+  markDispatch(eventName, dispatchStatus());
   return true;
 };
 
@@ -186,7 +187,7 @@ export const trackPageView = (routeKey: string): boolean => {
   }
   window.fbq('track', 'PageView');
   lastPageViewRoute = normalizedRoute;
-  markDispatch('PageView', 'sent');
+  markDispatch('PageView', dispatchStatus());
   return true;
 };
 
@@ -213,7 +214,7 @@ export const trackSearch = (input: MetaSearchInput, eventID?: string): boolean =
   const options = eventOptions(eventID);
   if (options) window.fbq('track', 'Search', parameters, options);
   else window.fbq('track', 'Search', parameters);
-  markDispatch('Search', 'sent');
+  markDispatch('Search', dispatchStatus());
   return true;
 };
 
