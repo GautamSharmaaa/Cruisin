@@ -87,6 +87,11 @@ const isBrowser = (): boolean => typeof window !== 'undefined';
 const isDevelopment = (): boolean => process.env.NODE_ENV !== 'production';
 const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 const cleanId = (value: string): string => value.trim();
+const markDispatch = (eventName: MetaStandardEventName | 'Init', status: string): void => {
+  if (!isBrowser() || typeof document === 'undefined') return;
+  document.documentElement.setAttribute('data-cruisin-meta-last-event', eventName);
+  document.documentElement.setAttribute('data-cruisin-meta-last-status', status);
+};
 
 const warnMissingPixelOnce = (): void => {
   if (!isDevelopment() || missingPixelWarningIssued) return;
@@ -100,15 +105,20 @@ export const initializeMetaPixel = (pixelId = getMetaPixelId()): boolean => {
   if (!isBrowser()) return false;
   const normalizedPixelId = pixelId.trim();
   if (!normalizedPixelId) {
+    markDispatch('Init', 'blocked-missing-pixel-id');
     warnMissingPixelOnce();
     return false;
   }
-  if (!window.fbq) return false;
+  if (!window.fbq) {
+    markDispatch('Init', 'blocked-fbq-unavailable');
+    return false;
+  }
   const initialized = window.__cruisinMetaPixelIds ??= {};
   if (!initialized[normalizedPixelId]) {
     window.fbq('init', normalizedPixelId);
     initialized[normalizedPixelId] = true;
   }
+  markDispatch('Init', 'sent');
   return true;
 };
 
@@ -147,28 +157,52 @@ const sendCommerceEvent = (
   parameters: MetaCommerceParameters | null,
   eventID?: string
 ): boolean => {
-  if (!isBrowser() || !window.fbq || !parameters) return false;
+  if (!isBrowser()) return false;
+  if (!window.fbq) {
+    markDispatch(eventName, 'blocked-fbq-unavailable');
+    return false;
+  }
+  if (!parameters) {
+    markDispatch(eventName, 'blocked-invalid-payload');
+    return false;
+  }
   const options = eventOptions(eventID);
   if (options) window.fbq('track', eventName, parameters, options);
   else window.fbq('track', eventName, parameters);
+  markDispatch(eventName, 'sent');
   return true;
 };
 
 export const trackPageView = (routeKey: string): boolean => {
-  if (!isBrowser() || !window.fbq) return false;
+  if (!isBrowser()) return false;
+  if (!window.fbq) {
+    markDispatch('PageView', 'blocked-fbq-unavailable');
+    return false;
+  }
   const normalizedRoute = routeKey.trim();
-  if (!normalizedRoute || normalizedRoute === lastPageViewRoute) return false;
+  if (!normalizedRoute || normalizedRoute === lastPageViewRoute) {
+    markDispatch('PageView', 'blocked-duplicate-or-empty-route');
+    return false;
+  }
   window.fbq('track', 'PageView');
   lastPageViewRoute = normalizedRoute;
+  markDispatch('PageView', 'sent');
   return true;
 };
 
 export const trackViewContent = (input: MetaCommerceInput, eventID?: string): boolean => sendCommerceEvent('ViewContent', commerceParameters(input), eventID);
 
 export const trackSearch = (input: MetaSearchInput, eventID?: string): boolean => {
-  if (!isBrowser() || !window.fbq) return false;
+  if (!isBrowser()) return false;
+  if (!window.fbq) {
+    markDispatch('Search', 'blocked-fbq-unavailable');
+    return false;
+  }
   const searchString = input.search_string.trim();
-  if (!searchString) return false;
+  if (!searchString) {
+    markDispatch('Search', 'blocked-invalid-payload');
+    return false;
+  }
   const ids = Array.from(new Set((input.content_ids ?? []).map(cleanId).filter(Boolean)));
   const resultCount = typeof input.num_results === 'number' && Number.isFinite(input.num_results) && input.num_results >= 0 ? Math.floor(input.num_results) : undefined;
   const parameters: MetaSearchParameters = {
@@ -179,6 +213,7 @@ export const trackSearch = (input: MetaSearchInput, eventID?: string): boolean =
   const options = eventOptions(eventID);
   if (options) window.fbq('track', 'Search', parameters, options);
   else window.fbq('track', 'Search', parameters);
+  markDispatch('Search', 'sent');
   return true;
 };
 
