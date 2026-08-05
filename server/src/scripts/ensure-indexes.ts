@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { connectDb, disconnectDb } from '../config/db.js';
 import { env } from '../config/env.js';
+import { CategoryModel } from '../models/category.model.js';
 import { ExchangeRequestModel } from '../models/exchange-request.model.js';
 import { LogisticsJobModel } from '../models/logistics-job.model.js';
 import { LogisticsNotificationEventModel } from '../models/logistics-notification-event.model.js';
@@ -10,32 +11,23 @@ import { applicationModels } from '../models/model-registry.js';
 import { ReturnRequestModel } from '../models/return-request.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
 import { logger } from '../utils/logger.js';
+import { validateIndexTarget } from './index-target.js';
 
-const ISOLATED_INDEX_DATABASE = 'cruisin-logistics-indexes';
-const LOCAL_MONGODB_HOSTS = new Set(['localhost', '127.0.0.1']);
+interface MongoErrorLike {
+  code?: number;
+}
 
-const validateIsolatedIndexTarget = (): void => {
-  if (process.env.ALLOW_ISOLATED_INDEX_VALIDATION !== 'true') {
-    throw new Error('Refusing index validation without ALLOW_ISOLATED_INDEX_VALIDATION=true');
-  }
-
-  let parsed: URL;
+const removeLegacyIndexes = async (): Promise<void> => {
   try {
-    parsed = new URL(env.MONGODB_URI);
-  } catch {
-    throw new Error('Refusing index validation because MONGODB_URI is invalid');
+    const indexes = await CategoryModel.collection.indexes();
+    const legacySlugIndex = indexes.find((index) => index.name === 'slug_1' && index.unique);
+    if (legacySlugIndex) {
+      await CategoryModel.collection.dropIndex('slug_1');
+      logger.info('Removed legacy category slug index');
+    }
+  } catch (error) {
+    if ((error as MongoErrorLike).code !== 26) throw error;
   }
-
-  const database = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
-  if (parsed.protocol !== 'mongodb:' || !LOCAL_MONGODB_HOSTS.has(parsed.hostname)) {
-    throw new Error('Refusing index validation unless MONGODB_URI uses localhost or 127.0.0.1');
-  }
-  if (database !== ISOLATED_INDEX_DATABASE) {
-    throw new Error(`Refusing index validation unless the database is exactly ${ISOLATED_INDEX_DATABASE}`);
-  }
-
-  const sanitizedHost = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname;
-  logger.info('Validated isolated MongoDB index target', { host: sanitizedHost, database });
 };
 
 interface RequiredIndex {
@@ -108,9 +100,16 @@ const verifyCriticalIndexes = async (): Promise<void> => {
 };
 
 const ensureIndexes = async (): Promise<void> => {
-  validateIsolatedIndexTarget();
+  const target = validateIndexTarget({
+    allowIsolatedValidation: process.env.ALLOW_ISOLATED_INDEX_VALIDATION === 'true',
+    appEnv: env.APP_ENV,
+    mongoUri: env.MONGODB_URI,
+    nodeEnv: env.NODE_ENV
+  });
+  logger.info('Validated MongoDB index target', target);
   await connectDb();
   try {
+    await removeLegacyIndexes();
     for (const model of applicationModels) {
       await model.createIndexes();
       logger.info('MongoDB indexes ensured', { model: model.modelName });
