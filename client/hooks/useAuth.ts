@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { setAccessToken } from '@/lib/access-token';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { User } from '@/types/user.types';
@@ -28,11 +27,12 @@ const useAuthSuccess = () => {
   return (data: AuthResult): void => {
     setAccessToken(data.accessToken);
     setSession(data.user, data.accessToken);
+    void api.post('/cart/merge').catch(() => undefined);
     void api.get<ApiEnvelope<{ products?: Array<{ _id?: string; id?: string }> }>>('/wishlist').then((response) => setWishlistIds((response.data.data.products ?? []).map((product) => product.id ?? product._id ?? '').filter(Boolean))).catch(() => undefined);
   };
 };
 
-export const useLogin = () => { const onAuthSuccess = useAuthSuccess(); const openCart = useCartStore((state) => state.openCart); return useMutation({ mutationFn: async (input: { email: string; password: string }): Promise<AuthResult> => { const response = await api.post<ApiEnvelope<AuthResult>>('/auth/login', input); return response.data.data; }, onSuccess: async (data): Promise<void> => { onAuthSuccess(data); await api.post('/cart/merge').catch(() => undefined); openCart(); } }); };
+export const useLogin = () => { const onAuthSuccess = useAuthSuccess(); return useMutation({ mutationFn: async (input: { email: string; password: string }): Promise<AuthResult> => { const response = await api.post<ApiEnvelope<AuthResult>>('/auth/login', input); return response.data.data; }, onSuccess: onAuthSuccess }); };
 
 export const useGoogleLogin = () => {
   const onAuthSuccess = useAuthSuccess();

@@ -76,7 +76,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
 
   const accountLinks: AccountLink[] = user
     ? [{ label: COPY.nav.wishlist, href: ROUTES.wishlist }, { label: COPY.account.orders, href: ROUTES.orders }, { label: COPY.auth.myAccount, href: ROUTES.account }, { label: COPY.account.preferences, href: ROUTES.preferences }]
-    : [{ label: COPY.nav.wishlist, href: ROUTES.wishlist, action: 'wishlist' as const }, { label: COPY.account.orders, href: ROUTES.orders, action: 'orders' as const }, { label: COPY.auth.signIn, href: ROUTES.login }, { label: COPY.auth.createAccount, href: ROUTES.register }];
+    : [{ label: COPY.nav.wishlist, href: ROUTES.wishlist, action: 'wishlist' as const }, { label: COPY.account.orders, href: ROUTES.orders, action: 'orders' as const }, { label: COPY.auth.whatsapp.continue, href: ROUTES.login + '?redirect=' + encodeURIComponent(pathname) }, { label: COPY.auth.whatsapp.useAlternatives, href: ROUTES.login + '?redirect=' + encodeURIComponent(pathname) + '&method=alternative' }];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {

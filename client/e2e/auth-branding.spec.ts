@@ -33,9 +33,11 @@ test.describe('authentication brand artwork', () => {
     const artworkBox = await artwork.boundingBox();
     expect(panelBox).not.toBeNull();
     expect(artworkBox).toEqual(panelBox);
+    await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
+    await page.getByRole('button', { name: 'Use email or Google' }).click();
     const googleFrame = page.getByTestId('google-auth-frame');
     const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
-    const emailButton = page.getByRole('button', { name: 'Continue with Email' });
+    const emailButton = page.getByTestId('alternative-auth').locator('form button[type="submit"]');
     const googleMethod = await googleFrame.count() ? googleFrame : googleFallback;
     await expect(googleMethod).toBeVisible();
     if (await googleFrame.count()) {
@@ -66,6 +68,8 @@ test.describe('authentication brand artwork', () => {
     const header = page.locator('header');
     const authShell = page.getByTestId('auth-shell');
     await expect(page.getByTestId('auth-brand-artwork')).toBeHidden();
+    await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
+    await page.getByRole('button', { name: 'Use email or Google' }).click();
     const googleFrame = page.getByTestId('google-auth-frame');
     const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
     await expect(await googleFrame.count() ? googleFrame : googleFallback).toBeVisible();

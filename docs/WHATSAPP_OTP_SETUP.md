@@ -31,22 +31,22 @@ TWILIO_WHATSAPP_CONTENT_SID=<approved HX... content SID>
 The sender may also be entered with a `whatsapp:` prefix; the API normalizes it.
 Redeploy the API and confirm `/health` is healthy before enabling the storefront.
 
-## 3. Enable the Railway storefront
+## 3. Configure the Railway storefront
 
-On the `cruisin-storefront` service, add:
+WhatsApp OTP is the default storefront login once this implementation is deployed.
+You may explicitly add the following on the `cruisin-storefront` service:
 
 ```text
 NEXT_PUBLIC_WHATSAPP_OTP_ENABLED=true
 ```
 
-This is a build-time Next.js variable, so redeploy/rebuild the storefront after
-adding it. To disable the login method without removing Twilio configuration, set
-the value to `false` and redeploy the storefront.
+This is a build-time Next.js variable. To disable the login method without removing
+Twilio configuration, set the value to `false` and redeploy the storefront.
 
 ## 4. Safe production verification
 
 1. Open `/login` in a private browser window.
-2. Choose **Continue with WhatsApp OTP**.
+2. Confirm **Continue with WhatsApp** is the primary option.
 3. Enter a consenting WhatsApp number in E.164 format (India: `+91` plus 10 digits).
 4. Confirm one authentication-template message arrives from the Cruisin sender.
 5. Enter a wrong code once and confirm login is rejected.

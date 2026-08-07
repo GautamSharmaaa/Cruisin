@@ -3,6 +3,7 @@
 
 import { Heart, Home, Search, Store, User } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { COPY } from '@/constants/copy';
@@ -13,6 +14,7 @@ export interface BottomNavProps { onSearch: () => void; }
 
 export function BottomNav({ onSearch }: BottomNavProps): ReactNode {
   const user = useAuthStore((state) => state.user);
+  const pathname = usePathname();
   const [wishlistPrompt, setWishlistPrompt] = useState(false);
 
   return <>
@@ -21,7 +23,7 @@ export function BottomNav({ onSearch }: BottomNavProps): ReactNode {
       <Link className="flex items-center justify-center text-text-secondary transition hover:text-accent-gold active:scale-[0.98]" aria-label={COPY.shop.title} href={ROUTES.shop}><Store data-shop-all-mark aria-hidden="true" size={20} strokeWidth={1.35} /></Link>
       <button className="flex items-center justify-center text-accent-gold transition active:scale-[0.98]" aria-label={COPY.nav.search} onClick={onSearch}><Search size={18} /></button>
       <button type="button" className="flex items-center justify-center text-text-secondary transition active:scale-[0.98]" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)}><Heart size={18} /></button>
-      <Link className="flex items-center justify-center text-text-secondary transition active:scale-[0.98]" aria-label={user ? COPY.nav.account : COPY.auth.signIn} href={user ? ROUTES.account : ROUTES.login}><User size={18} /></Link>
+      <Link className="flex items-center justify-center text-text-secondary transition active:scale-[0.98]" aria-label={user ? COPY.nav.account : COPY.auth.whatsapp.continue} href={user ? ROUTES.account : ROUTES.login + '?redirect=' + encodeURIComponent(pathname)}><User size={18} /></Link>
     </nav>
     <LoginRequiredModal open={wishlistPrompt} onOpenChange={setWishlistPrompt} next={ROUTES.wishlist} action="wishlist" />
   </>;

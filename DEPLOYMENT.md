@@ -92,7 +92,7 @@ Set these before building `cruisin-storefront`; Next.js embeds public variables 
 | `NEXT_PUBLIC_SITE_URL` | Storefront HTTPS origin |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | The same public `rzp_test_...` key used by the API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | The same Google web client ID used by the API |
-| `NEXT_PUBLIC_WHATSAPP_OTP_ENABLED` | `true` only after the API authentication template is approved and configured |
+| `NEXT_PUBLIC_WHATSAPP_OTP_ENABLED` | Optional emergency switch: set `false` to hide WhatsApp OTP; otherwise it is enabled by default after the API template is configured |
 
 Only the Razorpay key ID is public. Never add the Razorpay key secret or webhook secret to the storefront.
 
