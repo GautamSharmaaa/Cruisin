@@ -69,24 +69,20 @@ test.describe('authentication brand artwork', () => {
     const authShell = page.getByTestId('auth-shell');
     await expect(page.getByTestId('auth-brand-artwork')).toBeHidden();
     await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
+    await expect(page.locator('img[src*="cruisin-logo.svg"]')).toBeVisible();
+    await expect(authShell).toHaveCSS('border-top-left-radius', '32px');
+    await expect.poll(async () => {
+      const headerBox = await header.boundingBox();
+      const shellBox = await authShell.boundingBox();
+      return headerBox && shellBox ? shellBox.y > headerBox.y + headerBox.height : false;
+    }).toBe(true);
     await page.getByRole('button', { name: 'Use email or Google' }).click();
     const googleFrame = page.getByTestId('google-auth-frame');
     const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
     await expect(await googleFrame.count() ? googleFrame : googleFallback).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveClass(/sr-only/);
-    await expect.poll(async () => {
-      const headerBox = await header.boundingBox();
-      const shellBox = await authShell.boundingBox();
-      return headerBox && shellBox ? Math.round(shellBox.y - (headerBox.y + headerBox.height)) : null;
-    }).toBe(0);
-
     await page.getByRole('tab', { name: 'Create Account' }).click();
     await expect(page.getByRole('heading', { name: 'Create account' })).toHaveClass(/sr-only/);
-    await expect.poll(async () => {
-      const headerBox = await header.boundingBox();
-      const shellBox = await authShell.boundingBox();
-      return headerBox && shellBox ? Math.round(shellBox.y - (headerBox.y + headerBox.height)) : null;
-    }).toBe(0);
     await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });
