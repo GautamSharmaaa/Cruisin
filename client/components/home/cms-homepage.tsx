@@ -153,7 +153,7 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
       ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
       : <img src={imageUrl} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
     {overlay > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: overlay }} /> : null}
-    {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="inline-flex min-h-12 items-center justify-center bg-accent-gold px-7 py-3 text-center text-xs uppercase tracking-[0.1em] text-text-inverse" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
+    {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="mobile-media-cta inline-flex min-h-12 items-center justify-center px-5 py-3 text-center font-accent text-sm uppercase tracking-[0.22em]" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
   </section>;
 }
 

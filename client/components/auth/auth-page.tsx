@@ -3,6 +3,7 @@
 
 import { useGoogleOAuth, type CredentialResponse, type GsiButtonConfiguration, type IdConfiguration } from '@react-oauth/google';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { motion } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -17,6 +18,7 @@ import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useGoogleLogin, useLogin, useRegister, useRequestOtp, useVerifyOtp } from '@/hooks/useAuth';
 import { e164PhoneSchema, loginSchema, registerSchema, otpVerifySchema } from '@/lib/schemas';
+import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
 import type { User } from '@/types/user.types';
 
 type AuthTab = 'signin' | 'signup';
@@ -55,13 +57,17 @@ const formatPhone = (countryCode: string, nationalNumber: string): string => `${
 
 export interface AuthPageProps {
   initialTab: AuthTab;
+  presentation?: 'page' | 'sheet';
+  initialMethod?: 'whatsapp' | 'alternative';
+  redirectTo?: string;
+  onDismiss?: () => void;
 }
 
-export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
+export function AuthPage({ initialTab, presentation = 'page', initialMethod, redirectTo, onDismiss }: AuthPageProps): ReactNode {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<AuthTab>(initialTab);
-  const [showAlternatives, setShowAlternatives] = useState(() => !IDENTITY_CONFIG.whatsappOtpEnabled || searchParams.get('method') === 'alternative');
+  const [showAlternatives, setShowAlternatives] = useState(() => !IDENTITY_CONFIG.whatsappOtpEnabled || initialMethod === 'alternative' || searchParams.get('method') === 'alternative');
   const [countryCode, setCountryCode] = useState('+91');
   const [nationalNumber, setNationalNumber] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -83,6 +89,22 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
     const normalizedCountry = country.startsWith('+') ? country : '+' + country;
     return normalizedCountry + nationalNumber.replace(/\D/g, '');
   }, [countryCode, nationalNumber]);
+
+  useEffect(() => {
+    if (presentation !== 'sheet') return;
+    const releaseScrollLock = acquireBodyScrollLock();
+    document.body.classList.add('mobile-auth-open');
+    return () => {
+      releaseScrollLock();
+      document.body.classList.remove('mobile-auth-open');
+    };
+  }, [presentation]);
+
+  useEffect(() => {
+    if (presentation !== 'sheet' || showAlternatives || requestOtp.data) return;
+    const focusTimer = window.setTimeout(() => document.getElementById('whatsapp-number')?.focus(), 80);
+    return () => window.clearTimeout(focusTimer);
+  }, [presentation, requestOtp.data, showAlternatives]);
 
   useEffect(() => {
     if (secondsRemaining <= 0) return;
@@ -146,8 +168,9 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   };
 
   const finishAuth = (user: User): void => {
-    const redirect = searchParams.get('redirect') ?? searchParams.get('next');
+    const redirect = redirectTo ?? searchParams.get('redirect') ?? searchParams.get('next');
     const destination = redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : destinationFor(user);
+    onDismiss?.();
     router.push(destination);
   };
 
@@ -200,9 +223,9 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
   const authError = login.error ?? registerMutation.error ?? googleLogin.error ?? requestOtp.error;
   const whatsappPrimary = IDENTITY_CONFIG.whatsappOtpEnabled && !showAlternatives;
 
-  return (
-    <main className="flex min-h-[calc(100dvh-4rem)] items-end px-0 pb-20 pt-24 sm:block sm:min-h-dvh sm:px-6 sm:pb-28 sm:pt-6 lg:px-20 lg:py-28">
-      <div data-testid="auth-shell" className="mx-auto grid w-full max-w-[1100px] overflow-hidden rounded-t-[32px] border border-accent-gold/50 bg-background-elevated shadow-lg sm:rounded-none sm:border-border lg:grid-cols-[0.8fr_1.2fr]">
+  const authShell = (
+      <div data-testid="auth-shell" className={presentation === 'sheet' ? 'relative z-10 grid max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated shadow-[0_-24px_80px_rgba(0,0,0,0.9)]' : 'mx-auto grid w-full max-w-[1100px] overflow-hidden rounded-t-[32px] border border-accent-gold/50 bg-background-elevated shadow-lg sm:rounded-none sm:border-border lg:grid-cols-[0.8fr_1.2fr]'}>
+        {presentation === 'sheet' ? <div className="flex h-16 shrink-0 items-end justify-end px-4"><button type="button" onClick={onDismiss} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold transition hover:text-text-primary"><X size={24} strokeWidth={1.5} /></button></div> : null}
         <section data-testid="auth-brand-panel" className="relative hidden min-h-[720px] flex-col justify-between overflow-hidden bg-background-overlay p-10 lg:flex">
           <div data-testid="auth-brand-artwork" className="absolute inset-0" aria-hidden="true">
             <div data-testid="auth-brand-image-stage" className="absolute inset-x-0 top-0 h-[960px]">
@@ -218,7 +241,7 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
           <p className="relative z-10 max-w-sm shrink-0 text-base leading-7 text-text-secondary">{COPY.brand.tagline}</p>
         </section>
 
-        <section className="p-6 pb-8 sm:p-10 lg:p-14">
+        <section className={presentation === 'sheet' ? 'px-6 pb-8 pt-0' : 'p-6 pb-8 sm:p-10 lg:p-14'}>
           {whatsappPrimary ? <div className="mx-auto w-full max-w-[420px]" data-testid="whatsapp-primary-auth">
             <div className="hidden sm:block">
               <p className="font-accent text-[10px] uppercase tracking-[0.22em] text-accent-gold">{COPY.auth.whatsapp.eyebrow}</p>
@@ -240,8 +263,8 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
                   <label className="block text-xs uppercase tracking-[0.15em] text-text-secondary transition focus-within:text-accent-gold" htmlFor="whatsapp-number">
                     <span className="hidden sm:block">{COPY.auth.whatsapp.phone}</span>
                     <span className={'flex h-14 items-center overflow-hidden rounded-2xl border bg-background-input transition sm:mt-2 sm:h-12 sm:rounded-none ' + (phoneError ? 'border-danger' : 'border-accent-gold/60 sm:border-border-subtle')}>
-                      <span className="border-r border-border px-4 font-mono text-base text-text-primary sm:hidden">{countryCode}</span>
-                      <input id="whatsapp-number" type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="send" aria-label={COPY.auth.whatsapp.phone} aria-invalid={Boolean(phoneError)} aria-describedby={phoneError ? 'whatsapp-number-error' : undefined} autoFocus maxLength={10} value={nationalNumber} onChange={(event) => setNationalNumber(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder={COPY.auth.whatsapp.phonePlaceholder} className="h-full min-w-0 flex-1 bg-transparent px-4 font-body text-lg normal-case tracking-normal text-text-primary outline-none placeholder:text-text-muted sm:text-base" />
+                      <span className="border-r border-border px-4 font-mono text-base font-normal tracking-[0.04em] text-text-secondary sm:hidden">{countryCode}</span>
+                      <input id="whatsapp-number" type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="send" aria-label={COPY.auth.whatsapp.phone} aria-invalid={Boolean(phoneError)} aria-describedby={phoneError ? 'whatsapp-number-error' : undefined} autoFocus maxLength={10} value={nationalNumber} onChange={(event) => setNationalNumber(event.target.value.replace(/\D/g, '').slice(0, 10))} placeholder={COPY.auth.whatsapp.phonePlaceholder} className="mobile-phone-input h-full min-w-0 flex-1 bg-transparent px-4 font-mono text-base font-normal normal-case tracking-[0.04em] text-text-secondary outline-none placeholder:font-normal placeholder:tracking-[0.04em] placeholder:text-text-muted" />
                     </span>
                     {phoneError ? <span id="whatsapp-number-error" className="mt-2 block text-xs normal-case tracking-normal text-danger" aria-live="polite">{phoneError}</span> : null}
                   </label>
@@ -312,8 +335,40 @@ export function AuthPage({ initialTab }: AuthPageProps): ReactNode {
           </div>}
         </section>
       </div>
-    </main>
   );
+
+  if (presentation === 'sheet') {
+    return <motion.div
+      data-testid="mobile-auth-overlay"
+      className="fixed inset-0 z-[150] flex items-end md:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Log in or create your account"
+      onKeyDown={(event) => { if (event.key === 'Escape') onDismiss?.(); }}
+      initial="closed"
+      animate="open"
+      exit="closed"
+    >
+      <motion.button
+        type="button"
+        data-testid="mobile-auth-backdrop"
+        aria-label={COPY.common.close}
+        onClick={onDismiss}
+        className="absolute inset-0 bg-black/55 backdrop-blur-md"
+        variants={{ closed: { opacity: 0 }, open: { opacity: 1 } }}
+        transition={{ duration: 0.24, ease: 'easeOut' }}
+      />
+      <motion.div
+        className="relative z-10 w-full"
+        variants={{ closed: { y: '100%' }, open: { y: 0 } }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {authShell}
+      </motion.div>
+    </motion.div>;
+  }
+
+  return <main className="flex min-h-[calc(100dvh-4rem)] items-end px-0 pb-20 pt-24 sm:block sm:min-h-dvh sm:px-6 sm:pb-28 sm:pt-6 lg:px-20 lg:py-28">{authShell}</main>;
 }
 
 function OtpCodeInput({ value, name, error, isLoading, inputRef, onBlur, onValueChange }: OtpCodeInputProps): ReactNode {

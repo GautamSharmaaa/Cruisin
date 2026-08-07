@@ -20,6 +20,54 @@ test('makes WhatsApp OTP primary while keeping email and Google available', asyn
   await expect(page.getByLabel('Confirm Password')).toBeVisible();
 });
 
+test('opens the complete mobile authentication flow as a bottom sheet without leaving the current page', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/terms-and-condition');
+
+  await page.getByRole('button', { name: 'Continue with WhatsApp' }).click();
+  await expect(page).toHaveURL(/\/terms-and-condition$/);
+
+  const overlay = page.getByTestId('mobile-auth-overlay');
+  const sheet = page.getByTestId('auth-shell');
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute('aria-modal', 'true');
+  await expect(page.getByTestId('mobile-auth-backdrop')).toHaveCSS('backdrop-filter', /blur/);
+  await expect(page.getByLabel('WhatsApp number')).toBeFocused();
+  await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
+  await expect.poll(async () => {
+    const box = await sheet.boundingBox();
+    return box ? Math.abs(box.y + box.height - 844) <= 1 : false;
+  }).toBe(true);
+
+  await page.getByRole('button', { name: 'Use email or Google' }).click();
+  await expect(page.getByTestId('alternative-auth')).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Create Account' })).toBeVisible();
+  const closeButton = sheet.getByRole('button', { name: 'Close' });
+  const tabs = page.getByRole('tablist', { name: 'Email authentication' });
+  await expect.poll(async () => {
+    const closeBox = await closeButton.boundingBox();
+    const tabBox = await tabs.boundingBox();
+    if (!closeBox || !tabBox) return false;
+    return closeBox.y + closeBox.height <= tabBox.y;
+  }).toBe(true);
+
+  await page.getByTestId('mobile-auth-backdrop').click({ position: { x: 10, y: 10 } });
+  await expect(overlay).toBeHidden();
+  await expect(page).toHaveURL(/\/terms-and-condition$/);
+  await expect(page.locator('body')).not.toHaveClass(/mobile-auth-open/);
+});
+
+test('opens the same WhatsApp sheet when a logged-out shopper tries to use their wishlist', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/terms-and-condition');
+
+  await page.getByRole('button', { name: 'Wishlist' }).click();
+  await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Save this piece' })).toHaveCount(0);
+  await expect(page.getByLabel('WhatsApp number')).toBeFocused();
+  await expect(page).toHaveURL(/\/terms-and-condition$/);
+});
+
 test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserves the destination', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let verificationAttempts = 0;

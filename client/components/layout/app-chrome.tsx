@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { MobileAuthSheetProvider } from '@/components/auth/mobile-auth-sheet-provider';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { CartDrawer } from '@/components/cart/cart-drawer';
 import { Footer } from '@/components/layout/footer';
@@ -16,5 +17,5 @@ export function AppChrome({ children }: AppChromeProps): ReactNode {
   const pathname = usePathname();
   const closeCart = useCartStore((state) => state.closeCart);
   useEffect(() => { closeCart(); }, [closeCart, pathname]);
-  return <div className="luxury-noise"><Navbar /><div id="main" tabIndex={-1} className="relative z-10 min-h-dvh pt-16 lg:pt-20">{children}</div><Footer /><CartDrawer /><BottomNav onSearch={() => setSearch(true)} /><SearchModal open={search} onOpenChange={setSearch} /></div>;
+  return <MobileAuthSheetProvider><div className="luxury-noise"><Navbar /><div id="main" tabIndex={-1} className="relative z-10 min-h-dvh pt-16 lg:pt-20">{children}</div><Footer /><CartDrawer /><BottomNav onSearch={() => setSearch(true)} /><SearchModal open={search} onOpenChange={setSearch} /></div></MobileAuthSheetProvider>;
 }

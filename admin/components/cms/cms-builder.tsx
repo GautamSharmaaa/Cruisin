@@ -656,7 +656,7 @@ function PreviewSection({ section, device, includeInactive }: { section: CmsSect
     return <section className="relative min-h-[620px] overflow-hidden bg-background-primary">
       {mediaType === 'video' && videoUrl ? <video src={videoUrl} poster={String(content.posterImage || '')} autoPlay={Boolean(content.autoplay ?? true)} muted={Boolean(content.muted ?? true)} loop={Boolean(content.loop ?? true)} playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" /> : imageUrl ? <img src={imageUrl} alt={String(content.altText || '')} className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs uppercase tracking-[0.14em] text-text-muted">Add a mobile image or video URL</div>}
       <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${Math.min(100, Math.max(0, Number(content.overlayOpacity || 0))) / 100})` }} />
-      {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><span className="bg-[#c8a97e] px-7 py-4 text-xs uppercase tracking-[0.14em] text-black">{ctaText}</span></div> : null}
+      {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><span className="px-5 py-3 text-xs uppercase tracking-[0.22em] text-[#f0d9ae] drop-shadow-[0_0_8px_rgba(200,169,126,0.65)]">{ctaText}</span></div> : null}
     </section>;
   }
   return <section className="relative min-h-[520px] overflow-hidden bg-background-primary">
@@ -788,7 +788,7 @@ function TemplateMockSection({ section, index, large }: { section: CmsSectionInp
   </div>;
   if (section.type === 'mobile_media_landing') return <div className={cn('relative flex items-end justify-center overflow-hidden border-b border-white/10 bg-black', large ? 'h-52' : 'h-20')}>
     {String(content.imageUrl || content.posterImage || '') ? <img src={String(content.imageUrl || content.posterImage)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-75" /> : null}
-    <span className={cn('relative mb-3 bg-accent-gold px-3 py-1 uppercase text-black', large ? 'text-xs' : 'text-[7px]')}>{String(content.ctaText || 'Mobile only')}</span>
+    <span className={cn('relative mb-3 px-3 py-1 uppercase tracking-[0.2em] text-[#f0d9ae] drop-shadow-[0_0_7px_rgba(200,169,126,0.65)]', large ? 'text-xs' : 'text-[7px]')}>{String(content.ctaText || 'Mobile only')}</span>
   </div>;
   if (section.type === 'limited_drop_timer') return <div className={cn('border-b border-white/10 bg-[#10100f] text-center', large ? 'p-8' : 'p-3')}>
     <p className={cn('uppercase tracking-[0.16em] text-accent-gold', large ? 'text-xs' : 'text-[7px]')}>{String(content.label || 'Limited Drop')}</p>

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { COPY } from '@/constants/copy';
-import { LoginRequiredModal } from '@/components/auth/login-required-modal';
+import { useMobileAuthSheet } from '@/components/auth/mobile-auth-sheet-provider';
 import { RevolvingBag } from '@/components/shared/revolving-bag';
 import { ROUTES } from '@/constants/routes';
 import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
@@ -23,7 +23,7 @@ export interface MobileNavProps {
   onCart: () => void;
   cartCount: number;
 }
-type AccountLink = { label: string; href: string; action?: 'wishlist' | 'orders' };
+type AccountLink = { label: string; href: string; action?: 'wishlist' | 'orders'; method?: 'whatsapp' | 'alternative' };
 
 const fallbackImage = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85';
 const idOf = (item: { id?: string; _id?: string; slug?: string; title?: string; label?: string }): string => item._id ?? item.id ?? item.slug ?? item.title ?? item.label ?? '';
@@ -43,13 +43,13 @@ const promoImage = (promo?: MegaMenuPromoDto | null): string => promo?.mobileIma
 export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCount }: MobileNavProps): ReactNode {
   const user = useAuthStore((state) => state.user);
   const pathname = usePathname();
+  const { openMobileAuth } = useMobileAuthSheet();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const menuItems = useMemo(() => items.filter((item) => item.isVisible && item.isMegaMenuEnabled), [items]);
   const defaultId = idOf(menuItems.find((item) => item.isDefaultActive) ?? menuItems[0] ?? {});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedColumns, setExpandedColumns] = useState<Record<string, string | null>>({});
-  const [protectedAction, setProtectedAction] = useState<'wishlist' | 'orders' | null>(null);
   const close = useCallback((): void => onOpenChange(false), [onOpenChange]);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
 
   const accountLinks: AccountLink[] = user
     ? [{ label: COPY.nav.wishlist, href: ROUTES.wishlist }, { label: COPY.account.orders, href: ROUTES.orders }, { label: COPY.auth.myAccount, href: ROUTES.account }, { label: COPY.account.preferences, href: ROUTES.preferences }]
-    : [{ label: COPY.nav.wishlist, href: ROUTES.wishlist, action: 'wishlist' as const }, { label: COPY.account.orders, href: ROUTES.orders, action: 'orders' as const }, { label: COPY.auth.whatsapp.continue, href: ROUTES.login + '?redirect=' + encodeURIComponent(pathname) }, { label: COPY.auth.whatsapp.useAlternatives, href: ROUTES.login + '?redirect=' + encodeURIComponent(pathname) + '&method=alternative' }];
+    : [{ label: COPY.nav.wishlist, href: ROUTES.wishlist, action: 'wishlist' as const }, { label: COPY.account.orders, href: ROUTES.orders, action: 'orders' as const }, { label: COPY.auth.whatsapp.continue, href: ROUTES.login, method: 'whatsapp' as const }, { label: COPY.auth.whatsapp.useAlternatives, href: ROUTES.login, method: 'alternative' as const }];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
@@ -163,14 +163,15 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
             <div className="mt-6 grid gap-1 border-t border-white/10 pt-4">
               {accountLinks.map((link) => {
                 const action = link.action;
-                return action ? <button key={link.href} type="button" onClick={() => { close(); setProtectedAction(action); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button> : <Link key={link.href} href={link.href} onClick={close} className="flex min-h-11 items-center text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</Link>;
+                if (action) return <button key={link.href} type="button" onClick={() => { close(); openMobileAuth({ next: action === 'orders' ? ROUTES.orders : ROUTES.wishlist }); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button>;
+                if (link.method) return <button key={link.method} type="button" onClick={() => { close(); openMobileAuth({ next: pathname, method: link.method }); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button>;
+                return <Link key={link.href} href={link.href} onClick={close} className="flex min-h-11 items-center text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</Link>;
               })}
             </div>
           </nav>
         </motion.div>
       ) : null}
     </AnimatePresence>
-    <LoginRequiredModal open={Boolean(protectedAction)} onOpenChange={(open) => { if (!open) setProtectedAction(null); }} next={protectedAction === 'orders' ? ROUTES.orders : ROUTES.wishlist} action={protectedAction ?? 'wishlist'} />
   </>;
 }
 

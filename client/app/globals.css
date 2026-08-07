@@ -44,6 +44,13 @@ button, a[href], [role='button'] { cursor: pointer; }
 :focus-visible { outline: 1px solid var(--accent-gold); outline-offset: 2px; }
 ::selection { background: var(--accent-gold); color: var(--text-inverse); }
 input:-webkit-autofill, textarea:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset; -webkit-text-fill-color: var(--text-primary); }
+.mobile-phone-input:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .luxury-noise::before { content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.025; background-image: linear-gradient(var(--text-primary) 1px, transparent 1px), linear-gradient(90deg, var(--text-primary) 1px, transparent 1px); background-size: 24px 24px; mask-image: linear-gradient(to bottom, black, transparent 75%); z-index: 1; }
@@ -133,6 +140,30 @@ input:-webkit-autofill, textarea:-webkit-autofill { -webkit-box-shadow: 0 0 0 10
   to { transform: translate3d(0, 0, 0); }
 }
 
+.mobile-media-cta {
+  color: transparent;
+  background-image: linear-gradient(105deg, #8a7355 0%, #c8a97e 38%, #fff4dc 50%, #c8a97e 62%, #8a7355 100%);
+  background-position: 120% 50%;
+  background-size: 260% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(200, 169, 126, 0.34));
+  animation: mobile-media-cta-shine 3.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+  will-change: background-position, filter;
+}
+
+.mobile-media-cta:hover,
+.mobile-media-cta:focus-visible {
+  filter: drop-shadow(0 0 12px rgba(240, 217, 174, 0.58));
+}
+
+@keyframes mobile-media-cta-shine {
+  0%, 18% { background-position: 120% 50%; }
+  54%, 64% { background-position: -20% 50%; }
+  100% { background-position: -120% 50%; }
+}
+
 .brand-tagline-motion {
   color: transparent;
   background-image: linear-gradient(105deg, var(--text-muted) 0%, var(--text-muted) 38%, var(--accent-gold-dim) 46%, var(--text-primary) 50%, var(--accent-gold) 54%, var(--text-muted) 62%, var(--text-muted) 100%);
@@ -165,6 +196,12 @@ input:-webkit-autofill, textarea:-webkit-autofill { -webkit-box-shadow: 0 0 0 10
     -webkit-text-fill-color: currentColor;
     animation: none !important;
     opacity: 1;
+  }
+  .mobile-media-cta {
+    color: var(--accent-gold);
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    animation: none !important;
   }
 }
 
