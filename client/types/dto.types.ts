@@ -266,7 +266,7 @@ export interface CmsSectionDto {
   endDate?: string;
 }
 
-export type CmsSectionType = 'announcement_bar' | 'hero_campaign' | 'video_landing' | 'image_carousel' | 'product_carousel' | 'hot_drop' | 'trending_now' | 'discount_banner' | 'category_editorial_grid' | 'lookbook_story' | 'brand_story' | 'fullscreen_collection_landing' | 'popup_campaign' | 'newsletter' | 'social_proof' | 'marquee_strip' | 'shop_the_look' | 'featured_collection' | 'limited_drop_timer' | 'recently_viewed' | 'best_sellers';
+export type CmsSectionType = 'announcement_bar' | 'hero_campaign' | 'video_landing' | 'mobile_media_landing' | 'image_carousel' | 'product_carousel' | 'hot_drop' | 'trending_now' | 'discount_banner' | 'category_editorial_grid' | 'lookbook_story' | 'brand_story' | 'fullscreen_collection_landing' | 'popup_campaign' | 'newsletter' | 'social_proof' | 'marquee_strip' | 'shop_the_look' | 'featured_collection' | 'limited_drop_timer' | 'recently_viewed' | 'best_sellers';
 export type CmsStatus = 'draft' | 'published' | 'archived';
 
 export interface CmsPageDto {

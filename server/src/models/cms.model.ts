@@ -27,6 +27,7 @@ const cmsSectionSchema = new Schema(
         'announcement_bar',
         'hero_campaign',
         'video_landing',
+        'mobile_media_landing',
         'image_carousel',
         'product_carousel',
         'hot_drop',

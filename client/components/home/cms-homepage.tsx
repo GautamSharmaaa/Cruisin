@@ -103,6 +103,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
   if (type === 'shop_the_look') return <ShopTheLook section={section} content={content} className={visibility} />;
   if (type === 'category_editorial_grid') return <CategoryGrid section={section} content={content} className={visibility} />;
   if (type === 'image_carousel') return <ImageCarousel section={section} content={content} className={visibility} />;
+  if (type === 'mobile_media_landing') return <MobileMediaLanding content={content} className={section.hideOnMobile ? 'hidden' : 'lg:hidden'} />;
   if (type === 'video_landing') return <VideoLanding section={section} content={content} className={visibility} />;
   if (type === 'lookbook_story' || type === 'brand_story') return <EditorialStory section={section} content={content} className={visibility} />;
   if (type === 'fullscreen_collection_landing') return <FullscreenCollection section={section} content={content} className={visibility} />;
@@ -134,6 +135,25 @@ function VideoLanding({ section, content, className }: { section: CmsSectionDto;
       : <Image src={posterImage} alt="" fill sizes="100vw" className="object-cover opacity-75" priority />}
     <div className="absolute inset-0 bg-hero" />
     <div className="relative flex min-h-dvh flex-col items-start justify-end px-6 pb-24 lg:px-20"><h2 className="video-landing-title brand-wordmark-script text-hero leading-none">{section.title}</h2><p className="brand-wordmark-script mt-5 max-w-xl text-xl text-text-secondary sm:text-2xl">{section.subtitle}</p><Link className="video-landing-cta mt-8 inline-flex h-12 w-fit items-center px-7 text-xs uppercase tracking-[0.08em]" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop now')}</Link></div>
+  </section>;
+}
+
+function MobileMediaLanding({ content, className }: { content: Content; className: string; }): ReactNode {
+  const mediaType = asString(content, 'mediaType', 'image');
+  const imageUrl = asString(content, 'imageUrl', asString(content, 'posterImage'));
+  const videoUrl = asString(content, 'videoUrl');
+  const ctaText = asString(content, 'ctaText').trim();
+  const ctaLink = asString(content, 'ctaLink').trim();
+  const rawOverlay = asNumber(content, 'overlayOpacity', 20);
+  const overlay = Number.isFinite(rawOverlay) ? Math.min(100, Math.max(0, rawOverlay)) / 100 : 0.2;
+  const hasVideo = mediaType === 'video' && isPlayableVideo(videoUrl);
+  if (!hasVideo && !imageUrl) return null;
+  return <section className={className + ' relative min-h-[100svh] overflow-hidden bg-background-primary'}>
+    {hasVideo
+      ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
+      : <img src={imageUrl} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
+    {overlay > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: overlay }} /> : null}
+    {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="inline-flex min-h-12 items-center justify-center bg-accent-gold px-7 py-3 text-center text-xs uppercase tracking-[0.1em] text-text-inverse" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
   </section>;
 }
 

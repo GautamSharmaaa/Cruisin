@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
-import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
+import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, UploadCloud, X } from 'lucide-react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyPanel } from '@/components/dashboard/empty-panel';
@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select-field';
 import { COPY } from '@/constants/copy';
-import { useArchiveCmsSection, useCreateCmsMedia, useCreateCmsSection, usePublishCmsPage, useReorderCmsSections, useRestoreCmsVersion, useUpdateCmsSection, type CmsSectionInput } from '@/hooks/useAdminMutations';
+import { useArchiveCmsSection, useCmsUploadSignature, useCreateCmsMedia, useCreateCmsSection, usePublishCmsPage, useReorderCmsSections, useRestoreCmsVersion, useUpdateCmsSection, type CmsSectionInput } from '@/hooks/useAdminMutations';
 import { useAdminCategories, useAdminCollections, useAdminProducts, useCmsMedia, useCmsPages, useCmsPageSections, useCmsVersions } from '@/hooks/useAdminResources';
+import { externalUploadApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsSectionType, CmsStatus, CollectionDto, ProductDto } from '@/types/dto.types';
 
@@ -24,6 +25,7 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 type TemplateAction = 'replace' | 'append';
 type ToastState = { tone: 'success' | 'error' | 'info'; message: string } | null;
 type WorkspaceTab = 'builder' | 'live-preview';
+interface CloudinaryUploadResponse { secure_url?: string; }
 
 const categories: Array<'All' | SectionCategory> = ['All', 'Hero', 'Products', 'Marketing', 'Editorial', 'Social', 'Utility'];
 const quickFilters = ['Recommended', 'Most Used', 'New'] as const;
@@ -49,8 +51,8 @@ const mockProductImages = [
 ];
 
 const mediaUrl = (content: ContentState, device: DevicePreview): string => {
-  if (device === 'mobile') return String(content.mobileMedia || content.mobileImage || content.mobileFallbackImage || content.desktopMedia || content.imageOne || content.image || '');
-  return String(content.desktopMedia || content.posterImage || content.imageOne || content.image || content.mobileMedia || '');
+  if (device === 'mobile') return String(content.imageUrl || content.mobileMedia || content.mobileImage || content.mobileFallbackImage || content.posterImage || content.desktopMedia || content.imageOne || content.image || '');
+  return String(content.desktopMedia || content.posterImage || content.imageUrl || content.imageOne || content.image || content.mobileMedia || '');
 };
 
 const accessibleTemplateName = (name: string): string => name.replace(/\s*\/\s*/g, ' ');
@@ -58,7 +60,7 @@ const accessibleTemplateName = (name: string): string => name.replace(/\s*\/\s*/
 const sectionImage = (section: CmsSectionInput, fallbackIndex = 0): string => {
   const content = section.content as ContentState;
   const rows = String(content.tiles || content.slides || content.scenes || '').split('\n').map((item) => item.split('|')[1]).filter(Boolean);
-  return String(content.desktopMedia || content.posterImage || content.imageOne || content.image || content.craftsmanshipImage || rows[0] || mockProductImages[fallbackIndex % mockProductImages.length]);
+  return String(content.desktopMedia || content.posterImage || content.imageUrl || content.imageOne || content.image || content.craftsmanshipImage || rows[0] || mockProductImages[fallbackIndex % mockProductImages.length]);
 };
 
 export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
@@ -408,6 +410,9 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
   const [productQuery, setProductQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [collectionQuery, setCollectionQuery] = useState('');
+  const [mediaUploadMessage, setMediaUploadMessage] = useState('');
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const cmsUploadSignature = useCmsUploadSignature();
   const products = useAdminProducts({ q: productQuery.trim() || undefined, status: 'visible', limit: 24 });
   const categoriesData = useAdminCategories();
   const collectionsData = useAdminCollections();
@@ -416,6 +421,33 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
   const selectedCollectionIds = parseIds(contentValue(draft.content.collectionIds));
   const filteredCategories = useMemo(() => filterReferences(categoriesData.data ?? [], categoryQuery, categoryLabel), [categoriesData.data, categoryQuery]);
   const filteredCollections = useMemo(() => filterReferences(collectionsData.data ?? [], collectionQuery, collectionLabel), [collectionsData.data, collectionQuery]);
+  const uploadMobileMedia = async (file?: File): Promise<void> => {
+    if (!file) return;
+    setMediaUploading(true);
+    setMediaUploadMessage('Uploading ' + file.name + '…');
+    try {
+      const signature = await cmsUploadSignature.mutateAsync();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('api_key', String(process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? ''));
+      formData.append('timestamp', String(signature.timestamp));
+      formData.append('signature', signature.signature);
+      formData.append('folder', signature.folder);
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) throw new Error('Missing Cloudinary configuration');
+      const response = await externalUploadApi.post<CloudinaryUploadResponse>(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, formData);
+      const url = response.data.secure_url;
+      if (!url) throw new Error('Upload did not return a media URL');
+      const isVideo = file.type.startsWith('video/');
+      onContent('mediaType', isVideo ? 'video' : 'image');
+      onContent(isVideo ? 'videoUrl' : 'imageUrl', url);
+      setMediaUploadMessage('Upload complete. Save or publish when ready.');
+    } catch (error) {
+      setMediaUploadMessage(error instanceof Error ? error.message : 'Media upload failed.');
+    } finally {
+      setMediaUploading(false);
+    }
+  };
   const updateProducts = (ids: string[]): void => {
     onField('products', ids);
     onContent('productIds', ids.join(', '));
@@ -447,7 +479,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
     {selected ? <div className="mt-6 grid gap-4">
       <InspectorGroup title="Basic Info" helper="Name the block and choose where this section appears in the store.">
         <div className="grid gap-4 md:grid-cols-2">
-          <SelectField label="Section Type" options={SECTION_TEMPLATES.map((item) => ({ label: item.name, value: item.type }))} value={draft.type} onChange={(event) => { const type = event.target.value as CmsSectionType; onField('type', type); onField('content', { ...getSectionTemplate(type).defaults, ...draft.content }); }} />
+          <SelectField label="Section Type" options={SECTION_TEMPLATES.map((item) => ({ label: item.name, value: item.type }))} value={draft.type} onChange={(event) => { const type = event.target.value as CmsSectionType; onField('type', type); onField('content', { ...getSectionTemplate(type).defaults, ...draft.content }); if (type === 'mobile_media_landing') { onField('hideOnDesktop', true); onField('hideOnMobile', false); } }} />
           <SelectField label="Page Target" options={targetOptions} value={draft.pageTarget} onChange={(event) => onField('pageTarget', event.target.value)} />
           <Input label={COPY.fields.title} value={draft.title} onChange={(event) => onField('title', event.target.value)} placeholder="Customer-facing headline" />
           <Input label={COPY.fields.subtitle} value={draft.subtitle ?? ''} onChange={(event) => onField('subtitle', event.target.value)} placeholder="Short supporting copy" />
@@ -457,15 +489,24 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
         <label className="mt-4 block text-xs uppercase tracking-[0.15em] text-text-secondary"><span>Description</span><textarea className="mt-2 min-h-24 w-full border border-border-subtle bg-background-input px-4 py-3 text-sm normal-case tracking-normal text-text-primary" value={draft.description ?? ''} onChange={(event) => onField('description', event.target.value)} placeholder="Internal note or longer storefront copy for editorial blocks." /></label>
       </InspectorGroup>
       <InspectorGroup title="Visibility & Scheduling" helper="Control device targeting, campaign dates, and whether the block can appear after publish.">
+        {draft.type === 'mobile_media_landing' ? <p className="mb-4 border border-accent-gold/30 bg-accent-gold/5 px-3 py-2 text-xs text-accent-gold">This section is always mobile-only on the storefront.</p> : null}
         <div className="grid gap-4 md:grid-cols-3">
           <SelectField label="Active" options={boolOptions} value={String(draft.active)} onChange={(event) => onField('active', event.target.value === 'true')} />
-          <SelectField label="Hide Desktop" options={boolOptions} value={String(draft.hideOnDesktop)} onChange={(event) => onField('hideOnDesktop', event.target.value === 'true')} />
-          <SelectField label="Hide Mobile" options={boolOptions} value={String(draft.hideOnMobile)} onChange={(event) => onField('hideOnMobile', event.target.value === 'true')} />
+          {draft.type !== 'mobile_media_landing' ? <SelectField label="Hide Desktop" options={boolOptions} value={String(draft.hideOnDesktop)} onChange={(event) => onField('hideOnDesktop', event.target.value === 'true')} /> : null}
+          {draft.type !== 'mobile_media_landing' ? <SelectField label="Hide Mobile" options={boolOptions} value={String(draft.hideOnMobile)} onChange={(event) => onField('hideOnMobile', event.target.value === 'true')} /> : null}
           <Input label={COPY.fields.startDate} type="date" value={draft.startDate ?? ''} onChange={(event) => onField('startDate', event.target.value)} />
           <Input label={COPY.fields.endDate} type="date" value={draft.endDate ?? ''} onChange={(event) => onField('endDate', event.target.value)} />
         </div>
       </InspectorGroup>
       <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
+        {draft.type === 'mobile_media_landing' ? <div className="mb-4 border border-border-subtle bg-background-input p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-secondary">Upload mobile media</p>
+          <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-accent-gold px-4 py-3 text-xs uppercase tracking-[0.1em] text-accent-gold hover:bg-accent-gold/10">
+            <UploadCloud size={16} />{mediaUploading ? 'Uploading…' : 'Choose image or video'}
+            <input type="file" accept="image/*,video/*" className="sr-only" disabled={mediaUploading} onChange={(event) => { const file = event.target.files?.[0]; void uploadMobileMedia(file); event.target.value = ''; }} />
+          </label>
+          {mediaUploadMessage ? <p className="mt-3 text-xs text-text-secondary" role="status">{mediaUploadMessage}</p> : null}
+        </div> : null}
         <div className="grid gap-4 md:grid-cols-2">{contentEntries.map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
       </InspectorGroup>
       <InspectorGroup title="Products / Categories / Collections" helper={draft.type === 'shop_the_look' ? 'Select the product shown in the image. Its direct product-page link is filled automatically; you can also edit CTA Link above.' : 'Search by product, category, or collection name. Selections are saved as CMS references for storefront hydration.'}>
@@ -565,7 +606,7 @@ function PreviewWorkspace({ sectionList, selected, draft, device, includeInactiv
 }
 
 function LivePreview({ sectionList, selected, draft, device, includeInactive, onDevice, full = false }: { sectionList: CmsSectionDto[]; selected?: CmsSectionDto; draft: CmsSectionInput; device: DevicePreview; includeInactive: boolean; onDevice: (device: DevicePreview) => void; full?: boolean; }): ReactNode {
-  const visible = sectionList.filter((section) => includeInactive || isActive(section)).filter((section) => device === 'mobile' ? !section.hideOnMobile : !section.hideOnDesktop);
+  const visible = sectionList.filter((section) => includeInactive || isActive(section)).filter((section) => device === 'mobile' ? !section.hideOnMobile : section.type !== 'mobile_media_landing' && !section.hideOnDesktop);
   return <div className="min-w-0 border border-border bg-background-elevated p-4 shadow-lg">
     <div className="flex items-center justify-between gap-3">
       <div><h3 className="font-display text-xl">Live Preview</h3>{full ? <p className="mt-1 text-xs text-text-secondary">Draft preview updates instantly and does not publish changes.</p> : null}</div>
@@ -580,6 +621,7 @@ function LivePreview({ sectionList, selected, draft, device, includeInactive, on
 function PreviewSection({ section, device, includeInactive }: { section: CmsSectionDto; device: DevicePreview; includeInactive: boolean; }): ReactNode {
   if (!includeInactive && !isActive(section)) return null;
   if (device === 'mobile' && section.hideOnMobile) return null;
+  if (section.type === 'mobile_media_landing' && device !== 'mobile') return null;
   if (device !== 'mobile' && section.hideOnDesktop) return null;
   const content = normalizeContent(section);
   const template = getSectionTemplate((section.type ?? 'hero_campaign') as CmsSectionType);
@@ -603,6 +645,18 @@ function PreviewSection({ section, device, includeInactive }: { section: CmsSect
         <p className="mt-3 max-w-md text-sm text-text-secondary">{section.subtitle}</p>
         <p className="mt-7 text-xs uppercase tracking-[0.14em]">{String(content.ctaText || 'Explore')}</p>
       </div>
+    </section>;
+  }
+  if (section.type === 'mobile_media_landing') {
+    const mediaType = String(content.mediaType || 'image');
+    const videoUrl = String(content.videoUrl || '');
+    const imageUrl = String(content.imageUrl || content.posterImage || '');
+    const ctaText = String(content.ctaText || '').trim();
+    const ctaLink = String(content.ctaLink || '').trim();
+    return <section className="relative min-h-[620px] overflow-hidden bg-background-primary">
+      {mediaType === 'video' && videoUrl ? <video src={videoUrl} poster={String(content.posterImage || '')} autoPlay={Boolean(content.autoplay ?? true)} muted={Boolean(content.muted ?? true)} loop={Boolean(content.loop ?? true)} playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" /> : imageUrl ? <img src={imageUrl} alt={String(content.altText || '')} className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs uppercase tracking-[0.14em] text-text-muted">Add a mobile image or video URL</div>}
+      <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${Math.min(100, Math.max(0, Number(content.overlayOpacity || 0))) / 100})` }} />
+      {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><span className="bg-[#c8a97e] px-7 py-4 text-xs uppercase tracking-[0.14em] text-black">{ctaText}</span></div> : null}
     </section>;
   }
   return <section className="relative min-h-[520px] overflow-hidden bg-background-primary">
@@ -732,6 +786,10 @@ function TemplateMockSection({ section, index, large }: { section: CmsSectionInp
     <img src={String(content.posterImage || image)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55" />
     <span className={cn('relative flex items-center justify-center rounded-full border border-accent-gold text-accent-gold', large ? 'h-16 w-16 text-2xl' : 'h-8 w-8 text-sm')}>▶</span>
   </div>;
+  if (section.type === 'mobile_media_landing') return <div className={cn('relative flex items-end justify-center overflow-hidden border-b border-white/10 bg-black', large ? 'h-52' : 'h-20')}>
+    {String(content.imageUrl || content.posterImage || '') ? <img src={String(content.imageUrl || content.posterImage)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-75" /> : null}
+    <span className={cn('relative mb-3 bg-accent-gold px-3 py-1 uppercase text-black', large ? 'text-xs' : 'text-[7px]')}>{String(content.ctaText || 'Mobile only')}</span>
+  </div>;
   if (section.type === 'limited_drop_timer') return <div className={cn('border-b border-white/10 bg-[#10100f] text-center', large ? 'p-8' : 'p-3')}>
     <p className={cn('uppercase tracking-[0.16em] text-accent-gold', large ? 'text-xs' : 'text-[7px]')}>{String(content.label || 'Limited Drop')}</p>
     <h3 className={cn('font-display text-text-primary', large ? 'mt-3 text-3xl' : 'mt-1 truncate text-sm')}>{title}</h3>
@@ -793,6 +851,7 @@ function Metric({ icon, value, label }: { icon: ReactNode; value: number; label:
 
 function ContentInput({ name, value, onChange }: { name: string; value: ContentValue; onChange: (value: ContentValue) => void; }): ReactNode {
   const label = name.replace(/([A-Z])/g, ' $1').replace(/^./, (match) => match.toUpperCase());
+  if (name === 'mediaType') return <SelectField label={label} options={[{ label: 'Image', value: 'image' }, { label: 'Video', value: 'video' }]} value={String(value)} onChange={(event) => onChange(event.target.value)} />;
   if (typeof value === 'boolean') return <SelectField label={label} options={boolOptions} value={String(value)} onChange={(event) => onChange(event.target.value === 'true')} />;
   const multiline = ['slides', 'tiles', 'scenes', 'pressLogos', 'ugcImages', 'hotspotLabels'].includes(name);
   if (multiline) return <label className="block text-xs uppercase tracking-[0.15em] text-text-secondary md:col-span-2"><span>{label}</span><textarea className="mt-2 min-h-28 w-full border border-border-subtle bg-background-input px-4 py-3 text-sm normal-case tracking-normal text-text-primary" value={String(value)} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)} /></label>;

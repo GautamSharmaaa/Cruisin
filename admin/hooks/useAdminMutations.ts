@@ -253,6 +253,13 @@ export const useUploadSignature = () => useMutation({
   }
 });
 
+export const useCmsUploadSignature = () => useMutation({
+  mutationFn: async (): Promise<{ timestamp: number; signature: string; folder: string }> => {
+    const response = await api.get('/admin/uploads/signature', { params: { folder: 'cruisin/cms' } });
+    return response.data.data;
+  }
+});
+
 export const useCreateCategory = () => {
   const queryClient = useQueryClient();
   return useMutation({
