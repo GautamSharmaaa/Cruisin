@@ -2,7 +2,7 @@
 // Governed by .rules v1.0
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { formatPrice } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { filterCustomerVisibleProducts } from '@/lib/customer-state';
@@ -33,6 +33,39 @@ const safeHref = (href: string, fallback = '/shop'): string => {
   if (value.startsWith('https://') || value.startsWith('http://')) return value;
   return fallback;
 };
+
+const optimizedVideoUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'res.cloudinary.com' && parsed.pathname.includes('/video/upload/') && !parsed.pathname.includes('/video/upload/q_auto')) {
+      parsed.pathname = parsed.pathname.replace('/video/upload/', '/video/upload/q_auto:eco,f_auto/');
+      return parsed.toString();
+    }
+  } catch {
+    // Relative and non-standard media URLs remain valid inputs for the browser.
+  }
+  return url;
+};
+
+function LazyVideo({ src, poster, autoplay, muted, loop, className }: { src: string; poster: string; autoplay: boolean; muted: boolean; loop: boolean; className: string }): ReactNode {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || typeof IntersectionObserver === 'undefined') {
+      setShouldLoad(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setShouldLoad(true);
+      observer.disconnect();
+    }, { rootMargin: '320px 0px' });
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+  return <video ref={videoRef} src={shouldLoad ? optimizedVideoUrl(src) : undefined} poster={poster} autoPlay={shouldLoad && autoplay} muted={muted} loop={loop} preload="none" playsInline className={className} />;
+}
 
 const mediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'desktopMedia', section.image ?? asString(content, 'posterImage', asString(content, 'imageOne')));
 const mobileMediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'mobileMedia', section.mobileImage ?? asString(content, 'mobileFallbackImage', mediaFor(section, content)));
@@ -78,7 +111,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const overlay = asNumber(content, 'overlayOpacity', 44) / 100;
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
-    <picture><source media="(max-width: 767px)" srcSet={mobileMediaFor(section, content)} /><img src={mediaFor(section, content)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
+    <picture><source media="(max-width: 767px)" srcSet={mobileMediaFor(section, content)} /><img src={mediaFor(section, content)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
     <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(0,0,0,${overlay * 0.4}), rgba(0,0,0,${overlay + 0.12}))` }} />
     <div className="relative flex min-h-dvh flex-col justify-end px-6 pb-24 lg:px-20">
       <p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'campaignLabel', section.position ?? 'Campaign')}</p>
@@ -94,7 +127,7 @@ function VideoLanding({ section, content, className }: { section: CmsSectionDto;
   const posterImage = asString(content, 'posterImage', asString(content, 'mobileFallbackImage'));
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
     {isPlayableVideo(videoUrl)
-      ? <video src={videoUrl} poster={posterImage} autoPlay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} playsInline className="absolute inset-0 h-full w-full object-cover opacity-75" />
+      ? <LazyVideo src={videoUrl} poster={posterImage} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover opacity-75" />
       : <Image src={posterImage} alt="" fill sizes="100vw" className="object-cover opacity-75" priority />}
     <div className="absolute inset-0 bg-hero" />
     <div className="relative flex min-h-dvh flex-col items-start justify-end px-6 pb-24 lg:px-20"><h2 className="video-landing-title brand-wordmark-script text-hero leading-none">{section.title}</h2><p className="brand-wordmark-script mt-5 max-w-xl text-xl text-text-secondary sm:text-2xl">{section.subtitle}</p><Link className="video-landing-cta mt-8 inline-flex h-12 w-fit items-center px-7 text-xs uppercase tracking-[0.08em]" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop now')}</Link></div>
@@ -103,12 +136,12 @@ function VideoLanding({ section, content, className }: { section: CmsSectionDto;
 
 function ImageCarousel({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const slides = rows(asString(content, 'slides')).slice(0, 3);
-  return <section className={className + ' grid gap-px md:grid-cols-3'}>{slides.map((slide) => { const [title, image, href] = slide.split('|'); return <Link key={slide} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={title || section.title} className="h-full w-full object-cover opacity-80 transition duration-700 hover:scale-[1.05]" /><div className="absolute inset-x-0 bottom-0 bg-hero p-6"><p className="font-display text-3xl">{title || section.title}</p></div></Link>; })}</section>;
+  return <section className={className + ' grid gap-px md:grid-cols-3'}>{slides.map((slide) => { const [title, image, href] = slide.split('|'); return <Link key={slide} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={title || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80 transition duration-700 hover:scale-[1.05]" /><div className="absolute inset-x-0 bottom-0 bg-hero p-6"><p className="font-display text-3xl">{title || section.title}</p></div></Link>; })}</section>;
 }
 
 function CategoryGrid({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const tiles = rows(asString(content, 'tiles')).slice(0, 4);
-  return <section className={className + ' px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={label || section.title} className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
+  return <section className={className + ' px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={label || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
 }
 
 function ProductRail({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
@@ -116,7 +149,7 @@ function ProductRail({ section, content, className }: { section: CmsSectionDto; 
   const recentProducts = useRecentlyViewedProducts();
   const products = filterCustomerVisibleProducts(section.type === 'recently_viewed' && recentProducts.length > 0 ? recentProducts : referencedProducts);
   if (section.type === 'recently_viewed' && products.length === 0) return null;
-  return <section className={className + ' px-6 py-20 lg:px-20'}>{section.type === 'featured_collection' && asString(content, 'image') ? <div className="relative mb-10 min-h-[360px] overflow-hidden bg-background-elevated"><img src={asString(content, 'image')} alt={asString(content, 'collectionLabel', section.title)} className="absolute inset-0 h-full w-full object-cover opacity-75" /><div className="absolute inset-0 bg-hero" /><div className="relative flex min-h-[360px] flex-col justify-end p-8"><p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'collectionLabel', 'Featured Collection')}</p><h2 className="mt-3 font-display text-5xl">{section.title}</h2><Link className="mt-6 inline-flex h-11 w-fit items-center bg-accent-gold px-6 text-xs uppercase tracking-[0.08em] text-text-inverse" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop collection')}</Link></div></div> : null}<p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{displayLabel(asString(content, 'source', section.type ?? 'products'))}</p><h2 className="mt-3 font-display text-4xl">{section.title}</h2>{section.type === 'hot_drop' ? <p className="mt-3 font-mono text-text-secondary">Launches {asString(content, 'launchDate')}</p> : null}<div className="mt-10 grid grid-cols-2 gap-px lg:grid-cols-4">{products.length ? products.slice(0, asNumber(content, 'limit', 8)).map((product, index) => <Link key={productKey(product)} href={'/product/' + product.slug} className="border border-border-subtle bg-background-primary"><div className="aspect-[3/4] bg-background-elevated">{product.images?.[0] ? <img src={product.images[0].url} alt={product.images[0].alt} className="h-full w-full object-cover" /> : null}</div><div className="p-4">{section.type === 'best_sellers' ? <p className="mb-2 font-mono text-xs text-accent-gold">#{index + 1}</p> : null}<p className="text-sm text-text-primary">{product.title}</p><p className="mt-2 flex flex-wrap gap-2 font-mono text-sm text-accent-gold">{formatPrice(product.basePrice)}{product.comparePrice ? <span className="text-text-muted line-through">{formatPrice(product.comparePrice)}</span> : null}</p></div></Link>) : Array.from({ length: 4 }).map((_, index) => <div key={index} className="aspect-[3/4] border border-border-subtle bg-background-elevated" />)}</div></section>;
+  return <section className={className + ' px-6 py-20 lg:px-20'}>{section.type === 'featured_collection' && asString(content, 'image') ? <div className="relative mb-10 min-h-[360px] overflow-hidden bg-background-elevated"><img src={asString(content, 'image')} alt={asString(content, 'collectionLabel', section.title)} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-75" /><div className="absolute inset-0 bg-hero" /><div className="relative flex min-h-[360px] flex-col justify-end p-8"><p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'collectionLabel', 'Featured Collection')}</p><h2 className="mt-3 font-display text-5xl">{section.title}</h2><Link className="mt-6 inline-flex h-11 w-fit items-center bg-accent-gold px-6 text-xs uppercase tracking-[0.08em] text-text-inverse" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop collection')}</Link></div></div> : null}<p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{displayLabel(asString(content, 'source', section.type ?? 'products'))}</p><h2 className="mt-3 font-display text-4xl">{section.title}</h2>{section.type === 'hot_drop' ? <p className="mt-3 font-mono text-text-secondary">Launches {asString(content, 'launchDate')}</p> : null}<div className="mt-10 grid grid-cols-2 gap-px lg:grid-cols-4">{products.length ? products.slice(0, asNumber(content, 'limit', 8)).map((product, index) => <Link key={productKey(product)} href={'/product/' + product.slug} className="border border-border-subtle bg-background-primary"><div className="aspect-[3/4] bg-background-elevated">{product.images?.[0] ? <img src={product.images[0].url} alt={product.images[0].alt} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}</div><div className="p-4">{section.type === 'best_sellers' ? <p className="mb-2 font-mono text-xs text-accent-gold">#{index + 1}</p> : null}<p className="text-sm text-text-primary">{product.title}</p><p className="mt-2 flex flex-wrap gap-2 font-mono text-sm text-accent-gold">{formatPrice(product.basePrice)}{product.comparePrice ? <span className="text-text-muted line-through">{formatPrice(product.comparePrice)}</span> : null}</p></div></Link>) : Array.from({ length: 4 }).map((_, index) => <div key={index} className="aspect-[3/4] border border-border-subtle bg-background-elevated" />)}</div></section>;
 }
 
 function ShopTheLook({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {

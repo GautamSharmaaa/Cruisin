@@ -286,10 +286,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
     <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20 lg:pt-14">
       <section className="relative overflow-hidden border-b border-border-subtle pb-10">
         {heroMediaVisible && (heroVideo || heroImage) ? <div data-testid="listing-hero-media" className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-20">
-          {heroVideo ? <>
-            <video src={heroVideo} poster={videoPoster} className="hidden h-full w-full object-cover sm:block" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
-            <video src={mobileHeroVideo || heroVideo} poster={videoPoster} className="h-full w-full object-cover sm:hidden" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} playsInline />
-          </> : <>
+          {heroVideo ? <video poster={videoPoster} className="h-full w-full object-cover" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} preload="metadata" playsInline><source media="(max-width: 639px)" src={mobileHeroVideo || heroVideo} /><source src={heroVideo} /></video> : <>
             {heroImage ? <Image src={heroImage} unoptimized={bypassImageOptimizer(heroImage)} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className={(mobileHeroImage && mobileHeroImage !== heroImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
             {mobileHeroImage && mobileHeroImage !== heroImage ? <Image src={mobileHeroImage} unoptimized={bypassImageOptimizer(mobileHeroImage)} alt={categoryData?.imageAltText || selectedCollection?.imageAltText || ''} fill sizes="100vw" className="object-cover sm:hidden" /> : null}
           </>}
@@ -311,8 +308,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
         {bannerVisible && (bannerImage || bannerVideo || bannerTitle || bannerSubtitle) ? <div className="mt-10 overflow-hidden border border-border-subtle bg-background-elevated">
           {(bannerVideo || bannerImage) ? <div className="relative aspect-[16/6] min-h-48 overflow-hidden">
             {bannerVideo ? <>
-              <video src={bannerVideo} poster={videoPoster} className="hidden h-full w-full object-cover sm:block" autoPlay muted loop playsInline />
-              <video src={mobileBannerVideo || bannerVideo} poster={videoPoster} className="h-full w-full object-cover sm:hidden" autoPlay muted loop playsInline />
+              <video poster={videoPoster} className="h-full w-full object-cover" autoPlay muted loop preload="metadata" playsInline><source media="(max-width: 639px)" src={mobileBannerVideo || bannerVideo} /><source src={bannerVideo} /></video>
             </> : <>
               {bannerImage ? <Image src={bannerImage} unoptimized={bypassImageOptimizer(bannerImage)} alt="" fill sizes="100vw" className={(mobileBannerImage && mobileBannerImage !== bannerImage ? 'hidden sm:block ' : '') + 'object-cover'} /> : null}
               {mobileBannerImage && mobileBannerImage !== bannerImage ? <Image src={mobileBannerImage} unoptimized={bypassImageOptimizer(mobileBannerImage)} alt="" fill sizes="100vw" className="object-cover sm:hidden" /> : null}

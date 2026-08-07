@@ -20,6 +20,7 @@ import { normalizeEmail, sanitizeString } from '../utils/sanitize.js';
 import { sendEmail } from '../utils/send-email.js';
 import type { AccessTokenPayload, AdminRole, UserRole } from '../types/auth.types.js';
 import { IdentityProviderService, type GoogleIdentity } from './identity-provider.service.js';
+import { AddressBookService } from './address-book.service.js';
 
 export interface AuthTokens { accessToken: string; refreshToken: string; }
 export interface AuthUserDto { id: string; name: string; email: string; role: string; isVerified: boolean; avatar?: string; phone?: string; whatsappNumber?: string; profileIncomplete?: boolean; }
@@ -356,6 +357,7 @@ export const AuthService = {
     return user.addresses;
   },
   async listAddressBook(userId: string): Promise<unknown[]> {
+    await AddressBookService.backfillCheckoutAddresses(userId);
     return AddressModel.find({ user: userId }).sort({ isDefault: -1, updatedAt: -1 }).lean();
   },
   async createAddressBook(userId: string, input: AddressBookInput): Promise<unknown> {

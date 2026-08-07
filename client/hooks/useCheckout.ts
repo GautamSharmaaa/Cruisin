@@ -43,7 +43,7 @@ const refId = (value: ServerCartItem['product']): string => {
 const attemptStorageKey = 'cruisin:checkout-attempt';
 const checkoutFingerprint = (input: CheckoutInput, items: ReturnType<typeof useCartStore.getState>['items'], coupon?: string): string => {
   const source = JSON.stringify({
-    items: items.map((item) => [item.product.id, item.variantId, item.quantity]).sort(),
+    items: items.map((item) => [item.product.id, item.variantId, item.quantity, item.price]).sort(),
     paymentMode: input.paymentMode,
     shippingMethod: input.shippingMethod,
     coupon: coupon ?? '',

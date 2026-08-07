@@ -114,8 +114,9 @@ export const useRevokeOtherSessions = () => {
   });
 };
 
-export const useAddressBook = () => useQuery({
+export const useAddressBook = (enabled = true) => useQuery({
   queryKey: ['account', 'address-book'],
+  enabled,
   queryFn: async (): Promise<AddressBookEntry[]> => {
     const response = await api.get<ApiEnvelope<AddressBookEntry[]>>('/auth/addresses');
     return response.data.data;

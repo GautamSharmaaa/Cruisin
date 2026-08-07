@@ -25,7 +25,7 @@ export interface PublicPageOptions {
 
 const sectionSort = { sortOrder: 1, createdAt: 1 } as const;
 const publicCmsProductQuery = { isActive: true, isArchived: { $ne: true }, status: 'published', visibility: 'visible' } as const;
-const publicCmsProductProjection = '-costPrice -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
+const publicCmsProductProjection = '_id title slug images basePrice comparePrice variants._id variants.size variants.color variants.colorHex variants.sku variants.price variants.priceOverride variants.stock variants.enabled status visibility isActive isArchived isSale isFeatured isBestseller isNewArrival isLatestDrop';
 
 const scheduleQuery = (at: Date): Record<string, unknown> => ({
   $and: [

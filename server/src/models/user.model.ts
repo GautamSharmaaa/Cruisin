@@ -31,6 +31,7 @@ const userSchema = new Schema(
     gender: { type: String, enum: ['male', 'female', 'non_binary', 'prefer_not_to_say'] },
     dateOfBirth: { type: Date },
     addresses: { type: [addressSchema], default: [] },
+    addressBookMigratedAt: { type: Date },
     isVerified: { type: Boolean, default: false, index: true },
     emailVerifiedAt: { type: Date },
     phoneVerifiedAt: { type: Date },

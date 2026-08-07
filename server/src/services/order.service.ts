@@ -15,6 +15,7 @@ import { sendEmail } from '../utils/send-email.js';
 import { logger } from '../utils/logger.js';
 import { calculateShippingRate, type ShippingMethod } from '../utils/shipping-rate.js';
 import { PaymentService } from './payment.service.js';
+import { AddressBookService } from './address-book.service.js';
 import { LogisticsJobService } from './logistics/logistics-job.service.js';
 import { shouldAutoCreateProviderOrder } from './logistics/logistics-automation.service.js';
 import { LogisticsQuoteService } from './logistics/logistics-quote.service.js';
@@ -239,6 +240,14 @@ const priceCart = async (cart: { _id: unknown; items: Array<{ product: unknown; 
   return createPricedItems(cart.items);
 };
 
+const rememberCheckoutAddress = async (userId: string, address: AddressInput): Promise<void> => {
+  try {
+    await AddressBookService.saveCheckoutAddress(userId, address);
+  } catch (error) {
+    logger.error('Checkout address could not be added to the customer address book', { userId, error });
+  }
+};
+
 const completeOnlinePayment = async (orderId: string, paymentId: string, note: string, method?: string): Promise<unknown> => {
   const settlementStartedAt = new Date();
   const staleSettlement = new Date(settlementStartedAt.getTime() - 5 * 60_000);
@@ -317,7 +326,10 @@ export const OrderService = {
   async checkout(userId: string, input: CheckoutInput): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
     const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
-    if (existing) return existingCheckoutResult(existing);
+    if (existing) {
+      await rememberCheckoutAddress(userId, input.shippingAddress);
+      return existingCheckoutResult(existing);
+    }
     const mode = input.paymentMode ?? (input.paymentMethod === 'cod' ? 'cod' : 'online');
     if (mode === 'cod' || input.paymentMethod === 'cod') return this.createCodOrder(userId, input);
     if (input.paymentMethod !== 'razorpay' && input.paymentMethod !== 'stripe') throw new ApiError(400, 'Unsupported payment method');
@@ -352,8 +364,10 @@ export const OrderService = {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
+      await rememberCheckoutAddress(userId, input.shippingAddress);
       return existingCheckoutResult(duplicate);
     }
+    await rememberCheckoutAddress(userId, input.shippingAddress);
     try {
       const payment = await PaymentService.getProvider(input.paymentMethod).createOrder(advance, 'INR', { localOrderId: String(order._id), orderNumber: order.orderNumber ?? String(order._id), paymentMode: mode });
       if (input.paymentMethod === 'razorpay') order.razorpayOrderId = payment.id;
@@ -375,7 +389,10 @@ export const OrderService = {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
     if (!env.COD_ENABLED || !env.COD_CHECKOUT_ENABLED) throw new ApiError(400, 'Cash on delivery is unavailable');
     const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
-    if (existing) return existingCheckoutResult(existing);
+    if (existing) {
+      await rememberCheckoutAddress(userId, input.shippingAddress);
+      return existingCheckoutResult(existing);
+    }
     const cart = await CartModel.findOne({ user: userId }).lean();
     if (!cart?.items.length) throw new ApiError(400, 'Cart is empty');
     const items = await priceCart(cart);
@@ -404,8 +421,10 @@ export const OrderService = {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
+      await rememberCheckoutAddress(userId, input.shippingAddress);
       return existingCheckoutResult(duplicate);
     }
+    await rememberCheckoutAddress(userId, input.shippingAddress);
     await reserveStock(String(order._id));
     if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId);
     if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
@@ -436,10 +455,27 @@ export const OrderService = {
     if (status === 'authorized' && order.paymentStatus === 'pending') {
       order.paymentStatus = 'authorized';
       order.timeline.push({ status: 'authorized', timestamp: new Date(), note: details.event ?? 'Payment authorized' });
-    } else if (status === 'failed' && !['paid', 'partially_paid'].includes(order.paymentStatus)) {
+    } else if (status === 'failed' && !['paid', 'partially_paid', 'failed'].includes(order.paymentStatus)) {
       order.paymentStatus = 'failed';
+      const attempt = [...order.paymentAttempts].reverse().find((candidate) => candidate.providerOrderId === providerOrderId && !['captured', 'authorized'].includes(candidate.status));
+      if (attempt) attempt.status = 'failed';
       order.timeline.push({ status: 'failed', timestamp: new Date(), note: details.event ?? 'Payment failed' });
     }
+    await order.save();
+    return order;
+  },
+
+  async reportPaymentFailure(orderId: string, userId: string, providerOrderId: string): Promise<unknown> {
+    if (!userId) throw new ApiError(401, 'Sign in is required to update a payment');
+    const order = await OrderModel.findOne({ _id: orderId, user: userId });
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (!order.razorpayOrderId || order.razorpayOrderId !== providerOrderId) throw new ApiError(409, 'Payment session does not match this order');
+    if (['paid', 'partially_paid', 'authorized'].includes(order.paymentStatus)) throw new ApiError(409, 'A received payment cannot be marked failed');
+    if (order.paymentStatus === 'failed') return order;
+    order.paymentStatus = 'failed';
+    const attempt = [...order.paymentAttempts].reverse().find((candidate) => candidate.providerOrderId === providerOrderId && candidate.status === 'created');
+    if (attempt) attempt.status = 'failed';
+    order.timeline.push({ status: 'failed', timestamp: new Date(), note: 'Razorpay reported that the payment attempt failed' });
     await order.save();
     return order;
   },

@@ -18,7 +18,8 @@ process.env.STRIPE_SECRET_KEY = 'test';
 process.env.STRIPE_WEBHOOK_SECRET = 'test';
 process.env.SENDGRID_API_KEY = 'test';
 
-const { cartModel, couponModel, orderModel, productModel, siteSettingsModel, webhookEventModel, userModel, paymentService, sendEmail } = vi.hoisted(() => ({
+const { addressBookService, cartModel, couponModel, orderModel, productModel, siteSettingsModel, webhookEventModel, userModel, paymentService, sendEmail } = vi.hoisted(() => ({
+  addressBookService: { saveCheckoutAddress: vi.fn() },
   cartModel: { findOne: vi.fn(), updateOne: vi.fn(), deleteOne: vi.fn() },
   couponModel: { findOne: vi.fn(), findByIdAndUpdate: vi.fn() },
   orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), countDocuments: vi.fn() },
@@ -37,12 +38,14 @@ vi.mock('../models/product.model.js', () => ({ ProductModel: productModel }));
 vi.mock('../models/site-settings.model.js', () => ({ SiteSettingsModel: siteSettingsModel }));
 vi.mock('../models/payment-webhook-event.model.js', () => ({ PaymentWebhookEventModel: webhookEventModel }));
 vi.mock('../models/user.model.js', () => ({ UserModel: userModel }));
+vi.mock('./address-book.service.js', () => ({ AddressBookService: addressBookService }));
 vi.mock('./payment.service.js', () => ({ PaymentService: paymentService }));
 vi.mock('../utils/send-email.js', () => ({ sendEmail }));
 
 describe('OrderService authenticated checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    addressBookService.saveCheckoutAddress.mockResolvedValue(null);
     siteSettingsModel.findOne.mockReturnValue({
       select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
     });
@@ -75,6 +78,7 @@ describe('OrderService authenticated checkout', () => {
 
     expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, total: 1_900, amountPaid: 0, amountDue: 1_900, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
+    expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledWith(customerId, expect.objectContaining({ line1: '1 Test Street' }));
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_900 });
   });
 
@@ -146,6 +150,38 @@ describe('OrderService authenticated checkout', () => {
     expect(cartModel.findOne).not.toHaveBeenCalled();
     expect(paymentService.getProvider).not.toHaveBeenCalled();
     expect(orderModel.create).not.toHaveBeenCalled();
+  });
+
+  it('records a browser-reported Razorpay failure for the authenticated order', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId,
+      user: customerId,
+      razorpayOrderId: 'order_failed_browser',
+      paymentStatus: 'pending',
+      paymentAttempts: [{ providerOrderId: 'order_failed_browser', amount: 2, status: 'created' }],
+      timeline: [],
+      save: vi.fn().mockResolvedValue(undefined)
+    };
+    orderModel.findOne.mockResolvedValue(order);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.reportPaymentFailure(String(orderId), customerId, 'order_failed_browser');
+
+    expect(order.paymentStatus).toBe('failed');
+    expect(order.paymentAttempts[0]?.status).toBe('failed');
+    expect(order.timeline).toEqual([expect.objectContaining({ status: 'failed' })]);
+    expect(order.save).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a browser failure report for a different provider order', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValue({ _id: orderId, user: customerId, razorpayOrderId: 'order_expected', paymentStatus: 'pending' });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.reportPaymentFailure(String(orderId), customerId, 'order_other')).rejects.toThrow('Payment session does not match this order');
   });
 
   it('reconciles a captured online payment to fully paid with no amount due', async () => {

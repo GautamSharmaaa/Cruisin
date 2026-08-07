@@ -21,7 +21,7 @@ process.env.SENDGRID_API_KEY = 'test';
 const { orderController, paymentController } = vi.hoisted(() => {
   const noop = (_req: unknown, _res: unknown): void => undefined;
   return {
-    orderController: { checkout: vi.fn(noop), cod: vi.fn(noop), verify: vi.fn(noop), mine: vi.fn(noop), all: vi.fn(noop), byId: vi.fn(noop), updateStatus: vi.fn(noop), customerCancel: vi.fn(noop), syncRefund: vi.fn(noop), paymentStatus: vi.fn(noop), markCodPaid: vi.fn(noop), markPartialPaid: vi.fn(noop) },
+    orderController: { checkout: vi.fn(noop), cod: vi.fn(noop), verify: vi.fn(noop), paymentFailed: vi.fn(noop), mine: vi.fn(noop), all: vi.fn(noop), byId: vi.fn(noop), updateStatus: vi.fn(noop), customerCancel: vi.fn(noop), syncRefund: vi.fn(noop), paymentStatus: vi.fn(noop), markCodPaid: vi.fn(noop), markPartialPaid: vi.fn(noop) },
     paymentController: { config: vi.fn(noop), stripeWebhook: vi.fn(noop), razorpayWebhook: vi.fn(noop), refund: vi.fn(noop) }
   };
 });
@@ -52,6 +52,7 @@ describe('checkout and order access', () => {
     ['post', '/orders/verify-payment'],
     ['post', '/payments/razorpay/create-order'],
     ['post', '/payments/razorpay/verify'],
+    ['post', '/payments/razorpay/payment-failed'],
     ['get', '/orders/mine'],
     ['get', '/orders/000000000000000000000000'],
     ['post', '/orders/000000000000000000000000/cancel'],
