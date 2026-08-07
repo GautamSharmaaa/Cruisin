@@ -80,7 +80,10 @@ export function CmsHomepage({ sections }: CmsHomepageProps): ReactNode {
     seen.add(key);
     return true;
   });
-  return <>{visible.map((section) => <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</>;
+  const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar');
+  return <div data-testid="cms-homepage" className="relative -mt-16 lg:-mt-20">{visible.map((section, index) => index === announcementIndex
+    ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40"><CmsSectionRenderer section={section} /></div>
+    : <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</div>;
 }
 
 function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode {
