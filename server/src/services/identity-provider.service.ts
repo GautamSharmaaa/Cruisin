@@ -30,7 +30,14 @@ export const IdentityProviderService = {
     }
     const from = env.TWILIO_WHATSAPP_FROM;
     if (!from) throw new ApiError(503, 'WhatsApp delivery is not configured');
+    const contentSid = env.TWILIO_WHATSAPP_CONTENT_SID;
+    if (!contentSid && env.NODE_ENV === 'production') throw new ApiError(503, 'WhatsApp OTP template is not configured');
     const client = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
-    await client.messages.create({ body: 'Your Cruisin verification code is ' + otp + '. It expires in 5 minutes.', from: 'whatsapp:' + from.replace(/^whatsapp:/, ''), to: 'whatsapp:' + phone.replace(/^whatsapp:/, '') });
+    const addresses = { from: 'whatsapp:' + from.replace(/^whatsapp:/, ''), to: 'whatsapp:' + phone.replace(/^whatsapp:/, '') };
+    if (contentSid) {
+      await client.messages.create({ ...addresses, contentSid, contentVariables: JSON.stringify({ 1: otp }) });
+      return;
+    }
+    await client.messages.create({ ...addresses, body: 'Your Cruisin verification code is ' + otp + '. It expires in 5 minutes.' });
   }
 };

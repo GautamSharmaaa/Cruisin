@@ -70,6 +70,7 @@ Set these on `cruisin-api`. Never put them in `NEXT_PUBLIC_*` variables.
 | `TWILIO_ACCOUNT_SID` | Twilio account SID | Required by current identity configuration |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token | Required, secret |
 | `TWILIO_WHATSAPP_FROM` | Approved WhatsApp sender | Required |
+| `TWILIO_WHATSAPP_CONTENT_SID` | Approved `whatsapp/authentication` Content SID (`HX...`) | Required before enabling WhatsApp OTP |
 
 Optional backend variables:
 
@@ -91,6 +92,7 @@ Set these before building `cruisin-storefront`; Next.js embeds public variables 
 | `NEXT_PUBLIC_SITE_URL` | Storefront HTTPS origin |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | The same public `rzp_test_...` key used by the API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | The same Google web client ID used by the API |
+| `NEXT_PUBLIC_WHATSAPP_OTP_ENABLED` | `true` only after the API authentication template is approved and configured |
 
 Only the Razorpay key ID is public. Never add the Razorpay key secret or webhook secret to the storefront.
 

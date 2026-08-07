@@ -64,6 +64,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: optionalSecret,
   TWILIO_AUTH_TOKEN: optionalSecret,
   TWILIO_WHATSAPP_FROM: optionalSecret,
+  TWILIO_WHATSAPP_CONTENT_SID: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^HX[0-9a-fA-F]{32}$/, 'TWILIO_WHATSAPP_CONTENT_SID must be a Twilio HX Content SID').optional()),
   TWILIO_SMS_FROM: optionalSecret,
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   COOKIE_DOMAIN: optionalSecret,

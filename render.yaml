@@ -72,6 +72,8 @@ services:
         sync: false
       - key: TWILIO_WHATSAPP_FROM
         sync: false
+      - key: TWILIO_WHATSAPP_CONTENT_SID
+        sync: false
       - key: COOKIE_SAME_SITE
         value: none
       - key: COOKIE_DOMAIN
