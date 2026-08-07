@@ -12,6 +12,11 @@ const cancellableStatuses = new Set(['pending', 'placed', 'confirmed', 'processi
 
 export const orderId = (order: Pick<Order, 'id' | '_id'>): string => order.id ?? order._id ?? '';
 export const orderStatus = (order: Pick<Order, 'orderStatus' | 'status'>): string => order.orderStatus ?? order.status ?? 'pending';
+export const customerFacingOrderStatus = (order: Pick<Order, 'paymentStatus' | 'orderStatus' | 'status' | 'cancellation'>): string => {
+  if (order.paymentStatus === 'failed') return 'payment_failed';
+  if (order.paymentStatus === 'cancelled' && order.cancellation?.reasonCode === 'payment_cancelled') return 'payment_cancelled';
+  return orderStatus(order);
+};
 export const canCustomerCancel = (order: Pick<Order, 'orderStatus' | 'status'>): boolean => cancellableStatuses.has(orderStatus(order));
 export const cancellationDetailsAreValid = (reasonCode: CancellationReasonCode | '', details: string): boolean => Boolean(reasonCode) && (reasonCode !== 'other' || details.trim().length >= 10);
 export const humanizeOrderStatus = (status: string | undefined): string => (status ?? 'pending').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());

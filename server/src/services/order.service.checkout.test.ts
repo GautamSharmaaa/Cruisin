@@ -184,6 +184,55 @@ describe('OrderService authenticated checkout', () => {
     await expect(OrderService.reportPaymentFailure(String(orderId), customerId, 'order_other')).rejects.toThrow('Payment session does not match this order');
   });
 
+  it('cancels an unpaid order when the authenticated customer dismisses Razorpay', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    const order = {
+      _id: orderId,
+      user: customerId,
+      razorpayOrderId: 'order_cancelled_browser',
+      paymentStatus: 'pending',
+      orderStatus: 'pending',
+      amountPaid: 0,
+      amountDue: 2,
+      stockReserved: false
+    };
+    const cancelled = { ...order, paymentStatus: 'cancelled', orderStatus: 'cancelled', amountDue: 0 };
+    orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(cancelled);
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.reportPaymentCancellation(String(orderId), customerId, 'order_cancelled_browser');
+
+    expect(result).toBe(cancelled);
+    expect(orderModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: String(orderId), user: customerId, razorpayOrderId: 'order_cancelled_browser', paymentStatus: 'pending', orderStatus: 'pending', amountPaid: 0 }),
+      expect.objectContaining({
+        $set: expect.objectContaining({ paymentStatus: 'cancelled', orderStatus: 'cancelled', fulfillmentStatus: 'cancelled', amountDue: 0, 'paymentAttempts.$[attempt].status': 'cancelled' }),
+        $push: { timeline: expect.objectContaining({ status: 'payment_cancelled' }) }
+      }),
+      expect.objectContaining({ new: true, arrayFilters: [{ 'attempt.providerOrderId': 'order_cancelled_browser', 'attempt.status': 'created' }] })
+    );
+  });
+
+  it('does not cancel an order whose payment is already authorized', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const orderId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValue({
+      _id: orderId,
+      user: customerId,
+      razorpayOrderId: 'order_authorized',
+      paymentStatus: 'authorized',
+      orderStatus: 'pending',
+      amountPaid: 2,
+      stockReserved: false
+    });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.reportPaymentCancellation(String(orderId), customerId, 'order_authorized')).rejects.toThrow('A received payment cannot be cancelled');
+    expect(orderModel.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
   it('reconciles a captured online payment to fully paid with no amount due', async () => {
     const customerId = new Types.ObjectId().toString();
     const orderId = new Types.ObjectId();

@@ -43,7 +43,7 @@ const paymentAttemptSchema = new Schema({ providerOrderId: { type: String, index
 const refundSchema = new Schema({ providerRefundId: { type: String, index: true }, idempotencyKey: { type: String, trim: true }, amount: { type: Number, required: true, min: 0 }, status: { type: String, required: true }, reason: { type: String, trim: true }, requestedBy: { type: Schema.Types.ObjectId, ref: 'User' }, createdAt: { type: Date, default: Date.now } }, { _id: true });
 const cancellationSchema = new Schema({
   requestedBy: { type: String, enum: ['customer', 'admin'], required: true },
-  reasonCode: { type: String, enum: ['changed_mind', 'wrong_item', 'delivery_too_slow', 'found_better_option', 'other', 'admin_cancelled'], required: true },
+  reasonCode: { type: String, enum: ['changed_mind', 'wrong_item', 'delivery_too_slow', 'found_better_option', 'other', 'payment_cancelled', 'admin_cancelled'], required: true },
   reason: { type: String, required: true, trim: true },
   details: { type: String, trim: true },
   requestedAt: { type: Date, required: true, default: Date.now },

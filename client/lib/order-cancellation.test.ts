@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancellationDetailsAreValid, canCustomerCancel, humanizeOrderStatus } from './order-cancellation';
+import { cancellationDetailsAreValid, canCustomerCancel, customerFacingOrderStatus, humanizeOrderStatus } from './order-cancellation';
 
 describe('order cancellation helpers', () => {
   it('allows customer cancellation only before shipment', () => {
@@ -17,5 +17,10 @@ describe('order cancellation helpers', () => {
 
   it('turns machine statuses into customer-facing labels', () => {
     expect(humanizeOrderStatus('partially_refunded')).toBe('Partially Refunded');
+  });
+
+  it('shows cancelled checkout payments instead of a pending order label', () => {
+    expect(customerFacingOrderStatus({ paymentStatus: 'cancelled', orderStatus: 'cancelled', cancellation: { reasonCode: 'payment_cancelled' } as never })).toBe('payment_cancelled');
+    expect(customerFacingOrderStatus({ paymentStatus: 'failed', orderStatus: 'pending' })).toBe('payment_failed');
   });
 });

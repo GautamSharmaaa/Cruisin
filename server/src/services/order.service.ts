@@ -480,6 +480,28 @@ export const OrderService = {
     return order;
   },
 
+  async reportPaymentCancellation(orderId: string, userId: string, providerOrderId: string): Promise<unknown> {
+    if (!userId) throw new ApiError(401, 'Sign in is required to update a payment');
+    const order = await OrderModel.findOne({ _id: orderId, user: userId });
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (!order.razorpayOrderId || order.razorpayOrderId !== providerOrderId) throw new ApiError(409, 'Payment session does not match this order');
+    if (order.paymentStatus === 'cancelled' && order.orderStatus === 'cancelled') return order;
+    if (['paid', 'partially_paid', 'authorized'].includes(order.paymentStatus) || order.paymentSettlementStartedAt) throw new ApiError(409, 'A received payment cannot be cancelled');
+    if (order.paymentStatus !== 'pending' || order.orderStatus !== 'pending' || order.amountPaid > 0 || order.stockReserved) throw new ApiError(409, 'Only an unpaid pending order can be cancelled from checkout');
+    const cancelledAt = new Date();
+    const cancellation = { requestedBy: 'customer', reasonCode: 'payment_cancelled', reason: 'Payment cancelled at checkout', requestedAt: cancelledAt, cancelledAt, refundStatus: 'not_required', refundAmount: 0 };
+    const cancelled = await OrderModel.findOneAndUpdate(
+      { _id: orderId, user: userId, razorpayOrderId: providerOrderId, paymentStatus: 'pending', orderStatus: 'pending', amountPaid: 0, stockReserved: { $ne: true }, paymentSettlementStartedAt: { $exists: false } },
+      { $set: { paymentStatus: 'cancelled', orderStatus: 'cancelled', fulfillmentStatus: 'cancelled', amountDue: 0, stockReserved: false, cancellation, 'paymentAttempts.$[attempt].status': 'cancelled' }, $push: { timeline: { status: 'payment_cancelled', timestamp: cancelledAt, note: 'Customer closed the Razorpay payment window; no payment was collected' } } },
+      { new: true, arrayFilters: [{ 'attempt.providerOrderId': providerOrderId, 'attempt.status': 'created' }] }
+    );
+    if (cancelled) return cancelled;
+    const current = await OrderModel.findById(orderId);
+    if (current?.paymentStatus === 'cancelled' && current.orderStatus === 'cancelled') return current;
+    if (current?.paymentSettlementStartedAt || (current && ['paid', 'partially_paid', 'authorized'].includes(current.paymentStatus))) throw new ApiError(409, 'Payment is being finalized and cannot be cancelled');
+    throw new ApiError(409, 'Order status changed; refresh and try again');
+  },
+
   async processRazorpayWebhook(eventId: string, eventType: string, payload: Record<string, unknown>): Promise<boolean> {
     try { await PaymentWebhookEventModel.create({ provider: 'razorpay', eventId, eventType, payload: webhookAuditPayload(payload) }); } catch (error: unknown) { if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) return false; throw error; }
     const payment = payload.payment && typeof payload.payment === 'object' && 'entity' in payload.payment ? (payload.payment as { entity?: Record<string, unknown> }).entity : undefined;

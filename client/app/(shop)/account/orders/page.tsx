@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { OrderCancellationDialog } from '@/components/account/order-cancellation-dialog';
 import { SafeImage } from '@/components/shared/safe-image';
 import { useOrders } from '@/hooks/useOrders';
-import { canCustomerCancel, humanizeOrderStatus, orderId, orderStatus } from '@/lib/order-cancellation';
+import { canCustomerCancel, customerFacingOrderStatus, humanizeOrderStatus, orderId } from '@/lib/order-cancellation';
 import { formatPrice } from '@/lib/utils';
 import type { Order } from '@/types/order.types';
 
@@ -17,7 +17,7 @@ const formatDate = (value: string): string => {
 };
 
 const statusClasses = (status: string): string => {
-  if (status === 'cancelled' || status === 'returned' || status === 'payment_failed') return 'border-danger/50 bg-danger/10 text-text-primary';
+  if (status === 'cancelled' || status === 'returned' || status === 'payment_failed' || status === 'payment_cancelled') return 'border-danger/50 bg-danger/10 text-text-primary';
   if (status === 'delivered') return 'border-success/50 bg-success/10 text-text-primary';
   if (status === 'shipped' || status === 'processing') return 'border-info/60 bg-info/10 text-text-primary';
   return 'border-accent-gold/50 bg-accent-gold/10 text-accent-gold';
@@ -25,8 +25,7 @@ const statusClasses = (status: string): string => {
 
 const OrderCard = ({ order }: { order: Order }): ReactNode => {
   const id = orderId(order);
-  const status = orderStatus(order);
-  const displayStatus = order.paymentStatus === 'failed' ? 'payment_failed' : status;
+  const displayStatus = customerFacingOrderStatus(order);
   const firstItem = order.items[0];
   const totalItems = order.items.reduce((total, item) => total + item.quantity, 0);
   const address = order.shippingAddress;

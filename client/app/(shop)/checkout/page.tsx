@@ -104,7 +104,48 @@ export default function CheckoutPage(): ReactNode {
   }, [coupon, orderTotal, user, visibleCartItems]);
   const finish = (order: { _id?: string; id?: string; orderNumber?: string; paymentMode?: string; amountPaid?: number; amountDue?: number }, state: 'success' | 'failure'): void => { const id = getOrderId(order); if (state === 'success') { clearCheckoutAttempt(); clearMetaCheckoutAttempt(); useCartStore.getState().clearCart(); } const query = new URLSearchParams({ order: id }); if (order.orderNumber) query.set('number', order.orderNumber); if (order.paymentMode) query.set('mode', order.paymentMode); if (typeof order.amountPaid === 'number') query.set('paid', String(order.amountPaid)); if (typeof order.amountDue === 'number') query.set('due', String(order.amountDue)); router.push(`/checkout/${state}?${query.toString()}`); };
   const verify = async (response: RazorpaySuccess, localOrderId: string): Promise<void> => { try { const result = await api.post<ApiEnvelope<{ verified: boolean; order?: Order }>>('/payments/razorpay/verify', { method: 'razorpay', payload: response }); if (!result.data.data.verified) throw new Error('We could not verify this payment.'); finish(result.data.data.order ?? { _id: localOrderId }, 'success'); } catch { setPaymentMessage(COPY.checkout.pendingBody); router.push(ROUTES.checkoutPending + '?order=' + encodeURIComponent(localOrderId)); } };
-  const openRazorpay = async (orderId: string, providerOrderId: string, amount: number, data: CheckoutForm): Promise<void> => { const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID; if (!key) throw new Error('Online payments are not configured for this storefront.'); await loadRazorpay(); const contact = razorpayPrefillContact(data.phone, paymentConfig.data?.paymentMode) ?? razorpayPrefillContact(user?.phone, paymentConfig.data?.paymentMode); const razorpay = new window.Razorpay!({ key, amount: Math.round(amount * 100), currency: 'INR', name: 'CRUISIN', description: 'Private client order', order_id: providerOrderId, prefill: { name: data.fullName || user?.name, email: user?.email, contact }, handler: (response) => { void verify(response, orderId); }, modal: { ondismiss: () => { setPaymentMessage('Payment window closed. Your order is still pending; you may retry securely.'); router.push(`/checkout/failure?order=${encodeURIComponent(orderId)}`); } }, theme: { color: '#b89b5e' } }); razorpay.on('payment.failed', (response) => { razorpay.close(); clearCheckoutAttempt(); setPaymentMessage(response.error?.description ?? 'Payment was not completed.'); void api.post('/payments/razorpay/payment-failed', { orderId, providerOrderId }).catch(() => undefined).finally(() => router.push(`/checkout/failure?order=${encodeURIComponent(orderId)}`)); }); razorpay.open(); };
+  const openRazorpay = async (orderId: string, providerOrderId: string, amount: number, data: CheckoutForm): Promise<void> => {
+    const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!key) throw new Error('Online payments are not configured for this storefront.');
+    await loadRazorpay();
+    const contact = razorpayPrefillContact(data.phone, paymentConfig.data?.paymentMode) ?? razorpayPrefillContact(user?.phone, paymentConfig.data?.paymentMode);
+    let paymentOutcomeHandled = false;
+    const razorpay = new window.Razorpay!({
+      key,
+      amount: Math.round(amount * 100),
+      currency: 'INR',
+      name: 'CRUISIN',
+      description: 'Private client order',
+      order_id: providerOrderId,
+      prefill: { name: data.fullName || user?.name, email: user?.email, contact },
+      handler: (response) => {
+        if (paymentOutcomeHandled) return;
+        paymentOutcomeHandled = true;
+        void verify(response, orderId);
+      },
+      modal: {
+        ondismiss: () => {
+          if (paymentOutcomeHandled) return;
+          paymentOutcomeHandled = true;
+          clearCheckoutAttempt();
+          setPaymentMessage('Payment cancelled. No payment was collected.');
+          void api.post('/payments/razorpay/payment-cancelled', { orderId, providerOrderId })
+            .then(() => router.push(`/checkout/failure?order=${encodeURIComponent(orderId)}&reason=cancelled`))
+            .catch(() => router.push(`${ROUTES.checkoutPending}?order=${encodeURIComponent(orderId)}`));
+        }
+      },
+      theme: { color: '#b89b5e' }
+    });
+    razorpay.on('payment.failed', (response) => {
+      if (paymentOutcomeHandled) return;
+      paymentOutcomeHandled = true;
+      razorpay.close();
+      clearCheckoutAttempt();
+      setPaymentMessage(response.error?.description ?? 'Payment was not completed.');
+      void api.post('/payments/razorpay/payment-failed', { orderId, providerOrderId }).catch(() => undefined).finally(() => router.push(`/checkout/failure?order=${encodeURIComponent(orderId)}`));
+    });
+    razorpay.open();
+  };
   const onSubmit = (data: CheckoutForm): void => { if (!user) return; setPaymentMessage(''); const address = { fullName: data.fullName, phone: data.phone, line1: data.line1, line2: data.line2, city: data.city, state: data.state, postalCode: data.postalCode, country: data.country }; const paymentMode = data.paymentMethod === 'cod' ? 'cod' : data.paymentMethod === 'partial' ? 'partial' : 'online'; const metaEventId = getOrCreateCheckoutEventId({ items: visibleCartItems, value: orderTotal, coupon }); checkout.mutate({ shippingAddress: address, billingAddress: address, paymentMethod: 'razorpay', paymentMode, shippingMethod: data.shippingMethod, logisticsQuoteId: logisticsQuote.data?.quoteId, metaEventId }, { onSuccess: (result) => { const id = getOrderId(result.order); if (paymentMode === 'cod') { finish(result.order, 'success'); return; } const issue = checkoutPaymentSessionIssue(result, orderTotal, paymentMode); if (issue) { clearCheckoutAttempt(); setPaymentMessage(issue); return; } if (!result.payment?.id) { clearCheckoutAttempt(); setPaymentMessage('A payment session could not be created. Please retry.'); return; } void openRazorpay(id, result.payment.id, result.amountToPay, data).catch((error: unknown) => setPaymentMessage(error instanceof Error ? error.message : 'Secure checkout could not be opened.')); } }); };
   if (!isAuthInitialized) return <main className="min-h-dvh px-6 py-32 lg:px-20" aria-busy="true"><section className="mx-auto max-w-2xl border border-border bg-background-elevated p-8 shadow-lg"><p className="font-accent text-xs uppercase tracking-[0.16em] text-accent-gold">Private checkout</p><div className="mt-6 h-12 max-w-md animate-shimmer bg-[linear-gradient(90deg,var(--bg-elevated),var(--bg-overlay),var(--bg-elevated))] bg-[length:200%_100%]" /><p className="mt-6 text-sm text-text-secondary" aria-live="polite">{COPY.auth.checkingSession}</p></section></main>;
   if (!user) return <main className="px-6 py-32 lg:px-20"><section className="mx-auto max-w-2xl border border-border bg-background-elevated p-8 text-center shadow-lg"><p className="font-accent text-xs uppercase tracking-[0.16em] text-accent-gold">Private checkout</p><h1 className="mt-4 font-display text-4xl text-text-primary">Sign in to place your order</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-text-secondary">Create an account or sign in to continue checkout. Your cart will be waiting for you.</p><div className="mt-8 grid gap-3 sm:grid-cols-2"><Link href={ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.checkout)} className="inline-flex h-11 items-center justify-center bg-accent-gold px-5 text-xs uppercase tracking-[0.1em] text-text-inverse">Sign in</Link><Link href={ROUTES.register + '?redirect=' + encodeURIComponent(ROUTES.checkout)} className="inline-flex h-11 items-center justify-center border border-border px-5 text-xs uppercase tracking-[0.1em] text-text-primary">Create account</Link></div><Link href={ROUTES.shop} className="mt-5 inline-flex text-xs uppercase tracking-[0.1em] text-text-secondary hover:text-text-primary">Continue shopping</Link></section></main>;
