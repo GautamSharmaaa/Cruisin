@@ -22,6 +22,13 @@ test('makes WhatsApp OTP primary while keeping email and Google available', asyn
 
 test('opens the complete mobile authentication flow as a bottom sheet without leaving the current page', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/v1/auth/otp/request', async (route) => {
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { requestId: '665f6d8403bd2edc93800000', channel: 'whatsapp', cooldownSeconds: 60, expiresAt: new Date(Date.now() + 300_000).toISOString() }, message: 'OTP sent' })
+    });
+  });
   await page.goto('/terms-and-condition');
 
   await page.getByRole('button', { name: 'Continue with WhatsApp' }).click();
@@ -38,6 +45,16 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
     const box = await sheet.boundingBox();
     return box ? Math.abs(box.y + box.height - 844) <= 1 : false;
   }).toBe(true);
+
+  await page.getByLabel('WhatsApp number').fill('9876543210');
+  await page.getByRole('button', { name: 'Get OTP' }).click();
+  await expect(page.getByTestId('otp-bottom-sheet')).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
+  await expect(page.locator('body')).toHaveClass(/mobile-otp-open/);
+  await expect(page.locator('#main')).not.toHaveCSS('z-index', '160');
+  await expect.poll(async () => page.evaluate(() => Boolean(document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 20)?.closest('[data-testid="otp-bottom-sheet"]')))).toBe(true);
+  await page.getByTestId('otp-mobile-backdrop').click({ position: { x: 10, y: 10 } });
+  await expect(page.getByTestId('otp-bottom-sheet')).toBeHidden();
 
   await page.getByRole('button', { name: 'Use email or Google' }).click();
   await expect(page.getByTestId('alternative-auth')).toBeVisible();
@@ -66,6 +83,20 @@ test('opens the same WhatsApp sheet when a logged-out shopper tries to use their
   await expect(page.getByRole('dialog', { name: 'Save this piece' })).toHaveCount(0);
   await expect(page.getByLabel('WhatsApp number')).toBeFocused();
   await expect(page).toHaveURL(/\/terms-and-condition$/);
+});
+
+test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/v1/payments/config', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { paymentMode: 'live', codEnabled: false, partialPaymentEnabled: false, minPartialPaymentOrderValue: 0, maxCodOrderValue: 50000 }, message: 'Payment configuration loaded' }) });
+  });
+
+  await page.goto('/checkout');
+  await page.locator('#main').getByRole('button', { name: 'Continue with WhatsApp' }).click();
+
+  await expect(page).toHaveURL(/\/checkout$/);
+  await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
+  await expect(page.getByLabel('WhatsApp number')).toBeFocused();
 });
 
 test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserves the destination', async ({ page }) => {

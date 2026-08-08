@@ -115,7 +115,7 @@ input:-webkit-autofill, textarea:-webkit-autofill { -webkit-box-shadow: 0 0 0 10
 }
 
 @media (max-width: 639px) {
-  body.mobile-otp-open #main {
+  body.mobile-otp-open:not(.mobile-auth-open) #main {
     z-index: 160;
   }
   .mobile-otp-backdrop {
