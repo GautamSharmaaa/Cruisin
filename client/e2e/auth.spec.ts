@@ -45,10 +45,18 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
     const box = await sheet.boundingBox();
     return box ? Math.abs(box.y + box.height - 844) <= 1 : false;
   }).toBe(true);
+  await expect.poll(async () => {
+    const box = await sheet.boundingBox();
+    return box ? box.height / 844 : 0;
+  }).toBeLessThanOrEqual(0.53);
 
   await page.getByLabel('WhatsApp number').fill('9876543210');
   await page.getByRole('button', { name: 'Get OTP' }).click();
   await expect(page.getByTestId('otp-bottom-sheet')).toBeVisible();
+  await expect.poll(async () => {
+    const box = await page.getByTestId('otp-bottom-sheet').boundingBox();
+    return box ? box.height / 844 : 0;
+  }).toBeLessThanOrEqual(0.53);
   await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
   await expect(page.locator('body')).toHaveClass(/mobile-otp-open/);
   await expect(page.locator('#main')).not.toHaveCSS('z-index', '160');

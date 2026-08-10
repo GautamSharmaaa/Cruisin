@@ -224,8 +224,8 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   const whatsappPrimary = IDENTITY_CONFIG.whatsappOtpEnabled && !showAlternatives;
 
   const authShell = (
-      <div data-testid="auth-shell" className={presentation === 'sheet' ? 'relative z-10 grid max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated shadow-[0_-24px_80px_rgba(0,0,0,0.9)]' : 'mx-auto grid w-full max-w-[1100px] overflow-hidden rounded-t-[32px] border border-accent-gold/50 bg-background-elevated shadow-lg sm:rounded-none sm:border-border lg:grid-cols-[0.8fr_1.2fr]'}>
-        {presentation === 'sheet' ? <div className="flex h-16 shrink-0 items-end justify-end px-4"><button type="button" onClick={onDismiss} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold transition hover:text-text-primary"><X size={24} strokeWidth={1.5} /></button></div> : null}
+      <div data-testid="auth-shell" className={presentation === 'sheet' ? 'relative z-10 grid h-[52dvh] min-h-[360px] max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated shadow-[0_-24px_80px_rgba(0,0,0,0.9)]' : 'mx-auto grid w-full max-w-[1100px] overflow-hidden rounded-t-[32px] border border-accent-gold/50 bg-background-elevated shadow-lg sm:rounded-none sm:border-border lg:grid-cols-[0.8fr_1.2fr]'}>
+        {presentation === 'sheet' ? <div className="flex h-11 shrink-0 items-center justify-end px-3"><button type="button" onClick={onDismiss} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold transition hover:text-text-primary"><X size={22} strokeWidth={1.5} /></button></div> : null}
         <section data-testid="auth-brand-panel" className="relative hidden min-h-[720px] flex-col justify-between overflow-hidden bg-background-overlay p-10 lg:flex">
           <div data-testid="auth-brand-artwork" className="absolute inset-0" aria-hidden="true">
             <div data-testid="auth-brand-image-stage" className="absolute inset-x-0 top-0 h-[960px]">
@@ -241,7 +241,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
           <p className="relative z-10 max-w-sm shrink-0 text-base leading-7 text-text-secondary">{COPY.brand.tagline}</p>
         </section>
 
-        <section className={presentation === 'sheet' ? 'px-6 pb-8 pt-0' : 'p-6 pb-8 sm:p-10 lg:p-14'}>
+        <section className={presentation === 'sheet' ? 'px-6 pb-4 pt-0' : 'p-6 pb-8 sm:p-10 lg:p-14'}>
           {whatsappPrimary ? <div className="mx-auto w-full max-w-[420px]" data-testid="whatsapp-primary-auth">
             <div className="hidden sm:block">
               <p className="font-accent text-[10px] uppercase tracking-[0.22em] text-accent-gold">{COPY.auth.whatsapp.eyebrow}</p>
@@ -251,11 +251,11 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
 
             <div className={requestOtp.data ? 'pointer-events-none select-none sm:hidden' : ''} aria-hidden={requestOtp.data ? true : undefined}>
               <div className="text-center sm:hidden">
-                <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-28 opacity-90" />
-                <h2 className="mt-4 font-display text-3xl font-light text-text-primary">{COPY.auth.whatsapp.mobileTitle}</h2>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">{COPY.auth.whatsapp.mobileBody}</p>
+                <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-16 opacity-90" />
+                <h2 className="mt-1 font-display text-xl font-light leading-tight text-text-primary">{COPY.auth.whatsapp.mobileTitle}</h2>
+                <p className="mt-1 text-[11px] leading-4 text-text-secondary">{COPY.auth.whatsapp.mobileBody}</p>
               </div>
-              <form noValidate onSubmit={(event) => { event.preventDefault(); sendOtp(); }} className="mt-7 grid gap-5 sm:mt-8">
+              <form noValidate onSubmit={(event) => { event.preventDefault(); sendOtp(); }} className="mt-4 grid gap-3 sm:mt-8 sm:gap-5">
                 <div className="gap-3 sm:grid sm:grid-cols-[86px_minmax(0,1fr)]">
                   <div className="hidden sm:block">
                     <Input label={COPY.auth.whatsapp.countryCode} inputMode="tel" autoComplete="tel-country-code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} />
@@ -269,21 +269,21 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
                     {phoneError ? <span id="whatsapp-number-error" className="mt-2 block text-xs normal-case tracking-normal text-danger" aria-live="polite">{phoneError}</span> : null}
                   </label>
                 </div>
-                <Button type="submit" className="h-14 w-full rounded-2xl sm:h-12 sm:rounded-none" isLoading={requestOtp.isPending}><span className="sm:hidden">{COPY.auth.whatsapp.getOtp}</span><span className="hidden sm:inline">{COPY.auth.whatsapp.sendCode}</span></Button>
+                <Button type="submit" className="h-12 w-full rounded-2xl sm:rounded-none" isLoading={requestOtp.isPending}><span className="sm:hidden">{COPY.auth.whatsapp.getOtp}</span><span className="hidden sm:inline">{COPY.auth.whatsapp.sendCode}</span></Button>
               </form>
             </div>
 
             {requestOtp.data ? <div data-testid="otp-mobile-overlay" className="fixed inset-0 z-[160] flex items-end sm:static sm:z-auto sm:block">
               <button type="button" data-testid="otp-mobile-backdrop" aria-label={COPY.common.close} onClick={resetOtp} className="mobile-otp-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm sm:hidden" />
-              <form noValidate role="dialog" aria-modal="true" aria-labelledby="mobile-otp-title" onKeyDown={(event) => { if (event.key === 'Escape') resetOtp(); }} onSubmit={verifyForm.handleSubmit(verifyCode)} data-testid="otp-bottom-sheet" className="mobile-otp-sheet relative z-10 grid max-h-[calc(100dvh-4rem)] min-h-[520px] w-full gap-4 overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:mt-8 sm:min-h-0 sm:max-h-none sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+              <form noValidate role="dialog" aria-modal="true" aria-labelledby="mobile-otp-title" onKeyDown={(event) => { if (event.key === 'Escape') resetOtp(); }} onSubmit={verifyForm.handleSubmit(verifyCode)} data-testid="otp-bottom-sheet" className="mobile-otp-sheet relative z-10 grid h-[52dvh] min-h-[360px] max-h-[460px] w-full gap-2 overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:mt-8 sm:h-auto sm:min-h-0 sm:max-h-none sm:gap-4 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
                 <div className="sm:hidden">
                   <div className="grid grid-cols-[44px_1fr_44px] items-center">
                     <button type="button" onClick={resetOtp} aria-label={COPY.auth.whatsapp.changeNumber} className="grid h-11 w-11 place-items-center text-accent-gold"><ArrowLeft size={24} strokeWidth={1.5} /></button>
-                    <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-24 opacity-90" />
+                    <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-16 opacity-90" />
                     <button type="button" onClick={resetOtp} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold"><X size={24} strokeWidth={1.5} /></button>
                   </div>
-                  <h2 id="mobile-otp-title" className="mt-5 text-center font-display text-4xl font-light text-text-primary">{COPY.auth.whatsapp.enterOtp}</h2>
-                  <p className="mt-2 text-center font-mono text-sm text-accent-gold">{COPY.auth.whatsapp.sentTo} {formatPhone(countryCode, nationalNumber)}</p>
+                  <h2 id="mobile-otp-title" className="mt-2 text-center font-display text-2xl font-light text-text-primary">{COPY.auth.whatsapp.enterOtp}</h2>
+                  <p className="mt-1 text-center font-mono text-[10px] text-accent-gold">{COPY.auth.whatsapp.sentTo} {formatPhone(countryCode, nationalNumber)}</p>
                 </div>
                 <div className="hidden border border-success/30 bg-success/5 px-4 py-3 sm:block">
                   <p className="text-sm text-success" aria-live="polite">{COPY.auth.whatsapp.codeSent}</p>
@@ -293,15 +293,15 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
                 <input type="hidden" {...verifyForm.register('requestId')} />
                 {requestOtp.data.developmentCode ? <p className="font-mono text-xs text-accent-gold">{COPY.auth.developmentCode}: {requestOtp.data.developmentCode}</p> : null}
                 <Button type="submit" className="hidden h-12 w-full sm:inline-flex" isLoading={verifyOtp.isPending}>{COPY.auth.submit}</Button>
-                <Button type="button" variant="ghost" className="mt-3 w-full normal-case tracking-normal sm:mt-0 sm:uppercase sm:tracking-[0.1em]" disabled={secondsRemaining > 0 || requestOtp.isPending} isLoading={requestOtp.isPending} onClick={sendOtp}><span className="sm:hidden">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCountdown.replace('{time}', formatCountdown(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span><span className="hidden sm:inline">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCodeIn.replace('{seconds}', String(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span></Button>
+                <Button type="button" variant="ghost" className="w-full normal-case tracking-normal sm:uppercase sm:tracking-[0.1em]" disabled={secondsRemaining > 0 || requestOtp.isPending} isLoading={requestOtp.isPending} onClick={sendOtp}><span className="sm:hidden">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCountdown.replace('{time}', formatCountdown(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span><span className="hidden sm:inline">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCodeIn.replace('{seconds}', String(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span></Button>
               </form>
             </div> : null}
 
             {authError ? <p className="mt-5 text-sm text-danger" aria-live="polite">{authError.message}</p> : null}
             <div className={requestOtp.data ? 'hidden sm:block' : ''}>
-              <div className="my-7 flex items-center gap-3" aria-hidden="true"><span className="h-px flex-1 bg-border" /><span className="font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">{COPY.common.or}</span><span className="h-px flex-1 bg-border" /></div>
-              <Button type="button" variant="secondary" onClick={showEmailOrGoogle} className="h-12 w-full rounded-2xl sm:rounded-none">{COPY.auth.whatsapp.useAlternatives}</Button>
-              <p className="mt-5 text-center text-xs leading-5 text-text-muted">{COPY.auth.whatsapp.consentPrefix} <Link href={ROUTES.terms} className="text-accent-gold underline underline-offset-2 hover:text-text-primary">{COPY.auth.whatsapp.terms}</Link> {COPY.common.and} <Link href={ROUTES.privacy} className="text-accent-gold underline underline-offset-2 hover:text-text-primary">{COPY.auth.whatsapp.privacy}</Link>.</p>
+              <div className="my-3 flex items-center gap-3 sm:my-7" aria-hidden="true"><span className="h-px flex-1 bg-border" /><span className="font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">{COPY.common.or}</span><span className="h-px flex-1 bg-border" /></div>
+              <Button type="button" variant="secondary" onClick={showEmailOrGoogle} className="h-11 w-full rounded-2xl sm:h-12 sm:rounded-none">{COPY.auth.whatsapp.useAlternatives}</Button>
+              <p className="mt-3 text-center text-[10px] leading-4 text-text-muted sm:mt-5 sm:text-xs sm:leading-5">{COPY.auth.whatsapp.consentPrefix} <Link href={ROUTES.terms} className="text-accent-gold underline underline-offset-2 hover:text-text-primary">{COPY.auth.whatsapp.terms}</Link> {COPY.common.and} <Link href={ROUTES.privacy} className="text-accent-gold underline underline-offset-2 hover:text-text-primary">{COPY.auth.whatsapp.privacy}</Link>.</p>
             </div>
           </div> : <div className="mx-auto w-full max-w-[420px]" data-testid="alternative-auth">
             <div className="grid grid-cols-2 border border-border" role="tablist" aria-label={COPY.auth.whatsapp.alternativesLabel}>
@@ -375,7 +375,7 @@ function OtpCodeInput({ value, name, error, isLoading, inputRef, onBlur, onValue
   const digits = Array.from({ length: 6 }, (_, index) => value[index] ?? '');
   return <div>
     <label htmlFor="whatsapp-otp" className="hidden text-xs uppercase tracking-[0.15em] text-text-secondary sm:block">{COPY.auth.otp}</label>
-    <div className="relative mt-7 sm:mt-2" data-testid="otp-code-input">
+    <div className="relative mt-3 sm:mt-2" data-testid="otp-code-input">
       <div className="grid grid-cols-6 gap-2 sm:hidden" aria-hidden="true">
         {digits.map((digit, index) => {
           const active = !error && !isLoading && value.length < 6 && index === value.length;
