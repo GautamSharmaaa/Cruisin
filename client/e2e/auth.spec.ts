@@ -132,6 +132,27 @@ test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page
   await expect(page.getByLabel('WhatsApp number')).toBeFocused();
 });
 
+test('hands the mobile cart drawer to authentication without leaving pointer input frozen', async ({ page }) => {
+  await page.setViewportSize({ width: 414, height: 896 });
+  await page.addInitScript(() => {
+    const product = { id: '665f6d8403bd2edc93800010', title: 'Checkout QA Tee', slug: 'checkout-qa-tee', description: 'QA', richDescription: 'QA', brand: 'Cruisin', category: 'qa', categoryIds: [], collections: [], images: [], basePrice: 1, variants: [{ id: '665f6d8403bd2edc93800011', size: 'One', color: 'Black', colorHex: '#000000', sku: 'QA-TEE', price: 1, stock: 2, enabled: true, images: [] }], tags: [], status: 'published', visibility: 'visible', isActive: true, isFeatured: false, ratings: { avg: 0, count: 0 }, seo: { metaTitle: 'QA', metaDesc: 'QA', ogImage: '' }, reviews: [] };
+    window.localStorage.setItem('cruisin-cart', JSON.stringify({ state: { items: [{ product, variantId: product.variants[0].id, size: 'One', color: 'Black', quantity: 1, price: 1 }], isOpen: false, couponDiscount: 0, freeShipping: false }, version: 0 }));
+  });
+
+  await page.goto('/terms-and-condition');
+  await page.getByRole('button', { name: 'Cart' }).click();
+  const cart = page.getByRole('dialog', { name: 'Bag' });
+  await expect(cart).toBeVisible();
+  await cart.getByRole('link', { name: 'Proceed to checkout' }).click();
+  await expect(cart).toBeHidden();
+  await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
+  await expect(page.locator('body')).not.toHaveAttribute('data-scroll-locked');
+  await expect.poll(async () => page.evaluate(() => getComputedStyle(document.body).pointerEvents)).toBe('auto');
+  const phone = page.getByLabel('WhatsApp number');
+  await phone.fill('9876543210');
+  await expect(phone).toHaveValue('9876543210');
+});
+
 test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserves the destination', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.unroute('**/api/v1/auth/refresh');

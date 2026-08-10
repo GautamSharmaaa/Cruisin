@@ -36,6 +36,18 @@ export function CartSummary({ subtotal, discount = 0, freeShipping = false, ship
     if (user) setPrompt(false);
   }, [user]);
 
+  const requestCheckoutAuthentication = (): void => {
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    // Radix keeps the cart drawer modal and its global pointer/scroll lock alive
+    // for the 250 ms exit animation. Close it fully before mounting the next
+    // modal, otherwise the old drawer leaves the visible auth sheet inert.
+    onCheckout?.();
+    window.setTimeout(() => {
+      if (mobile) openMobileAuth({ next: ROUTES.checkout });
+      else setPrompt(true);
+    }, 300);
+  };
+
   return (
     <div className="space-y-3 border-t border-border pt-6">
       <div className="flex justify-between"><span>{COPY.cart.subtotal}</span><span>{formatPrice(subtotal)}</span></div>
@@ -44,7 +56,7 @@ export function CartSummary({ subtotal, discount = 0, freeShipping = false, ship
       {delivery.promotionReason === 'promotion' ? <p className="text-right text-xs text-success">Limited-time complimentary delivery applied</p> : null}
       {delivery.promotionReason === 'threshold' ? <p className="text-right text-xs text-success">Free-delivery threshold reached</p> : null}
       <div className="flex justify-between font-mono text-lg text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(total)}</span></div>
-      <Link href={ROUTES.checkout} aria-disabled={!isAuthInitialized} className={'mt-4 inline-flex h-11 w-full min-w-11 items-center justify-center bg-accent-gold px-6 font-body text-xs font-medium uppercase tracking-[0.1em] text-text-inverse shadow-gold transition duration-300 hover:brightness-110 active:scale-[0.98] ' + (!isAuthInitialized ? 'pointer-events-none cursor-wait opacity-70' : '')} onClick={(event) => { if (!isAuthInitialized) { event.preventDefault(); return; } if (!user) { event.preventDefault(); if (window.matchMedia('(max-width: 767px)').matches) openMobileAuth({ next: ROUTES.checkout }); else setPrompt(true); return; } const cart = useCartStore.getState(); const items = cart.items.filter((item) => isCustomerVisibleProduct(item.product)); trackCheckoutStarted({ items, value: total, coupon: cart.coupon }); onCheckout?.(); }}>{COPY.cart.checkout}</Link>
+      <Link href={ROUTES.checkout} aria-disabled={!isAuthInitialized} className={'mt-4 inline-flex h-11 w-full min-w-11 items-center justify-center bg-accent-gold px-6 font-body text-xs font-medium uppercase tracking-[0.1em] text-text-inverse shadow-gold transition duration-300 hover:brightness-110 active:scale-[0.98] ' + (!isAuthInitialized ? 'pointer-events-none cursor-wait opacity-70' : '')} onClick={(event) => { if (!isAuthInitialized) { event.preventDefault(); return; } if (!user) { event.preventDefault(); requestCheckoutAuthentication(); return; } const cart = useCartStore.getState(); const items = cart.items.filter((item) => isCustomerVisibleProduct(item.product)); trackCheckoutStarted({ items, value: total, coupon: cart.coupon }); onCheckout?.(); }}>{COPY.cart.checkout}</Link>
       <LoginRequiredModal open={prompt} onOpenChange={setPrompt} next={ROUTES.checkout} action="checkout" />
     </div>
   );
