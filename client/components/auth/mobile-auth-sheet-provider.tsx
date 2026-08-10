@@ -5,6 +5,7 @@ import { AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AuthPage } from '@/components/auth/auth-page';
+import { useAuthStore } from '@/store/authStore';
 
 export interface MobileAuthRequest {
   next: string;
@@ -20,6 +21,7 @@ const MobileAuthSheetContext = createContext<MobileAuthSheetContextValue | null>
 
 export function MobileAuthSheetProvider({ children }: { children: ReactNode }): ReactNode {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
   const [request, setRequest] = useState<MobileAuthRequest | null>(null);
   const previousPathname = useRef(pathname);
   const openMobileAuth = useCallback((nextRequest: MobileAuthRequest): void => setRequest(nextRequest), []);
@@ -31,6 +33,13 @@ export function MobileAuthSheetProvider({ children }: { children: ReactNode }): 
     previousPathname.current = pathname;
     setRequest(null);
   }, [pathname]);
+
+  useEffect(() => {
+    // Session restoration can complete just after checkout opens this sheet.
+    // Close it immediately so its body scroll lock cannot trap an authenticated
+    // shopper behind a stale authentication overlay.
+    if (user) setRequest(null);
+  }, [user]);
 
   return <MobileAuthSheetContext.Provider value={value}>
     {children}

@@ -90,6 +90,34 @@ test('opens the same WhatsApp sheet when a logged-out shopper tries to use their
   await expect(page).toHaveURL(/\/terms-and-condition$/);
 });
 
+test('closes a stale mobile auth sheet when the saved session finishes restoring', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => window.localStorage.setItem('cruisin_has_session', 'true'));
+  await page.unroute('**/api/v1/auth/refresh');
+  let releaseRefresh: (() => void) | undefined;
+  const pendingRefresh = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+  await page.route('**/api/v1/auth/refresh', async (route) => {
+    await pendingRefresh;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { accessToken: 'restored-access-token' }, message: 'Session restored' }) });
+  });
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { id: '665f6d8403bd2edc93800001', name: 'Cruisin Member', email: 'member@example.com', role: 'customer', isVerified: true }, message: 'Profile loaded' }) });
+  });
+  await page.route('**/api/v1/wishlist', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { products: [] }, message: 'Wishlist loaded' }) });
+  });
+
+  await page.goto('/terms-and-condition');
+  await page.getByRole('button', { name: 'Continue with WhatsApp' }).click();
+  await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
+
+  releaseRefresh?.();
+  await expect(page.getByTestId('mobile-auth-overlay')).toBeHidden();
+  await expect(page.locator('body')).not.toHaveClass(/mobile-auth-open/);
+  await expect.poll(async () => page.evaluate(() => document.body.style.overflow)).toBe('');
+});
+
 test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route('**/api/v1/payments/config', async (route) => {
