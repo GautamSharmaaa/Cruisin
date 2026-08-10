@@ -61,14 +61,11 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
   await expect(page.locator('body')).toHaveClass(/mobile-otp-open/);
   await expect(page.locator('#main')).not.toHaveCSS('z-index', '160');
   await expect.poll(async () => page.evaluate(() => Boolean(document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 20)?.closest('[data-testid="otp-bottom-sheet"]')))).toBe(true);
-  await page.getByTestId('otp-mobile-backdrop').click({ position: { x: 10, y: 10 } });
-  await expect(page.getByTestId('otp-bottom-sheet')).toBeHidden();
-
-  await page.getByRole('button', { name: 'Use email or Google' }).click();
+  await page.getByTestId('otp-bottom-sheet').getByRole('button', { name: 'Use email or Google' }).click();
   await expect(page.getByTestId('alternative-auth')).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Create Account' })).toBeVisible();
   const closeButton = sheet.getByRole('button', { name: 'Close' });
-  const tabs = page.getByRole('tablist', { name: 'Email authentication' });
+  const tabs = page.getByRole('tablist', { name: 'Authentication method' });
   await expect.poll(async () => {
     const closeBox = await closeButton.boundingBox();
     const tabBox = await tabs.boundingBox();

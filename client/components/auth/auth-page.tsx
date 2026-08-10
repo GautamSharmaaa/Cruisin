@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -222,6 +223,27 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   const otpError = verifyForm.formState.errors.otp?.message ?? (verifyOtp.error ? (/invalid otp/i.test(verifyOtp.error.message) ? COPY.auth.whatsapp.incorrectCode : verifyOtp.error.message) : undefined);
   const authError = login.error ?? registerMutation.error ?? googleLogin.error ?? requestOtp.error;
   const whatsappPrimary = IDENTITY_CONFIG.whatsappOtpEnabled && !showAlternatives;
+  const otpOverlay = requestOtp.data ? <div data-testid="otp-mobile-overlay" className={presentation === 'sheet' ? 'fixed inset-0 z-[200] flex items-end md:hidden' : 'fixed inset-0 z-[160] flex items-end sm:static sm:z-auto sm:block'}>
+    <button type="button" data-testid="otp-mobile-backdrop" aria-label={COPY.common.close} onClick={resetOtp} className="mobile-otp-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm sm:hidden" />
+    <form noValidate role="dialog" aria-modal="true" aria-labelledby="mobile-otp-title" onKeyDown={(event) => { if (event.key === 'Escape') resetOtp(); }} onSubmit={verifyForm.handleSubmit(verifyCode)} data-testid="otp-bottom-sheet" className="mobile-otp-sheet relative z-10 grid h-[52dvh] min-h-[360px] max-h-[460px] w-full gap-2 overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:mt-8 sm:h-auto sm:min-h-0 sm:max-h-none sm:gap-4 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+      <div className="sm:hidden">
+        <div className="grid grid-cols-[44px_1fr_44px] items-center">
+          <button type="button" onClick={resetOtp} aria-label={COPY.auth.whatsapp.changeNumber} className="grid h-11 w-11 place-items-center text-accent-gold"><ArrowLeft size={24} strokeWidth={1.5} /></button>
+          <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-16 opacity-90" />
+          <button type="button" onClick={resetOtp} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold"><X size={24} strokeWidth={1.5} /></button>
+        </div>
+        <h2 id="mobile-otp-title" className="mt-2 text-center font-display text-2xl font-light text-text-primary">{COPY.auth.whatsapp.enterOtp}</h2>
+        <p className="mt-1 text-center font-mono text-[10px] text-accent-gold">{COPY.auth.whatsapp.sentTo} {formatPhone(countryCode, nationalNumber)}</p>
+      </div>
+      <div className="hidden border border-success/30 bg-success/5 px-4 py-3 sm:block"><p className="text-sm text-success" aria-live="polite">{COPY.auth.whatsapp.codeSent}</p><button type="button" className="mt-2 text-xs uppercase tracking-[0.1em] text-text-secondary hover:text-text-primary" onClick={resetOtp}>{COPY.auth.whatsapp.changeNumber}</button></div>
+      <Controller control={verifyForm.control} name="otp" render={({ field }) => <OtpCodeInput value={field.value ?? ''} name={field.name} inputRef={field.ref} onBlur={field.onBlur} onValueChange={handleOtpValueChange} error={otpError} isLoading={verifyOtp.isPending} />} />
+      <input type="hidden" {...verifyForm.register('requestId')} />
+      {requestOtp.data.developmentCode ? <p className="font-mono text-xs text-accent-gold">{COPY.auth.developmentCode}: {requestOtp.data.developmentCode}</p> : null}
+      <Button type="submit" className="hidden h-12 w-full sm:inline-flex" isLoading={verifyOtp.isPending}>{COPY.auth.submit}</Button>
+      <Button type="button" variant="ghost" className="w-full normal-case tracking-normal sm:uppercase sm:tracking-[0.1em]" disabled={secondsRemaining > 0 || requestOtp.isPending} isLoading={requestOtp.isPending} onClick={sendOtp}><span className="sm:hidden">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCountdown.replace('{time}', formatCountdown(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span><span className="hidden sm:inline">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCodeIn.replace('{seconds}', String(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span></Button>
+      <Button type="button" variant="secondary" className="w-full sm:hidden" onClick={() => { resetOtp(); showEmailOrGoogle(); }}>{COPY.auth.whatsapp.useAlternatives}</Button>
+    </form>
+  </div> : null;
 
   const authShell = (
       <div data-testid="auth-shell" className={presentation === 'sheet' ? 'relative z-10 grid h-[52dvh] min-h-[360px] max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated shadow-[0_-24px_80px_rgba(0,0,0,0.9)]' : 'mx-auto grid w-full max-w-[1100px] overflow-hidden rounded-t-[32px] border border-accent-gold/50 bg-background-elevated shadow-lg sm:rounded-none sm:border-border lg:grid-cols-[0.8fr_1.2fr]'}>
@@ -273,29 +295,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
               </form>
             </div>
 
-            {requestOtp.data ? <div data-testid="otp-mobile-overlay" className="fixed inset-0 z-[160] flex items-end sm:static sm:z-auto sm:block">
-              <button type="button" data-testid="otp-mobile-backdrop" aria-label={COPY.common.close} onClick={resetOtp} className="mobile-otp-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm sm:hidden" />
-              <form noValidate role="dialog" aria-modal="true" aria-labelledby="mobile-otp-title" onKeyDown={(event) => { if (event.key === 'Escape') resetOtp(); }} onSubmit={verifyForm.handleSubmit(verifyCode)} data-testid="otp-bottom-sheet" className="mobile-otp-sheet relative z-10 grid h-[52dvh] min-h-[360px] max-h-[460px] w-full gap-2 overflow-y-auto rounded-t-[32px] border-x border-t border-accent-gold/70 bg-background-elevated px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_80px_rgba(0,0,0,0.9)] sm:mt-8 sm:h-auto sm:min-h-0 sm:max-h-none sm:gap-4 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-                <div className="sm:hidden">
-                  <div className="grid grid-cols-[44px_1fr_44px] items-center">
-                    <button type="button" onClick={resetOtp} aria-label={COPY.auth.whatsapp.changeNumber} className="grid h-11 w-11 place-items-center text-accent-gold"><ArrowLeft size={24} strokeWidth={1.5} /></button>
-                    <Image src="/cruisin-logo.svg" alt={COPY.brand.name} width={271} height={163} priority className="mx-auto h-auto w-16 opacity-90" />
-                    <button type="button" onClick={resetOtp} aria-label={COPY.common.close} className="grid h-11 w-11 place-items-center text-accent-gold"><X size={24} strokeWidth={1.5} /></button>
-                  </div>
-                  <h2 id="mobile-otp-title" className="mt-2 text-center font-display text-2xl font-light text-text-primary">{COPY.auth.whatsapp.enterOtp}</h2>
-                  <p className="mt-1 text-center font-mono text-[10px] text-accent-gold">{COPY.auth.whatsapp.sentTo} {formatPhone(countryCode, nationalNumber)}</p>
-                </div>
-                <div className="hidden border border-success/30 bg-success/5 px-4 py-3 sm:block">
-                  <p className="text-sm text-success" aria-live="polite">{COPY.auth.whatsapp.codeSent}</p>
-                  <button type="button" className="mt-2 text-xs uppercase tracking-[0.1em] text-text-secondary hover:text-text-primary" onClick={resetOtp}>{COPY.auth.whatsapp.changeNumber}</button>
-                </div>
-                <Controller control={verifyForm.control} name="otp" render={({ field }) => <OtpCodeInput value={field.value ?? ''} name={field.name} inputRef={field.ref} onBlur={field.onBlur} onValueChange={handleOtpValueChange} error={otpError} isLoading={verifyOtp.isPending} />} />
-                <input type="hidden" {...verifyForm.register('requestId')} />
-                {requestOtp.data.developmentCode ? <p className="font-mono text-xs text-accent-gold">{COPY.auth.developmentCode}: {requestOtp.data.developmentCode}</p> : null}
-                <Button type="submit" className="hidden h-12 w-full sm:inline-flex" isLoading={verifyOtp.isPending}>{COPY.auth.submit}</Button>
-                <Button type="button" variant="ghost" className="w-full normal-case tracking-normal sm:uppercase sm:tracking-[0.1em]" disabled={secondsRemaining > 0 || requestOtp.isPending} isLoading={requestOtp.isPending} onClick={sendOtp}><span className="sm:hidden">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCountdown.replace('{time}', formatCountdown(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span><span className="hidden sm:inline">{secondsRemaining > 0 ? COPY.auth.whatsapp.resendCodeIn.replace('{seconds}', String(secondsRemaining)) : COPY.auth.whatsapp.resendCode}</span></Button>
-              </form>
-            </div> : null}
+            {presentation !== 'sheet' ? otpOverlay : null}
 
             {authError ? <p className="mt-5 text-sm text-danger" aria-live="polite">{authError.message}</p> : null}
             <div className={requestOtp.data ? 'hidden sm:block' : ''}>
@@ -338,7 +338,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   );
 
   if (presentation === 'sheet') {
-    return <motion.div
+    return <><motion.div
       data-testid="mobile-auth-overlay"
       className="fixed inset-0 z-[150] flex items-end md:hidden"
       role="dialog"
@@ -365,7 +365,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
       >
         {authShell}
       </motion.div>
-    </motion.div>;
+    </motion.div>{otpOverlay && typeof document !== 'undefined' ? createPortal(otpOverlay, document.body) : null}</>;
   }
 
   return <main className="flex min-h-[calc(100dvh-4rem)] items-end px-0 pb-20 pt-24 sm:block sm:min-h-dvh sm:px-6 sm:pb-28 sm:pt-6 lg:px-20 lg:py-28">{authShell}</main>;
