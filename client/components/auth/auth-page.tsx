@@ -115,11 +115,10 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
 
   useEffect(() => {
     if (!requestOtp.data || !window.matchMedia('(max-width: 639px)').matches) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScrollLock = acquireBodyScrollLock();
     document.body.classList.add('mobile-otp-open');
     return () => {
-      document.body.style.overflow = previousOverflow;
+      releaseScrollLock();
       document.body.classList.remove('mobile-otp-open');
     };
   }, [requestOtp.data]);

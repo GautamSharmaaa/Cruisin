@@ -19,11 +19,18 @@ export function AuthBootstrap({ children }: AuthBootstrapProps): ReactNode {
 
   useEffect(() => {
     let active = true;
+    const clearExpiredSession = (): void => {
+      // The initial refresh request can finish after OTP login has already
+      // established a new session. Do not let that stale 401 erase it.
+      if (useAuthStore.getState().accessToken) return;
+      clearSession();
+      setWishlistIds([]);
+    };
     const restoreSession = async (): Promise<void> => {
       try {
         const accessToken = await refreshAccessToken();
         if (!accessToken) {
-          if (active) { clearSession(); setWishlistIds([]); }
+          if (active) clearExpiredSession();
           return;
         }
         const response = await api.get<ApiEnvelope<User>>('/auth/me');
@@ -33,7 +40,7 @@ export function AuthBootstrap({ children }: AuthBootstrapProps): ReactNode {
           if (wishlist) setWishlistIds((wishlist.data.data.products ?? []).map((product) => product.id ?? product._id ?? '').filter(Boolean));
         }
       } catch {
-        if (active) { clearSession(); setWishlistIds([]); }
+        if (active) clearExpiredSession();
       }
     };
     void restoreSession();

@@ -106,6 +106,13 @@ test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page
 
 test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserves the destination', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.unroute('**/api/v1/auth/refresh');
+  let releaseRefresh: (() => void) | undefined;
+  const pendingRefresh = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+  await page.route('**/api/v1/auth/refresh', async (route) => {
+    await pendingRefresh;
+    await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ success: false, data: null, message: 'Refresh token missing' }) });
+  });
   let verificationAttempts = 0;
   await page.route('**/api/v1/auth/otp/request', async (route) => {
     await route.fulfill({
@@ -158,4 +165,12 @@ test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserve
   await expect(page.getByText('Incorrect OTP. Please try again.')).toBeVisible();
   await otpInput.fill('123456');
   await expect(page).toHaveURL(/\/shop$/);
+  releaseRefresh?.();
+  await expect(page.locator('body')).not.toHaveClass(/mobile-auth-open/);
+  await expect(page.locator('body')).not.toHaveClass(/mobile-otp-open/);
+  await expect.poll(async () => page.evaluate(() => document.body.style.overflow)).toBe('');
+  const navigation = page.getByRole('navigation', { name: 'Mobile navigation' });
+  await expect(navigation.getByRole('link', { name: 'Account' })).toBeVisible();
+  await navigation.getByRole('link', { name: 'Account' }).click();
+  await expect(page).toHaveURL(/\/account/);
 });
