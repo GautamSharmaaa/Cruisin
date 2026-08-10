@@ -153,6 +153,22 @@ test('hands the mobile cart drawer to authentication without leaving pointer inp
   await expect(phone).toHaveValue('9876543210');
 });
 
+test('keeps the desktop cart mounted while opening the checkout sign-in prompt', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    const product = { id: '665f6d8403bd2edc93800010', title: 'Checkout QA Tee', slug: 'checkout-qa-tee', description: 'QA', richDescription: 'QA', brand: 'Cruisin', category: 'qa', categoryIds: [], collections: [], images: [], basePrice: 1, variants: [{ id: '665f6d8403bd2edc93800011', size: 'One', color: 'Black', colorHex: '#000000', sku: 'QA-TEE', price: 1, stock: 2, enabled: true, images: [] }], tags: [], status: 'published', visibility: 'visible', isActive: true, isFeatured: false, ratings: { avg: 0, count: 0 }, seo: { metaTitle: 'QA', metaDesc: 'QA', ogImage: '' }, reviews: [] };
+    window.localStorage.setItem('cruisin-cart', JSON.stringify({ state: { items: [{ product, variantId: product.variants[0].id, size: 'One', color: 'Black', quantity: 1, price: 1 }], isOpen: false, couponDiscount: 0, freeShipping: false }, version: 0 }));
+  });
+
+  await page.goto('/terms-and-condition');
+  await page.getByRole('button', { name: 'Cart' }).click();
+  const cart = page.getByRole('dialog', { name: 'Bag' });
+  await cart.getByRole('link', { name: 'Proceed to checkout' }).click();
+  await expect(page.getByRole('dialog', { name: 'Continue securely' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue with WhatsApp' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Use email or Google' })).toBeVisible();
+});
+
 test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserves the destination', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.unroute('**/api/v1/auth/refresh');

@@ -38,13 +38,19 @@ export function CartSummary({ subtotal, discount = 0, freeShipping = false, ship
 
   const requestCheckoutAuthentication = (): void => {
     const mobile = window.matchMedia('(max-width: 767px)').matches;
+    if (!mobile) {
+      setPrompt(true);
+      return;
+    }
+
     // Radix keeps the cart drawer modal and its global pointer/scroll lock alive
     // for the 250 ms exit animation. Close it fully before mounting the next
-    // modal, otherwise the old drawer leaves the visible auth sheet inert.
+    // mobile auth surface, otherwise the old drawer leaves it inert. The
+    // desktop prompt belongs to this drawer subtree, so it must open before
+    // the drawer is ever unmounted.
     onCheckout?.();
     window.setTimeout(() => {
-      if (mobile) openMobileAuth({ next: ROUTES.checkout });
-      else setPrompt(true);
+      openMobileAuth({ next: ROUTES.checkout });
     }, 300);
   };
 
