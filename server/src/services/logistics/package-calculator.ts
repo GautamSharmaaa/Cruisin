@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import { logisticsConfig } from '../../config/logistics.js';
+import { logisticsConfig, logisticsIsMock } from '../../config/logistics.js';
 import { PackagePresetModel } from '../../models/package-preset.model.js';
 import type { PackageMeasurement } from '../../types/logistics.types.js';
 import { ApiError } from '../../utils/api-error.js';
