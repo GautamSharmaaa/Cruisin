@@ -13,7 +13,11 @@ export function OrderShippingPanel({
   const shipments = useShipments({ orderId, limit: 10 });
   const action = useLogisticsAction();
   const [notice, setNotice] = useState("");
-  const prepared = Boolean(shipments.data?.items.length) || Boolean(notice);
+  const providerOrderCreated = Boolean(
+    shipments.data?.items.some(
+      (shipment) => shipment.providerOrderId && shipment.providerShipmentId,
+    ),
+  );
 
   const prepareShipment = (): void => {
     setNotice("");
@@ -37,7 +41,7 @@ export function OrderShippingPanel({
         Payment and fulfilment stay separate. Create a provider order only after
         package measurements are ready.
       </p>
-      {!shipments.isLoading && shipments.data?.items.length ? (
+      {!shipments.isLoading && providerOrderCreated ? (
         <div
           role="status"
           className="mt-5 border border-success/40 bg-success/10 p-4"
@@ -48,6 +52,14 @@ export function OrderShippingPanel({
           <p className="mt-1 text-xs leading-5 text-text-secondary">
             The Shiprocket provider order has been created. Review the provider
             references below before assigning an AWB or scheduling pickup.
+          </p>
+        </div>
+      ) : null}
+      {!shipments.isLoading && shipments.data?.items.length && !providerOrderCreated ? (
+        <div role="status" className="mt-5 border border-accent-gold/40 bg-accent-gold/10 p-4">
+          <p className="text-sm font-medium text-text-primary">Local shipment draft ready</p>
+          <p className="mt-1 text-xs leading-5 text-text-secondary">
+            No Shiprocket provider order exists yet. Create it manually when live mutations are enabled and the package details are confirmed.
           </p>
         </div>
       ) : null}
@@ -124,13 +136,13 @@ export function OrderShippingPanel({
           Shipment preparation failed: {action.error.message}
         </p>
       ) : null}
-      {!shipments.isLoading && !prepared ? (
+      {!shipments.isLoading && !providerOrderCreated ? (
         <Button
           className="mt-5"
           onClick={prepareShipment}
           disabled={action.isPending}
         >
-          {action.isPending ? "Preparing shipment…" : "Prepare shipment"}
+          {action.isPending ? "Creating Shiprocket order…" : "Create Shiprocket order"}
         </Button>
       ) : null}
     </article>
