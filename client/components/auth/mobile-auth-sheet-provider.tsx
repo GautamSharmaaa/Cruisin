@@ -3,7 +3,7 @@
 
 import { AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AuthPage } from '@/components/auth/auth-page';
 
 export interface MobileAuthRequest {
@@ -21,11 +21,14 @@ const MobileAuthSheetContext = createContext<MobileAuthSheetContextValue | null>
 export function MobileAuthSheetProvider({ children }: { children: ReactNode }): ReactNode {
   const pathname = usePathname();
   const [request, setRequest] = useState<MobileAuthRequest | null>(null);
+  const previousPathname = useRef(pathname);
   const openMobileAuth = useCallback((nextRequest: MobileAuthRequest): void => setRequest(nextRequest), []);
   const closeMobileAuth = useCallback((): void => setRequest(null), []);
   const value = useMemo(() => ({ openMobileAuth, closeMobileAuth }), [closeMobileAuth, openMobileAuth]);
 
   useEffect(() => {
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
     setRequest(null);
   }, [pathname]);
 
