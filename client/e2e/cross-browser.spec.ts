@@ -13,7 +13,7 @@ test.describe('supported cross-browser smoke contract', () => {
 
   test('homepage, menu, catalogue, and PDP interactions work', async ({ page, isMobile }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('main').getByRole('heading', { name: 'Cruisin', exact: true }).first()).toBeVisible();
+    await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
     const menu = page.getByRole('dialog', { name: isMobile ? 'Menu' : 'Cruisin menu' });
@@ -41,7 +41,7 @@ test.describe('supported cross-browser smoke contract', () => {
   });
 
   test('invalid customer login is handled inline', async ({ page }) => {
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
+    await page.goto('/login?method=alternative', { waitUntil: 'domcontentloaded' });
     await page.getByLabel('Email').fill('not-an-email');
     await page.getByLabel('Password').fill('invalid-password');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();

@@ -120,7 +120,7 @@ export const COPY = {
       verifyingCode: 'Checking your code...',
       useAlternatives: 'Use email or Google',
       useWhatsAppInstead: 'Use WhatsApp OTP instead',
-      alternativesLabel: 'Email authentication',
+      alternativesLabel: 'Authentication method',
       alternativesTitle: 'Use email or Google',
       consentPrefix: 'By continuing, you agree to Cruisin’s',
       terms: 'terms',

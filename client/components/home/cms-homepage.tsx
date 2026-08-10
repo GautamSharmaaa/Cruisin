@@ -22,7 +22,15 @@ const rows = (value: string): string[] => value.split('\n').map((item) => item.t
 const active = (section: CmsSectionDto): boolean => section.active ?? section.isActive ?? false;
 const sectionKey = (section: CmsSectionDto): string => section.id ?? section._id ?? section.title;
 const productKey = (product: Product): string => product.id ?? (product as Product & { _id?: string })._id ?? product.slug;
-const isPlayableVideo = (url: string): boolean => url.length > 0 && url !== '/hero.mp4';
+const isPlayableVideo = (url: string): boolean => {
+  if (!url || url === '/hero.mp4') return false;
+  try {
+    const parsed = new URL(url, 'https://cruisin.local');
+    return parsed.pathname.includes('/video/upload/') || /\.(?:mp4|webm|mov|m4v|ogv)$/i.test(parsed.pathname);
+  } catch {
+    return /\.(?:mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i.test(url);
+  }
+};
 const recentlyViewedKey = 'cruisin_recently_viewed_products';
 const displayLabel = (value: string): string => value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 const polishedCmsText = (value: string, fallback: string): string => /CMSHOME10|homepage merchandising section|QA|Browser Test|Placeholder|Sample Product/i.test(value) ? fallback : value;
@@ -39,6 +47,19 @@ const optimizedVideoUrl = (url: string): string => {
     const parsed = new URL(url);
     if (parsed.hostname === 'res.cloudinary.com' && parsed.pathname.includes('/video/upload/') && !parsed.pathname.includes('/video/upload/q_auto')) {
       parsed.pathname = parsed.pathname.replace('/video/upload/', '/video/upload/q_auto:eco,f_auto/');
+      return parsed.toString();
+    }
+  } catch {
+    // Relative and non-standard media URLs remain valid inputs for the browser.
+  }
+  return url;
+};
+
+const optimizedImageUrl = (url: string, width: number): string => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'res.cloudinary.com' && parsed.pathname.includes('/image/upload/') && !parsed.pathname.includes('/image/upload/f_auto')) {
+      parsed.pathname = parsed.pathname.replace('/image/upload/', `/image/upload/f_auto,q_auto:eco,w_${width},c_limit/`);
       return parsed.toString();
     }
   } catch {
@@ -81,7 +102,7 @@ export function CmsHomepage({ sections }: CmsHomepageProps): ReactNode {
     return true;
   });
   const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar');
-  return <div data-testid="cms-homepage" className="relative -mt-16 lg:-mt-20">{visible.map((section, index) => index === announcementIndex
+  return <div data-testid="cms-homepage" className="relative -mt-16 lg:-mt-20"><h1 className="sr-only">Cruisin</h1>{visible.map((section, index) => index === announcementIndex
     ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40"><CmsSectionRenderer section={section} /></div>
     : <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</div>;
 }
@@ -115,7 +136,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const overlay = asNumber(content, 'overlayOpacity', 44) / 100;
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
-    <picture><source media="(max-width: 767px)" srcSet={mobileMediaFor(section, content)} /><img src={mediaFor(section, content)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
+    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
     <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(0,0,0,${overlay * 0.4}), rgba(0,0,0,${overlay + 0.12}))` }} />
     <div className="relative flex min-h-dvh flex-col justify-end px-6 pb-24 lg:px-20">
       <p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'campaignLabel', section.position ?? 'Campaign')}</p>
@@ -151,7 +172,7 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
   return <section className={className + ' relative min-h-[100svh] overflow-hidden bg-background-primary'}>
     {hasVideo
       ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
-      : <img src={imageUrl} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
+      : <img src={optimizedImageUrl(imageUrl, 900)} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
     {overlay > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: overlay }} /> : null}
     {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="mobile-media-cta inline-flex min-h-12 items-center justify-center px-5 py-3 text-center font-accent text-sm uppercase tracking-[0.22em]" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
   </section>;
@@ -159,12 +180,12 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
 
 function ImageCarousel({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const slides = rows(asString(content, 'slides')).slice(0, 3);
-  return <section className={className + ' grid gap-px md:grid-cols-3'}>{slides.map((slide) => { const [title, image, href] = slide.split('|'); return <Link key={slide} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={title || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80 transition duration-700 hover:scale-[1.05]" /><div className="absolute inset-x-0 bottom-0 bg-hero p-6"><p className="font-display text-3xl">{title || section.title}</p></div></Link>; })}</section>;
+  return <section className={className + ' grid gap-px md:grid-cols-3'}>{slides.map((slide) => { const [title, image, href] = slide.split('|'); return <Link key={slide} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={optimizedImageUrl(image, 900)} alt={title || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80 transition duration-700 hover:scale-[1.05]" /><div className="absolute inset-x-0 bottom-0 bg-hero p-6"><p className="font-display text-3xl">{title || section.title}</p></div></Link>; })}</section>;
 }
 
 function CategoryGrid({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const tiles = rows(asString(content, 'tiles')).slice(0, 4);
-  return <section className={className + ' px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={image} alt={label || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
+  return <section className={className + ' px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={optimizedImageUrl(image, 900)} alt={label || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
 }
 
 function ProductRail({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
