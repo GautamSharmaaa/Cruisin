@@ -128,6 +128,11 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     basePrice: product.basePrice,
     comparePrice: product.comparePrice,
     costPrice: product.costPrice,
+    manufacturingCost: product.costBreakdown?.manufacturing ?? product.costPrice ?? 0,
+    packagingCost: product.costBreakdown?.packaging ?? 0,
+    marketingCost: product.costBreakdown?.marketing ?? 0,
+    handlingCost: product.costBreakdown?.handling ?? 0,
+    otherCost: product.costBreakdown?.other ?? 0,
     gstPercent: product.gstPercent,
     hsnCode: product.hsnCode ?? '',
     productCode: product.productCode ?? '',
@@ -360,10 +365,14 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     {activeTab === 'pricing' ? <AdminFormSection title="Pricing" description="Selling price is used for checkout. MRP is display context for markdowns." columns={2}>
       <Input label="Selling price *" type="number" error={formState.errors.basePrice?.message} {...register('basePrice')} />
       <Input label="MRP / compare-at price" type="number" error={formState.errors.comparePrice?.message} {...register('comparePrice')} />
-      <Input label="Cost price" type="number" error={formState.errors.costPrice?.message} {...register('costPrice')} />
+      <Input label="Manufacturing cost / unit" type="number" min={0} step="0.01" error={formState.errors.manufacturingCost?.message} {...register('manufacturingCost')} />
+      <Input label="Packaging cost / unit" type="number" min={0} step="0.01" error={formState.errors.packagingCost?.message} {...register('packagingCost')} />
+      <Input label="Marketing allocation / unit" type="number" min={0} step="0.01" error={formState.errors.marketingCost?.message} {...register('marketingCost')} />
+      <Input label="Handling cost / unit" type="number" min={0} step="0.01" error={formState.errors.handlingCost?.message} {...register('handlingCost')} />
+      <Input label="Other cost / unit" type="number" min={0} step="0.01" error={formState.errors.otherCost?.message} {...register('otherCost')} />
       <Input label="GST %" type="number" error={formState.errors.gstPercent?.message} {...register('gstPercent')} />
       <Input label="HSN code" error={formState.errors.hsnCode?.message} {...register('hsnCode')} />
-      <div className="border border-border bg-background-primary p-4 md:col-span-2"><p className="font-mono text-sm text-accent-gold">{saleHelper}</p><p className="mt-2 text-sm text-text-secondary">Cost price remains admin/API-only and is stripped from public storefront product payloads.</p></div>
+      <div className="border border-border bg-background-primary p-4 md:col-span-2"><p className="font-mono text-sm text-accent-gold">{saleHelper}</p><p className="mt-2 text-sm text-text-secondary">Internal costs are per unit, summed into cost price, snapshotted on orders, and never exposed to the storefront.</p></div>
     </AdminFormSection> : null}
 
     {activeTab === 'inventory' ? <AdminFormSection title="Inventory & Variants" description="Build a complete color-size matrix. Every combination keeps its own SKU, stock, availability, image, optional price, and low-stock threshold." columns={1}>

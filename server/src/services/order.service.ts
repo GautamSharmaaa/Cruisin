@@ -154,7 +154,15 @@ const createPricedItems = async (cartItems: Array<{ product: unknown; variant: u
     if (!product || product.status !== 'published' || product.visibility !== 'visible' || !product.isActive || product.isArchived) throw new ApiError(409, 'A product in your bag is no longer available');
     const variant = product.variants.find((candidate) => String(candidate._id) === variantId);
     if (!variant || variant.enabled === false || variant.stock < cartItem.quantity) throw new ApiError(409, `Selected variant is unavailable for ${product.title}`);
-    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
+    const unitCostBreakdown = {
+      manufacturing: money(product.costBreakdown?.manufacturing ?? product.costPrice ?? 0),
+      packaging: money(product.costBreakdown?.packaging ?? 0),
+      marketing: money(product.costBreakdown?.marketing ?? 0),
+      handling: money(product.costBreakdown?.handling ?? 0),
+      other: money(product.costBreakdown?.other ?? 0)
+    };
+    const unitCostTotal = money(Object.values(unitCostBreakdown).reduce((sum, value) => sum + value, 0));
+    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
   });
 };
 
@@ -351,7 +359,7 @@ export const OrderService = {
       freeShipping: Boolean(couponResult?.freeShipping)
     }) : null;
     const shippingMethod = logisticsQuote?.shippingMethod ?? requestedShippingMethod;
-    const shipping = logisticsQuote?.shippingCharge ?? calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
+    const shipping = logisticsQuote?.shippingCharge ?? (logisticsConfig.customerFreeShipping ? 0 : calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings()));
     const tax = 0;
     const total = money(subtotal - discount + shipping + tax);
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
@@ -410,7 +418,7 @@ export const OrderService = {
       freeShipping: Boolean(couponResult?.freeShipping)
     }) : null;
     const shippingMethod = logisticsQuote?.shippingMethod ?? requestedShippingMethod;
-    const shipping = logisticsQuote?.shippingCharge ?? calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings());
+    const shipping = logisticsQuote?.shippingCharge ?? (logisticsConfig.customerFreeShipping ? 0 : calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings()));
     const tax = 0;
     const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');

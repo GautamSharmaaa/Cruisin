@@ -37,6 +37,14 @@ const productFieldsSchema = z.object({
   imageAltText: z.string().max(180).optional().default(''),
   basePrice: z.number().min(0),
   comparePrice: z.number().min(0).optional(),
+  costPrice: z.number().min(0).optional(),
+  costBreakdown: z.object({
+    manufacturing: z.number().min(0).default(0),
+    packaging: z.number().min(0).default(0),
+    marketing: z.number().min(0).default(0),
+    handling: z.number().min(0).default(0),
+    other: z.number().min(0).default(0)
+  }).optional(),
   variants: z.array(variantSchema),
   tags: z.array(z.string()).default([]),
   productCode: z.string().optional(),

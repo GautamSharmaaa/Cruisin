@@ -53,7 +53,7 @@ const sortMap = { newest: { sortOrder: 1, createdAt: -1 }, 'price-asc': { basePr
 const adminSortMap = { updated: { updatedAt: -1 }, newest: { createdAt: -1 }, oldest: { createdAt: 1 }, 'price-asc': { basePrice: 1 }, 'price-desc': { basePrice: -1 }, 'sales-desc': { lifetimeSales: -1 }, 'title-asc': { title: 1 } } as const;
 type AdminDirectSort = keyof typeof adminSortMap;
 const publicProductQuery = { isActive: true, isArchived: { $ne: true }, visibility: 'visible', status: 'published' } as const;
-const publicProductProjection = '-costPrice -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
+const publicProductProjection = '-costPrice -costBreakdown -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
 
 const categoryFromFilter = async (category?: string, publicOnly = false): Promise<{ _id: unknown } | null | undefined> => {
   if (!category) return undefined;

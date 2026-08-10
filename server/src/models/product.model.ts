@@ -59,6 +59,13 @@ const productSchema = new Schema(
     productCode: { type: String, trim: true, uppercase: true, index: true },
     amazonAsin: { type: String, trim: true, default: '' },
     costPrice: { type: Number, min: 0 },
+    costBreakdown: {
+      manufacturing: { type: Number, min: 0, default: 0 },
+      packaging: { type: Number, min: 0, default: 0 },
+      marketing: { type: Number, min: 0, default: 0 },
+      handling: { type: Number, min: 0, default: 0 },
+      other: { type: Number, min: 0, default: 0 }
+    },
     gstPercent: { type: Number, min: 0 },
     hsnCode: { type: String, trim: true, default: '' },
     returnExchangeCondition: { type: String, trim: true, default: '' },

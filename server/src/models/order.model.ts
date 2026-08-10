@@ -25,6 +25,14 @@ const itemSchema = new Schema(
     color: { type: String, trim: true },
     quantity: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
+    unitCostBreakdown: {
+      manufacturing: { type: Number, min: 0, default: 0 },
+      packaging: { type: Number, min: 0, default: 0 },
+      marketing: { type: Number, min: 0, default: 0 },
+      handling: { type: Number, min: 0, default: 0 },
+      other: { type: Number, min: 0, default: 0 }
+    },
+    unitCostTotal: { type: Number, min: 0, default: 0 },
     image: { type: String, required: true }
   },
   { _id: false }

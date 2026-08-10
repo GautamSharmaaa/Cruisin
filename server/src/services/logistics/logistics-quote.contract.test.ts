@@ -141,10 +141,23 @@ describe('logistics quote ownership, freshness and authoritative pricing', () =>
     })).resolves.toMatchObject({
       quoteId,
       shippingMethod: 'standard',
-      shippingCharge: 92,
+      shippingCharge: 0,
       option: { courierId: 10, courierName: 'Mock Surface', providerCost: 80 }
     });
     expect(LogisticsQuoteModel.findOne).toHaveBeenCalledWith({ quoteId, user: userId });
+  });
+
+  it('keeps the provider cost while making the customer shipping charge free', async () => {
+    await expect(LogisticsQuoteService.validate(userId, {
+      quoteId,
+      shippingMethod: 'standard',
+      paymentMode: 'prepaid',
+      deliveryPostcode: '560001',
+      freeShipping: true
+    })).resolves.toMatchObject({
+      shippingCharge: 0,
+      option: { providerCost: 80, codCharge: 0, courierId: 10 }
+    });
   });
 
   it('rejects missing, foreign, expired, consumed and address/payment-mismatched quotes', async () => {

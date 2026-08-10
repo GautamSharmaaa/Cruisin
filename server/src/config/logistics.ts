@@ -27,6 +27,7 @@ export const logisticsConfig = {
   documentTtlSeconds: env.LOGISTICS_DOCUMENT_TTL_SECONDS,
   quoteTtlSeconds: env.LOGISTICS_QUOTE_TTL_SECONDS,
   packagingWeightKg: env.LOGISTICS_PACKAGING_WEIGHT_KG,
+  customerFreeShipping: env.LOGISTICS_CUSTOMER_FREE_SHIPPING,
   workerEnabled: env.LOGISTICS_WORKER_ENABLED,
   workerPollMs: env.LOGISTICS_WORKER_POLL_MS
 } as const;

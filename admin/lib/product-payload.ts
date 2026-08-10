@@ -49,6 +49,11 @@ export interface ProductPayloadInput {
   basePrice: number;
   comparePrice?: number;
   costPrice?: number;
+  manufacturingCost?: number;
+  packagingCost?: number;
+  marketingCost?: number;
+  handlingCost?: number;
+  otherCost?: number;
   gstPercent?: number;
   hsnCode?: string;
   productCode?: string;
@@ -63,7 +68,16 @@ export interface ProductPayloadInput {
 
 const listFromCsv = (value?: string): string[] => (value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
 
-export const productPayloadFromInput = (input: ProductPayloadInput): Record<string, unknown> => ({
+export const productPayloadFromInput = (input: ProductPayloadInput): Record<string, unknown> => {
+  const costBreakdown = {
+    manufacturing: input.manufacturingCost ?? input.costPrice ?? 0,
+    packaging: input.packagingCost ?? 0,
+    marketing: input.marketingCost ?? 0,
+    handling: input.handlingCost ?? 0,
+    other: input.otherCost ?? 0
+  };
+  const costPrice = Object.values(costBreakdown).reduce((sum, value) => sum + value, 0);
+  return ({
   title: input.title,
   slug: input.slug,
   description: input.description,
@@ -81,7 +95,8 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   imageAltText: input.imageAltText ?? '',
   basePrice: input.basePrice,
   comparePrice: input.comparePrice,
-  costPrice: input.costPrice,
+  costPrice,
+  costBreakdown,
   gstPercent: input.gstPercent,
   hsnCode: input.hsnCode ?? '',
   productCode: input.productCode ?? '',
@@ -126,4 +141,5 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   defaultPackagePreset: input.defaultPackagePreset?.trim() || undefined,
   maximumQuantityPerPackage: input.maximumQuantityPerPackage ?? 10,
   seo: { metaTitle: input.seoTitle || input.title, metaDesc: input.seoDescription || input.description, ogImage: input.ogImage || input.image }
-});
+  });
+};

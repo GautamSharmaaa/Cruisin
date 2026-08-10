@@ -10,9 +10,6 @@
     ]
   },
   "deploy": {
-    "preDeployCommand": [
-      "npm --workspace server run db:indexes:production"
-    ],
     "startCommand": "node server/dist/index.js",
     "healthcheckPath": "/ready",
     "healthcheckTimeout": 300,

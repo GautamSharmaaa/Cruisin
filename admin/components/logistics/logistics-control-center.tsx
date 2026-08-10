@@ -6,21 +6,85 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getLogisticsDocumentAccess, useFailedLogisticsNotifications, useLogisticsAction, useLogisticsKpis, useShipments, type Shipment } from '@/hooks/useLogistics';
+import { compareLogisticsCouriers, getLogisticsDocumentAccess, useFailedLogisticsNotifications, useLogisticsAction, useLogisticsKpis, useShipments, type CourierRate, type Shipment } from '@/hooks/useLogistics';
 import { formatPrice } from '@/lib/utils';
 
 const label = (value: string): string => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const orderId = (shipment: Shipment): string => typeof shipment.order === 'string' ? shipment.order : shipment.order?._id ?? '';
+const pickupRequestedStatuses = new Set([
+  'pickup_scheduled',
+  'picked_up',
+  'shipped',
+  'in_transit',
+  'reached_destination_hub',
+  'out_for_delivery',
+  'delivered',
+  'ndr',
+  'rto_initiated',
+  'rto_in_transit',
+  'rto_delivered',
+]);
 
 export function LogisticsControlCenter({ initialStatus }: { initialStatus?: string }): ReactNode {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState(initialStatus ?? '');
   const [documentNotice, setDocumentNotice] = useState('');
+  const [courierNotice, setCourierNotice] = useState('');
+  const [courierError, setCourierError] = useState('');
+  const [courierLoading, setCourierLoading] = useState(false);
+  const [courierShipment, setCourierShipment] = useState<Shipment | null>(null);
+  const [couriers, setCouriers] = useState<CourierRate[]>([]);
+  const [selectedCourierId, setSelectedCourierId] = useState<number | null>(null);
   const shipments = useShipments({ limit: 50, status: status || undefined, search: search || undefined });
   const kpis = useLogisticsKpis();
   const failedNotifications = useFailedLogisticsNotifications();
   const action = useLogisticsAction();
   const operate = (path: string, body?: Record<string, unknown>): void => action.mutate({ path, body });
+  const reviewCouriers = async (shipment: Shipment): Promise<void> => {
+    setCourierError('');
+    setCourierNotice('');
+    setCourierLoading(true);
+    try {
+      const comparison = await compareLogisticsCouriers(shipment._id);
+      const available = comparison.couriers
+        .filter((courier) => courier.serviceable)
+        .sort((left, right) => left.totalCharge - right.totalCharge);
+      if (!comparison.serviceable || available.length === 0) {
+        setCourierError('No courier is currently serviceable for this shipment.');
+        return;
+      }
+      setCourierShipment(shipment);
+      setCouriers(available);
+      setSelectedCourierId(available[0]?.courierId ?? null);
+    } catch (error) {
+      setCourierError(error instanceof Error ? error.message : 'Courier rates could not be loaded.');
+    } finally {
+      setCourierLoading(false);
+    }
+  };
+  const closeCourierReview = (force = false): void => {
+    if (action.isPending && !force) return;
+    setCourierShipment(null);
+    setCouriers([]);
+    setSelectedCourierId(null);
+  };
+  const assignSelectedCourier = (): void => {
+    if (!courierShipment || !selectedCourierId) return;
+    const selected = couriers.find((courier) => courier.courierId === selectedCourierId);
+    if (!selected) return;
+    action.mutate(
+      {
+        path: `/admin/logistics/${courierShipment._id}/assign-awb`,
+        body: { courierId: selected.courierId },
+      },
+      {
+        onSuccess: () => {
+          setCourierNotice(`AWB assigned to ${selected.courierName}.`);
+          closeCourierReview(true);
+        },
+      },
+    );
+  };
   const generateDocument = (shipmentId: string, kind: 'label' | 'invoice' | 'manifest', print = false): void => {
     const popup = print ? window.open('about:blank', '_blank') : null;
     if (print && !popup) {
@@ -95,18 +159,35 @@ export function LogisticsControlCenter({ initialStatus }: { initialStatus?: stri
           <td className="p-4 text-xs text-text-muted">{new Date(shipment.updatedAt).toLocaleString('en-IN')}</td>
           <td className="p-4"><div className="flex max-w-72 flex-wrap gap-2">
             {shipment.shipmentStatus === 'draft' && orderId(shipment) ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => operate(`/admin/logistics/orders/${orderId(shipment)}/create`)} disabled={action.isPending}><PackageCheck className="mr-1 h-3 w-3" />Create</Button> : null}
-            {shipment.shipmentStatus === 'provider_order_created' ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => operate(`/admin/logistics/${shipment._id}/assign-awb`)} disabled={action.isPending}>Assign AWB</Button> : null}
+            {shipment.shipmentStatus === 'provider_order_created' ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => void reviewCouriers(shipment)} disabled={action.isPending || courierLoading}>{courierLoading ? 'Loading rates…' : 'Select courier'}</Button> : null}
             {shipment.shipmentStatus === 'awb_assigned' ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => operate(`/admin/logistics/${shipment._id}/schedule-pickup`)} disabled={action.isPending}><Truck className="mr-1 h-3 w-3" />Pickup</Button> : null}
             {shipment.providerShipmentId ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => operate(`/admin/logistics/${shipment._id}/track`)} disabled={action.isPending}>Track</Button> : null}
-            {shipment.providerShipmentId ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'label')} disabled={action.isPending}><FileText className="mr-1 h-3 w-3" />Label</Button> : null}
-            {shipment.providerShipmentId ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'invoice')} disabled={action.isPending}>Invoice</Button> : null}
-            {shipment.providerShipmentId ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'manifest')} disabled={action.isPending}>Manifest</Button> : null}
-            {shipment.providerShipmentId ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'label', true)} disabled={action.isPending}><Printer className="mr-1 h-3 w-3" />Print Label</Button> : null}
+            {shipment.awb ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'label')} disabled={action.isPending}><FileText className="mr-1 h-3 w-3" />{shipment.label?.status === 'ready' ? 'Refresh label' : 'Generate label'}</Button> : <Button variant="secondary" className="min-h-9 px-3 text-[11px]" disabled title="Assign an AWB before generating a label"><FileText className="mr-1 h-3 w-3" />Label after AWB</Button>}
+            {shipment.providerOrderId ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'invoice')} disabled={action.isPending}>{shipment.invoice?.status === 'ready' ? 'Refresh invoice' : 'Generate invoice'}</Button> : null}
+            {pickupRequestedStatuses.has(shipment.shipmentStatus) ? <Button variant="secondary" className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'manifest')} disabled={action.isPending}>{shipment.manifest?.status === 'ready' ? 'Refresh manifest' : 'Generate manifest'}</Button> : <Button variant="secondary" className="min-h-9 px-3 text-[11px]" disabled title="Schedule pickup before generating a manifest">Manifest after pickup</Button>}
+            {shipment.label?.status === 'ready' ? <Button className="min-h-9 px-3 text-[11px]" onClick={() => generateDocument(shipment._id, 'label', true)} disabled={action.isPending}><Printer className="mr-1 h-3 w-3" />Print label</Button> : <Button className="min-h-9 px-3 text-[11px]" disabled title="Generate the label before printing"><Printer className="mr-1 h-3 w-3" />Print after label</Button>}
           </div></td>
         </tr>)}{!shipments.isLoading && !shipments.data?.items.length ? <tr><td colSpan={8} className="p-8 text-center text-text-muted">No shipments match these filters.</td></tr> : null}</tbody>
       </table>
     </div>
     {action.error ? <p role="alert" className="border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{action.error.message}</p> : null}
+    {courierError ? <p role="alert" className="border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{courierError}</p> : null}
+    {courierNotice ? <p role="status" className="border border-success/40 bg-success/10 p-3 text-sm text-text-primary">{courierNotice}</p> : null}
     {documentNotice ? <p aria-live="polite" className="border border-border bg-background-elevated p-3 text-sm text-text-secondary">{documentNotice}</p> : null}
+    {courierShipment ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" role="presentation">
+      <section role="dialog" aria-modal="true" aria-labelledby="courier-review-title" className="max-h-[90vh] w-full max-w-4xl overflow-y-auto border border-border bg-background-primary p-6 shadow-2xl">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div><p className="text-xs uppercase tracking-[0.14em] text-accent-gold">AWB courier selection</p><h2 id="courier-review-title" className="mt-2 font-display text-2xl">Review cost before assigning</h2><p className="mt-2 text-sm text-text-secondary">Order {courierShipment.sourceOrderId}. Assigning creates a real AWB; pickup remains a separate action.</p></div>
+          <Button variant="ghost" onClick={() => closeCourierReview()} disabled={action.isPending}>Close</Button>
+        </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {couriers.map((courier) => <label key={courier.courierId} className={`cursor-pointer border p-4 transition ${selectedCourierId === courier.courierId ? 'border-accent-gold bg-accent-gold/10' : 'border-border bg-background-elevated hover:border-border-strong'}`}>
+            <span className="flex items-start gap-3"><input type="radio" name="courier" className="mt-1" checked={selectedCourierId === courier.courierId} onChange={() => setSelectedCourierId(courier.courierId)} /><span className="min-w-0 flex-1"><span className="flex flex-wrap items-center justify-between gap-2"><strong className="text-text-primary">{courier.courierName}</strong><span className="font-mono text-accent-gold">{formatPrice(courier.totalCharge)}</span></span><span className="mt-2 grid gap-1 text-xs text-text-secondary sm:grid-cols-2"><span>Mode: {label(courier.shippingMode)}</span><span>Freight: {formatPrice(courier.freightCharge)}</span><span>COD: {formatPrice(courier.codCharge)}</span><span>Rating: {courier.rating ?? 'Unavailable'}</span><span>ETA: {courier.estimatedDeliveryDate ?? (courier.estimatedDeliveryDays ? `${courier.estimatedDeliveryDays} days` : 'Unavailable')}</span><span>Courier ID: {courier.courierId}</span></span></span></span>
+          </label>)}
+        </div>
+        <div className="mt-6 border border-warning/40 bg-warning/10 p-4 text-sm text-text-secondary"><strong className="text-text-primary">Confirm carefully:</strong> this action sends the selected courier ID to Shiprocket and creates the AWB. It does not schedule pickup.</div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button variant="secondary" onClick={() => closeCourierReview()} disabled={action.isPending}>Cancel</Button><Button onClick={assignSelectedCourier} disabled={!selectedCourierId || action.isPending}>{action.isPending ? 'Assigning AWB…' : 'Confirm & assign AWB'}</Button></div>
+      </section>
+    </div> : null}
   </div>;
 }

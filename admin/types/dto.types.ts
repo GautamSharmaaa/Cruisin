@@ -43,6 +43,7 @@ export interface ProductDto {
   basePrice: number;
   comparePrice?: number;
   costPrice?: number;
+  costBreakdown?: { manufacturing?: number; packaging?: number; marketing?: number; handling?: number; other?: number };
   gstPercent?: number;
   hsnCode?: string;
   tags?: string[];
@@ -324,7 +325,7 @@ export interface OrderDto {
   orderNumber?: string;
   user?: string;
   sessionId?: string;
-  items?: Array<{ title: string; sku: string; size?: string; color?: string; quantity: number; price: number; image?: string }>;
+  items?: Array<{ title: string; sku: string; size?: string; color?: string; quantity: number; price: number; unitCostBreakdown?: { manufacturing?: number; packaging?: number; marketing?: number; handling?: number; other?: number }; unitCostTotal?: number; image?: string }>;
   shippingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   paymentMethod?: 'razorpay' | 'stripe' | 'cod';

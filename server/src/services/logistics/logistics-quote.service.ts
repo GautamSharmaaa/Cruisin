@@ -131,7 +131,7 @@ export const LogisticsQuoteService = {
       declaredValue: subtotal
     });
     if (!rates.serviceable) throw new ApiError(400, 'Delivery is unavailable for this pincode');
-    const options = customerOptions(rates.couriers, Boolean(input.freeShipping));
+    const options = customerOptions(rates.couriers, logisticsConfig.customerFreeShipping || Boolean(input.freeShipping));
     if (options.length === 0) throw new ApiError(400, 'No eligible courier option is available');
     const quoteId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + logisticsConfig.quoteTtlSeconds * 1_000);
@@ -163,7 +163,7 @@ export const LogisticsQuoteService = {
     if (quote.cartFingerprint !== cartFingerprint(lines)) throw new ApiError(409, 'Your bag changed; refresh delivery options');
     const option = quote.options.find((candidate) => candidate.code === input.shippingMethod);
     if (!option || (input.paymentMode === 'cod' && !option.codAvailable)) throw new ApiError(409, 'Selected delivery option is no longer available');
-    const shippingCharge = input.freeShipping ? 0 : option.shippingCharge;
+    const shippingCharge = logisticsConfig.customerFreeShipping || input.freeShipping ? 0 : option.shippingCharge;
     return {
       quoteId: quote.quoteId,
       shippingMethod: option.code,

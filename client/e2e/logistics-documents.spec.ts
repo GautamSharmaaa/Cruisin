@@ -13,7 +13,7 @@ test('admin generates label, invoice, manifest and opens the secure Print Label 
     sourceOrderId: 'CR-DOC-QA',
     order: { _id: orderId, orderNumber: 'CR-DOC-QA', shippingAddress: { fullName: 'Document QA', postalCode: '560001' }, total: 2200 },
     shipmentType: 'forward',
-    shipmentStatus: 'awb_assigned',
+    shipmentStatus: 'pickup_scheduled',
     providerOrderId: 'MOCK-ORDER-DOC',
     providerShipmentId: 'MOCK-SHIPMENT-DOC',
     courierName: 'Mock Surface',
@@ -21,6 +21,7 @@ test('admin generates label, invoice, manifest and opens the secure Print Label 
     package: { deadWeightKg: 0.8, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
     updatedAt: '2026-07-28T00:00:00.000Z'
   };
+  let generatedDocuments: Record<string, unknown> = {};
 
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -39,9 +40,11 @@ test('admin generates label, invoice, manifest and opens the secure Print Label 
       const kind = generation[1] as string;
       generated.push(kind);
       await new Promise((resolve) => setTimeout(resolve, 75));
-      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ ...shipment, [kind]: { status: 'ready', url: `mock://documents/${kind}/CR-DOC-QA`, generatedAt: '2026-07-28T00:00:00.000Z', expiresAt: '2026-07-28T23:59:00.000Z' } }) });
+      const document = { status: 'ready', url: `mock://documents/${kind}/CR-DOC-QA`, generatedAt: '2026-07-28T00:00:00.000Z', expiresAt: '2026-07-28T23:59:00.000Z' };
+      generatedDocuments = { ...generatedDocuments, [kind]: document };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ ...shipment, ...generatedDocuments }) });
     }
-    if (path.endsWith('/admin/logistics')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ items: [shipment], total: 1, page: 1, pages: 1, limit: 50 }) });
+    if (path.endsWith('/admin/logistics')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ items: [{ ...shipment, ...generatedDocuments }], total: 1, page: 1, pages: 1, limit: 50 }) });
     return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([]) });
   });
 
@@ -53,12 +56,12 @@ test('admin generates label, invoice, manifest and opens the secure Print Label 
   await page.getByRole('link', { name: 'Logistics', exact: true }).click();
   await expect(page.getByText('CR-DOC-QA')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Label', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Invoice', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Generate label', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Generate invoice', exact: true })).toBeDisabled();
   await expect(page.getByText(/Label ready until/)).toBeVisible();
-  await page.getByRole('button', { name: 'Invoice', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate invoice', exact: true }).click();
   await expect(page.getByText(/Invoice ready until/)).toBeVisible();
-  await page.getByRole('button', { name: 'Manifest', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate manifest', exact: true }).click();
   await expect(page.getByText(/Manifest ready until/)).toBeVisible();
 
   const popupPromise = page.waitForEvent('popup');
@@ -78,6 +81,7 @@ test('document generation failure is visible and does not show a false success s
     shipmentType: 'forward',
     shipmentStatus: 'awb_assigned',
     providerShipmentId: 'MOCK-SHIPMENT-DOC',
+    awb: 'MOCKAWBFAIL001',
     updatedAt: '2026-07-28T00:00:00.000Z'
   };
   await page.route('**/api/v1/**', async (route) => {
@@ -96,7 +100,7 @@ test('document generation failure is visible and does not show a false success s
   await page.getByRole('button', { name: 'Enter Dashboard' }).click();
   await expect(page).toHaveURL(adminUrl + '/');
   await page.getByRole('link', { name: 'Logistics', exact: true }).click();
-  await page.getByRole('button', { name: 'Label', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate label', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'label generation is already in progress' })).toContainText('label generation is already in progress');
   await expect(page.getByText(/Label ready until/)).toHaveCount(0);
 });

@@ -36,7 +36,8 @@ const serviceabilitySchema = z.object({
       cod_charges: z.coerce.number().nonnegative().default(0),
       etd: z.union([z.string(), z.number()]).optional(),
       estimated_delivery_days: z.union([z.string(), z.number()]).optional(),
-      mode: z.string().optional(),
+      mode: z.union([z.string(), z.number()]).optional(),
+      is_surface: z.boolean().optional(),
       cod: z.coerce.number().optional(),
       rating: z.coerce.number().optional()
     }).passthrough()).default([])
@@ -114,10 +115,18 @@ const numberValue = (value: string | number | undefined): number | undefined => 
 const courierRate = (courier: z.infer<typeof serviceabilitySchema>['data']['available_courier_companies'][number]): CourierRate => {
   const codCharge = courier.cod_charges;
   const estimatedDeliveryDays = numberValue(courier.estimated_delivery_days);
+  const mode = typeof courier.mode === 'string' ? courier.mode.toLowerCase() : undefined;
+  const shippingMode = mode?.includes('air')
+    ? 'air'
+    : mode?.includes('surface') || courier.is_surface === true
+      ? 'surface'
+      : courier.is_surface === false
+        ? 'air'
+        : 'unknown';
   return {
     courierId: courier.courier_company_id,
     courierName: courier.courier_name,
-    shippingMode: courier.mode?.toLowerCase().includes('air') ? 'air' : courier.mode?.toLowerCase().includes('surface') ? 'surface' : 'unknown',
+    shippingMode,
     freightCharge: courier.rate,
     codCharge,
     totalCharge: courier.rate + codCharge,

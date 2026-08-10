@@ -60,11 +60,11 @@ describe('OrderService authenticated checkout', () => {
     cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
     productModel.find
       .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'TEST-S', size: 'S', color: 'Black', stock: 2, price: 1_000, images: [] }] }]) });
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], costBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, variants: [{ _id: variantId, sku: 'TEST-S', size: 'S', color: 'Black', stock: 2, price: 1_000, images: [] }] }]) });
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-TEST', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
-    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_test_provider', amount: 1_900, currency: 'INR', provider: 'razorpay' }) });
+    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_test_provider', amount: 1_000, currency: 'INR', provider: 'razorpay' }) });
     const { OrderService } = await import('./order.service.js');
 
     const result = await OrderService.checkout(customerId, {
@@ -76,10 +76,10 @@ describe('OrderService authenticated checkout', () => {
       billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
     });
 
-    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, total: 1_900, amountPaid: 0, amountDue: 1_900, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black' })] }));
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, shipping: 0, total: 1_000, amountPaid: 0, amountDue: 1_000, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black', unitCostBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, unitCostTotal: 380 })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
     expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledWith(customerId, expect.objectContaining({ line1: '1 Test Street' }));
-    expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_900 });
+    expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_000 });
   });
 
   it('uses the administrator delivery threshold as the server-authoritative order price', async () => {
