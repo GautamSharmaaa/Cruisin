@@ -2,4 +2,7 @@
 import axios from 'axios';
 import { API_CONFIG } from '@/constants/config';
 
-export const serverApi = axios.create({ baseURL: API_CONFIG.baseUrl, timeout: API_CONFIG.timeout });
+const proxyTarget = process.env.API_PROXY_TARGET?.replace(/\/$/, '');
+const baseURL = proxyTarget ? `${proxyTarget}/api/v1` : API_CONFIG.baseUrl;
+
+export const serverApi = axios.create({ baseURL, timeout: API_CONFIG.timeout });
