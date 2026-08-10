@@ -51,10 +51,7 @@ export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepai
   queryFn: async (): Promise<LogisticsQuote> => {
     const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
     if (items.length === 0) throw new Error('Add an item before checking delivery');
-    for (const item of items) {
-      const payload = { product: item.product.id, variant: item.variantId, quantity: item.quantity };
-      await api.put('/cart/items', payload).catch(() => api.post('/cart/items', payload));
-    }
+    await api.put('/cart/sync', { items: items.map((item) => ({ product: item.product.id, variant: item.variantId, quantity: item.quantity })) });
     const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode });
     return response.data.data;
   }

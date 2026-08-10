@@ -40,4 +40,22 @@ describe('CartService ownership and stock guards', () => {
     await expect(CartService.add(undefined, 'qa-session-12345', { product: productId, variant: variantId, quantity: 10 })).resolves.toEqual({ items: [] });
     expect(cart.items[0]?.quantity).toBe(30);
   });
+
+  it('atomically replaces stale server items during checkout synchronization', async () => {
+    productModel.findOne.mockResolvedValue({ variants: [{ _id: variantId, enabled: true, stock: 5, price: 125 }] });
+    const populate = vi.fn().mockResolvedValue({ items: [] });
+    cartModel.findOneAndUpdate.mockResolvedValue({ populate });
+    await expect(CartService.sync(undefined, 'qa-session-12345', [{ product: productId, variant: variantId, quantity: 2 }])).resolves.toEqual({ items: [] });
+    expect(cartModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { sessionId: 'qa-session-12345' },
+      expect.objectContaining({ $set: expect.objectContaining({ items: [expect.objectContaining({ quantity: 2, price: 125 })] }) }),
+      { upsert: true, new: true }
+    );
+  });
+
+  it('rejects duplicate items in a synchronized cart', async () => {
+    const item = { product: productId, variant: variantId, quantity: 1 };
+    await expect(CartService.sync(undefined, 'qa-session-12345', [item, item])).rejects.toMatchObject({ statusCode: 400 });
+    expect(productModel.findOne).not.toHaveBeenCalled();
+  });
 });

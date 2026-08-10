@@ -66,6 +66,13 @@ export interface ProductPayloadInput {
   imageAltText?: string;
 }
 
+const DEFAULT_SHIPPING_MEASUREMENTS = {
+  weight: 0.2,
+  length: 30.48,
+  width: 25.4,
+  height: 2
+} as const;
+
 const listFromCsv = (value?: string): string[] => (value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
 
 export const productPayloadFromInput = (input: ProductPayloadInput): Record<string, unknown> => {
@@ -135,8 +142,12 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   productHighlights: listFromCsv(input.productHighlights),
   pickupAddress: input.pickupAddress ?? '',
   lowStockThreshold: input.lowStockThreshold ?? 10,
-  weight: input.weight,
-  dimensions: { length: input.length, width: input.width, height: input.height },
+  weight: input.weight ?? DEFAULT_SHIPPING_MEASUREMENTS.weight,
+  dimensions: {
+    length: input.length ?? DEFAULT_SHIPPING_MEASUREMENTS.length,
+    width: input.width ?? DEFAULT_SHIPPING_MEASUREMENTS.width,
+    height: input.height ?? DEFAULT_SHIPPING_MEASUREMENTS.height
+  },
   packagingWeight: input.packagingWeight,
   defaultPackagePreset: input.defaultPackagePreset?.trim() || undefined,
   maximumQuantityPerPackage: input.maximumQuantityPerPackage ?? 10,

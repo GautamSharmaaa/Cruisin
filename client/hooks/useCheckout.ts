@@ -26,20 +26,6 @@ export interface CheckoutResult {
   reused?: boolean;
 }
 
-interface ServerCartItem {
-  product?: string | { _id?: string; id?: string };
-  variant?: string | { _id?: string; id?: string };
-}
-
-interface ServerCartResponse {
-  items?: ServerCartItem[];
-}
-
-const refId = (value: ServerCartItem['product']): string => {
-  if (typeof value === 'string') return value;
-  return value?._id ?? value?.id ?? '';
-};
-
 const attemptStorageKey = 'cruisin:checkout-attempt';
 const checkoutFingerprint = (input: CheckoutInput, items: ReturnType<typeof useCartStore.getState>['items'], coupon?: string): string => {
   const source = JSON.stringify({
@@ -77,25 +63,7 @@ export const useCheckout = () => {
       const cartState = useCartStore.getState();
       const checkoutItems = cartState.items.filter((item) => isCustomerVisibleProduct(item.product));
       if (checkoutItems.length === 0) throw new Error('Cart is empty');
-      const serverCartResponse = await api.get<ApiEnvelope<ServerCartResponse>>('/cart').catch(() => null);
-      const serverItems = serverCartResponse?.data.data?.items ?? [];
-      const checkoutKeys = new Set(checkoutItems.map((item) => item.product.id + ':' + item.variantId));
-      await Promise.all(serverItems.map(async (item) => {
-        const productId = refId(item.product);
-        const variantId = refId(item.variant);
-        if (!productId || !variantId || checkoutKeys.has(productId + ':' + variantId)) return;
-        await api.delete('/cart/items/' + encodeURIComponent(productId) + '/' + encodeURIComponent(variantId)).catch(() => undefined);
-      }));
-      const unavailable: typeof checkoutItems = [];
-      for (const item of checkoutItems) {
-        const payload = { product: item.product.id, variant: item.variantId, quantity: item.quantity };
-        await api.put('/cart/items', payload).catch(() => api.post('/cart/items', payload)).catch(() => unavailable.push(item));
-      }
-      if (unavailable.length > 0) {
-        const store = useCartStore.getState();
-        unavailable.forEach((item) => store.removeItem(item.product.id, item.variantId));
-        throw new Error('Some unavailable items were removed. Review your bag and try again.');
-      }
+      await api.put('/cart/sync', { items: checkoutItems.map((item) => ({ product: item.product.id, variant: item.variantId, quantity: item.quantity })) });
       const endpoint = input.paymentMode === 'cod' ? '/orders/cod' : input.paymentMode === 'partial' ? '/orders/partial/create' : '/payments/razorpay/create-order';
       const fingerprint = checkoutFingerprint(input, checkoutItems, cartState.coupon);
       const idempotencyKey = input.idempotencyKey ?? checkoutAttemptKey(fingerprint);

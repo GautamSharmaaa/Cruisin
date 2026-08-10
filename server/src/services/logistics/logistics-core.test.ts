@@ -49,10 +49,10 @@ describe('package calculation', () => {
     expect(parcel).toMatchObject({ productWeightKg: 1.8, packagingWeightKg: 0.4, deadWeightKg: 2.2, lengthCm: 32, breadthCm: 22, heightCm: 12, measurementConfirmed: true });
   });
 
-  it('marks deterministic mock fallbacks as unconfirmed', async () => {
+  it('uses the editable catalog defaults when measurements are absent', async () => {
     const parcel = await calculatePackage([{ product: { title: 'Legacy Tee' }, variant: { sku: 'LEGACY-M' }, quantity: 1 }]);
-    expect(parcel.measurementConfirmed).toBe(false);
-    expect(parcel.warnings[0]).toContain('Mock measurements');
+    expect(parcel).toMatchObject({ productWeightKg: 0.2, lengthCm: 30.48, breadthCm: 25.4, heightCm: 2, measurementConfirmed: true });
+    expect(parcel.warnings[0]).toContain('Default shipping measurements');
   });
 
   it('rejects quantities above the per-package limit', async () => {

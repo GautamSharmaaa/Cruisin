@@ -70,22 +70,22 @@ describe('authoritative package calculation contract', () => {
     });
   });
 
-  it('marks missing, zero and negative source measurements unconfirmed in mock mode', async () => {
+  it('uses the editable catalog defaults for missing, zero and negative source measurements', async () => {
     const parcel = await calculatePackage([{
       product: { title: 'Invalid legacy parcel', weight: 0, dimensions: { length: -1, width: 0 }, packagingWeight: -2 },
       variant: { sku: 'LEGACY-INVALID' },
       quantity: 1
     }]);
     expect(parcel).toMatchObject({
-      productWeightKg: 0.25,
+      productWeightKg: 0.2,
       packagingWeightKg: 0.1,
-      deadWeightKg: 0.35,
-      lengthCm: 20,
-      breadthCm: 15,
-      heightCm: 3,
-      measurementConfirmed: false
+      deadWeightKg: 0.3,
+      lengthCm: 30.48,
+      breadthCm: 25.4,
+      heightCm: 2,
+      measurementConfirmed: true
     });
-    expect(parcel.warnings).toEqual([expect.stringContaining('confirm before live shipping')]);
+    expect(parcel.warnings).toEqual([expect.stringContaining('Default shipping measurements')]);
   });
 
   it('applies an active package preset and enforces its quantity limit', async () => {

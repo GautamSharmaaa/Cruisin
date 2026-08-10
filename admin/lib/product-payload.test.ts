@@ -22,4 +22,20 @@ describe('product internal cost payload', () => {
     expect(payload.costBreakdown).toEqual({ manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 });
     expect(payload.costPrice).toBe(380);
   });
+
+  it('supplies editable shipping defaults when measurements are omitted', () => {
+    const payload = productPayloadFromInput({
+      title: 'Default Parcel Tee',
+      slug: 'default-parcel-tee',
+      description: 'A sufficiently detailed product description.',
+      richDescription: 'A sufficiently detailed rich product description.',
+      category: '66b000000000000000000001',
+      basePrice: 999,
+      variants: [{ sku: 'DEFAULT-M', size: 'M', color: 'Black', colorHex: '#000000', stock: 1, enabled: true, images: ['https://example.test/tee.jpg'] }],
+      image: 'https://example.test/tee.jpg'
+    });
+
+    expect(payload.weight).toBe(0.2);
+    expect(payload.dimensions).toEqual({ length: 30.48, width: 25.4, height: 2 });
+  });
 });

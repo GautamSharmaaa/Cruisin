@@ -115,10 +115,10 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     productHighlights: product.productHighlights?.join(', ') ?? '',
     pickupAddress: product.pickupAddress ?? '',
     lowStockThreshold: product.lowStockThreshold ?? 10,
-    weight: product.weight,
-    length: product.dimensions?.length,
-    width: product.dimensions?.width,
-    height: product.dimensions?.height,
+    weight: product.weight ?? PRODUCT_FORM_DEFAULTS.weight,
+    length: product.dimensions?.length ?? PRODUCT_FORM_DEFAULTS.length,
+    width: product.dimensions?.width ?? PRODUCT_FORM_DEFAULTS.width,
+    height: product.dimensions?.height ?? PRODUCT_FORM_DEFAULTS.height,
     packagingWeight: product.packagingWeight,
     defaultPackagePreset: product.defaultPackagePreset ?? '',
     maximumQuantityPerPackage: product.maximumQuantityPerPackage ?? 10,
@@ -547,7 +547,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       <Input label="Product highlights" error={formState.errors.productHighlights?.message} {...register('productHighlights')} />
     </AdminFormSection> : null}
 
-    {activeTab === 'shipping' ? <AdminFormSection title="Shipping & Attributes" description="Record measured kilograms and packed centimetres. Live shipment creation rejects missing or unconfirmed package data." columns={3}>
+    {activeTab === 'shipping' ? <AdminFormSection title="Shipping & Attributes" description="Defaults are 12 × 10 inches (30.48 × 25.4 cm), 2 cm high and 0.2 kg. Replace them with measured packed values whenever needed." columns={3}>
       <Input label="Product weight (kg)" type="number" min={0} step="0.001" error={formState.errors.weight?.message} {...register('weight')} />
       <Input label="Packed length (cm)" type="number" min={0} step="0.1" error={formState.errors.length?.message} {...register('length')} />
       <Input label="Packed breadth (cm)" type="number" min={0} step="0.1" error={formState.errors.width?.message} {...register('width')} />

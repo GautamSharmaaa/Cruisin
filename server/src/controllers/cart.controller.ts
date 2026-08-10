@@ -6,6 +6,7 @@ import { asyncHandler } from '../utils/async-handler.js';
 
 export const CartController = {
   get: asyncHandler(async (req: Request, res: Response): Promise<void> => { const cart = await CartService.get(req.user?.userId, req.sessionId); res.json(new ApiResponse(cart, 'Cart loaded')); }),
+  sync: asyncHandler(async (req: Request<Record<string, string>, unknown, { items: Array<{ product: string; variant: string; quantity: number }> }>, res: Response): Promise<void> => { const cart = await CartService.sync(req.user?.userId, req.sessionId, req.body.items); res.json(new ApiResponse(cart, 'Cart synchronized')); }),
   add: asyncHandler(async (req: Request<Record<string, string>, unknown, { product: string; variant: string; quantity: number }>, res: Response): Promise<void> => { const cart = await CartService.add(req.user?.userId, req.sessionId, req.body); res.status(201).json(new ApiResponse(cart, 'Item added')); }),
   update: asyncHandler(async (req: Request<Record<string, string>, unknown, { product: string; variant: string; quantity: number }>, res: Response): Promise<void> => { const cart = await CartService.update(req.user?.userId, req.sessionId, req.body); res.json(new ApiResponse(cart, 'Cart updated')); }),
   remove: asyncHandler(async (req: Request, res: Response): Promise<void> => { const cart = await CartService.remove(req.user?.userId, req.sessionId, String(req.params.product ?? ''), String(req.params.variant ?? '')); res.json(new ApiResponse(cart, 'Item removed')); }),

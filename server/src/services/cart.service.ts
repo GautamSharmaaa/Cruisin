@@ -22,6 +22,22 @@ export const CartService = {
   async get(userId?: string, sessionId?: string): Promise<unknown> {
     return await CartModel.findOne(ownerQuery(userId, sessionId)).populate('items.product').lean() ?? { items: [] };
   },
+  async sync(userId: string | undefined, sessionId: string | undefined, items: Array<{ product: string; variant: string; quantity: number }>): Promise<unknown> {
+    const uniqueKeys = new Set(items.map((item) => item.product + ':' + item.variant));
+    if (uniqueKeys.size !== items.length) throw new ApiError(400, 'Cart contains duplicate items');
+    const validatedItems = await Promise.all(items.map(async (item) => {
+      const variant = await availableVariant(item.product, item.variant);
+      if (item.quantity > variant.stock) throw new ApiError(409, 'Requested quantity exceeds available stock');
+      return { product: new Types.ObjectId(item.product), variant: new Types.ObjectId(item.variant), quantity: item.quantity, price: variant.price };
+    }));
+    const owner = ownerQuery(userId, sessionId);
+    const cart = await CartModel.findOneAndUpdate(
+      owner,
+      { $set: { items: validatedItems, expiresAt: cartExpiry() }, $setOnInsert: owner },
+      { upsert: true, new: true }
+    );
+    return cart.populate('items.product');
+  },
   async add(userId: string | undefined, sessionId: string | undefined, input: { product: string; variant: string; quantity: number }): Promise<unknown> {
     const variant = await availableVariant(input.product, input.variant);
     const cart = await CartModel.findOneAndUpdate(ownerQuery(userId, sessionId), { $setOnInsert: { ...ownerQuery(userId, sessionId), expiresAt: cartExpiry() } }, { upsert: true, new: true });
