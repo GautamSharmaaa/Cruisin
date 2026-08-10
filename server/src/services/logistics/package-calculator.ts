@@ -34,7 +34,7 @@ export interface PackageLine {
 const round = (value: number): number => Math.round((value + Number.EPSILON) * 1_000) / 1_000;
 const valid = (value: number | null | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
 const DEFAULT_MEASUREMENTS = {
-  weightKg: 0.2,
+  weightKg: 0.27,
   lengthCm: 30.48,
   breadthCm: 25.4,
   heightCm: 2

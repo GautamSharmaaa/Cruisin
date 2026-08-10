@@ -77,8 +77,8 @@ describe('authoritative package calculation contract', () => {
       quantity: 1
     }]);
     expect(parcel).toMatchObject({
-      productWeightKg: 0.2,
-      packagingWeightKg: 0.1,
+      productWeightKg: 0.27,
+      packagingWeightKg: 0.03,
       deadWeightKg: 0.3,
       lengthCm: 30.48,
       breadthCm: 25.4,

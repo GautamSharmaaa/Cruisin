@@ -51,7 +51,7 @@ describe('package calculation', () => {
 
   it('uses the editable catalog defaults when measurements are absent', async () => {
     const parcel = await calculatePackage([{ product: { title: 'Legacy Tee' }, variant: { sku: 'LEGACY-M' }, quantity: 1 }]);
-    expect(parcel).toMatchObject({ productWeightKg: 0.2, lengthCm: 30.48, breadthCm: 25.4, heightCm: 2, measurementConfirmed: true });
+    expect(parcel).toMatchObject({ productWeightKg: 0.27, lengthCm: 30.48, breadthCm: 25.4, heightCm: 2, measurementConfirmed: true });
     expect(parcel.warnings[0]).toContain('Default shipping measurements');
   });
 

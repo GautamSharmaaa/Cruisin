@@ -97,13 +97,13 @@ const productSchema = new Schema(
     sortOrder: { type: Number, default: 0, index: true },
     relatedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
     recommendedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
-    weight: { type: Number, min: 0, max: 100, default: 0.2 },
+    weight: { type: Number, min: 0, max: 100, default: 0.27 },
     dimensions: {
       length: { type: Number, min: 0, max: 300, default: 30.48 },
       width: { type: Number, min: 0, max: 300, default: 25.4 },
       height: { type: Number, min: 0, max: 300, default: 2 }
     },
-    packagingWeight: { type: Number, min: 0 },
+    packagingWeight: { type: Number, min: 0, default: 0.03 },
     defaultPackagePreset: { type: String, trim: true },
     maximumQuantityPerPackage: { type: Number, min: 1, default: 10 },
     ratings: {

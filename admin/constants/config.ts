@@ -4,7 +4,8 @@ export const IDENTITY_CONFIG = { googleClientId: process.env.NEXT_PUBLIC_GOOGLE_
 export const PRODUCT_FORM_DEFAULTS = {
   colorHex: '#080808',
   image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85',
-  weight: 0.2,
+  weight: 0.27,
+  packagingWeight: 0.03,
   length: 30.48,
   width: 25.4,
   height: 2

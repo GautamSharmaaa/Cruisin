@@ -119,7 +119,7 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     length: product.dimensions?.length ?? PRODUCT_FORM_DEFAULTS.length,
     width: product.dimensions?.width ?? PRODUCT_FORM_DEFAULTS.width,
     height: product.dimensions?.height ?? PRODUCT_FORM_DEFAULTS.height,
-    packagingWeight: product.packagingWeight,
+    packagingWeight: product.packagingWeight ?? PRODUCT_FORM_DEFAULTS.packagingWeight,
     defaultPackagePreset: product.defaultPackagePreset ?? '',
     maximumQuantityPerPackage: product.maximumQuantityPerPackage ?? 10,
     seoTitle: product.seo?.metaTitle ?? product.title,

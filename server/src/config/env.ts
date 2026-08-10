@@ -92,7 +92,7 @@ const envSchema = z.object({
   LOGISTICS_WHATSAPP_NOTIFICATIONS_ENABLED: envBoolean(false),
   LOGISTICS_DOCUMENT_TTL_SECONDS: z.coerce.number().int().min(300).max(86_400).default(3_600),
   LOGISTICS_QUOTE_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
-  LOGISTICS_PACKAGING_WEIGHT_KG: z.coerce.number().positive().max(25).default(0.1),
+  LOGISTICS_PACKAGING_WEIGHT_KG: z.coerce.number().positive().max(25).default(0.03),
   LOGISTICS_CUSTOMER_FREE_SHIPPING: envBoolean(false),
   LOGISTICS_WORKER_ENABLED: envBoolean(false),
   LOGISTICS_WORKER_POLL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000)
