@@ -10,7 +10,7 @@ Prepared on 2026-08-11. This report covers development and verification only. No
 - Production indexes modified during development: **0**
 - Production destructive commands: **0**
 - Full repository verification: **PASS**
-- Isolated logistics Playwright matrix: **10/10 PASS**
+- Isolated logistics Playwright matrix: **11/11 PASS**
 - Production dependency audit: **0 vulnerabilities**
 - Deployment: **NOT STARTED — awaiting explicit approval**
 - Recommendation: **CONDITIONAL GO**
@@ -23,7 +23,8 @@ Prepared on 2026-08-11. This report covers development and verification only. No
 - Pre-change checkpoint: `41c5e33c9d61e91f25ae340edd3b1656d42cb715`
 - Base implementation revision: `fcd9aeb`
 - Admin-only mutations/provider-authoritative sync revision: `739a646`
-- Latest revision diff: 37 files, 775 insertions, 126 deletions.
+- Robust mutation/sync verification revision: `8d2dc44`
+- Latest revision diff from the pre-change checkpoint: 86 files, 2,894 insertions, 726 deletions.
 
 ### 2. Backup result
 
@@ -196,10 +197,10 @@ Provider freight, COD, other, return, exchange, and RTO costs now feed logistics
 
 `npm run verify:logistics` passed end-to-end:
 
-- Server: 40 files, 259 tests passed.
+- Server: 40 files, 263 tests passed.
 - Client: 15 files, 56 tests passed.
 - Admin: 5 files, 22 tests passed.
-- Focused logistics: 10 files, 55 tests passed.
+- Focused logistics: 16 files, 114 tests passed.
 - Lint: all workspaces passed.
 - Typecheck: all workspaces passed.
 - Production builds: client, admin, and server passed.
@@ -207,22 +208,23 @@ Provider freight, COD, other, return, exchange, and RTO costs now feed logistics
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - `git diff --check`: passed.
 
-Coverage includes sync mapping/dedupe/terminal guards, bounded bulk reconciliation, provider cost fields, document-vs-mutation guards, logistics and return/exchange RBAC, forward-vs-reverse cancellation semantics, webhook lookup priority/replay/security, archive/restore/delete eligibility, transaction fail-closed behavior, tombstones, corrected analytics/revenue, IST boundaries, and cache invalidation.
+Coverage includes sync mapping/dedupe/terminal guards, repeated-sync idempotency, fail-closed provider-order/shipment/AWB conflicts, exact Shiprocket mutation endpoints and payload shapes, bounded bulk reconciliation, provider cost fields, document-vs-mutation guards, logistics and return/exchange RBAC, forward-vs-reverse cancellation semantics, cancellation financial invariants, webhook lookup priority/replay/security, archive/restore/delete eligibility, transaction fail-closed behavior, tombstones, corrected analytics/revenue, IST boundaries, and cache invalidation.
 
 ### 40. Playwright results
 
-The exact guarded localhost database and Redis DB 15 were seeded in mock Shiprocket mode with live reads/documents/mutations disabled. Result: **10/10 passed**. The matrix covers the top-level authoritative sync and absence of the old Refresh control, success and partial-failure retry, admin AWB/pickup/manifest/cancellation controls, preserved Print Label/Invoice, manager denial of provider mutations/documents, the `Ship` fallback, prepaid settlement/provider outage/retry/idempotency, webhook delivery, NDR, RTO inventory, return, exchange, and exact typed confirmation for a safe test order. The deletion test stops at the confirmation gate and does not permanently delete.
+The exact guarded localhost database and Redis DB 15 were seeded in mock Shiprocket mode with live reads/documents/mutations disabled. Result: **11/11 passed** across repeated clean reseeds. The matrix covers the top-level authoritative sync and absence of the old Refresh control, success and partial-failure retry, immediate repeated-sync idempotency, admin AWB/pickup/manifest/cancellation controls, actual label/invoice document opening, manager API denial of every provider mutation/document action, cancellation idempotency and unchanged payment/refund/revenue values, the `Ship` fallback, prepaid settlement/provider outage/retry/idempotency, webhook delivery, NDR, RTO inventory, return, exchange, and exact typed confirmation for a safe test order. The deletion test stops at the confirmation gate and does not permanently delete.
 
 ### 41. Browser QA
 
 Manual in-app browser QA against isolated localhost data verified:
 
 - Logistics page top-right `Sync with Shiprocket` in place of Refresh, provider IDs, courier, AWB, pickup/status/ETA/update/location, sync diagnostics, admin mutation controls, and preserved `Print label`/`Print invoice`.
+- Admin/superadmin mutation actions are visible when eligible; manager retains the top read-only provider sync but has no AWB, pickup, label, invoice, manifest, cancellation, provider-order, or `Ship` mutation controls.
 - Active/Archived/All views, archive confirmation, archived badge, Restore, always-visible Delete, and blocked real-order delete reasons.
 - Analytics refresh/range controls, test-data toggle, IST last-updated display, and fixture metrics.
 - Customer-safe tracking details and timeline.
 
-The isolated manual bulk sync reported two scanned, two changed, zero unchanged, and zero failed. The browser console had zero errors. The exact safe-test-order typing behavior was additionally verified in real-browser Playwright: wrong text keeps deletion disabled; exact text enables it; the test cancels without deleting. No production service or database was used for browser QA.
+On a fresh deterministic seed, the first isolated manual bulk sync reported three scanned, three changed, zero unchanged, and zero failed; the immediate second sync reported three scanned, zero changed, three unchanged, and zero failed. Admin and manager browser consoles had zero errors. Browser request inspection also proved the manager dashboard no longer requests the admin-only users directory. The exact safe-test-order typing behavior was additionally verified in real-browser Playwright: wrong text keeps deletion disabled; exact text enables it; the test cancels without deleting. No production service or database was used for browser QA.
 
 ### 42. Production read-only comparison
 
@@ -244,8 +246,8 @@ Before deployment:
 2. Create a strong webhook secret and configure the same value in Railway and Shiprocket without exposing it to frontend builds or logs.
 3. Confirm the public HTTPS target ends with `/api/v1/webhooks/logistics-events` and receives the configured `x-api-key`.
 4. Run one bounded reconciliation manually and confirm `Shiprocket mutations: 0` before enabling the five-minute fallback schedule.
-5. In an approved window, use one disposable Shiprocket test order to validate admin/superadmin provider order, AWB, pickup, label/invoice/manifest, cancellation, webhook receipt, retry/idempotency, and manager/viewer denial. Only after that check should `SHIPROCKET_MODE=live`, `SHIPROCKET_ALLOW_LIVE_DOCUMENTS=true`, and `SHIPROCKET_ALLOW_LIVE_MUTATIONS=true` be enabled for normal admin use. Keep every `SHIPROCKET_AUTO_*` flag false.
-6. Confirm Atlas transactions with one explicitly marked, unpaid disposable test order after deployment. Stop for separate approval before any first real production permanent deletion.
+5. The user has elected not to create a disposable live Shiprocket order. Therefore account-specific acceptance of provider order, AWB, pickup, label/invoice/manifest, cancellation, webhook delivery, and live retry behavior remains unverified. The safest activation is to keep document/mutation permissions false. If the residual risk is explicitly accepted and they are enabled anyway, keep every `SHIPROCKET_AUTO_*` flag false, grant UI access only to admin/superadmin as implemented, and observe the first real admin operation one step at a time before continuing to the next mutation.
+6. Atlas transaction behavior for permanent deletion is also not live-verified without an explicitly marked unpaid disposable test order. Keep production permanent deletion out of the initial deployment and stop for separate approval before any first real deletion.
 7. Validate corrected analytics, provider costs, sync health, customer/admin tracking, and webhook receipt after deployment.
 
 The mutation controls are present by request, but authorization does not rely on button visibility: every provider-changing route independently requires admin/superadmin. Managers can use the provider-authoritative read-only sync and local workflows only.
@@ -254,7 +256,7 @@ The mutation controls are present by request, but authorization does not rely on
 
 ## CONDITIONAL GO
 
-The code, isolated safety controls, builds, tests, browser coverage, backup, and restore are deployment-ready. Deployment should proceed only after the webhook/public-URL and staged live-readonly environment checklist in sections 43–45 is satisfied and the user explicitly approves deployment. Enable documents and mutations only after the disposable-order controlled test; keep automatic mutations disabled. Do not perform permanent production deletion as part of initial deployment.
+The code, isolated safety controls, builds, tests, browser coverage, backup, and restore are deployment-ready. Deployment should proceed only after the webhook/public-URL and staged live-readonly environment checklist in sections 43–45 is satisfied and the user explicitly approves deployment. Because no disposable live order will be used, the code gate is passed but the live account-specific mutation gate remains unverified: prefer keeping document/mutation permissions disabled, or explicitly accept that residual risk and closely observe each first real admin operation. Keep automatic mutations disabled and do not perform permanent production deletion as part of initial deployment.
 
 ## Changed-file groups
 
@@ -263,4 +265,4 @@ The code, isolated safety controls, builds, tests, browser coverage, backup, and
 - Server: separate read/document/mutation gates, admin-only mutation RBAC, bounded bulk reconciliation, provider cost/status synchronization, cancellation semantics, analytics service, order management/tombstone/routes/validation, webhook/status/controller/model diagnostics, test DB guard, isolated seed, and tests.
 - Operations/docs: environment examples, package scripts, activation/rollback instructions, backup verification, and this final report.
 
-Use `git show --stat fcd9aeb` for the base implementation and `git show --stat 739a646` for the admin-only mutation/provider-sync revision.
+Use `git show --stat fcd9aeb` for the base implementation, `git show --stat 739a646` for the admin-only mutation/provider-sync revision, and `git show --stat 8d2dc44` for the final robust verification expansion.
