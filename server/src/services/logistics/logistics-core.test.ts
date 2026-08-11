@@ -180,9 +180,39 @@ describe('mock provider and status normalization', () => {
     expect(shipment.shipmentStatus).toBe('delivered');
     expect(first.scansAdded).toBe(1);
     expect(second.scansAdded).toBe(0);
+    expect(second.changed).toBe(false);
     expect(shipment.trackingScans).toHaveLength(1);
     expect(orderUpdate).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['order ID', { providerOrderId: 'conflicting-order', providerShipmentId: '2005', awb: 'AWB-INTEGRITY' }],
+    ['shipment ID', { providerOrderId: '1005', providerShipmentId: 'conflicting-shipment', awb: 'AWB-INTEGRITY' }],
+    ['AWB', { providerOrderId: '1005', providerShipmentId: '2005', awb: 'conflicting-awb' }]
+  ])('fails closed when Shiprocket returns a conflicting %s', async (_label, identifiers) => {
+    const shipment = new ShipmentModel({
+      order: '66b000000000000000000001',
+      shipmentType: 'forward',
+      sourceOrderId: 'CR-SYNC-INTEGRITY',
+      providerOrderId: '1005',
+      providerShipmentId: '2005',
+      awb: 'AWB-INTEGRITY',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'in_transit',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'forward:sync-integrity'
+    });
+    const save = vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+
+    await expect(applyShiprocketSnapshot(shipment, {
+      ...identifiers,
+      status: 'in_transit',
+      rawStatus: 'In Transit',
+      scans: []
+    }, 'manual_sync')).rejects.toMatchObject({ code: 'invalid_payload', retryable: false, statusCode: 409 });
+    expect(save).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
 

@@ -40,14 +40,14 @@ export function Topbar({ onMenu }: TopbarProps): ReactNode {
     const timer = window.setTimeout(() => setSyncNotice(null), 8_000);
     return () => window.clearTimeout(timer);
   }, [syncNotice]);
-  return <header className="sticky top-0 z-30 border-b border-border bg-background-primary/90 backdrop-blur-2xl"><div className="mx-auto flex min-h-16 max-w-[1480px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8"><div className="flex min-w-0 flex-1 items-center gap-3"><button type="button" aria-label={COPY.nav.menu} onClick={onMenu} className="flex h-11 w-11 shrink-0 items-center justify-center border border-border text-text-primary transition hover:border-border-strong lg:hidden"><Menu size={18} /></button><GlobalSearch /></div><div className="flex shrink-0 items-center gap-2">{isLogisticsHome ? <Button type="button" onClick={synchronizeShiprocket} disabled={shiprocketSync.isPending || !canSyncShiprocket} aria-label="Sync with Shiprocket" title={canSyncShiprocket ? 'Fetch current active-shipment values from Shiprocket' : 'Manager, admin or superadmin access required'} className="gap-2 px-3"><RefreshCw size={16} className={shiprocketSync.isPending ? 'animate-spin' : ''} /><span className="hidden sm:inline">{shiprocketSync.isPending ? 'Syncing with Shiprocket…' : 'Sync with Shiprocket'}</span></Button> : <Button type="button" variant="ghost" onClick={refresh} aria-label={COPY.common.refresh} className="px-3"><RefreshCw size={16} /></Button>}<Button type="button" variant="secondary" onClick={logout} aria-label={COPY.nav.logout} className="gap-2"><LogOut size={16} /><span className="hidden sm:inline">{COPY.nav.logout}</span></Button></div></div>{syncNotice ? <p role={syncNotice.tone === 'error' ? 'alert' : 'status'} className={`fixed right-5 top-20 z-50 max-w-md border bg-background-elevated px-4 py-3 text-sm shadow-lg ${syncNotice.tone === 'error' ? 'border-danger text-danger' : syncNotice.tone === 'warning' ? 'border-warning text-text-primary' : 'border-success text-success'}`}>{syncNotice.message}</p> : null}</header>;
+  return <header className="sticky top-0 z-30 border-b border-border bg-background-primary/90 backdrop-blur-2xl"><div className="mx-auto flex min-h-16 max-w-[1480px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8"><div className="flex min-w-0 flex-1 items-center gap-3"><button type="button" aria-label={COPY.nav.menu} onClick={onMenu} className="flex h-11 w-11 shrink-0 items-center justify-center border border-border text-text-primary transition hover:border-border-strong lg:hidden"><Menu size={18} /></button><GlobalSearch canSearchUsers={['admin', 'superadmin'].includes(String(me.data?.role))} /></div><div className="flex shrink-0 items-center gap-2">{isLogisticsHome ? <Button type="button" onClick={synchronizeShiprocket} disabled={shiprocketSync.isPending || !canSyncShiprocket} aria-label="Sync with Shiprocket" title={canSyncShiprocket ? 'Fetch current active-shipment values from Shiprocket' : 'Manager, admin or superadmin access required'} className="gap-2 px-3"><RefreshCw size={16} className={shiprocketSync.isPending ? 'animate-spin' : ''} /><span className="hidden sm:inline">{shiprocketSync.isPending ? 'Syncing with Shiprocket…' : 'Sync with Shiprocket'}</span></Button> : <Button type="button" variant="ghost" onClick={refresh} aria-label={COPY.common.refresh} className="px-3"><RefreshCw size={16} /></Button>}<Button type="button" variant="secondary" onClick={logout} aria-label={COPY.nav.logout} className="gap-2"><LogOut size={16} /><span className="hidden sm:inline">{COPY.nav.logout}</span></Button></div></div>{syncNotice ? <p role={syncNotice.tone === 'error' ? 'alert' : 'status'} className={`fixed right-5 top-20 z-50 max-w-md border bg-background-elevated px-4 py-3 text-sm shadow-lg ${syncNotice.tone === 'error' ? 'border-danger text-danger' : syncNotice.tone === 'warning' ? 'border-warning text-text-primary' : 'border-success text-success'}`}>{syncNotice.message}</p> : null}</header>;
 }
 
 type SearchResult = { type: string; label: string; meta: string; href: string; icon: ReactNode };
 
 const itemId = (item: { id?: string; _id?: string; slug?: string }): string => item.id ?? item._id ?? item.slug ?? '';
 
-function GlobalSearch(): ReactNode {
+function GlobalSearch({ canSearchUsers }: { canSearchUsers: boolean }): ReactNode {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,7 +55,7 @@ function GlobalSearch(): ReactNode {
   const orders = useAdminOrders();
   const categories = useAdminCategories();
   const coupons = useAdminCoupons();
-  const users = useAdminUsers();
+  const users = useAdminUsers(canSearchUsers);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {

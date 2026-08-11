@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 const adminUrl = process.env.PLAYWRIGHT_ADMIN_URL ?? 'http://localhost:3001';
 const shipmentId = '66a000000000000000000101';
 const unassignedShipmentId = '66a000000000000000000103';
+const pickupShipmentId = '66a000000000000000000105';
 const orderId = '66a000000000000000000102';
 const envelope = (data: unknown, message = 'OK'): string => JSON.stringify({ success: true, data, message });
 const admin = { id: 'admin-id', _id: 'admin-id', name: 'Logistics Admin', email: 'admin@example.test', role: 'superadmin', isVerified: true, isActive: true };
@@ -37,6 +38,17 @@ const unassignedShipment = {
   trackingScans: [],
   order: { ...shipment.order, _id: '66a000000000000000000104', orderNumber: 'CR-AWB-QA' }
 };
+const pickupShipment = {
+  ...shipment,
+  _id: pickupShipmentId,
+  sourceOrderId: 'CR-PICKUP-QA',
+  shipmentStatus: 'awb_assigned',
+  pickupStatus: undefined,
+  pickupDate: undefined,
+  awb: 'MOCKAWBPICKUP001',
+  trackingScans: [],
+  order: { ...shipment.order, _id: '66a000000000000000000106', orderNumber: 'CR-PICKUP-QA' }
+};
 
 const loginAndOpenLogistics = async (page: import('@playwright/test').Page): Promise<void> => {
   await page.goto(adminUrl + '/login');
@@ -55,8 +67,8 @@ test('admin controls Shiprocket mutations, prints documents and runs top-level p
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/auth/login')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ user: admin, accessToken: 'admin-logistics-token' }) });
     if (path.endsWith('/auth/me')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope(admin) });
-    if (path.endsWith('/admin/logistics/kpis')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ total: 2, ready: 2, inTransit: 0, delivered: 0, ndr: 0, rto: 0, errors: 0, logisticsCost: 92, deliveryRate: 0, ndrRate: 0, rtoRate: 0 }) });
-    if (path.endsWith('/admin/logistics/sync-health')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ activeShipments: 2, lastWebhookAt: '2026-08-11T10:00:00.000Z', lastReconciliationAt: '2026-08-11T09:55:00.000Z', syncFailures: 0 }) });
+    if (path.endsWith('/admin/logistics/kpis')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ total: 3, ready: 3, inTransit: 0, delivered: 0, ndr: 0, rto: 0, errors: 0, logisticsCost: 184, deliveryRate: 0, ndrRate: 0, rtoRate: 0 }) });
+    if (path.endsWith('/admin/logistics/sync-health')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ activeShipments: 3, lastWebhookAt: '2026-08-11T10:00:00.000Z', lastReconciliationAt: '2026-08-11T09:55:00.000Z', syncFailures: 0 }) });
     if (path.endsWith('/admin/logistics/notifications')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ items: [], total: 0, page: 1, pages: 0, limit: 10 }) });
     if (path.endsWith('/admin/logistics/sync') && request.method() === 'POST') {
       posts.push(path);
@@ -67,6 +79,23 @@ test('admin controls Shiprocket mutations, prints documents and runs top-level p
       return route.fulfill({ status: 200, contentType: 'application/json', body: envelope(shipment) });
     }
     if (path.endsWith(`/${shipmentId}/documents/label`) && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ shipmentId, kind: 'label', status: 'ready', url: `mock://logistics/label/${shipmentId}.pdf`, generatedAt: '2026-08-11T10:01:00.000Z', expiresAt: '2026-08-11T11:01:00.000Z' }) });
+    if (path.endsWith(`/${shipmentId}/invoice`) && request.method() === 'POST') {
+      posts.push(path);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope(shipment) });
+    }
+    if (path.endsWith(`/${shipmentId}/documents/invoice`) && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ shipmentId, kind: 'invoice', status: 'ready', url: `mock://logistics/invoice/${shipmentId}.pdf`, generatedAt: '2026-08-11T10:01:00.000Z', expiresAt: '2026-08-11T11:01:00.000Z' }) });
+    if (path.endsWith(`/${pickupShipmentId}/schedule-pickup`) && request.method() === 'POST') {
+      posts.push(path);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ ...pickupShipment, pickupStatus: 'Pickup Scheduled', pickupDate: '2026-08-11T10:05:00.000Z', shipmentStatus: 'pickup_scheduled' }) });
+    }
+    if (path.endsWith(`/${shipmentId}/manifest`) && request.method() === 'POST') {
+      posts.push(path);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ ...shipment, manifest: { status: 'ready' } }) });
+    }
+    if (path.endsWith(`/${shipmentId}/cancel`) && request.method() === 'POST') {
+      posts.push(path);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ ...shipment, shipmentStatus: 'cancelled' }) });
+    }
     if (path.endsWith(`/${unassignedShipmentId}/compare-couriers`) && request.method() === 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ serviceable: true, couriers: [{ courierId: 10, courierName: 'Mock Surface', shippingMode: 'surface', freightCharge: 92, codCharge: 0, totalCharge: 92, estimatedDeliveryDays: 3, codAvailable: true, serviceable: true, rating: 4.7 }] }) });
     if (path.endsWith(`/${unassignedShipmentId}/assign-awb`) && request.method() === 'POST') {
       posts.push(path);
@@ -76,7 +105,7 @@ test('admin controls Shiprocket mutations, prints documents and runs top-level p
       posts.push(path);
       return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ shipment, changed: false, statusChanged: false, scansAdded: 0 }) });
     }
-    if (path.endsWith('/admin/logistics')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ items: [shipment, unassignedShipment], total: 2, page: 1, pages: 1, limit: 50 }) });
+    if (path.endsWith('/admin/logistics')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ items: [shipment, unassignedShipment, pickupShipment], total: 3, page: 1, pages: 1, limit: 50 }) });
     return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([]) });
   });
 
@@ -86,11 +115,22 @@ test('admin controls Shiprocket mutations, prints documents and runs top-level p
   await expect(page.getByRole('button', { name: 'Print label' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Print invoice' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Generate manifest' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Cancel shipment' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cancel shipment' }).first()).toBeVisible();
   const labelPopupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Print label' }).first().click();
   const labelPopup = await labelPopupPromise;
   await expect(labelPopup.getByText(`Mock document reference: mock://logistics/label/${shipmentId}.pdf`)).toBeVisible();
+  const invoicePopupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Print invoice' }).first().click();
+  const invoicePopup = await invoicePopupPromise;
+  await expect(invoicePopup.getByText(`Mock document reference: mock://logistics/invoice/${shipmentId}.pdf`)).toBeVisible();
+  await page.getByRole('button', { name: 'Schedule pickup' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Pickup scheduled in Shiprocket' })).toBeVisible();
+  await page.getByRole('button', { name: 'Generate manifest' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Shiprocket manifest generated' })).toBeVisible();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'Cancel shipment' }).first().click();
+  await expect(page.getByRole('status').filter({ hasText: 'Shipment cancelled in Shiprocket' })).toBeVisible();
   await page.getByRole('button', { name: 'Sync with Shiprocket' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Shiprocket sync complete' })).toContainText('1 changed');
   await page.getByRole('button', { name: 'Assign AWB' }).click();
@@ -103,7 +143,16 @@ test('admin controls Shiprocket mutations, prints documents and runs top-level p
   await expect(page.getByRole('link', { name: 'Open Shiprocket' })).toHaveAttribute('href', 'https://app.shiprocket.in/');
   await page.getByRole('button', { name: 'Sync now', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Synced just now' })).toBeVisible();
-  expect(posts).toEqual([`/api/v1/admin/logistics/${shipmentId}/label`, '/api/v1/admin/logistics/sync', `/api/v1/admin/logistics/${unassignedShipmentId}/assign-awb`, `/api/v1/admin/logistics/${shipmentId}/sync`]);
+  expect(posts).toEqual([
+    `/api/v1/admin/logistics/${shipmentId}/label`,
+    `/api/v1/admin/logistics/${shipmentId}/invoice`,
+    `/api/v1/admin/logistics/${pickupShipmentId}/schedule-pickup`,
+    `/api/v1/admin/logistics/${shipmentId}/manifest`,
+    `/api/v1/admin/logistics/${shipmentId}/cancel`,
+    '/api/v1/admin/logistics/sync',
+    `/api/v1/admin/logistics/${unassignedShipmentId}/assign-awb`,
+    `/api/v1/admin/logistics/${shipmentId}/sync`
+  ]);
 });
 
 test('manual synchronization failure is visible and retryable', async ({ page }) => {
@@ -127,9 +176,11 @@ test('manual synchronization failure is visible and retryable', async ({ page })
 
 test('manager can synchronize provider truth but cannot see Shiprocket mutation controls', async ({ page }) => {
   const manager = { ...admin, id: 'manager-id', _id: 'manager-id', email: 'manager@example.test', role: 'manager' };
+  const managerRequests: string[] = [];
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    managerRequests.push(path);
     if (path.endsWith('/auth/login')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ user: manager, accessToken: 'manager-logistics-token' }) });
     if (path.endsWith('/auth/me')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope(manager) });
     if (path.endsWith('/admin/logistics/kpis')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ total: 1, ready: 1, inTransit: 0, delivered: 0, ndr: 0, rto: 0, errors: 0, logisticsCost: 92, deliveryRate: 0, ndrRate: 0, rtoRate: 0 }) });
@@ -146,4 +197,5 @@ test('manager can synchronize provider truth but cannot see Shiprocket mutation 
   await expect(page.getByRole('button', { name: 'Generate manifest' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Cancel shipment' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Ship', exact: true })).toHaveCount(0);
+  expect(managerRequests).not.toContain('/api/v1/admin/users');
 });

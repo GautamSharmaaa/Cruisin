@@ -19,16 +19,19 @@ const fixtureIds = {
   variantB: '66b000000000000000000112',
   admin: '66b000000000000000000201',
   customer: '66b000000000000000000202',
+  manager: '66b000000000000000000203',
   outageOrder: '66b000000000000000000301',
   ndrOrder: '66b000000000000000000302',
   rtoOrder: '66b000000000000000000303',
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
   safeDeleteOrder: '66b000000000000000000306',
+  cancellationOrder: '66b000000000000000000307',
   ndrShipment: '66b000000000000000000402',
   rtoShipment: '66b000000000000000000403',
   returnShipment: '66b000000000000000000404',
-  exchangeShipment: '66b000000000000000000405'
+  exchangeShipment: '66b000000000000000000405',
+  cancellationShipment: '66b000000000000000000406'
 } as const;
 
 const objectId = (value: string): Types.ObjectId => new Types.ObjectId(value);
@@ -177,6 +180,17 @@ const seed = async (): Promise<void> => {
         phoneVerifiedAt: new Date(),
         whatsappVerifiedAt: new Date(),
         isActive: true
+      },
+      {
+        _id: objectId(fixtureIds.manager),
+        name: 'Logistics E2E Manager',
+        email: 'logistics-manager@example.test',
+        passwordHash,
+        role: 'manager',
+        status: 'active',
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        isActive: true
       }
     ]);
     await CategoryModel.create({
@@ -249,6 +263,7 @@ const seed = async (): Promise<void> => {
       { ...paidOrder(fixtureIds.rtoOrder, 'CR-E2E-RTO', 'a', 2), stockReserved: true },
       { ...paidOrder(fixtureIds.returnOrder, 'CR-E2E-RETURN'), orderStatus: 'delivered' },
       { ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'), orderStatus: 'delivered' },
+      { ...paidOrder(fixtureIds.cancellationOrder, 'CR-E2E-CANCEL'), orderStatus: 'confirmed', fulfillmentStatus: 'ready_to_ship' },
       {
         _id: objectId(fixtureIds.safeDeleteOrder),
         user: objectId(fixtureIds.customer),
@@ -281,7 +296,8 @@ const seed = async (): Promise<void> => {
       forwardShipment(fixtureIds.ndrShipment, fixtureIds.ndrOrder, 'CR-E2E-NDR', 'MOCKAWBNDR001', 'awb_assigned'),
       forwardShipment(fixtureIds.rtoShipment, fixtureIds.rtoOrder, 'CR-E2E-RTO', 'MOCKAWBNDR002', 'awb_assigned'),
       forwardShipment(fixtureIds.returnShipment, fixtureIds.returnOrder, 'CR-E2E-RETURN', 'MOCKAWBDELIVERED004', 'delivered'),
-      forwardShipment(fixtureIds.exchangeShipment, fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE', 'MOCKAWBDELIVERED005', 'delivered')
+      forwardShipment(fixtureIds.exchangeShipment, fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE', 'MOCKAWBDELIVERED005', 'delivered'),
+      forwardShipment(fixtureIds.cancellationShipment, fixtureIds.cancellationOrder, 'CR-E2E-CANCEL', 'MOCKAWBCANCEL006', 'awb_assigned')
     ]);
     console.info(JSON.stringify({
       database: mongoose.connection.name,
@@ -289,6 +305,7 @@ const seed = async (): Promise<void> => {
       fixtureIds,
       users: {
         admin: 'logistics-admin@example.test',
+        manager: 'logistics-manager@example.test',
         customer: 'logistics-customer@example.test'
       }
     }));

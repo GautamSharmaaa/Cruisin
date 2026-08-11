@@ -15,8 +15,10 @@ const ids = {
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
   safeDeleteOrder: '66b000000000000000000306',
+  cancellationOrder: '66b000000000000000000307',
   ndrShipment: '66b000000000000000000402',
-  rtoShipment: '66b000000000000000000403'
+  rtoShipment: '66b000000000000000000403',
+  cancellationShipment: '66b000000000000000000406'
 } as const;
 const address = {
   fullName: 'Logistics E2E Customer',
@@ -58,7 +60,20 @@ interface Order {
   orderNumber: string;
   paymentStatus: string;
   orderStatus: string;
+  fulfillmentStatus?: string;
+  amountPaid?: number;
+  refunds?: Array<{ amount?: number; status?: string }>;
+  timeline?: Array<{ status: string; note?: string }>;
   razorpayOrderId?: string;
+}
+interface AnalyticsSummary {
+  summary: {
+    paidOrders: number;
+    cancelledOrders: number;
+    grossRevenue: number;
+    netRevenue: number;
+  };
+  ordersByStatus: Record<string, number>;
 }
 interface WorkflowRequest {
   _id: string;
@@ -171,10 +186,12 @@ const variantStock = async (request: APIRequestContext, adminToken: string, vari
 test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
   let adminToken = '';
   let customerToken = '';
+  let managerToken = '';
 
   test.beforeAll(async ({ request }) => {
     adminToken = await login(request, 'logistics-admin@example.test');
     customerToken = await login(request, 'logistics-customer@example.test');
+    managerToken = await login(request, 'logistics-manager@example.test');
   });
 
   test('prepaid quote, checkout, trusted settlement, shipment, AWB, pickup, tracking and delivery are idempotent', async ({ request }) => {
@@ -512,5 +529,65 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
     expect(await variantStock(request, adminToken, ids.variantB)).toBe(before - 1);
     const shipments = await shipmentList(request, adminToken);
     expect(shipments.items.filter((shipment) => shipment._id === current.replacementShipment)).toHaveLength(1);
+  });
+
+  test('admin cancellation is idempotent, manager mutations are denied, and financial analytics stay intact', async ({ request }) => {
+    const managerSyncResponse = await request.post(`${apiUrl}/admin/logistics/sync`, { headers: authHeaders(managerToken) });
+    const managerSync = await responseJson<{ scanned: number; changed: number; unchanged: number; failed: number; shiprocketMutations: number }>(managerSyncResponse);
+    expect(managerSync.scanned).toBeGreaterThan(0);
+    expect(managerSync.shiprocketMutations).toBe(0);
+    const repeatedManagerSync = await responseJson<{ scanned: number; changed: number; unchanged: number; failed: number; shiprocketMutations: number }>(
+      await request.post(`${apiUrl}/admin/logistics/sync`, { headers: authHeaders(managerToken) })
+    );
+    expect(repeatedManagerSync).toEqual({
+      scanned: managerSync.scanned,
+      changed: 0,
+      unchanged: managerSync.scanned,
+      failed: 0,
+      shiprocketMutations: 0
+    });
+
+    for (const mutation of [
+      { method: 'post', path: `/admin/logistics/orders/${ids.cancellationOrder}/create`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/assign-awb`, data: { courierId: 10 } },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/schedule-pickup`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/label`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/invoice`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/manifest`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/cancel`, data: {} },
+      { method: 'get', path: `/admin/logistics/${ids.cancellationShipment}/documents/label` }
+    ] as const) {
+      const response = mutation.method === 'get'
+        ? await request.get(`${apiUrl}${mutation.path}`, { headers: authHeaders(managerToken) })
+        : await request.post(`${apiUrl}${mutation.path}`, { headers: authHeaders(managerToken), data: mutation.data });
+      expect(response.status(), mutation.path).toBe(403);
+    }
+
+    const beforeOrder = await responseJson<Order>(await request.get(`${apiUrl}/admin/orders/${ids.cancellationOrder}`, { headers: authHeaders(adminToken) }));
+    const beforeAnalytics = await responseJson<AnalyticsSummary>(await request.get(`${apiUrl}/admin/analytics/summary`, { headers: authHeaders(adminToken), params: { preset: 'last30' } }));
+
+    const firstCancellation = await responseJson<Shipment>(await request.post(
+      `${apiUrl}/admin/logistics/${ids.cancellationShipment}/cancel`,
+      { headers: authHeaders(adminToken) }
+    ));
+    expect(firstCancellation.shipmentStatus).toBe('cancelled');
+    const duplicateCancellation = await responseJson<Shipment>(await request.post(
+      `${apiUrl}/admin/logistics/${ids.cancellationShipment}/cancel`,
+      { headers: authHeaders(adminToken) }
+    ));
+    expect(duplicateCancellation.shipmentStatus).toBe('cancelled');
+
+    const afterOrder = await responseJson<Order>(await request.get(`${apiUrl}/admin/orders/${ids.cancellationOrder}`, { headers: authHeaders(adminToken) }));
+    const afterAnalytics = await responseJson<AnalyticsSummary>(await request.get(`${apiUrl}/admin/analytics/summary`, { headers: authHeaders(adminToken), params: { preset: 'last30' } }));
+    expect(afterOrder).toMatchObject({ paymentStatus: 'paid', orderStatus: 'cancelled', fulfillmentStatus: 'cancelled', amountPaid: beforeOrder.amountPaid });
+    expect(afterOrder.refunds ?? []).toEqual(beforeOrder.refunds ?? []);
+    expect(afterOrder.timeline?.filter((event) => event.note?.includes('Forward shipment cancelled in Shiprocket'))).toHaveLength(1);
+    expect(afterAnalytics.summary).toMatchObject({
+      paidOrders: beforeAnalytics.summary.paidOrders,
+      grossRevenue: beforeAnalytics.summary.grossRevenue,
+      netRevenue: beforeAnalytics.summary.netRevenue,
+      cancelledOrders: beforeAnalytics.summary.cancelledOrders + 1
+    });
+    expect(afterAnalytics.ordersByStatus.cancelled).toBe((beforeAnalytics.ordersByStatus.cancelled ?? 0) + 1);
   });
 });
