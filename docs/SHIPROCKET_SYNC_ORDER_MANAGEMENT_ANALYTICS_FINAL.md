@@ -10,7 +10,7 @@ Prepared on 2026-08-11. This report covers development and verification only. No
 - Production indexes modified during development: **0**
 - Production destructive commands: **0**
 - Full repository verification: **PASS**
-- Isolated logistics Playwright matrix: **9/9 PASS**
+- Isolated logistics Playwright matrix: **10/10 PASS**
 - Production dependency audit: **0 vulnerabilities**
 - Deployment: **NOT STARTED — awaiting explicit approval**
 - Recommendation: **CONDITIONAL GO**
@@ -21,8 +21,9 @@ Prepared on 2026-08-11. This report covers development and verification only. No
 
 - Branch: `codex/feat-shiprocket-sync-order-management-analytics`
 - Pre-change checkpoint: `41c5e33c9d61e91f25ae340edd3b1656d42cb715`
-- Verified implementation revision: `fcd9aeb`
-- Implementation diff: 69 files, 1,707 insertions, 691 deletions.
+- Base implementation revision: `fcd9aeb`
+- Admin-only mutations/provider-authoritative sync revision: `739a646`
+- Latest revision diff: 37 files, 775 insertions, 126 deletions.
 
 ### 2. Backup result
 
@@ -60,25 +61,25 @@ The existing shipment model, provider abstraction, Shiprocket client/provider, l
 
 The route uses a timing-safe `x-api-key` comparison, rejects missing/invalid keys, validates identifier/status presence and field bounds, limits scan count, runs behind the server's 1 MB JSON-body ceiling, sanitizes stored payloads and errors, and avoids PII-based matching or PII logging. Unique fingerprinting makes replay idempotent. Production still requires an HTTPS public URL and a matching secret in both the app and Shiprocket settings.
 
-### 9. Read-only reconciliation
+### 9. Provider-authoritative reconciliation
 
-The provider reconciliation path performs GET-only Shiprocket lookups for shipment, order, and tracking state. The CLI scans only active shipments in a bounded batch (default 25, maximum 100), caps concurrency at 5 (default 3), refuses live-mutation mode, and prints `Shiprocket mutations: 0`. Webhook remains primary; reconciliation is the missed-webhook fallback. The selected endpoints and status-code behavior align with the [official Shiprocket API documentation](https://apidocs.shiprocket.in/).
+The provider reconciliation path performs GET-only Shiprocket lookups for shipment, order, and tracking state. The CLI scans only active shipments in a bounded batch (default 25, maximum 100), caps concurrency at 5 (default 3), refuses live-mutation mode, and prints `Shiprocket mutations: 0`. Reconciliation now applies provider order/shipment IDs, AWB, courier, pickup, mapped/raw status, scans, ETA, shipping mode, freight, COD charges, charged weight, other charges, and RTO charges when Shiprocket returns them. Missing provider values are not fabricated, and identifier conflicts fail closed. Webhook remains primary; reconciliation is the missed-webhook fallback. The endpoint families and status behavior align with the [official Shiprocket API documentation](https://apidocs.shiprocket.in/).
 
-### 10. Manual Sync now
+### 10. Top-level `Sync with Shiprocket`
 
-Admins can run `POST /api/v1/admin/logistics/:shipmentId/sync`. It invokes only read-only reconciliation, refreshes shipment/order/analytics queries, reports success, and exposes a retryable `Sync failed — Retry` error without leaking provider internals.
+The exact `/logistics` page now replaces the old local `Refresh` control with `Sync with Shiprocket` at the top of the dashboard. `POST /api/v1/admin/logistics/sync` reconciles a bounded active-shipment batch (default 50, maximum 100, concurrency 3 by default and never above 5), reports scanned/changed/unchanged/failed counts, and always reports zero Shiprocket mutations. Manager/admin/superadmin can run this read-only recovery action; viewer cannot. Shipment, order, overview, and analytics queries refresh from the reconciled values. A per-shipment read-only fallback remains inside the `Ship` dialog.
 
-### 11. AWB discovery
+### 11. AWB assignment and discovery
 
-AWB is discovered from webhook or read-only reconciliation and persisted only after identifier-integrity checks. Cruisin no longer asks an admin to create or assign an AWB in the normal UI.
+Admin/superadmin can select a real courier and invoke Shiprocket AWB assignment from Cruisin. Manager/viewer cannot. AWB can also arrive from webhook or reconciliation and is persisted only after identifier-integrity checks. Successful mutations perform a best-effort immediate provider read so the dashboard converges on Shiprocket's current value rather than assuming local request state.
 
 ### 12. Courier discovery
 
 Courier ID/name are mirrored from Shiprocket snapshots and rendered in admin and customer tracking. They are not fabricated locally in live-readonly mode.
 
-### 13. Pickup discovery
+### 13. Pickup scheduling and discovery
 
-Pickup status/date are mirrored from webhook or reconciliation. Pickup scheduling remains a manual Shiprocket-dashboard operation.
+Admin/superadmin can schedule pickup from Cruisin after AWB assignment. Manager/viewer cannot. Pickup status/date are then refreshed from the mutation response, webhook, or provider reconciliation.
 
 ### 14. Tracking synchronization
 
@@ -96,13 +97,13 @@ Customer APIs and UI expose only customer-safe status, message, courier, trackin
 
 The logistics control center shows provider order/shipment IDs, real courier/AWB, pickup, mapped status, ETA, latest update/location, last webhook/reconciliation success, sync source/error diagnostics, and the real scan timeline.
 
-### 18. `Assign AWB` removal
+### 18. Admin-only provider mutation controls
 
-Normal admin logistics pages no longer expose `Select courier`, `Assign AWB`, pickup scheduling, or label/invoice/manifest generation/printing. Legacy mutation endpoints remain for backwards compatibility and isolated mock workflow tests, but are not part of the owner UI.
+The logistics UI exposes `Create Shiprocket Order`, `Assign AWB`, `Schedule pickup`, `Generate manifest`, and `Cancel shipment` only to admin/superadmin. Server routes independently enforce the same RBAC, including provider-backed reverse-pickup and replacement-shipment actions. Managers retain read-only synchronization, courier comparison, package confirmation, and non-provider return/exchange workflow actions. Automatic provider-order, AWB, and pickup flags remain false so background jobs cannot bypass the human admin-only policy.
 
-### 19. `Ship` implementation
+### 19. `Ship`, label, and invoice implementation
 
-Before provider-order creation, the UI shows `Create Shiprocket Order`. After creation, it shows `Ship` and `Sync now`. `Ship` opens a `Ship this order` dialog with `Open Shiprocket`, `Sync now`, and `Close`; the dashboard URL is configurable through `NEXT_PUBLIC_SHIPROCKET_DASHBOARD_URL` and defaults to Shiprocket's app.
+Before provider-order creation, admin/superadmin sees `Create Shiprocket Order`. After creation, `Ship` opens the shipment dialog with the relevant mutation actions plus a read-only per-shipment sync fallback. `Print invoice` remains available once a provider order exists; `Print label` becomes available once AWB exists. Both generate/reuse short-lived provider documents through protected admin routes and open HTTPS Shiprocket PDFs directly in the browser's native print/download view. Label/invoice access has a separate live permission so read-only sync can be enabled without enabling documents or shipment mutations.
 
 ### 20. Railway reconciliation cron
 
@@ -185,20 +186,20 @@ Today and date-range boundaries use `Asia/Kolkata`. Integration coverage include
 
 ### 37. Admin refresh/invalidation
 
-Analytics and order resources poll every 60 seconds, refetch on window focus, expose manual Refresh/last-updated UI, and are invalidated after order status/payment, archive/restore/delete, provider-order creation, and shipment synchronization changes.
+Shipment, logistics KPI, courier analytics, order, overview, and commerce analytics resources poll every 60 seconds where applicable, refetch on window focus, and are invalidated after provider mutations and synchronization changes. On the Logistics home page the top action is the provider-authoritative `Sync with Shiprocket`, not a browser reload; other admin pages retain the ordinary local Refresh control.
 
 ### 38. Shiprocket/analytics interaction
 
-Logistics state updates change operational fulfillment/RTO metrics without redefining collected payment. Shipment RTO remains distinct from returned orders. Archive does not remove money; permanent deletion is limited to safe unpaid test orders and explicitly invalidates analytics caches.
+Provider freight, COD, other, return, exchange, and RTO costs now feed logistics KPIs and courier analytics when Shiprocket supplies them. Shiprocket status changes update operational fulfillment/RTO metrics without redefining collected payment. Forward-shipment cancellation updates order fulfillment/order status and records that payment/refund state is unchanged; cancelling a reverse or replacement shipment does not cancel the original order. Shipment RTO remains distinct from returned orders. Archive does not remove money; permanent deletion is limited to safe unpaid test orders and explicitly invalidates analytics caches.
 
 ### 39. Unit/integration results
 
 `npm run verify:logistics` passed end-to-end:
 
-- Server: 39 files, 249 tests passed.
+- Server: 40 files, 259 tests passed.
 - Client: 15 files, 56 tests passed.
 - Admin: 5 files, 22 tests passed.
-- Focused logistics: 9 files, 47 tests passed.
+- Focused logistics: 10 files, 55 tests passed.
 - Lint: all workspaces passed.
 - Typecheck: all workspaces passed.
 - Production builds: client, admin, and server passed.
@@ -206,22 +207,22 @@ Logistics state updates change operational fulfillment/RTO metrics without redef
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - `git diff --check`: passed.
 
-Coverage includes sync mapping/dedupe/terminal guards, read-only provider reconciliation, webhook lookup priority/replay/security, archive/restore/delete eligibility, RBAC, transaction fail-closed behavior, tombstones, corrected analytics/revenue, IST boundaries, and cache invalidation.
+Coverage includes sync mapping/dedupe/terminal guards, bounded bulk reconciliation, provider cost fields, document-vs-mutation guards, logistics and return/exchange RBAC, forward-vs-reverse cancellation semantics, webhook lookup priority/replay/security, archive/restore/delete eligibility, transaction fail-closed behavior, tombstones, corrected analytics/revenue, IST boundaries, and cache invalidation.
 
 ### 40. Playwright results
 
-The exact guarded localhost database and Redis DB 15 were seeded in mock Shiprocket mode with live reads/mutations disabled. Result: **9/9 passed**. The matrix covers the new Shiprocket UI, `Ship` modal, absence of primary AWB controls, successful/failed manual sync, prepaid settlement/provider outage/retry/idempotency, webhook delivery, NDR, RTO inventory, return, exchange, and exact typed confirmation for a safe test order. The test cancels at the confirmation gate and does not permanently delete.
+The exact guarded localhost database and Redis DB 15 were seeded in mock Shiprocket mode with live reads/documents/mutations disabled. Result: **10/10 passed**. The matrix covers the top-level authoritative sync and absence of the old Refresh control, success and partial-failure retry, admin AWB/pickup/manifest/cancellation controls, preserved Print Label/Invoice, manager denial of provider mutations/documents, the `Ship` fallback, prepaid settlement/provider outage/retry/idempotency, webhook delivery, NDR, RTO inventory, return, exchange, and exact typed confirmation for a safe test order. The deletion test stops at the confirmation gate and does not permanently delete.
 
 ### 41. Browser QA
 
 Manual in-app browser QA against isolated localhost data verified:
 
-- Logistics page provider IDs, courier, AWB, pickup/status/ETA/update/location, sync diagnostics, `Ship`, `Sync now`, and absence of `Assign AWB`.
+- Logistics page top-right `Sync with Shiprocket` in place of Refresh, provider IDs, courier, AWB, pickup/status/ETA/update/location, sync diagnostics, admin mutation controls, and preserved `Print label`/`Print invoice`.
 - Active/Archived/All views, archive confirmation, archived badge, Restore, always-visible Delete, and blocked real-order delete reasons.
 - Analytics refresh/range controls, test-data toggle, IST last-updated display, and fixture metrics.
 - Customer-safe tracking details and timeline.
 
-The exact safe-test-order typing behavior was additionally verified in real-browser Playwright: wrong text keeps deletion disabled; exact text enables it; the test cancels without deleting. The later in-app attempt did not complete authentication reliably, so this specific interaction is reported as automated browser coverage, not a successful second manual deletion exercise.
+The isolated manual bulk sync reported two scanned, two changed, zero unchanged, and zero failed. The browser console had zero errors. The exact safe-test-order typing behavior was additionally verified in real-browser Playwright: wrong text keeps deletion disabled; exact text enables it; the test cancels without deleting. No production service or database was used for browser QA.
 
 ### 42. Production read-only comparison
 
@@ -229,7 +230,7 @@ The current analytics implementation was executed against the verified local pro
 
 ### 43. Webhook production audit
 
-Code inspection confirms the production route, timing-safe key check, validation, dedupe, payload ceiling, sanitization, no PII matching, and test coverage. A keys-only environment inspection found Shiprocket API email/password and pickup configuration, but did **not** find `SHIPROCKET_WEBHOOK_SECRET`, `SHIPROCKET_ENABLED`, `SHIPROCKET_MODE`, `SHIPROCKET_ALLOW_LIVE_READS`, or `SHIPROCKET_ALLOW_LIVE_MUTATIONS` in the local production-looking environment. No public backend URL was available locally. External Railway and Shiprocket dashboard settings were not accessed. Therefore the HTTPS callback, correct public backend, and matching `x-api-key` are not independently verified.
+Code inspection confirms the production route, timing-safe key check, validation, dedupe, payload ceiling, sanitization, no PII matching, and test coverage. A keys-only environment inspection found Shiprocket API email/password and pickup configuration, but did **not** find `SHIPROCKET_WEBHOOK_SECRET`, `SHIPROCKET_ENABLED`, `SHIPROCKET_MODE`, `SHIPROCKET_ALLOW_LIVE_READS`, `SHIPROCKET_ALLOW_LIVE_DOCUMENTS`, or `SHIPROCKET_ALLOW_LIVE_MUTATIONS` in the local production-looking environment. No public backend URL was available locally. External Railway and Shiprocket dashboard settings were not accessed. Therefore the HTTPS callback, correct public backend, matching `x-api-key`, and new live permissions are not independently verified.
 
 ### 44. Production deployment status
 
@@ -239,26 +240,27 @@ Code inspection confirms the production route, timing-safe key check, validation
 
 Before deployment:
 
-1. Set and independently verify the production mode/read/mutation flags; mutations must remain false.
+1. Start with `SHIPROCKET_MODE=live-readonly`, `SHIPROCKET_ALLOW_LIVE_READS=true`, and both document/mutation permissions false; independently verify the intended Shiprocket account and pickup location.
 2. Create a strong webhook secret and configure the same value in Railway and Shiprocket without exposing it to frontend builds or logs.
 3. Confirm the public HTTPS target ends with `/api/v1/webhooks/logistics-events` and receives the configured `x-api-key`.
 4. Run one bounded reconciliation manually and confirm `Shiprocket mutations: 0` before enabling the five-minute fallback schedule.
-5. Confirm Atlas transactions with one explicitly marked, unpaid disposable test order after deployment. Stop for a separate approval before any first real production permanent deletion.
-6. Validate corrected analytics, sync health, customer/admin tracking, and webhook receipt read-only after deployment.
+5. In an approved window, use one disposable Shiprocket test order to validate admin/superadmin provider order, AWB, pickup, label/invoice/manifest, cancellation, webhook receipt, retry/idempotency, and manager/viewer denial. Only after that check should `SHIPROCKET_MODE=live`, `SHIPROCKET_ALLOW_LIVE_DOCUMENTS=true`, and `SHIPROCKET_ALLOW_LIVE_MUTATIONS=true` be enabled for normal admin use. Keep every `SHIPROCKET_AUTO_*` flag false.
+6. Confirm Atlas transactions with one explicitly marked, unpaid disposable test order after deployment. Stop for separate approval before any first real production permanent deletion.
+7. Validate corrected analytics, provider costs, sync health, customer/admin tracking, and webhook receipt after deployment.
 
-Legacy Shiprocket mutation endpoints remain reachable to authorized callers for compatibility even though the primary UI no longer exposes them. If strict API-level read-only operation is desired later, deprecate/remove them in a separate compatibility release.
+The mutation controls are present by request, but authorization does not rely on button visibility: every provider-changing route independently requires admin/superadmin. Managers can use the provider-authoritative read-only sync and local workflows only.
 
 ### 46. Final recommendation
 
 ## CONDITIONAL GO
 
-The code, isolated safety controls, builds, tests, browser coverage, backup, and restore are deployment-ready. Deployment should proceed only after the webhook/public-URL and live-readonly environment checklist in sections 43–45 is satisfied and the user explicitly approves deployment. Do not enable the cron or perform permanent production deletion as part of the initial deployment.
+The code, isolated safety controls, builds, tests, browser coverage, backup, and restore are deployment-ready. Deployment should proceed only after the webhook/public-URL and staged live-readonly environment checklist in sections 43–45 is satisfied and the user explicitly approves deployment. Enable documents and mutations only after the disposable-order controlled test; keep automatic mutations disabled. Do not perform permanent production deletion as part of initial deployment.
 
 ## Changed-file groups
 
-- Admin: logistics control center/panel/dialog, orders archive/delete UX, analytics UI, hooks, DTO/config/query invalidation.
+- Admin: top-level provider sync, admin-only provider mutations, preserved label/invoice printing, logistics control center/panel/dialog, orders archive/delete UX, analytics UI, hooks, DTO/config/query invalidation.
 - Client: safe shipment tracking and logistics browser tests/config.
-- Server: analytics service, order management/tombstone/routes/validation, shipment sync/reconciliation/provider/webhook/status/controller/model diagnostics, test DB guard, isolated seed, and tests.
-- Operations/docs: `.gitignore`, admin environment example, package scripts, backup verification, and this final report.
+- Server: separate read/document/mutation gates, admin-only mutation RBAC, bounded bulk reconciliation, provider cost/status synchronization, cancellation semantics, analytics service, order management/tombstone/routes/validation, webhook/status/controller/model diagnostics, test DB guard, isolated seed, and tests.
+- Operations/docs: environment examples, package scripts, activation/rollback instructions, backup verification, and this final report.
 
-Use `git show --stat fcd9aeb` for the complete committed 69-file implementation list.
+Use `git show --stat fcd9aeb` for the base implementation and `git show --stat 739a646` for the admin-only mutation/provider-sync revision.
