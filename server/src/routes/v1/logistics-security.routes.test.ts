@@ -26,7 +26,7 @@ const { controller } = vi.hoisted(() => {
     controller: {
       quote: vi.fn(noop), tracking: vi.fn(noop), list: vi.fn(noop), ndr: vi.fn(noop), rto: vi.fn(noop), byId: vi.fn(noop), kpis: vi.fn(noop), syncHealth: vi.fn(noop), analytics: vi.fn(noop), jobs: vi.fn(noop), notifications: vi.fn(noop),
       createOrder: vi.fn(noop), compareCouriers: vi.fn(noop), confirmPackage: vi.fn(noop), assignAwb: vi.fn(noop), schedulePickup: vi.fn(noop),
-      document: vi.fn(() => noop), documentAccess: vi.fn(noop), track: vi.fn(noop), sync: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
+      document: vi.fn(() => noop), documentAccess: vi.fn(noop), track: vi.fn(noop), sync: vi.fn(noop), bulkSync: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
     }
   };
 });
@@ -34,7 +34,7 @@ const { controller } = vi.hoisted(() => {
 vi.mock('../../controllers/logistics.controller.js', () => ({ LogisticsController: controller }));
 
 let app: express.Express;
-const tokenFor = (role: 'customer' | 'viewer' | 'manager'): string => jwt.sign({ userId: '000000000000000000000001', email: `${role}@test.local`, role }, process.env.JWT_ACCESS_SECRET as string);
+const tokenFor = (role: 'customer' | 'viewer' | 'manager' | 'admin' | 'superadmin'): string => jwt.sign({ userId: '000000000000000000000001', email: `${role}@test.local`, role }, process.env.JWT_ACCESS_SECRET as string);
 
 beforeAll(async () => {
   const [{ logisticsRouter, adminLogisticsRouter }, { errorHandler }] = await Promise.all([
@@ -61,7 +61,7 @@ describe('logistics route access control', () => {
     expect(document.status).toBe(403);
   });
 
-  it('allows viewers to read but not mutate logistics state', async () => {
+  it('allows viewers to read ordinary logistics state but not documents or mutations', async () => {
     const read = await request(app).get('/admin/logistics').set('Authorization', `Bearer ${tokenFor('viewer')}`);
     expect(read.status).toBe(200);
     const write = await request(app).post('/admin/logistics/000000000000000000000002/assign-awb').set('Authorization', `Bearer ${tokenFor('viewer')}`).send({});
@@ -69,13 +69,34 @@ describe('logistics route access control', () => {
     const notifications = await request(app).get('/admin/logistics/notifications?status=failed').set('Authorization', `Bearer ${tokenFor('viewer')}`);
     expect(notifications.status).toBe(200);
     const document = await request(app).get('/admin/logistics/000000000000000000000002/documents/label').set('Authorization', `Bearer ${tokenFor('viewer')}`);
-    expect(document.status).toBe(200);
+    expect(document.status).toBe(403);
     const generate = await request(app).post('/admin/logistics/000000000000000000000002/label').set('Authorization', `Bearer ${tokenFor('viewer')}`);
     expect(generate.status).toBe(403);
   });
 
-  it('allows managers to invoke guarded shipment actions', async () => {
-    const response = await request(app).post('/admin/logistics/000000000000000000000002/assign-awb').set('Authorization', `Bearer ${tokenFor('manager')}`).send({});
+  it('allows managers to run read-only synchronization but blocks Shiprocket mutations', async () => {
+    const sync = await request(app).post('/admin/logistics/sync').set('Authorization', `Bearer ${tokenFor('manager')}`).send({});
+    expect(sync.status).toBe(200);
+    const document = await request(app).get('/admin/logistics/000000000000000000000002/documents/label').set('Authorization', `Bearer ${tokenFor('manager')}`);
+    expect(document.status).toBe(403);
+    for (const path of [
+      '/admin/logistics/orders/000000000000000000000002/create',
+      '/admin/logistics/000000000000000000000002/assign-awb',
+      '/admin/logistics/000000000000000000000002/schedule-pickup',
+      '/admin/logistics/000000000000000000000002/label',
+      '/admin/logistics/000000000000000000000002/invoice',
+      '/admin/logistics/000000000000000000000002/manifest',
+      '/admin/logistics/000000000000000000000002/cancel'
+    ]) {
+      const response = await request(app).post(path).set('Authorization', `Bearer ${tokenFor('manager')}`).send({});
+      expect(response.status, path).toBe(403);
+    }
+  });
+
+  it.each(['admin', 'superadmin'] as const)('allows %s to invoke guarded Shiprocket mutations', async (role) => {
+    const response = await request(app).post('/admin/logistics/000000000000000000000002/assign-awb').set('Authorization', `Bearer ${tokenFor(role)}`).send({});
     expect(response.status).toBe(200);
+    const document = await request(app).get('/admin/logistics/000000000000000000000002/documents/label').set('Authorization', `Bearer ${tokenFor(role)}`);
+    expect(document.status).toBe(200);
   });
 });

@@ -47,7 +47,7 @@ describe('ShiprocketProvider live response compatibility', () => {
 
   it('reconciles external Shiprocket changes using GET requests only', async () => {
     const get = vi.fn(async (path: string) => {
-      if (path === '/shipments/555') return { data: { id: 555, order_id: 444, awb: 'AWB-READ-ONLY', courier_name: 'Contract Courier', courier_id: 42, status_name: 'Pickup Scheduled', pickup_status: 'Scheduled', pickup_scheduled_date: '2026-08-11T12:00:00.000Z', etd: '2026-08-14' } };
+      if (path === '/shipments/555') return { data: { id: 555, order_id: 444, awb: 'AWB-READ-ONLY', courier_name: 'Contract Courier', courier_id: 42, status_name: 'Pickup Scheduled', pickup_status: 'Scheduled', pickup_scheduled_date: '2026-08-11T12:00:00.000Z', etd: '2026-08-14', shipping_mode: 'Surface', freight_charges: 82, cod_charges: 18, other_charges: 4, charged_weight: 0.75 } };
       if (path === '/orders/show/444') return { data: { id: 444, shipments: [{ id: 555, order_id: 444, awb: 'AWB-READ-ONLY' }] } };
       if (path === '/courier/track/awb/AWB-READ-ONLY') return { tracking_data: { shipment_status: 18, shipment_track: [{ awb_code: 'AWB-READ-ONLY', courier_name: 'Contract Courier', current_status: 'In Transit', etd: '2026-08-14' }], shipment_track_activities: [{ date: '2026-08-11T13:00:00.000Z', status: 'In Transit', activity: 'Shipment moving', location: 'Bengaluru', 'sr-status': 18 }] } };
       throw new Error(`Unexpected read path: ${path}`);
@@ -57,9 +57,24 @@ describe('ShiprocketProvider live response compatibility', () => {
 
     const result = await provider.reconcileShipment({ providerOrderId: '444', providerShipmentId: '555' });
 
-    expect(result).toMatchObject({ providerOrderId: '444', providerShipmentId: '555', awb: 'AWB-READ-ONLY', courierName: 'Contract Courier', status: 'in_transit', pickupStatus: 'Scheduled', estimatedDelivery: '2026-08-14' });
+    expect(result).toMatchObject({ providerOrderId: '444', providerShipmentId: '555', awb: 'AWB-READ-ONLY', courierName: 'Contract Courier', status: 'in_transit', pickupStatus: 'Scheduled', estimatedDelivery: '2026-08-14', shippingMode: 'surface', providerShippingCost: 82, codCharge: 18, otherProviderCharges: 4, chargedWeightKg: 0.75 });
     expect(result.scans).toEqual([expect.objectContaining({ status: 'in_transit', location: 'Bengaluru' })]);
     expect(get.mock.calls.map(([path]) => path)).toEqual(['/shipments/555', '/orders/show/444', '/courier/track/awb/AWB-READ-ONLY']);
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('classifies label and invoice calls as scoped document operations', async () => {
+    const post = vi.fn(async (path: string, _body?: unknown, _schema?: unknown, _operation?: string) => path.includes('label')
+      ? { label_url: 'https://documents.example.test/label.pdf' }
+      : { invoice_url: 'https://documents.example.test/invoice.pdf' });
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await provider.generateLabel({ providerShipmentId: '555' });
+    await provider.generateInvoice({ providerOrderId: '444' });
+
+    expect(post.mock.calls[0]?.[0]).toBe('/courier/generate/label');
+    expect(post.mock.calls[0]?.[3]).toBe('document');
+    expect(post.mock.calls[1]?.[0]).toBe('/orders/print/invoice');
+    expect(post.mock.calls[1]?.[3]).toBe('document');
   });
 });

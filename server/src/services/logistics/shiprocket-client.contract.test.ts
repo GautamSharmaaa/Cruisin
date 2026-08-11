@@ -38,6 +38,7 @@ process.env.SENDGRID_API_KEY = 'SG.test';
 process.env.SHIPROCKET_ENABLED = 'true';
 process.env.SHIPROCKET_MODE = 'live-readonly';
 process.env.SHIPROCKET_ALLOW_LIVE_READS = 'true';
+process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS = 'true';
 process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS = 'false';
 process.env.SHIPROCKET_API_EMAIL = 'shiprocket-qa@example.test';
 process.env.SHIPROCKET_API_PASSWORD = 'test-only-password';
@@ -193,5 +194,12 @@ describe('Shiprocket HTTP client contract without network access', () => {
   it('refuses mutations in live-readonly mode before authentication', async () => {
     await expect(new ShiprocketClient().post('/orders/create/adhoc', {}, okSchema)).rejects.toThrow('Live logistics mutations are disabled');
     expect(axiosRequest).not.toHaveBeenCalled();
+  });
+
+  it('permits explicitly enabled label/invoice document operations without enabling shipment mutations', async () => {
+    axiosRequest.mockResolvedValueOnce({ data: { token } }).mockResolvedValueOnce({ data: { ok: true } });
+    const result = await new ShiprocketClient().post('/orders/print/invoice', { ids: [444] }, okSchema, 'document');
+    expect(result).toEqual({ ok: true });
+    expect(axiosRequest.mock.calls[1]?.[0]).toMatchObject({ method: 'POST', url: '/orders/print/invoice', data: { ids: [444] } });
   });
 });

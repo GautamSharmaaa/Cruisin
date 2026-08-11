@@ -8,6 +8,7 @@ export const logisticsConfig = {
   provider: env.LOGISTICS_PROVIDER,
   enabled: env.SHIPROCKET_ENABLED,
   mode: env.SHIPROCKET_MODE,
+  liveMutationsAllowed: env.SHIPROCKET_ALLOW_LIVE_MUTATIONS,
   baseUrl: env.SHIPROCKET_BASE_URL,
   apiEmail: env.SHIPROCKET_API_EMAIL,
   apiPassword: env.SHIPROCKET_API_PASSWORD,
@@ -20,6 +21,7 @@ export const logisticsConfig = {
   autoCreateCodOrder: env.SHIPROCKET_AUTO_CREATE_COD_ORDER,
   autoAssignAwb: env.SHIPROCKET_AUTO_ASSIGN_AWB,
   autoSchedulePickup: env.SHIPROCKET_AUTO_SCHEDULE_PICKUP,
+  liveDocumentsAllowed: env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS,
   notificationsEnabled: env.LOGISTICS_NOTIFICATIONS_ENABLED,
   emailNotificationsEnabled: env.LOGISTICS_EMAIL_NOTIFICATIONS_ENABLED,
   smsNotificationsEnabled: env.LOGISTICS_SMS_NOTIFICATIONS_ENABLED,
@@ -41,6 +43,14 @@ export const assertLiveMutationAllowed = (): void => {
   if (logisticsConfig.mode === 'mock') return;
   if (logisticsConfig.mode !== 'live' || !env.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
     throw new ApiError(503, 'Live logistics mutations are disabled');
+  }
+};
+
+export const assertLiveDocumentAllowed = (): void => {
+  if (logisticsConfig.mode === 'mock') return;
+  assertLiveReadAllowed();
+  if (!logisticsConfig.liveDocumentsAllowed && !logisticsConfig.liveMutationsAllowed) {
+    throw new ApiError(503, 'Live logistics document generation is disabled');
   }
 };
 

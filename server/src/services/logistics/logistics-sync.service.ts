@@ -57,7 +57,10 @@ const reconcileOrderFulfilment = async (orderId: unknown, status: ShipmentStatus
     return;
   }
   if (status === 'cancelled') {
-    await OrderModel.updateOne({ _id: orderId }, { $set: { fulfillmentStatus: 'cancelled' } });
+    await OrderModel.updateOne(
+      { _id: orderId, orderStatus: { $nin: ['delivered', 'returned'] } },
+      { $set: { fulfillmentStatus: 'cancelled', orderStatus: 'cancelled' } }
+    );
     return;
   }
   if (status === 'rto_delivered') {
@@ -100,6 +103,15 @@ export const applyShiprocketSnapshot = async (
   assign(shipment.pickupStatus ?? undefined, snapshot.pickupStatus, (value) => { shipment.pickupStatus = value as string; });
   assign(shipment.providerStatusId ?? undefined, snapshot.providerStatusId, (value) => { shipment.providerStatusId = value as number; });
   assign(shipment.rawProviderStatus ?? undefined, snapshot.rawStatus, (value) => { shipment.rawProviderStatus = value as string; });
+  assign(shipment.shippingMode ?? undefined, snapshot.shippingMode, (value) => { shipment.shippingMode = value as 'surface' | 'air' | 'unknown'; });
+  assign(shipment.providerShippingCost ?? undefined, snapshot.providerShippingCost, (value) => { shipment.providerShippingCost = value as number; });
+  assign(shipment.codCharge ?? undefined, snapshot.codCharge, (value) => { shipment.codCharge = value as number; });
+  assign(shipment.otherProviderCharges ?? undefined, snapshot.otherProviderCharges, (value) => { shipment.otherProviderCharges = value as number; });
+  assign(shipment.rtoCost ?? undefined, snapshot.rtoCost, (value) => { shipment.rtoCost = value as number; });
+  if (shipment.package && snapshot.chargedWeightKg !== undefined && shipment.package.chargedWeightKg !== snapshot.chargedWeightKg) {
+    shipment.package.chargedWeightKg = snapshot.chargedWeightKg;
+    changed = true;
+  }
   const pickupDate = safeDate(snapshot.pickupDate);
   if (pickupDate && shipment.pickupDate?.getTime() !== pickupDate.getTime()) {
     shipment.pickupDate = pickupDate;
@@ -110,7 +122,7 @@ export const applyShiprocketSnapshot = async (
     shipment.estimatedDelivery = estimatedDelivery;
     changed = true;
   }
-  if (canApplyShipmentStatus(previousStatus, snapshot.status)) {
+  if (snapshot.status !== previousStatus && canApplyShipmentStatus(previousStatus, snapshot.status)) {
     shipment.shipmentStatus = snapshot.status;
     changed = true;
   }
@@ -149,7 +161,10 @@ export const applyShiprocketSnapshot = async (
   shipment.lastProviderError = undefined;
   if (source === 'webhook') shipment.lastWebhookAt = now;
   await shipment.save();
-  if (statusChanged) await reconcileOrderFulfilment(shipment.order, currentStatus);
+  const affectsForwardOrder = shipment.shipmentType !== 'return' && shipment.shipmentType !== 'exchange_replacement';
+  if (statusChanged && affectsForwardOrder) {
+    await reconcileOrderFulfilment(shipment.order, currentStatus);
+  }
   const eventType = statusChanged ? notificationEventForStatus(currentStatus) : null;
   if (eventType) {
     await LogisticsNotificationService.emit({

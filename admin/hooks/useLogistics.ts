@@ -24,6 +24,7 @@ export interface Shipment {
   providerOrderId?: string;
   providerShipmentId?: string;
   pickupStatus?: string;
+  pickupDate?: string;
   estimatedDelivery?: string;
   lastTrackingUpdate?: string;
   lastWebhookAt?: string;
@@ -43,6 +44,8 @@ export interface Shipment {
   shippingChargeCollected?: number;
   providerShippingCost?: number;
   codCharge?: number;
+  otherProviderCharges?: number;
+  rtoCost?: number;
   package?: {
     deadWeightKg: number;
     lengthCm: number;
@@ -120,6 +123,13 @@ export interface LogisticsSyncHealth {
   lastWebhookAt?: string;
   lastReconciliationAt?: string;
   syncFailures: number;
+}
+export interface ShiprocketBulkSyncSummary {
+  scanned: number;
+  changed: number;
+  unchanged: number;
+  failed: number;
+  shiprocketMutations: 0;
 }
 export interface CourierRate {
   courierId: number;
@@ -204,6 +214,8 @@ export const useShipments = (
 ) =>
   useQuery({
     queryKey: ["admin", "logistics", filters],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<ShipmentPage> =>
       (
         await api.get<ApiEnvelope<ShipmentPage>>("/admin/logistics", {
@@ -214,6 +226,8 @@ export const useShipments = (
 export const useLogisticsKpis = () =>
   useQuery({
     queryKey: ["admin", "logistics", "kpis"],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<LogisticsKpis> =>
       (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis")).data
         .data,
@@ -229,6 +243,8 @@ export const useLogisticsSyncHealth = () =>
 export const useLogisticsAnalytics = (days: number) =>
   useQuery({
     queryKey: ["admin", "logistics", "analytics", days],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<LogisticsAnalytics> =>
       (
         await api.get<ApiEnvelope<LogisticsAnalytics>>(
@@ -282,6 +298,38 @@ export const compareLogisticsCouriers = async (
       {},
     )
   ).data.data;
+
+export const useGenerateLogisticsDocument = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      shipmentId: string;
+      kind: "label" | "invoice";
+    }): Promise<LogisticsDocumentAccess> => {
+      await api.post(`/admin/logistics/${input.shipmentId}/${input.kind}`, {});
+      return getLogisticsDocumentAccess(input.shipmentId, input.kind);
+    },
+    onSuccess: async (): Promise<void> => {
+      await client.invalidateQueries({ queryKey: ["admin", "logistics"] });
+    },
+  });
+};
+
+export const useShiprocketBulkSync = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ShiprocketBulkSyncSummary> =>
+      (await api.post<ApiEnvelope<ShiprocketBulkSyncSummary>>("/admin/logistics/sync", {})).data.data,
+    onSuccess: async (): Promise<void> => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["admin", "logistics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "orders"] }),
+        client.invalidateQueries({ queryKey: ["admin", "analytics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "overview"] }),
+      ]);
+    },
+  });
+};
 
 export const useLogisticsAction = () => {
   const client = useQueryClient();

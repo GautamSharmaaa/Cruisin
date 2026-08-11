@@ -249,6 +249,17 @@ export const LogisticsController = {
       ),
     );
   }),
+  bulkSync: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res.json(
+      new ApiResponse(
+        await LogisticsService.reconcileActiveShiprocketShipments({
+          source: "manual_sync",
+          adminId: req.user?.userId,
+        }),
+        "Active Shiprocket shipments synchronized",
+      ),
+    );
+  }),
   cancel: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(
       new ApiResponse(

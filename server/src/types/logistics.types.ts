@@ -197,6 +197,12 @@ export interface ReconcileShipmentResult extends TrackingResult {
   pickupStatus?: string;
   pickupDate?: string;
   providerStatusId?: number;
+  shippingMode?: 'surface' | 'air' | 'unknown';
+  providerShippingCost?: number;
+  codCharge?: number;
+  chargedWeightKg?: number;
+  otherProviderCharges?: number;
+  rtoCost?: number;
 }
 
 export interface CancelShipmentInput {

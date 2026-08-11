@@ -12,8 +12,8 @@ export function ShiprocketShipDialog({ open, pending, onClose, onSync }: { open:
     <section role="dialog" aria-modal="true" aria-labelledby="shiprocket-ship-title" className="w-full max-w-xl border border-border bg-background-primary p-6 shadow-2xl">
       <h2 id="shiprocket-ship-title" className="font-display text-3xl text-text-primary">Ship this order</h2>
       <p className="mt-4 text-sm leading-6 text-text-secondary">The Shiprocket order has already been created.</p>
-      <p className="mt-3 text-sm leading-6 text-text-secondary">Complete courier selection, AWB, label, manifest and pickup from the Shiprocket dashboard.</p>
-      <p className="mt-3 text-sm leading-6 text-text-secondary">Cruisin will automatically synchronize shipment updates.</p>
+      <p className="mt-3 text-sm leading-6 text-text-secondary">Continue in Shiprocket, or use Cruisin&apos;s admin-only AWB, pickup, document and cancellation controls.</p>
+      <p className="mt-3 text-sm leading-6 text-text-secondary">Cruisin synchronizes provider values and keeps label and invoice printing available from the dashboard.</p>
       <div className="mt-7 flex flex-wrap justify-end gap-3">
         <Button variant="secondary" onClick={onClose}>Close</Button>
         <Button variant="secondary" onClick={onSync} disabled={pending}>{pending ? 'Syncing…' : 'Sync now'}</Button>

@@ -35,7 +35,7 @@ const objectId = (value: string): Types.ObjectId => new Types.ObjectId(value);
 const assertIsolatedTarget = (): void => {
   if (process.env.LOGISTICS_E2E_SEED !== 'true') throw new Error('Set LOGISTICS_E2E_SEED=true to seed the isolated logistics E2E database');
   if (process.env.SHIPROCKET_MODE !== 'mock') throw new Error('Logistics E2E seeding requires SHIPROCKET_MODE=mock');
-  if (process.env.SHIPROCKET_ALLOW_LIVE_READS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS === 'true') {
+  if (process.env.SHIPROCKET_ALLOW_LIVE_READS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS === 'true') {
     throw new Error('Logistics E2E seeding refuses live Shiprocket access');
   }
   const uri = process.env.MONGODB_URI ?? '';

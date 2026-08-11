@@ -2,11 +2,11 @@
 import crypto from 'node:crypto';
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
 import { z } from 'zod';
-import { assertLiveMutationAllowed, assertLiveReadAllowed, logisticsConfig } from '../../config/logistics.js';
+import { assertLiveDocumentAllowed, assertLiveMutationAllowed, assertLiveReadAllowed, logisticsConfig } from '../../config/logistics.js';
 import { LogisticsProviderError } from '../../types/logistics.types.js';
 import { logger } from '../../utils/logger.js';
 
-type OperationKind = 'read' | 'mutation';
+type OperationKind = 'read' | 'document' | 'mutation';
 
 interface CachedToken {
   token: string;
@@ -123,6 +123,7 @@ export class ShiprocketClient {
       throw new LogisticsProviderError('configuration', 'Invalid logistics provider path', false, 500);
     }
     if (options.operation === 'read') assertLiveReadAllowed();
+    else if (options.operation === 'document') assertLiveDocumentAllowed();
     else assertLiveMutationAllowed();
     const correlationId = crypto.randomUUID();
     let lastError: LogisticsProviderError | undefined;

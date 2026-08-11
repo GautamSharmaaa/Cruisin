@@ -121,6 +121,10 @@ const numericValue = (record: UnknownRecord | undefined, keys: string[]): number
   const candidate = Number(recordValue(record, keys));
   return Number.isFinite(candidate) ? candidate : undefined;
 };
+const nonnegativeValue = (record: UnknownRecord | undefined, keys: string[]): number | undefined => {
+  const candidate = numericValue(record, keys);
+  return candidate !== undefined && candidate >= 0 ? candidate : undefined;
+};
 const dataRecord = (response: UnknownRecord): UnknownRecord => asRecord(response.data) ?? response;
 const shipmentRecord = (order: UnknownRecord, expectedShipmentId?: string): UnknownRecord | undefined => {
   const shipments = Array.isArray(order.shipments) ? order.shipments.map(asRecord).filter((item): item is UnknownRecord => Boolean(item)) : [];
@@ -264,14 +268,14 @@ export class ShiprocketProvider implements LogisticsProvider {
 
   public async generateLabel(input: DocumentInput): Promise<DocumentResult> {
     if (!input.providerShipmentId) throw new LogisticsProviderError('invalid_payload', 'Provider shipment ID is required', false, 400);
-    const response = await this.client.post('/courier/generate/label', { shipment_id: [Number(input.providerShipmentId)] }, documentSchema);
+    const response = await this.client.post('/courier/generate/label', { shipment_id: [Number(input.providerShipmentId)] }, documentSchema, 'document');
     if (!response.label_url) throw new LogisticsProviderError('permanent_provider', 'Provider did not return a label', false);
     return { url: response.label_url, generatedAt: new Date().toISOString() };
   }
 
   public async generateInvoice(input: DocumentInput): Promise<DocumentResult> {
     if (!input.providerOrderId) throw new LogisticsProviderError('invalid_payload', 'Provider order ID is required', false, 400);
-    const response = await this.client.post('/orders/print/invoice', { ids: [Number(input.providerOrderId)] }, documentSchema);
+    const response = await this.client.post('/orders/print/invoice', { ids: [Number(input.providerOrderId)] }, documentSchema, 'document');
     if (!response.invoice_url) throw new LogisticsProviderError('permanent_provider', 'Provider did not return an invoice', false);
     return { url: response.invoice_url, generatedAt: new Date().toISOString() };
   }
@@ -338,6 +342,18 @@ export class ShiprocketProvider implements LogisticsProvider {
     const pickupDate = stringValue(shipment, ['pickup_scheduled_date', 'pickup_date']);
     const pickupStatus = stringValue(shipment, ['pickup_status']) ?? (pickupDate ? 'Pickup Scheduled' : undefined);
     const estimatedDelivery = stringValue(shipment, ['etd', 'estimated_delivery_date', 'expected_delivery_date']);
+    const rawShippingMode = recordValue(shipment, ['shipping_mode', 'mode', 'is_surface']);
+    const normalizedShippingMode = String(rawShippingMode ?? '').toLowerCase();
+    const shippingMode = normalizedShippingMode.includes('air') || rawShippingMode === false
+      ? 'air' as const
+      : normalizedShippingMode.includes('surface') || rawShippingMode === true
+        ? 'surface' as const
+        : undefined;
+    const providerShippingCost = nonnegativeValue(shipment, ['freight_charges', 'freight_charge', 'shipping_charges', 'shipping_charge', 'rate']);
+    const codCharge = nonnegativeValue(shipment, ['cod_charges', 'cod_charge']);
+    const chargedWeightKg = nonnegativeValue(shipment, ['charged_weight', 'chargeable_weight']);
+    const otherProviderCharges = nonnegativeValue(shipment, ['other_charges', 'additional_charges']);
+    const rtoCost = nonnegativeValue(shipment, ['rto_charges', 'rto_charge']);
     let tracking: TrackingResult | undefined;
     if (awb || providerShipmentId) {
       try {
@@ -358,6 +374,12 @@ export class ShiprocketProvider implements LogisticsProvider {
       status: tracking?.status ?? normalizeShipmentStatus(rawStatus, providerStatusId),
       rawStatus: tracking?.rawStatus ?? rawStatus,
       estimatedDelivery: tracking?.estimatedDelivery ?? estimatedDelivery,
+      shippingMode,
+      providerShippingCost,
+      codCharge,
+      chargedWeightKg,
+      otherProviderCharges,
+      rtoCost,
       scans: tracking?.scans ?? []
     };
   }

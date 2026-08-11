@@ -6,10 +6,10 @@ Do not enable live mutations until every item below is complete.
 
 - [x] Node 22 is declared and was used for the Phase 2 dependency and verification commands.
 - [x] Next.js, PostCSS, sharp, and Mongoose advisories were remediated without `--force`; `npm audit --omit=dev` returned zero vulnerabilities after the upgrades.
-- [ ] `npm ci`, typecheck, lint, all tests, logistics verification, and production builds pass.
+- [x] `npm ci`, typecheck, lint, all tests, logistics verification, and production builds pass in the recorded pre-deployment verification.
 - [ ] Existing baseline E2E failures are triaged; no logistics regression is hidden by them.
 - [x] Stable isolated Playwright coverage is present for prepaid, outage/retry, NDR, RTO, return, exchange, and document/print UI flows and is wired into CI.
-- [ ] Record a successful local/CI execution of the isolated Playwright matrix. The 2026-07-28 local attempt was blocked before tests started because the execution approval service could not allow local server sockets after its usage limit was reached.
+- [x] Record a successful isolated Playwright matrix using the exact localhost test-database and Redis guards.
 - [ ] `npm --workspace server run db:indexes:production` succeeds.
 - [ ] Product and variant weight/dimensions are complete, positive, and confirmed.
 - [ ] Package presets and maximum quantities match warehouse practice.
@@ -24,6 +24,7 @@ Do not enable live mutations until every item below is complete.
 - [ ] Logs and client bundles contain no Shiprocket password/token/webhook secret.
 - [ ] Start with `SHIPROCKET_MODE=live-readonly`.
 - [ ] Set `SHIPROCKET_ALLOW_LIVE_READS=true`.
+- [ ] Keep `SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false` until label/invoice generation is intentionally enabled for admin/superadmin.
 - [ ] Keep `SHIPROCKET_ALLOW_LIVE_MUTATIONS=false`.
 - [ ] Keep all automatic mutation flags false.
 
@@ -47,7 +48,7 @@ Use a disposable order ID:
 CRUISIN-INTEGRATION-TEST-<timestamp>
 ```
 
-Temporarily enable `SHIPROCKET_MODE=live` and live mutations only during the approved test window. Validate create order, duplicate request handling, AWB, pickup, label/invoice/manifest, tracking, cancellation, and webhook delivery.
+Temporarily enable `SHIPROCKET_MODE=live`, live reads, scoped documents, and live mutations only during the approved test window. Validate create order, duplicate request handling, AWB, pickup, label/invoice/manifest, tracking, cancellation, provider-backed return/exchange actions, role denial for manager/viewer, and webhook delivery.
 
 Cleanup requires both an integration-test identifier and explicit confirmation:
 
@@ -73,12 +74,12 @@ This command is never run by CI or startup.
 
 Enable in stages:
 
-1. live read-only;
-2. live manual create order;
-3. manual AWB/pickup/documents;
-4. worker reconciliation;
-5. automatic create;
-6. optional automatic AWB and pickup.
+1. live read-only reconciliation;
+2. admin/superadmin label and invoice generation;
+3. admin/superadmin provider order, AWB, pickup, manifest, cancellation, and provider-backed return/exchange actions;
+4. webhook and worker reconciliation.
+
+Keep automatic create/AWB/pickup flags false to preserve the requested human admin-only mutation policy.
 
 At each stage, reconcile local Shipment IDs, Shiprocket IDs, AWB, order count, inventory, and payment totals before continuing.
 
@@ -89,6 +90,7 @@ Set:
 ```env
 SHIPROCKET_ENABLED=false
 SHIPROCKET_ALLOW_LIVE_READS=false
+SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false
 SHIPROCKET_ALLOW_LIVE_MUTATIONS=false
 SHIPROCKET_AUTO_CREATE_ORDER=false
 SHIPROCKET_AUTO_CREATE_COD_ORDER=false

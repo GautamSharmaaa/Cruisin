@@ -29,16 +29,20 @@ let applyShiprocketSnapshot: typeof import('./logistics-sync.service.js').applyS
 let ShipmentModel: typeof import('../../models/shipment.model.js').ShipmentModel;
 let OrderModel: typeof import('../../models/order.model.js').OrderModel;
 let LogisticsNotificationService: typeof import('./logistics-notification.service.js').LogisticsNotificationService;
+let LogisticsService: typeof import('./logistics.service.js').LogisticsService;
+let LogisticsAuditModel: typeof import('../../models/logistics-audit.model.js').LogisticsAuditModel;
 
 beforeAll(async () => {
-  const [packageModule, mockModule, statusModule, syncModule, shipmentModule, orderModule, notificationModule] = await Promise.all([
+  const [packageModule, mockModule, statusModule, syncModule, shipmentModule, orderModule, notificationModule, logisticsModule, auditModule] = await Promise.all([
     import('./package-calculator.js'),
     import('./mock-logistics-provider.js'),
     import('./logistics-status.js'),
     import('./logistics-sync.service.js'),
     import('../../models/shipment.model.js'),
     import('../../models/order.model.js'),
-    import('./logistics-notification.service.js')
+    import('./logistics-notification.service.js'),
+    import('./logistics.service.js'),
+    import('../../models/logistics-audit.model.js')
   ]);
   calculatePackage = packageModule.calculatePackage;
   MockLogisticsProvider = mockModule.MockLogisticsProvider;
@@ -49,6 +53,8 @@ beforeAll(async () => {
   ShipmentModel = shipmentModule.ShipmentModel;
   OrderModel = orderModule.OrderModel;
   LogisticsNotificationService = notificationModule.LogisticsNotificationService;
+  LogisticsService = logisticsModule.LogisticsService;
+  LogisticsAuditModel = auditModule.LogisticsAuditModel;
 });
 
 describe('package calculation', () => {
@@ -177,6 +183,96 @@ describe('mock provider and status normalization', () => {
     expect(shipment.trackingScans).toHaveLength(1);
     expect(orderUpdate).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('applies provider-confirmed cost, mode and charged-weight values during synchronization', async () => {
+    const shipment = new ShipmentModel({
+      order: '66b000000000000000000001',
+      sourceOrderId: 'CR-SYNC-COSTS',
+      providerOrderId: '1002',
+      providerShipmentId: '2002',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'in_transit',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'forward:sync-costs'
+    });
+    vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    const result = await applyShiprocketSnapshot(shipment, {
+      providerOrderId: '1002',
+      providerShipmentId: '2002',
+      status: 'in_transit',
+      rawStatus: 'In Transit',
+      scans: [],
+      shippingMode: 'surface',
+      providerShippingCost: 82,
+      codCharge: 18,
+      otherProviderCharges: 4,
+      rtoCost: 0,
+      chargedWeightKg: 0.75
+    }, 'manual_sync');
+    expect(result.changed).toBe(true);
+    expect(shipment).toMatchObject({ shippingMode: 'surface', providerShippingCost: 82, codCharge: 18, otherProviderCharges: 4, rtoCost: 0 });
+    expect(shipment.package?.chargedWeightKg).toBe(0.75);
+    vi.restoreAllMocks();
+  });
+
+  it('updates the commerce order only from forward-shipment status changes', async () => {
+    const orderUpdate = vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedCount: 0, upsertedId: null });
+    const forward = new ShipmentModel({
+      order: '66b000000000000000000001',
+      shipmentType: 'forward',
+      sourceOrderId: 'CR-FORWARD-CANCEL',
+      providerOrderId: '1003',
+      providerShipmentId: '2003',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'in_transit',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'forward:cancel-sync'
+    });
+    const reverse = new ShipmentModel({
+      order: '66b000000000000000000001',
+      shipmentType: 'return',
+      sourceOrderId: 'CR-RETURN-CANCEL',
+      providerOrderId: '1004',
+      providerShipmentId: '2004',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'in_transit',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'return:cancel-sync'
+    });
+    vi.spyOn(forward, 'save').mockResolvedValue(forward);
+    vi.spyOn(reverse, 'save').mockResolvedValue(reverse);
+    const cancelled = { status: 'cancelled' as const, rawStatus: 'Cancelled', scans: [] };
+
+    await applyShiprocketSnapshot(forward, cancelled, 'manual_sync');
+    await applyShiprocketSnapshot(reverse, cancelled, 'manual_sync');
+
+    expect(orderUpdate).toHaveBeenCalledTimes(1);
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: forward.order }),
+      { $set: { fulfillmentStatus: 'cancelled', orderStatus: 'cancelled' } }
+    );
+    vi.restoreAllMocks();
+  });
+
+  it('bulk-syncs only bounded active Shiprocket shipments and summarizes partial failures', async () => {
+    const lean = vi.fn().mockResolvedValue([{ _id: '66b000000000000000000011' }, { _id: '66b000000000000000000012' }]);
+    const select = vi.fn(() => ({ lean }));
+    const limit = vi.fn(() => ({ select }));
+    const sort = vi.fn(() => ({ limit }));
+    const find = vi.spyOn(ShipmentModel, 'find').mockReturnValue({ sort } as never);
+    const reconcile = vi.spyOn(LogisticsService, 'reconcileShiprocketShipment')
+      .mockResolvedValueOnce({ changed: true })
+      .mockRejectedValueOnce(new Error('provider unavailable'));
+    vi.spyOn(LogisticsAuditModel, 'create').mockResolvedValue({} as never);
+
+    const summary = await LogisticsService.reconcileActiveShiprocketShipments({ limit: 500, concurrency: 20, adminId: '66b000000000000000000001' });
+
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ provider: 'shiprocket', shipmentStatus: { $in: expect.any(Array) } }));
+    expect(limit).toHaveBeenCalledWith(100);
+    expect(reconcile).toHaveBeenCalledTimes(2);
+    expect(summary).toEqual({ scanned: 2, changed: 1, unchanged: 0, failed: 1, shiprocketMutations: 0 });
     vi.restoreAllMocks();
   });
 });

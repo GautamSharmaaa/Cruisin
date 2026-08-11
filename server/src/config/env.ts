@@ -73,6 +73,7 @@ const envSchema = z.object({
   SHIPROCKET_ENABLED: envBoolean(false),
   SHIPROCKET_MODE: z.enum(['mock', 'live-readonly', 'live']).default('mock'),
   SHIPROCKET_ALLOW_LIVE_READS: envBoolean(false),
+  SHIPROCKET_ALLOW_LIVE_DOCUMENTS: envBoolean(false),
   SHIPROCKET_ALLOW_LIVE_MUTATIONS: envBoolean(false),
   SHIPROCKET_BASE_URL: z.literal('https://apiv2.shiprocket.in/v1/external').default('https://apiv2.shiprocket.in/v1/external'),
   SHIPROCKET_API_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
@@ -112,8 +113,14 @@ const envSchema = z.object({
   if ((value.UPSTASH_REDIS_REST_URL && !value.UPSTASH_REDIS_REST_TOKEN) || (!value.UPSTASH_REDIS_REST_URL && value.UPSTASH_REDIS_REST_TOKEN)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['UPSTASH_REDIS_REST_URL'], message: 'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be provided together' });
   }
-  if (value.SHIPROCKET_MODE === 'mock' && (value.SHIPROCKET_ALLOW_LIVE_READS || value.SHIPROCKET_ALLOW_LIVE_MUTATIONS)) {
+  if (value.SHIPROCKET_MODE === 'mock' && (value.SHIPROCKET_ALLOW_LIVE_READS || value.SHIPROCKET_ALLOW_LIVE_DOCUMENTS || value.SHIPROCKET_ALLOW_LIVE_MUTATIONS)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_MODE'], message: 'Mock Shiprocket mode cannot allow live operations' });
+  }
+  if (value.SHIPROCKET_ALLOW_LIVE_DOCUMENTS && !value.SHIPROCKET_ALLOW_LIVE_READS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_DOCUMENTS'], message: 'Live Shiprocket documents require live reads to be enabled' });
+  }
+  if (value.SHIPROCKET_ALLOW_LIVE_MUTATIONS && !value.SHIPROCKET_ALLOW_LIVE_READS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_MUTATIONS'], message: 'Live Shiprocket mutations require live reads to be enabled' });
   }
   if (value.SHIPROCKET_MODE === 'live-readonly' && value.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_MUTATIONS'], message: 'Live-readonly Shiprocket mode cannot allow mutations' });

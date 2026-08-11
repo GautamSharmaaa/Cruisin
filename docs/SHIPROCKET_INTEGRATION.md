@@ -24,7 +24,8 @@ Key safety rules:
 
 - credentials and bearer tokens never reach the browser;
 - mock mode performs no external request;
-- live reads and live mutations have separate explicit guards;
+- live reads, document generation, and shipment mutations have separate explicit guards;
+- every user-triggered Shiprocket mutation requires an `admin` or `superadmin` role; managers retain read-only synchronization and local workflow access;
 - Shiprocket failure cannot roll back or downgrade a captured payment;
 - payment, order, fulfilment, shipment, return, exchange, and refund states remain separate;
 - provider mutations are idempotent locally and errors remain visible;
@@ -40,6 +41,7 @@ LOGISTICS_PROVIDER=shiprocket
 SHIPROCKET_ENABLED=false
 SHIPROCKET_MODE=mock
 SHIPROCKET_ALLOW_LIVE_READS=false
+SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false
 SHIPROCKET_ALLOW_LIVE_MUTATIONS=false
 SHIPROCKET_API_EMAIL=
 SHIPROCKET_API_PASSWORD=
@@ -50,9 +52,9 @@ SHIPROCKET_WEBHOOK_SECRET=
 
 Modes:
 
-- `mock`: deterministic local behavior; both live permissions must be false.
-- `live-readonly`: authentication, rates, and tracking only; `SHIPROCKET_ALLOW_LIVE_READS=true`.
-- `live`: mutations remain blocked unless `SHIPROCKET_ALLOW_LIVE_MUTATIONS=true`.
+- `mock`: deterministic local behavior; every live permission must be false.
+- `live-readonly`: authentication, rates, tracking, and reconciliation require `SHIPROCKET_ALLOW_LIVE_READS=true`. Label/invoice generation can be enabled separately with `SHIPROCKET_ALLOW_LIVE_DOCUMENTS=true`.
+- `live`: provider mutations remain blocked unless `SHIPROCKET_ALLOW_LIVE_MUTATIONS=true`. Live reads must also be enabled because authenticated mutation responses are immediately reconciled from Shiprocket.
 
 The base URL is a fixed validated literal. It is not caller-controlled.
 
@@ -64,7 +66,7 @@ The base URL is a fixed validated literal. It is not caller-controlled.
 4. The server validates quote ownership, expiry, destination, payment mode, cart fingerprint, option, and COD eligibility.
 5. The order stores `logisticsQuoteId` and the exact shipping charge.
 6. Trusted payment settlement or COD placement reserves inventory and creates an idempotent local shipment draft.
-7. If automatic creation is enabled, a durable Mongo job is enqueued. Otherwise an admin creates the provider order.
+7. An admin or superadmin creates the provider order. Legacy automation remains feature-gated and must stay disabled when human-only mutation control is required.
 8. AWB, pickup, documents, tracking, NDR, and RTO state live on `Shipment`.
 
 When `SHIPROCKET_ENABLED=false`, the pre-existing fixed-rate checkout remains active.
@@ -111,6 +113,8 @@ SHIPROCKET_AUTO_SCHEDULE_PICKUP=false
 
 Prepaid auto-create is reached only after trusted payment settlement. COD uses its separate flag. Auto-AWB is queued only after provider-order success with confirmed package measurements and a selected courier. Auto-pickup is queued only after AWB success. Every stage has a deterministic dedupe key, and a failed stage does not enqueue its successor. Keep automatic AWB and pickup disabled in the initial production configuration.
 
+For Cruisin's current human-operated mutation policy, keep all four automation flags above `false`. Once the separate live document/mutation permissions are intentionally enabled, API RBAC ensures that provider order creation, AWB assignment, pickup, documents, cancellation, and provider-backed return/exchange shipment creation can start only from an authenticated `admin` or `superadmin` request.
+
 ## Customer logistics notifications
 
 The provider-neutral notification event service covers 18 shipment, NDR/RTO, return, and exchange events. A unique semantic key prevents webhook or job replays from sending an event twice. Each event records channel, template, recipient, status, attempt count, timestamps, and a sanitized error.
@@ -134,7 +138,13 @@ Label, invoice, and manifest generation use an atomic pending claim. Ready metad
 GET /api/v1/admin/logistics/:shipmentId/documents/:kind
 ```
 
-Customers have no internal-document route. The admin exposes loading, success, failure, and `Print Label` states. `Print Label` opens the browser print flow; it does not automatically control a physical printer. Direct thermal-printer automation requires a separate secured local print-agent integration and is intentionally outside this phase.
+Customers have no internal-document route. Admin and superadmin dashboards retain both `Print label` and `Print invoice`; the buttons generate/reuse a short-lived provider document and open the Shiprocket PDF directly in the browser's native print/download view. They do not automatically control a physical printer. Direct thermal-printer automation requires a separate secured local print-agent integration and is intentionally outside this phase.
+
+## Provider-authoritative synchronization
+
+The top-of-page `Sync with Shiprocket` action is a read-only provider operation available to manager/admin/superadmin. It replaces the old local `Refresh` button and reconciles the oldest active Shiprocket shipments in a bounded batch. Webhooks remain the real-time primary path, the scheduled reconciliation command is the missed-webhook fallback, and the button is the manual recovery path.
+
+Each supported snapshot applies provider order/shipment IDs, AWB, courier, mapped/raw status, pickup state/date, tracking scans, ETA, shipping mode, freight, COD charges, charged weight, other provider charges, and RTO charges when Shiprocket returns them. Missing provider fields are not fabricated and existing identifier conflicts fail closed. Shipment changes update order fulfilment only for forward shipments, invalidate order/logistics/analytics queries, and feed provider costs into logistics KPIs and courier analytics.
 
 ## API surface
 
@@ -155,6 +165,6 @@ Admin:
 - RTO warehouse receipt and inspection;
 - return and exchange queues/actions.
 
-Viewer roles are read-only. Manager/admin/superadmin can run shipment workflow actions. RTO inventory restoration is admin/superadmin only.
+Viewer roles are read-only. Managers can synchronize provider truth, compare couriers, confirm local package data, and perform non-provider workflow actions. Only admin/superadmin can create a provider order, assign AWB, schedule pickup, generate label/invoice/manifest, cancel a provider shipment, or trigger provider-backed reverse/replacement shipments. RTO inventory restoration is also admin/superadmin only.
 
 Endpoint payloads are implemented against the [official Shiprocket API documentation](https://apidocs.shiprocket.in/). Account-specific behavior must still pass read-only smoke verification before activation.

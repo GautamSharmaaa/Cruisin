@@ -3,11 +3,13 @@
 
 import { FilePenLine, Gift, LogOut, Menu, Package, RefreshCw, Search, ShoppingBag, Tags, User, X } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
 import { useAdminLogout } from '@/hooks/useAdminAuth';
-import { useAdminCategories, useAdminCoupons, useAdminOrders, useAdminProducts, useAdminUsers } from '@/hooks/useAdminResources';
+import { useAdminCategories, useAdminCoupons, useAdminMe, useAdminOrders, useAdminProducts, useAdminUsers } from '@/hooks/useAdminResources';
+import { useShiprocketBulkSync } from '@/hooks/useLogistics';
 import { cn } from '@/lib/utils';
 
 export interface TopbarProps {
@@ -16,8 +18,29 @@ export interface TopbarProps {
 
 export function Topbar({ onMenu }: TopbarProps): ReactNode {
   const logout = useAdminLogout();
+  const pathname = usePathname();
+  const me = useAdminMe();
+  const shiprocketSync = useShiprocketBulkSync();
+  const [syncNotice, setSyncNotice] = useState<{ message: string; tone: 'success' | 'warning' | 'error' } | null>(null);
+  const isLogisticsHome = pathname === '/logistics';
+  const canSyncShiprocket = ['manager', 'admin', 'superadmin'].includes(String(me.data?.role));
   const refresh = (): void => window.location.reload();
-  return <header className="sticky top-0 z-30 border-b border-border bg-background-primary/90 backdrop-blur-2xl"><div className="mx-auto flex min-h-16 max-w-[1480px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8"><div className="flex min-w-0 flex-1 items-center gap-3"><button type="button" aria-label={COPY.nav.menu} onClick={onMenu} className="flex h-11 w-11 shrink-0 items-center justify-center border border-border text-text-primary transition hover:border-border-strong lg:hidden"><Menu size={18} /></button><GlobalSearch /></div><div className="flex shrink-0 items-center gap-2"><Button type="button" variant="ghost" onClick={refresh} aria-label={COPY.common.refresh} className="px-3"><RefreshCw size={16} /></Button><Button type="button" variant="secondary" onClick={logout} aria-label={COPY.nav.logout} className="gap-2"><LogOut size={16} /><span className="hidden sm:inline">{COPY.nav.logout}</span></Button></div></div></header>;
+  const synchronizeShiprocket = (): void => {
+    setSyncNotice(null);
+    shiprocketSync.mutate(undefined, {
+      onSuccess: (summary) => setSyncNotice({
+        tone: summary.failed ? 'warning' : 'success',
+        message: `Shiprocket sync complete: ${summary.scanned} scanned, ${summary.changed} changed, ${summary.unchanged} unchanged, ${summary.failed} failed. Analytics and order views were refreshed.`,
+      }),
+      onError: (error) => setSyncNotice({ tone: 'error', message: `Shiprocket sync failed — Retry: ${error.message}` }),
+    });
+  };
+  useEffect(() => {
+    if (!syncNotice) return undefined;
+    const timer = window.setTimeout(() => setSyncNotice(null), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [syncNotice]);
+  return <header className="sticky top-0 z-30 border-b border-border bg-background-primary/90 backdrop-blur-2xl"><div className="mx-auto flex min-h-16 max-w-[1480px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8"><div className="flex min-w-0 flex-1 items-center gap-3"><button type="button" aria-label={COPY.nav.menu} onClick={onMenu} className="flex h-11 w-11 shrink-0 items-center justify-center border border-border text-text-primary transition hover:border-border-strong lg:hidden"><Menu size={18} /></button><GlobalSearch /></div><div className="flex shrink-0 items-center gap-2">{isLogisticsHome ? <Button type="button" onClick={synchronizeShiprocket} disabled={shiprocketSync.isPending || !canSyncShiprocket} aria-label="Sync with Shiprocket" title={canSyncShiprocket ? 'Fetch current active-shipment values from Shiprocket' : 'Manager, admin or superadmin access required'} className="gap-2 px-3"><RefreshCw size={16} className={shiprocketSync.isPending ? 'animate-spin' : ''} /><span className="hidden sm:inline">{shiprocketSync.isPending ? 'Syncing with Shiprocket…' : 'Sync with Shiprocket'}</span></Button> : <Button type="button" variant="ghost" onClick={refresh} aria-label={COPY.common.refresh} className="px-3"><RefreshCw size={16} /></Button>}<Button type="button" variant="secondary" onClick={logout} aria-label={COPY.nav.logout} className="gap-2"><LogOut size={16} /><span className="hidden sm:inline">{COPY.nav.logout}</span></Button></div></div>{syncNotice ? <p role={syncNotice.tone === 'error' ? 'alert' : 'status'} className={`fixed right-5 top-20 z-50 max-w-md border bg-background-elevated px-4 py-3 text-sm shadow-lg ${syncNotice.tone === 'error' ? 'border-danger text-danger' : syncNotice.tone === 'warning' ? 'border-warning text-text-primary' : 'border-success text-success'}`}>{syncNotice.message}</p> : null}</header>;
 }
 
 type SearchResult = { type: string; label: string; meta: string; href: string; icon: ReactNode };

@@ -30,6 +30,35 @@ const objectId = (value: string): Types.ObjectId => {
   return new Types.ObjectId(value);
 };
 
+const activeShiprocketSyncStatuses = [
+  "draft",
+  "pending_provider",
+  "provider_order_created",
+  "awb_assigned",
+  "pickup_scheduled",
+  "out_for_pickup",
+  "picked_up",
+  "shipped",
+  "in_transit",
+  "reached_destination_hub",
+  "out_for_delivery",
+  "delivery_exception",
+  "ndr",
+  "rto_initiated",
+  "rto_in_transit",
+  "return_in_transit",
+  "error",
+  "unknown",
+] as const;
+
+export interface ShiprocketBulkSyncSummary {
+  scanned: number;
+  changed: number;
+  unchanged: number;
+  failed: number;
+  shiprocketMutations: 0;
+}
+
 const audit = async (input: {
   action: string;
   actorType: "admin" | "customer" | "system" | "provider";
@@ -477,7 +506,12 @@ export const LogisticsService = {
         entityReference: result.awb,
       });
       await LogisticsAutomationService.afterAwb(shipment);
-      return shipment;
+      try {
+        const reconciled = await this.reconcileShiprocketShipment(String(shipment._id), "manual_sync", adminId) as { shipment: unknown };
+        return reconciled.shipment;
+      } catch {
+        return shipment;
+      }
     } catch (error) {
       return providerFailure(shipmentId, "awb_assign_failed", error);
     }
@@ -511,7 +545,12 @@ export const LogisticsService = {
         orderId: String(shipment.order),
         shipmentId: String(shipment._id),
       });
-      return shipment;
+      try {
+        const reconciled = await this.reconcileShiprocketShipment(String(shipment._id), "manual_sync", adminId) as { shipment: unknown };
+        return reconciled.shipment;
+      } catch {
+        return shipment;
+      }
     } catch (error) {
       return providerFailure(shipmentId, "pickup_schedule_failed", error);
     }
@@ -708,6 +747,55 @@ export const LogisticsService = {
     }
   },
 
+  async reconcileActiveShiprocketShipments(input: {
+    source?: Exclude<ShiprocketSyncSource, "webhook">;
+    adminId?: string;
+    limit?: number;
+    concurrency?: number;
+  } = {}): Promise<ShiprocketBulkSyncSummary> {
+    const source = input.source ?? "manual_sync";
+    const limit = Math.min(Math.max(Math.trunc(input.limit ?? 50), 1), 100);
+    const concurrency = Math.min(Math.max(Math.trunc(input.concurrency ?? 3), 1), 5);
+    const shipments = await ShipmentModel.find({
+      provider: "shiprocket",
+      shipmentStatus: { $in: activeShiprocketSyncStatuses },
+      $or: [
+        { providerOrderId: { $type: "string" } },
+        { providerShipmentId: { $type: "string" } },
+      ],
+    })
+      .sort({ lastSuccessfulSyncAt: 1, updatedAt: 1 })
+      .limit(limit)
+      .select("_id")
+      .lean();
+    const summary: ShiprocketBulkSyncSummary = {
+      scanned: shipments.length,
+      changed: 0,
+      unchanged: 0,
+      failed: 0,
+      shiprocketMutations: 0,
+    };
+    for (let offset = 0; offset < shipments.length; offset += concurrency) {
+      const results = await Promise.allSettled(
+        shipments.slice(offset, offset + concurrency).map((shipment) =>
+          this.reconcileShiprocketShipment(String(shipment._id), source, input.adminId),
+        ),
+      );
+      for (const result of results) {
+        if (result.status === "rejected") summary.failed += 1;
+        else if ((result.value as { changed?: boolean }).changed) summary.changed += 1;
+        else summary.unchanged += 1;
+      }
+    }
+    await audit({
+      action: "shiprocket_bulk_reconciled",
+      actorType: source === "manual_sync" ? "admin" : "system",
+      admin: input.adminId,
+      newValue: summary,
+    });
+    return summary;
+  },
+
   async cancel(shipmentId: string, adminId: string): Promise<unknown> {
     const shipment = await getShipment(shipmentId);
     if (shipment.shipmentStatus === "cancelled") return shipment;
@@ -720,10 +808,15 @@ export const LogisticsService = {
       shipment.shipmentStatus = "cancelled";
       shipment.rawProviderStatus = result.status;
       await shipment.save();
-      await OrderModel.updateOne(
-        { _id: shipment.order },
-        { $set: { fulfillmentStatus: "cancelled" } },
-      );
+      if (shipment.shipmentType !== "return" && shipment.shipmentType !== "exchange_replacement") {
+        await OrderModel.updateOne(
+          { _id: shipment.order, orderStatus: { $nin: ["delivered", "returned"] } },
+          {
+            $set: { fulfillmentStatus: "cancelled", orderStatus: "cancelled" },
+            $push: { timeline: { status: "cancelled", timestamp: new Date(), note: "Forward shipment cancelled in Shiprocket by an administrator; payment and refund state were not changed" } },
+          },
+        );
+      }
       await audit({
         action: "shipment_cancelled",
         actorType: "admin",
@@ -732,7 +825,12 @@ export const LogisticsService = {
         shipment: shipment._id,
         newValue: result,
       });
-      return shipment;
+      try {
+        const reconciled = await this.reconcileShiprocketShipment(String(shipment._id), "manual_sync", adminId) as { shipment: unknown };
+        return reconciled.shipment;
+      } catch {
+        return shipment;
+      }
     } catch (error) {
       return providerFailure(shipmentId, "shipment_cancel_failed", error);
     }
@@ -1016,6 +1114,8 @@ export const LogisticsService = {
                     { $ifNull: ["$codCharge", 0] },
                     { $ifNull: ["$rtoCost", 0] },
                     { $ifNull: ["$returnShippingCost", 0] },
+                    { $ifNull: ["$exchangeShippingCost", 0] },
+                    { $ifNull: ["$otherProviderCharges", 0] },
                   ],
                 },
               },
@@ -1072,6 +1172,10 @@ export const LogisticsService = {
                 $add: [
                   { $ifNull: ["$providerShippingCost", 0] },
                   { $ifNull: ["$codCharge", 0] },
+                  { $ifNull: ["$rtoCost", 0] },
+                  { $ifNull: ["$returnShippingCost", 0] },
+                  { $ifNull: ["$exchangeShippingCost", 0] },
+                  { $ifNull: ["$otherProviderCharges", 0] },
                 ],
               },
             },
@@ -1098,7 +1202,18 @@ export const LogisticsService = {
             ndr: {
               $sum: { $cond: [{ $eq: ["$shipmentStatus", "ndr"] }, 1, 0] },
             },
-            cost: { $sum: { $ifNull: ["$providerShippingCost", 0] } },
+            cost: {
+              $sum: {
+                $add: [
+                  { $ifNull: ["$providerShippingCost", 0] },
+                  { $ifNull: ["$codCharge", 0] },
+                  { $ifNull: ["$rtoCost", 0] },
+                  { $ifNull: ["$returnShippingCost", 0] },
+                  { $ifNull: ["$exchangeShippingCost", 0] },
+                  { $ifNull: ["$otherProviderCharges", 0] },
+                ],
+              },
+            },
           },
         },
         { $sort: { shipments: -1 } },

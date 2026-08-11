@@ -22,6 +22,7 @@ const assertSafeTestDatabase = (): void => {
   process.env.MONGODB_URI = REQUIRED_TEST_MONGO_URI;
   process.env.SHIPROCKET_MODE = 'mock';
   process.env.SHIPROCKET_ALLOW_LIVE_READS = 'false';
+  process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS = 'false';
   process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS = 'false';
   if (!guardState[asserted]) {
     console.info('Test Mongo host: localhost');
