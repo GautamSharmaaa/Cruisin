@@ -1,22 +1,24 @@
 // Governed by .rules v1.0
 'use client';
 
-import { Eye, PackageCheck, Search, Truck, X } from 'lucide-react';
+import { Archive, Eye, PackageCheck, RotateCcw, Search, Trash2, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AdminCard, AdminDataTable, AdminFilters, AdminStat, AdminStatsGrid, EmptyState } from '@/components/dashboard/admin-ui';
+import { AdminCard, AdminDataTable, AdminFilters, AdminStat, AdminStatsGrid } from '@/components/dashboard/admin-ui';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select-field';
 import { COPY } from '@/constants/copy';
-import { useUpdateOrderStatus } from '@/hooks/useAdminMutations';
+import { getOrderDeleteEligibility, useOrderManagementAction, useUpdateOrderStatus } from '@/hooks/useAdminMutations';
 import { formatPrice } from '@/lib/utils';
 import type { OrderDto } from '@/types/dto.types';
 
 export interface OrderManagerProps {
   orders: OrderDto[];
   isLoading: boolean;
+  view: 'active' | 'archived' | 'all';
+  onViewChange: (view: 'active' | 'archived' | 'all') => void;
 }
 
 type OrderStatus = 'pending' | 'placed' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
@@ -30,8 +32,9 @@ const statuses = ['all', ...orderStatusValues] as const;
 const paymentStatuses = ['all', 'pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'refunded', 'partially_refunded'] as const;
 const paymentModes = ['all', 'online', 'cod', 'partial'] as const;
 
-export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNode {
+export function OrderManager({ orders, isLoading, view, onViewChange }: OrderManagerProps): ReactNode {
   const updateStatus = useUpdateOrderStatus();
+  const management = useOrderManagementAction();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>('all');
   const [paymentFilter, setPaymentFilter] = useState<(typeof paymentStatuses)[number]>('all');
@@ -40,6 +43,42 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [tracking, setTracking] = useState<Record<string, string>>({});
   const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
+  const [deleteOrder, setDeleteOrder] = useState<OrderDto | null>(null);
+  const [typedOrderNumber, setTypedOrderNumber] = useState('');
+  const [deleteReason, setDeleteReason] = useState('Test order cleanup');
+  const [managementError, setManagementError] = useState('');
+
+  const archiveOrder = (order: OrderDto): void => {
+    const id = orderId(order);
+    if (!window.confirm('Archive this order?\n\nThe order will be hidden from the default active order list. Payment, shipment, tracking and financial history remain unchanged.')) return;
+    setManagementError('');
+    management.mutate({ id, action: 'archive' }, { onError: (error) => setManagementError(error.message) });
+  };
+  const restoreOrder = (order: OrderDto): void => {
+    setManagementError('');
+    management.mutate({ id: orderId(order), action: 'restore' }, { onError: (error) => setManagementError(error.message) });
+  };
+  const inspectDelete = async (order: OrderDto): Promise<void> => {
+    setManagementError('');
+    try {
+      const eligibility = await getOrderDeleteEligibility(orderId(order));
+      if (!eligibility.eligible) {
+        window.alert(`This order cannot be permanently deleted.\n\nReason:\n${eligibility.blockers.join('\n')}\n\nArchive this order instead.`);
+        return;
+      }
+      setDeleteOrder(order);
+      setTypedOrderNumber('');
+    } catch (error) {
+      setManagementError(error instanceof Error ? error.message : 'Delete eligibility could not be checked.');
+    }
+  };
+  const permanentlyDelete = (): void => {
+    if (!deleteOrder) return;
+    management.mutate({ id: orderId(deleteOrder), action: 'delete', orderNumber: typedOrderNumber, reason: deleteReason }, {
+      onSuccess: () => setDeleteOrder(null),
+      onError: (error) => setManagementError(error.message)
+    });
+  };
 
   const stats = useMemo(() => ({
     total: orders.length,
@@ -70,8 +109,6 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
     updateStatus.mutate({ id, status, note: notes[id], trackingNumber: tracking[id] ?? order.trackingNumber });
   };
 
-  if (!isLoading && orders.length === 0) return <EmptyState title={COPY.orders.title} message={COPY.orders.empty} />;
-
   return <section className="grid min-w-0 gap-6">
     <AdminStatsGrid className="xl:grid-cols-7">
       <AdminStat label="Orders" value={stats.total} />
@@ -83,6 +120,7 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
       <AdminStat label="Paid revenue" value={formatPrice(stats.revenue)} tone="gold" />
     </AdminStatsGrid>
 
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Order archive view">{(['active', 'archived', 'all'] as const).map((option) => <Button key={option} variant={view === option ? 'primary' : 'secondary'} onClick={() => onViewChange(option)}>{option[0].toUpperCase() + option.slice(1)}</Button>)}</div>
     <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); }}>Reset Filters</Button>}>
       <label className="grid min-w-[260px] flex-1 gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>Search order, customer, product, cancellation</span><span className="flex h-11 items-center border border-border bg-background-input px-3"><Search size={16} className="mr-2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm normal-case text-text-primary outline-none" /></span></label>
       <SelectField label="Order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])} options={statuses.map((value) => ({ value, label: value === 'all' ? 'All statuses' : value === 'placed' ? 'Placed' : value === 'returned' ? 'Returned' : COPY.orders.statuses[value] }))} />
@@ -97,19 +135,21 @@ export function OrderManager({ orders, isLoading }: OrderManagerProps): ReactNod
         const status = statusesById[id] ?? order.orderStatus;
         const itemCount = order.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
         return <tr key={id} className="border-b border-border-subtle align-top transition hover:bg-background-overlay/60">
-          <td className="p-4"><Link className="break-all font-mono text-text-primary hover:text-accent-gold" href={'/orders/' + id}>{orderLabel(order)}</Link><p className="mt-2 text-xs text-text-muted">{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'No date'}</p></td>
+          <td className="p-4">{order.archivedAt ? <span className="mb-2 inline-flex border border-warning/60 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-warning">Archived</span> : null}<Link className="block break-all font-mono text-text-primary hover:text-accent-gold" href={'/orders/' + id}>{orderLabel(order)}</Link><p className="mt-2 text-xs text-text-muted">{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'No date'}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{order.shippingAddress?.fullName ?? 'Guest'}</p><p className="mt-1 text-xs">{order.shippingAddress?.phone ?? 'No phone'}</p><p className="mt-1 text-xs">{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(', ')}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{itemCount} items</p><p className="mt-1 max-w-72 truncate text-xs">{order.items?.map((item) => item.title + ' x' + item.quantity).join(', ') || 'No items'}</p>{order.couponCode ? <p className="mt-1 font-mono text-xs text-accent-gold">{order.couponCode}</p> : null}</td>
           <td className="p-4"><StatusPill tone={order.paymentStatus === 'paid' ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMode ?? order.paymentMethod ?? 'payment'} · paid {formatPrice(order.amountPaid ?? 0)} · due {formatPrice(order.orderStatus === 'cancelled' ? 0 : order.amountDue ?? order.total)}</p><p className="mt-1 max-w-48 truncate font-mono text-[10px] text-text-muted">{order.razorpayPaymentId ?? ''}</p></td>
           <td className="p-4"><StatusPill tone={order.orderStatus === 'cancelled' ? 'danger' : order.orderStatus === 'delivered' ? 'success' : 'warning'}>{order.orderStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.trackingNumber ?? 'No tracking'}</p>{order.cancellation ? <div className="mt-3 max-w-52 border-l-2 border-danger pl-2 text-xs"><p className="text-text-primary">{order.cancellation.reason}</p>{order.cancellation.details ? <p className="mt-1 line-clamp-2 text-text-muted">{order.cancellation.details}</p> : null}<p className="mt-1 uppercase tracking-[0.08em] text-danger">Refund {order.cancellation.refundStatus.replaceAll('_', ' ')}</p></div> : null}</td>
           <td className="p-4 font-mono text-accent-gold">{formatPrice(order.total)}<p className="mt-1 text-xs text-text-muted">Discount {formatPrice(order.discount ?? 0)}</p></td>
           <td className="p-4"><div className="grid min-w-56 gap-2"><SelectField label={'Status for order ' + id} options={statusOptionsFor(order.orderStatus as OrderStatus)} value={status} onChange={(event) => setStatusesById((current) => ({ ...current, [id]: event.target.value as OrderStatus }))} /><Input label={'Tracking for order ' + id} value={tracking[id] ?? order.trackingNumber ?? ''} onChange={(event) => setTracking((current) => ({ ...current, [id]: event.target.value }))} /><Input label={'Admin note for order ' + id} value={notes[id] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div></td>
-          <td className="p-4"><div className="grid gap-2"><Button aria-label={'Update order ' + id} onClick={() => onUpdate(order)} disabled={updateStatus.isPending}><PackageCheck size={15} className="mr-2" />Update</Button><Button aria-label={'Details for order ' + id} variant="secondary" onClick={() => setSelectedOrder(order)}><Eye size={15} className="mr-2" />Details</Button></div></td>
+          <td className="p-4"><div className="grid gap-2"><Button aria-label={'Update order ' + id} onClick={() => onUpdate(order)} disabled={updateStatus.isPending}><PackageCheck size={15} className="mr-2" />Update</Button><Link aria-label={'View order ' + id} href={'/orders/' + id} className="inline-flex h-11 items-center justify-center border border-border px-6 text-xs font-medium uppercase tracking-[0.08em] text-text-primary transition hover:border-border-strong"><Eye size={15} className="mr-2" />View</Link>{order.archivedAt ? <Button aria-label={'Restore order ' + id} variant="secondary" onClick={() => restoreOrder(order)} disabled={management.isPending}><RotateCcw size={15} className="mr-2" />Restore</Button> : <Button aria-label={'Archive order ' + id} variant="secondary" onClick={() => archiveOrder(order)} disabled={management.isPending}><Archive size={15} className="mr-2" />Archive</Button>}<Button aria-label={'Delete order ' + id} variant="danger" onClick={() => void inspectDelete(order)} disabled={management.isPending}><Trash2 size={15} className="mr-2" />Delete</Button><Button aria-label={'Details for order ' + id} variant="secondary" onClick={() => setSelectedOrder(order)}><Eye size={15} className="mr-2" />Quick details</Button></div></td>
         </tr>;
-      })}</tbody>
+      })}{!isLoading && filteredOrders.length === 0 ? <tr><td colSpan={8} className="p-8 text-center text-text-muted">{orders.length === 0 ? COPY.orders.empty : 'No orders match these filters.'}</td></tr> : null}</tbody>
     </AdminDataTable>
 
     {selectedOrder ? <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} /> : null}
+    {managementError ? <p role="alert" className="border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{managementError}</p> : null}
+    {deleteOrder ? <div className="fixed inset-0 z-50 grid place-items-center bg-background-primary/80 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-order-title"><div className="w-full max-w-lg border border-danger/60 bg-background-elevated p-6 shadow-lg"><h2 id="delete-order-title" className="font-display text-2xl">Permanently delete {orderLabel(deleteOrder)}?</h2><p className="mt-3 text-sm leading-6 text-text-secondary">This is available only for an explicitly marked safe test order. Type the order number to confirm.</p><div className="mt-5 grid gap-4"><Input label="Order number" value={typedOrderNumber} onChange={(event) => setTypedOrderNumber(event.target.value)} /><Input label="Deletion reason" value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} /></div><div className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={() => setDeleteOrder(null)}>Cancel</Button><Button variant="danger" onClick={permanentlyDelete} disabled={management.isPending || typedOrderNumber !== orderLabel(deleteOrder) || deleteReason.trim().length < 3}>Delete Permanently</Button></div></div></div> : null}
   </section>;
 }
 

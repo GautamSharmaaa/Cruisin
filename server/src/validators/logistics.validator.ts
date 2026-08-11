@@ -94,10 +94,20 @@ export const logisticsWebhookSchema = z
     awb: z.union([z.string(), z.number()]).optional(),
     awb_code: z.union([z.string(), z.number()]).optional(),
     order_id: z.union([z.string(), z.number()]).optional(),
+    sr_order_id: z.union([z.string(), z.number()]).optional(),
+    channel_order_id: z.union([z.string(), z.number()]).optional(),
+    source_order_id: z.union([z.string(), z.number()]).optional(),
     shipment_id: z.union([z.string(), z.number()]).optional(),
     current_status: z.string().trim().min(1).max(120).optional(),
+    shipment_status: z.string().trim().min(1).max(120).optional(),
     status: z.string().trim().min(1).max(120).optional(),
     status_id: z.coerce.number().optional(),
+    current_status_id: z.coerce.number().optional(),
+    shipment_status_id: z.coerce.number().optional(),
+    courier_name: z.string().trim().max(160).optional(),
+    courier_id: z.coerce.number().optional(),
+    pickup_status: z.string().trim().max(120).optional(),
+    pickup_scheduled_date: providerTimestampSchema.optional(),
     etd: providerTimestampSchema.optional(),
     scans: z
       .array(
@@ -107,6 +117,8 @@ export const logisticsWebhookSchema = z
             status: z.string().trim().min(1).max(120),
             activity: z.string().trim().max(500).optional(),
             location: z.string().trim().max(200).optional(),
+            status_id: z.coerce.number().optional(),
+            'sr-status': z.coerce.number().optional(),
           })
           .passthrough(),
       )
@@ -119,6 +131,9 @@ export const logisticsWebhookSchema = z
       !value.awb &&
       !value.awb_code &&
       !value.order_id &&
+      !value.sr_order_id &&
+      !value.channel_order_id &&
+      !value.source_order_id &&
       !value.shipment_id
     ) {
       context.addIssue({
@@ -126,7 +141,7 @@ export const logisticsWebhookSchema = z
         message: "Webhook requires a shipment identifier",
       });
     }
-    if (!value.current_status && !value.status) {
+    if (!value.current_status && !value.shipment_status && !value.status) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Webhook requires a shipment status",

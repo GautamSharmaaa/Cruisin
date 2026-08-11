@@ -10,7 +10,7 @@ const logisticsEnvironment = {
   PORT: '8100',
   CLIENT_URL: storefrontUrl,
   ADMIN_URL: adminUrl,
-  MONGODB_URI: 'mongodb://127.0.0.1:27017/cruisin-logistics-e2e',
+  MONGODB_URI: 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests',
   REDIS_URL: 'redis://127.0.0.1:6379/15',
   JWT_ACCESS_SECRET: 'logistics-e2e-access-secret-0000000000000001',
   JWT_REFRESH_SECRET: 'logistics-e2e-refresh-secret-000000000000002',

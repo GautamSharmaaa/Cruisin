@@ -8,7 +8,7 @@ process.env.NODE_ENV = 'test';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-logistics-routes-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -24,9 +24,9 @@ const { controller } = vi.hoisted(() => {
   const noop = (_req: unknown, res: { json: (value: unknown) => void }): void => res.json({});
   return {
     controller: {
-      quote: vi.fn(noop), tracking: vi.fn(noop), list: vi.fn(noop), ndr: vi.fn(noop), rto: vi.fn(noop), byId: vi.fn(noop), kpis: vi.fn(noop), analytics: vi.fn(noop), jobs: vi.fn(noop), notifications: vi.fn(noop),
+      quote: vi.fn(noop), tracking: vi.fn(noop), list: vi.fn(noop), ndr: vi.fn(noop), rto: vi.fn(noop), byId: vi.fn(noop), kpis: vi.fn(noop), syncHealth: vi.fn(noop), analytics: vi.fn(noop), jobs: vi.fn(noop), notifications: vi.fn(noop),
       createOrder: vi.fn(noop), compareCouriers: vi.fn(noop), confirmPackage: vi.fn(noop), assignAwb: vi.fn(noop), schedulePickup: vi.fn(noop),
-      document: vi.fn(() => noop), documentAccess: vi.fn(noop), track: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
+      document: vi.fn(() => noop), documentAccess: vi.fn(noop), track: vi.fn(noop), sync: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
     }
   };
 });

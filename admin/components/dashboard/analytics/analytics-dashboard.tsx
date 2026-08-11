@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
-import { useAdminAnalyticsSummary } from '@/hooks/useAdminResources';
+import { useAdminAnalyticsSummary, useAdminMe } from '@/hooks/useAdminResources';
 import { exportToCsv, type CsvRow } from '@/lib/export-csv';
 import { cn, formatPrice } from '@/lib/utils';
 import type { AdminAnalyticsSummaryDto } from '@/types/dto.types';
@@ -100,16 +100,18 @@ export function AnalyticsDashboard(): ReactNode {
   const [preset, setPreset] = useState<PresetValue>('last30');
   const [customStart, setCustomStart] = useState(daysAgo(29));
   const [customEnd, setCustomEnd] = useState(daysAgo(0));
-  const analytics = useAdminAnalyticsSummary(preset === 'custom' ? { startDate: customStart, endDate: customEnd } : { preset });
+  const [includeTestOrders, setIncludeTestOrders] = useState(false);
+  const me = useAdminMe();
+  const analytics = useAdminAnalyticsSummary(preset === 'custom' ? { startDate: customStart, endDate: customEnd, includeTestOrders } : { preset, includeTestOrders });
   const data = analytics.data;
   const tables = useMemo(() => data ? buildTables(data) : null, [data]);
   const trendData = useMemo(() => data ? data.revenueByDay.map((row, index) => ({ ...row, previousNetRevenue: data.comparison.revenueByDay[index]?.netRevenue ?? 0 })) : [], [data]);
   const metrics: Metric[] = data ? [
     { label: 'Net revenue', value: data.summary.netRevenue, previous: data.comparison.summary.netRevenue, format: 'currency', description: 'Collected revenue after recorded refunds.' },
-    { label: 'Gross revenue', value: data.summary.grossRevenue, previous: data.comparison.summary.grossRevenue, format: 'currency', description: 'Merchandise subtotal from revenue-eligible orders.' },
-    { label: 'Orders', value: data.summary.totalOrders, previous: data.comparison.summary.totalOrders, format: 'number', description: 'All orders created in the selected period.' },
-    { label: 'Paid orders', value: data.summary.paidOrders, previous: data.comparison.summary.paidOrders, format: 'number', description: 'Fully paid, non-cancelled orders.' },
-    { label: 'Average order value', value: data.summary.averageOrderValue, previous: data.comparison.summary.averageOrderValue, format: 'currency', description: 'Net revenue divided by fully paid orders.' },
+    { label: 'Gross paid sales', value: data.summary.grossRevenue, previous: data.comparison.summary.grossRevenue, format: 'currency', description: 'Captured or settled customer payments before recorded refunds.' },
+    { label: 'Orders', value: data.summary.totalOrders, previous: data.comparison.summary.totalOrders, format: 'number', description: 'Business orders excluding failed and abandoned unpaid payment attempts.' },
+    { label: 'Paid orders', value: data.summary.paidOrders, previous: data.comparison.summary.paidOrders, format: 'number', description: 'Orders with captured or settled payment history.' },
+    { label: 'Average order value', value: data.summary.averageOrderValue, previous: data.comparison.summary.averageOrderValue, format: 'currency', description: 'Gross paid sales divided by paid orders.' },
     { label: 'Units sold', value: data.summary.unitsSold, previous: data.comparison.summary.unitsSold, format: 'number', description: 'Item quantity from revenue-eligible orders.' },
     { label: 'Refunds', value: data.summary.refunds, previous: data.comparison.summary.refunds, format: 'currency', description: 'Recorded refund value in the selected period.', inverse: true },
     { label: 'Customers', value: data.summary.customers, previous: data.comparison.summary.customers, format: 'number', description: 'Unique customers placing orders in the selected period.' },
@@ -126,7 +128,7 @@ export function AnalyticsDashboard(): ReactNode {
   return <section className="grid w-full max-w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
     <header className="grid min-w-0 gap-4 overflow-hidden border border-border bg-background-elevated p-5 shadow-lg lg:grid-cols-[1fr_auto] lg:items-end">
       <div className="min-w-0"><p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-gold">{COPY.brand.eyebrow}</p><h1 className="mt-3 break-words font-display text-3xl text-text-primary lg:text-4xl">Analytics</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">Commerce intelligence from orders, payments, customers, products, inventory, discounts, and refunds—never demo values.</p>{data ? <p className="mt-3 font-mono text-xs text-text-muted">Updated {new Date(data.generatedAt).toLocaleString('en-IN')} · Asia/Kolkata</p> : null}</div>
-      <div className="flex flex-wrap gap-3"><Button variant="secondary" aria-label="Refresh analytics" onClick={() => void analytics.refetch()} className="gap-2"><RefreshCw size={16} />Refresh</Button>{data ? <Button variant="secondary" onClick={() => exportToCsv('analytics-summary.csv', exportRows(data))} className="gap-2"><Download size={16} />Export CSV</Button> : null}</div>
+      <div className="flex flex-wrap gap-3">{me.data?.role === 'superadmin' ? <label className="inline-flex min-h-11 items-center gap-2 border border-border px-3 text-xs text-text-secondary"><input type="checkbox" checked={includeTestOrders} onChange={(event) => setIncludeTestOrders(event.target.checked)} />Include test orders</label> : null}<Button variant="secondary" aria-label="Refresh analytics" onClick={() => void analytics.refetch()} className="gap-2"><RefreshCw size={16} />Refresh</Button>{data ? <Button variant="secondary" onClick={() => exportToCsv('analytics-summary.csv', exportRows(data))} className="gap-2"><Download size={16} />Export CSV</Button> : null}</div>
     </header>
 
     <section className="grid gap-4 border border-border bg-background-elevated p-4 shadow-lg xl:grid-cols-[1fr_auto] xl:items-end">
@@ -139,6 +141,10 @@ export function AnalyticsDashboard(): ReactNode {
 
     {data && tables ? <>
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}</div>
+      <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-5">{[
+        ['Today', data.summary.todayOrders], ['COD', data.summary.codOrders], ['Prepaid', data.summary.prepaidOrders], ['Pending', data.summary.pendingOrders], ['Processing', data.summary.processingOrders],
+        ['Shipped', data.summary.shippedOrders], ['Delivered', data.summary.deliveredOrders], ['Cancelled', data.summary.cancelledOrders], ['Returns', data.summary.returnedOrders], ['RTO', data.summary.rtoOrders]
+      ].map(([label, value]) => <article key={String(label)} className="bg-background-elevated p-4"><p className="text-xs uppercase text-text-muted">{label}</p><p className="mt-2 font-mono text-xl text-text-primary">{value}</p></article>)}</div>
       <div className="grid min-w-0 gap-4 md:grid-cols-3">
         <article className="border border-border bg-background-elevated p-5"><p className="text-xs uppercase text-text-secondary">Repeat purchase rate</p><p className="mt-4 font-mono text-2xl text-accent-gold">{repeatRate.toFixed(1)}%</p><p className="mt-2 text-xs text-text-muted">{data.summary.returningCustomers} returning purchasers</p></article>
         <article className="border border-border bg-background-elevated p-5"><p className="text-xs uppercase text-text-secondary">Discounts granted</p><p className="mt-4 font-mono text-2xl text-text-primary">{formatPrice(data.summary.discounts)}</p><p className="mt-2 text-xs text-text-muted">Across revenue-eligible orders</p></article>

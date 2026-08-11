@@ -7,5 +7,9 @@ import { asyncHandler } from '../utils/async-handler.js';
 export const AdminController = {
   overview: asyncHandler(async (_req: Request, res: Response): Promise<void> => { const overview = await AdminService.overview(); res.json(new ApiResponse(overview, 'Overview loaded')); }),
   analytics: asyncHandler(async (req: Request, res: Response): Promise<void> => { const days = Number(req.query.days ?? 14); const analytics = await AdminService.analytics(days); res.json(new ApiResponse(analytics, 'Analytics loaded')); }),
-  analyticsSummary: asyncHandler(async (req: Request, res: Response): Promise<void> => { const analytics = await AdminService.analyticsSummary(req.query); res.json(new ApiResponse(analytics, 'Analytics summary loaded')); })
+  analyticsSummary: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const includeTestOrders = req.user?.role === 'superadmin' && String(req.query.includeTestOrders) === 'true';
+    const analytics = await AdminService.analyticsSummary({ ...req.query, includeTestOrders });
+    res.json(new ApiResponse(analytics, 'Analytics summary loaded'));
+  })
 };

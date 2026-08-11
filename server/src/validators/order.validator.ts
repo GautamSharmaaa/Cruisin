@@ -18,3 +18,5 @@ export const customerCancellationSchema = z.object({
   }
 });
 export const refundSchema = z.object({ amount: z.number().positive(), reason: z.string().max(500).optional(), idempotencyKey: z.string().uuid() });
+export const orderArchiveSchema = z.object({ reason: z.string().trim().max(500).optional() }).strict();
+export const orderPermanentDeleteSchema = z.object({ orderNumber: z.string().trim().min(1).max(120), reason: z.string().trim().min(3).max(500) }).strict();

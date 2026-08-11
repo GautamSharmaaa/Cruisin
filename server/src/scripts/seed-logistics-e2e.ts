@@ -11,7 +11,7 @@ import { ProductModel } from '../models/product.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
 import { UserModel } from '../models/user.model.js';
 
-const expectedDatabase = 'cruisin-logistics-e2e';
+const expectedDatabase = 'cruisin-sync-order-analytics-tests';
 const fixtureIds = {
   category: '66b000000000000000000001',
   product: '66b000000000000000000101',
@@ -24,6 +24,7 @@ const fixtureIds = {
   rtoOrder: '66b000000000000000000303',
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
+  safeDeleteOrder: '66b000000000000000000306',
   ndrShipment: '66b000000000000000000402',
   rtoShipment: '66b000000000000000000403',
   returnShipment: '66b000000000000000000404',
@@ -247,7 +248,34 @@ const seed = async (): Promise<void> => {
       paidOrder(fixtureIds.ndrOrder, 'CR-E2E-NDR'),
       { ...paidOrder(fixtureIds.rtoOrder, 'CR-E2E-RTO', 'a', 2), stockReserved: true },
       { ...paidOrder(fixtureIds.returnOrder, 'CR-E2E-RETURN'), orderStatus: 'delivered' },
-      { ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'), orderStatus: 'delivered' }
+      { ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'), orderStatus: 'delivered' },
+      {
+        _id: objectId(fixtureIds.safeDeleteOrder),
+        user: objectId(fixtureIds.customer),
+        items: [item('b')],
+        shippingAddress: address,
+        billingAddress: address,
+        orderNumber: 'CR-E2E-SAFE-DELETE',
+        isTestOrder: true,
+        paymentMethod: 'razorpay',
+        paymentMode: 'online',
+        paymentProvider: 'manual',
+        paymentStatus: 'failed',
+        orderStatus: 'cancelled',
+        fulfillmentStatus: 'cancelled',
+        subtotal: 1_300,
+        tax: 0,
+        shipping: 0,
+        discount: 0,
+        codFee: 0,
+        total: 1_300,
+        amountPaid: 0,
+        amountDue: 1_300,
+        stockReserved: false,
+        paymentAttempts: [],
+        refunds: [],
+        timeline: [{ status: 'cancelled', timestamp: new Date(), note: 'Explicit isolated test-order deletion fixture' }]
+      }
     ]);
     await ShipmentModel.create([
       forwardShipment(fixtureIds.ndrShipment, fixtureIds.ndrOrder, 'CR-E2E-NDR', 'MOCKAWBNDR001', 'awb_assigned'),

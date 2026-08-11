@@ -661,7 +661,11 @@ export const OrderService = {
   },
 
   async list(userId: string): Promise<unknown[]> { const orders = await OrderModel.find({ user: userId }).sort({ createdAt: -1 }).lean(); return orders.map(normalizeOrderRead); },
-  async adminList(): Promise<unknown[]> { const orders = await OrderModel.find().sort({ createdAt: -1 }).limit(200).lean(); return orders.map(normalizeOrderRead); },
+  async adminList(view: 'active' | 'archived' | 'all' = 'active'): Promise<unknown[]> {
+    const filter = view === 'archived' ? { archivedAt: { $exists: true } } : view === 'all' ? {} : { archivedAt: { $exists: false } };
+    const orders = await OrderModel.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+    return orders.map(normalizeOrderRead);
+  },
   async adminById(id: string): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); return normalizeOrderRead(order); },
   async byId(id: string, user: { userId: string; role: string } | undefined): Promise<unknown> {
     const order = await OrderModel.findById(id).lean();

@@ -12,6 +12,8 @@ import type {
   CourierRate,
   DocumentInput,
   DocumentResult,
+  ReconcileShipmentInput,
+  ReconcileShipmentResult,
   SchedulePickupInput,
   SchedulePickupResult,
   ServiceabilityInput,
@@ -106,6 +108,25 @@ const trackingSchema = z.object({
 }).passthrough();
 
 const genericStatusSchema = z.record(z.unknown());
+const providerDetailsSchema = z.record(z.unknown());
+
+type UnknownRecord = Record<string, unknown>;
+const asRecord = (value: unknown): UnknownRecord | undefined => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : undefined;
+const recordValue = (record: UnknownRecord | undefined, keys: string[]): unknown => keys.map((key) => record?.[key]).find((candidate) => candidate !== undefined && candidate !== null && candidate !== '');
+const stringValue = (record: UnknownRecord | undefined, keys: string[]): string | undefined => {
+  const candidate = recordValue(record, keys);
+  return typeof candidate === 'string' || typeof candidate === 'number' ? String(candidate) : undefined;
+};
+const numericValue = (record: UnknownRecord | undefined, keys: string[]): number | undefined => {
+  const candidate = Number(recordValue(record, keys));
+  return Number.isFinite(candidate) ? candidate : undefined;
+};
+const dataRecord = (response: UnknownRecord): UnknownRecord => asRecord(response.data) ?? response;
+const shipmentRecord = (order: UnknownRecord, expectedShipmentId?: string): UnknownRecord | undefined => {
+  const shipments = Array.isArray(order.shipments) ? order.shipments.map(asRecord).filter((item): item is UnknownRecord => Boolean(item)) : [];
+  if (!expectedShipmentId) return shipments[0];
+  return shipments.find((shipment) => stringValue(shipment, ['id', 'shipment_id']) === expectedShipmentId) ?? shipments[0];
+};
 
 const numberValue = (value: string | number | undefined): number | undefined => {
   const parsed = Number(value);
@@ -263,8 +284,11 @@ export class ShiprocketProvider implements LogisticsProvider {
   }
 
   public async trackShipment(input: TrackingInput): Promise<TrackingResult> {
-    if (!input.awb) throw new LogisticsProviderError('invalid_payload', 'AWB is required for tracking', false, 400);
-    const response = await this.client.get(`/courier/track/awb/${encodeURIComponent(input.awb)}`, trackingSchema);
+    if (!input.awb && !input.providerShipmentId) throw new LogisticsProviderError('invalid_payload', 'AWB or provider shipment ID is required for tracking', false, 400);
+    const path = input.awb
+      ? `/courier/track/awb/${encodeURIComponent(input.awb)}`
+      : `/courier/track/shipment/${encodeURIComponent(input.providerShipmentId!)}`;
+    const response = await this.client.get(path, trackingSchema);
     const summary = response.tracking_data.shipment_track?.[0];
     const rawStatus = summary?.current_status ?? String(response.tracking_data.shipment_status ?? response.tracking_data.track_status ?? 'Unknown');
     const scans: TrackingScan[] = (response.tracking_data.shipment_track_activities ?? []).map((activity) => ({
@@ -282,6 +306,59 @@ export class ShiprocketProvider implements LogisticsProvider {
       rawStatus,
       estimatedDelivery: summary?.etd,
       scans
+    };
+  }
+
+  public async reconcileShipment(input: ReconcileShipmentInput): Promise<ReconcileShipmentResult> {
+    if (!input.providerOrderId && !input.providerShipmentId) {
+      throw new LogisticsProviderError('invalid_payload', 'Provider order or shipment ID is required for reconciliation', false, 400);
+    }
+    const requests: Array<Promise<UnknownRecord>> = [];
+    if (input.providerShipmentId) requests.push(this.client.get(`/shipments/${encodeURIComponent(input.providerShipmentId)}`, providerDetailsSchema));
+    if (input.providerOrderId) requests.push(this.client.get(`/orders/show/${encodeURIComponent(input.providerOrderId)}`, providerDetailsSchema));
+    const responses = await Promise.allSettled(requests);
+    const successful = responses.flatMap((response) => response.status === 'fulfilled' ? [dataRecord(response.value)] : []);
+    if (successful.length === 0) {
+      const failure = responses.find((response): response is PromiseRejectedResult => response.status === 'rejected');
+      throw failure?.reason ?? new LogisticsProviderError('temporary_provider', 'Provider reconciliation reads failed', true, 503);
+    }
+    const directShipment = successful.find((record) => stringValue(record, ['shipment_id', 'id']) === input.providerShipmentId);
+    const order = successful.find((record) => Array.isArray(record.shipments));
+    const shipment = directShipment ?? (order ? shipmentRecord(order, input.providerShipmentId) : undefined) ?? successful[0];
+    const providerOrderId = stringValue(order, ['id', 'order_id']) ?? stringValue(shipment, ['order_id']) ?? input.providerOrderId;
+    const providerShipmentId = stringValue(shipment, ['id', 'shipment_id']) ?? input.providerShipmentId;
+    const awb = stringValue(shipment, ['awb', 'awb_code']) ?? input.awb;
+    const courierName = stringValue(shipment, ['courier_name', 'courier']);
+    const courierId = numericValue(shipment, ['courier_id', 'courier_company_id']);
+    const providerStatusId = numericValue(shipment, ['status_code', 'status_id', 'status']);
+    const rawStatus = stringValue(shipment, ['status_name', 'current_status'])
+      ?? (typeof shipment.status === 'string' ? shipment.status : undefined)
+      ?? stringValue(order, ['status_name', 'status'])
+      ?? 'Unknown';
+    const pickupDate = stringValue(shipment, ['pickup_scheduled_date', 'pickup_date']);
+    const pickupStatus = stringValue(shipment, ['pickup_status']) ?? (pickupDate ? 'Pickup Scheduled' : undefined);
+    const estimatedDelivery = stringValue(shipment, ['etd', 'estimated_delivery_date', 'expected_delivery_date']);
+    let tracking: TrackingResult | undefined;
+    if (awb || providerShipmentId) {
+      try {
+        tracking = await this.trackShipment({ awb, providerShipmentId, providerOrderId });
+      } catch {
+        tracking = undefined;
+      }
+    }
+    return {
+      providerOrderId,
+      providerShipmentId,
+      awb: tracking?.awb ?? awb,
+      courierId,
+      courierName: tracking?.courierName ?? courierName,
+      pickupStatus,
+      pickupDate,
+      providerStatusId,
+      status: tracking?.status ?? normalizeShipmentStatus(rawStatus, providerStatusId),
+      rawStatus: tracking?.rawStatus ?? rawStatus,
+      estimatedDelivery: tracking?.estimatedDelivery ?? estimatedDelivery,
+      scans: tracking?.scans ?? []
     };
   }
 

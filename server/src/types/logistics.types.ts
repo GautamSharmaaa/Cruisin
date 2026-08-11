@@ -9,17 +9,21 @@ export const shipmentStatuses = [
   'provider_order_created',
   'awb_assigned',
   'pickup_scheduled',
+  'out_for_pickup',
   'picked_up',
   'shipped',
   'in_transit',
   'reached_destination_hub',
   'out_for_delivery',
   'delivered',
+  'delivery_exception',
   'ndr',
   'rto_initiated',
   'rto_in_transit',
   'rto_delivered',
   'cancelled',
+  'lost',
+  'damaged',
   'return_in_transit',
   'returned',
   'error',
@@ -178,6 +182,21 @@ export interface TrackingResult {
   rawStatus: string;
   estimatedDelivery?: string;
   scans: TrackingScan[];
+}
+
+export interface ReconcileShipmentInput {
+  providerOrderId?: string;
+  providerShipmentId?: string;
+  awb?: string;
+}
+
+export interface ReconcileShipmentResult extends TrackingResult {
+  providerOrderId?: string;
+  providerShipmentId?: string;
+  courierId?: number;
+  pickupStatus?: string;
+  pickupDate?: string;
+  providerStatusId?: number;
 }
 
 export interface CancelShipmentInput {

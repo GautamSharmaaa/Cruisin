@@ -23,6 +23,23 @@ export interface Shipment {
   awb?: string;
   providerOrderId?: string;
   providerShipmentId?: string;
+  pickupStatus?: string;
+  estimatedDelivery?: string;
+  lastTrackingUpdate?: string;
+  lastWebhookAt?: string;
+  lastSuccessfulSyncAt?: string;
+  lastSyncAttemptAt?: string;
+  lastSyncSource?: "webhook" | "manual_sync" | "scheduled_reconciliation";
+  syncErrorCode?: string;
+  trackingScans: Array<{
+    fingerprint: string;
+    status: string;
+    rawStatus: string;
+    providerStatusId?: number;
+    message: string;
+    location?: string;
+    timestamp: string;
+  }>;
   shippingChargeCollected?: number;
   providerShippingCost?: number;
   codCharge?: number;
@@ -97,6 +114,12 @@ export interface LogisticsKpis {
   deliveryRate: number;
   ndrRate: number;
   rtoRate: number;
+}
+export interface LogisticsSyncHealth {
+  activeShipments: number;
+  lastWebhookAt?: string;
+  lastReconciliationAt?: string;
+  syncFailures: number;
 }
 export interface CourierRate {
   courierId: number;
@@ -195,6 +218,14 @@ export const useLogisticsKpis = () =>
       (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis")).data
         .data,
   });
+export const useLogisticsSyncHealth = () =>
+  useQuery({
+    queryKey: ["admin", "logistics", "sync-health"],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<LogisticsSyncHealth> =>
+      (await api.get<ApiEnvelope<LogisticsSyncHealth>>("/admin/logistics/sync-health")).data.data,
+  });
 export const useLogisticsAnalytics = (days: number) =>
   useQuery({
     queryKey: ["admin", "logistics", "analytics", days],
@@ -262,11 +293,13 @@ export const useLogisticsAction = () => {
       (await api.post<ApiEnvelope<unknown>>(input.path, input.body ?? {})).data
         .data,
     onSuccess: async (): Promise<void> => {
-      await client.invalidateQueries({ queryKey: ["admin", "logistics"] });
-      await client.invalidateQueries({ queryKey: ["admin", "orders"] });
-      await client.invalidateQueries({
-        queryKey: ["admin", "logistics", "notifications"],
-      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["admin", "logistics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "orders"] }),
+        client.invalidateQueries({ queryKey: ["admin", "logistics", "notifications"] }),
+        client.invalidateQueries({ queryKey: ["admin", "analytics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "overview"] }),
+      ]);
     },
   });
 };

@@ -24,6 +24,7 @@ export const adminLogisticsRouter = Router();
 adminLogisticsRouter.use(requireAuth, requireAdmin);
 adminLogisticsRouter.get('/', validate({ query: logisticsListQuerySchema }), LogisticsController.list);
 adminLogisticsRouter.get('/kpis', LogisticsController.kpis);
+adminLogisticsRouter.get('/sync-health', LogisticsController.syncHealth);
 adminLogisticsRouter.get('/analytics', validate({ query: logisticsAnalyticsQuerySchema }), LogisticsController.analytics);
 adminLogisticsRouter.get('/ndr', validate({ query: logisticsListQuerySchema }), LogisticsController.ndr);
 adminLogisticsRouter.get('/rto', validate({ query: logisticsListQuerySchema }), LogisticsController.rto);
@@ -40,6 +41,7 @@ adminLogisticsRouter.post('/:shipmentId/label', requireRole(['manager', 'admin',
 adminLogisticsRouter.post('/:shipmentId/invoice', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.document('invoice'));
 adminLogisticsRouter.post('/:shipmentId/manifest', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.document('manifest'));
 adminLogisticsRouter.post('/:shipmentId/track', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.track);
+adminLogisticsRouter.post('/:shipmentId/sync', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.sync);
 adminLogisticsRouter.post('/:shipmentId/cancel', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.cancel);
 adminLogisticsRouter.post('/:shipmentId/ndr/action', requireRole(['manager', 'admin', 'superadmin']), validate({ params: shipmentIdParamSchema, body: ndrActionSchema }), LogisticsController.ndrAction);
 adminLogisticsRouter.post('/:shipmentId/rto/warehouse', requireRole(['admin', 'superadmin']), validate({ params: shipmentIdParamSchema, body: rtoWarehouseSchema }), LogisticsController.rtoWarehouse);

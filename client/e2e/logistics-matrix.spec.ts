@@ -14,6 +14,7 @@ const ids = {
   rtoOrder: '66b000000000000000000303',
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
+  safeDeleteOrder: '66b000000000000000000306',
   ndrShipment: '66b000000000000000000402',
   rtoShipment: '66b000000000000000000403'
 } as const;
@@ -431,6 +432,27 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
     await inspect();
     await inspect();
     expect(await variantStock(request, adminToken, ids.variantA)).toBe(before + 2);
+  });
+
+  test('safe test-order deletion requires the exact typed order number in the admin UI', async ({ page }) => {
+    const adminUrl = process.env.PLAYWRIGHT_ADMIN_URL ?? 'http://127.0.0.1:3101';
+    await page.goto(adminUrl + '/login');
+    await page.getByLabel('Email').fill('logistics-admin@example.test');
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Enter Dashboard' }).click();
+    await expect(page).toHaveURL(adminUrl + '/');
+    await page.getByRole('link', { name: 'Orders', exact: true }).click();
+    await expect(page.getByText('CR-E2E-SAFE-DELETE')).toBeVisible();
+    await page.getByRole('button', { name: `Delete order ${ids.safeDeleteOrder}` }).click();
+    const dialog = page.getByRole('dialog', { name: 'Permanently delete CR-E2E-SAFE-DELETE?' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeDisabled();
+    await dialog.getByLabel('Order number').fill('CR-E2E-WRONG');
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeDisabled();
+    await dialog.getByLabel('Order number').fill('CR-E2E-SAFE-DELETE');
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test('delivered order completes return, reverse pickup, receipt, quality check, refund handoff and closure', async ({ request }) => {

@@ -1,113 +1,138 @@
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
 import { LogisticsWebhookEventModel } from '../../models/logistics-webhook-event.model.js';
-import { OrderModel } from '../../models/order.model.js';
 import { ShipmentModel } from '../../models/shipment.model.js';
-import type { ShipmentStatus } from '../../types/logistics.types.js';
-import type { LogisticsNotificationEventType } from '../../models/logistics-notification-event.model.js';
-import { LogisticsNotificationService } from './logistics-notification.service.js';
-import { canApplyShipmentStatus, normalizeShipmentStatus } from './logistics-status.js';
+import type { ReconcileShipmentResult, TrackingScan } from '../../types/logistics.types.js';
+import { applyShiprocketSnapshot, recordShiprocketSyncFailure } from './logistics-sync.service.js';
+import { normalizeShipmentStatus } from './logistics-status.js';
 
 interface WebhookInput {
   awb?: string | number;
   awb_code?: string | number;
   order_id?: string | number;
+  sr_order_id?: string | number;
+  channel_order_id?: string | number;
+  source_order_id?: string | number;
   shipment_id?: string | number;
   current_status?: string;
+  shipment_status?: string;
   status?: string;
   status_id?: number;
+  current_status_id?: number;
+  shipment_status_id?: number;
+  courier_name?: string;
+  courier_id?: number;
+  pickup_status?: string;
+  pickup_scheduled_date?: string;
   etd?: string;
-  scans?: Array<{ date: string; status: string; activity?: string; location?: string }>;
+  scans?: Array<{ date: string; status: string; activity?: string; location?: string; status_id?: number; 'sr-status'?: number }>;
 }
 
 const value = (input: string | number | undefined): string | undefined => input === undefined ? undefined : String(input);
-const scanFingerprint = (scan: { date: string; status: string; activity?: string; location?: string }): string => crypto.createHash('sha256').update(`${scan.date}|${scan.status}|${scan.activity ?? ''}|${scan.location ?? ''}`).digest('hex');
+const safeError = (error: unknown): string => (error instanceof Error ? error.message : 'Webhook synchronization failed')
+  .replace(/(token|password|secret|authorization)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+  .slice(0, 500);
+
+const findShipment = async (input: { awb?: string; providerShipmentId?: string; providerOrderId?: string; sourceOrderId?: string }) => {
+  if (input.awb) {
+    const shipment = await ShipmentModel.findOne({ awb: input.awb });
+    if (shipment) return shipment;
+  }
+  if (input.providerShipmentId) {
+    const shipment = await ShipmentModel.findOne({ providerShipmentId: input.providerShipmentId });
+    if (shipment) return shipment;
+  }
+  if (input.providerOrderId) {
+    const shipment = await ShipmentModel.findOne({ providerOrderId: input.providerOrderId });
+    if (shipment) return shipment;
+  }
+  return input.sourceOrderId ? ShipmentModel.findOne({ sourceOrderId: input.sourceOrderId }) : null;
+};
 
 export const LogisticsWebhookService = {
   async process(input: WebhookInput): Promise<{ accepted: true; duplicate: boolean; matched: boolean }> {
     const awb = value(input.awb_code ?? input.awb);
-    const providerOrderId = value(input.order_id);
+    const providerOrderId = value(input.sr_order_id ?? input.order_id);
+    // Shiprocket's order_id is a provider identifier. Only explicit merchant-channel
+    // references are trusted for the final local-order fallback.
+    const sourceOrderId = value(input.channel_order_id ?? input.source_order_id);
     const providerShipmentId = value(input.shipment_id);
-    const rawStatus = input.current_status ?? input.status ?? 'Unknown';
-    const safePayload = { awb, providerOrderId, providerShipmentId, rawStatus, statusId: input.status_id, etd: input.etd, scans: input.scans };
+    const rawStatus = input.current_status ?? input.shipment_status ?? input.status ?? 'Unknown';
+    const providerStatusId = input.current_status_id ?? input.shipment_status_id ?? input.status_id;
+    const safePayload = {
+      awb,
+      providerOrderId,
+      sourceOrderId,
+      providerShipmentId,
+      rawStatus,
+      providerStatusId,
+      courierName: input.courier_name,
+      courierId: input.courier_id,
+      pickupStatus: input.pickup_status,
+      pickupDate: input.pickup_scheduled_date,
+      etd: input.etd,
+      scans: input.scans
+    };
     const fingerprint = crypto.createHash('sha256').update(JSON.stringify(safePayload)).digest('hex');
     let event;
     try {
       event = await LogisticsWebhookEventModel.create({ provider: 'shiprocket', fingerprint, eventType: rawStatus, payload: safePayload });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) return { accepted: true, duplicate: true, matched: true };
+      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) {
+        const existing = await LogisticsWebhookEventModel.findOne({ provider: 'shiprocket', fingerprint }).select('status').lean();
+        return { accepted: true, duplicate: true, matched: existing?.status === 'processed' };
+      }
       throw error;
     }
-    const clauses: Array<Record<string, string>> = [];
-    if (awb) clauses.push({ awb });
-    if (providerShipmentId) clauses.push({ providerShipmentId });
-    if (providerOrderId) clauses.push({ providerOrderId });
-    const shipment = clauses.length ? await ShipmentModel.findOne({ $or: clauses }) : null;
+    const shipment = await findShipment({ awb, providerShipmentId, providerOrderId, sourceOrderId });
     if (!shipment) {
       event.status = 'ignored';
       event.processedAt = new Date();
       await event.save();
       return { accepted: true, duplicate: false, matched: false };
     }
-    const normalized = normalizeShipmentStatus(rawStatus);
-    const previousStatus = shipment.shipmentStatus as ShipmentStatus;
-    if (canApplyShipmentStatus(shipment.shipmentStatus as ShipmentStatus, normalized)) shipment.shipmentStatus = normalized;
-    shipment.rawProviderStatus = rawStatus;
-    shipment.providerStatusId = input.status_id;
-    shipment.lastTrackingUpdate = new Date();
-    if (input.etd) shipment.estimatedDelivery = new Date(input.etd);
-    const existing = new Set(shipment.trackingScans.map((scan) => scan.fingerprint));
-    for (const scan of input.scans ?? []) {
-      const fingerprintValue = scanFingerprint(scan);
-      if (existing.has(fingerprintValue)) continue;
-      shipment.trackingScans.push({
-        fingerprint: fingerprintValue,
-        status: normalizeShipmentStatus(scan.status),
+    const scans: TrackingScan[] = (input.scans ?? []).flatMap((scan) => {
+      const timestamp = new Date(scan.date);
+      if (Number.isNaN(timestamp.getTime())) return [];
+      const statusId = scan['sr-status'] ?? scan.status_id;
+      return [{
+        status: normalizeShipmentStatus(scan.status, statusId),
         rawStatus: scan.status,
+        providerStatusId: statusId,
         message: scan.activity ?? scan.status,
         location: scan.location,
-        timestamp: new Date(scan.date)
-      });
-      existing.add(fingerprintValue);
-    }
-    if (shipment.trackingScans.length > 200) shipment.trackingScans.splice(0, shipment.trackingScans.length - 200);
-    if (shipment.shipmentStatus === 'delivered') {
-      shipment.deliveredDate ??= new Date();
-      await OrderModel.updateOne({ _id: shipment.order }, { $set: { fulfillmentStatus: 'fulfilled', orderStatus: 'delivered' } });
-    } else if (shipment.shipmentStatus === 'ndr' && shipment.ndr) {
-      shipment.ndr.occurredAt ??= new Date();
-      shipment.ndr.reason = input.scans?.at(-1)?.activity ?? 'Delivery attempt failed';
-      shipment.ndr.attemptCount += 1;
-    } else if (shipment.shipmentStatus.startsWith('rto_') && shipment.rto) {
-      shipment.rto.initiatedAt ??= new Date();
-      shipment.rto.status = shipment.shipmentStatus === 'rto_delivered' ? 'delivered' : shipment.shipmentStatus === 'rto_in_transit' ? 'in_transit' : 'initiated';
-    }
-    await shipment.save();
-    event.shipment = shipment._id;
-    event.status = 'processed';
-    event.processedAt = new Date();
-    await event.save();
-    const eventByStatus: Partial<Record<ShipmentStatus, LogisticsNotificationEventType>> = {
-      picked_up: 'picked_up',
-      shipped: 'shipped',
-      in_transit: 'in_transit',
-      out_for_delivery: 'out_for_delivery',
-      delivered: 'delivered',
-      ndr: 'ndr',
-      rto_initiated: 'rto_initiated',
-      rto_in_transit: 'rto_initiated',
-      rto_delivered: 'rto_delivered'
+        timestamp: timestamp.toISOString()
+      }];
+    });
+    const snapshot: ReconcileShipmentResult = {
+      providerOrderId: shipment.providerOrderId ?? providerOrderId,
+      providerShipmentId: shipment.providerShipmentId ?? providerShipmentId,
+      awb,
+      courierId: input.courier_id,
+      courierName: input.courier_name,
+      pickupStatus: input.pickup_status,
+      pickupDate: input.pickup_scheduled_date,
+      providerStatusId,
+      status: normalizeShipmentStatus(rawStatus, providerStatusId),
+      rawStatus,
+      estimatedDelivery: input.etd,
+      scans
     };
-    const notificationEvent = previousStatus !== shipment.shipmentStatus ? eventByStatus[shipment.shipmentStatus as ShipmentStatus] : undefined;
-    if (notificationEvent) {
-      await LogisticsNotificationService.emit({
-        eventType: notificationEvent,
-        orderId: String(shipment.order),
-        shipmentId: String(shipment._id),
-        entityReference: rawStatus,
-        source: 'webhook'
-      });
+    try {
+      await applyShiprocketSnapshot(shipment, snapshot, 'webhook');
+      event.shipment = shipment._id;
+      event.status = 'processed';
+      event.processedAt = new Date();
+      await event.save();
+      return { accepted: true, duplicate: false, matched: true };
+    } catch (error) {
+      await recordShiprocketSyncFailure(String(shipment._id), 'webhook', error);
+      event.shipment = shipment._id;
+      event.status = 'failed';
+      event.error = safeError(error);
+      event.processedAt = new Date();
+      await event.save();
+      throw error;
     }
-    return { accepted: true, duplicate: false, matched: true };
   }
 };

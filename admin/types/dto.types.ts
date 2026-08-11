@@ -362,6 +362,11 @@ export interface OrderDto {
   createdAt?: string;
   trackingNumber?: string;
   timeline?: Array<{ status: string; timestamp: string; note?: string }>;
+  isTestOrder?: boolean;
+  isAnalyticsTestData?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }
 
 export interface CmsSectionDto {
@@ -454,12 +459,21 @@ export interface AdminAnalyticsSummaryDto {
     timezone: 'Asia/Kolkata';
     preset: string;
     analyticsTestBatchId?: string;
+    includeTestOrders?: boolean;
   };
   generatedAt: string;
   summary: {
     totalOrders: number;
     paidOrders: number;
+    todayOrders: number;
+    codOrders: number;
+    prepaidOrders: number;
     pendingOrders: number;
+    processingOrders: number;
+    shippedOrders: number;
+    deliveredOrders: number;
+    returnedOrders: number;
+    rtoOrders: number;
     cancelledOrders: number;
     failedPaymentOrders: number;
     refundedOrders: number;

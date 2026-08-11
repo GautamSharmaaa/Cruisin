@@ -44,6 +44,7 @@ const shipmentSchema = new Schema({
   shipmentStatus: { type: String, enum: shipmentStatuses, default: 'draft', required: true, index: true },
   rawProviderStatus: { type: String, trim: true },
   providerStatusId: { type: Number },
+  pickupStatus: { type: String, trim: true, maxlength: 120 },
   pickupLocation: { type: String, required: true, trim: true, index: true },
   package: {
     productWeightKg: { type: Number, required: true, min: 0 },
@@ -74,6 +75,11 @@ const shipmentSchema = new Schema({
   trackingScans: { type: [trackingScanSchema], default: [] },
   lastTrackingUpdate: { type: Date },
   lastSyncAt: { type: Date },
+  lastWebhookAt: { type: Date },
+  lastSuccessfulSyncAt: { type: Date },
+  lastSyncAttemptAt: { type: Date },
+  lastSyncSource: { type: String, enum: ['webhook', 'manual_sync', 'scheduled_reconciliation'] },
+  syncErrorCode: { type: String, trim: true, maxlength: 80 },
   lastProviderError: {
     code: { type: String, trim: true },
     message: { type: String, trim: true },

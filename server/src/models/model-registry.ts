@@ -27,6 +27,7 @@ import {
 import { NewsletterSubscriberModel } from './newsletter-subscriber.model.js';
 import { NotificationModel } from './notification.model.js';
 import { OrderModel } from './order.model.js';
+import { OrderDeleteTombstoneModel } from './order-delete-tombstone.model.js';
 import { OtpModel } from './otp.model.js';
 import { PageSettingsModel } from './page-settings.model.js';
 import { PaymentWebhookEventModel } from './payment-webhook-event.model.js';
@@ -73,6 +74,7 @@ export const applicationModels = [
   NewsletterSubscriberModel,
   NotificationModel,
   OrderModel,
+  OrderDeleteTombstoneModel,
   OtpModel,
   PackagePresetModel,
   PageSettingsModel,

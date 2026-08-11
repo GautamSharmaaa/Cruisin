@@ -86,6 +86,9 @@ export const LogisticsController = {
       new ApiResponse(await LogisticsService.kpis(), "Logistics KPIs loaded"),
     );
   }),
+  syncHealth: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    res.json(new ApiResponse(await LogisticsService.syncHealth(), "Shiprocket sync health loaded"));
+  }),
   analytics: asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
       res.json(
@@ -231,6 +234,18 @@ export const LogisticsController = {
           req.user?.userId,
         ),
         "Tracking refreshed",
+      ),
+    );
+  }),
+  sync: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res.json(
+      new ApiResponse(
+        await LogisticsService.reconcileShiprocketShipment(
+          String(req.params.shipmentId ?? ""),
+          "manual_sync",
+          req.user?.userId,
+        ),
+        "Shiprocket shipment synchronized",
       ),
     );
   }),

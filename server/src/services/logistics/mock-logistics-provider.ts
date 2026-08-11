@@ -12,6 +12,8 @@ import type {
   CourierRate,
   DocumentInput,
   DocumentResult,
+  ReconcileShipmentInput,
+  ReconcileShipmentResult,
   SchedulePickupInput,
   SchedulePickupResult,
   ServiceabilityInput,
@@ -147,6 +149,18 @@ export class MockLogisticsProvider implements LogisticsProvider {
         { status: 'picked_up', rawStatus: 'Picked Up', message: 'Shipment picked up', location: 'Bengaluru', timestamp: new Date(now.getTime() - 48 * 3_600_000).toISOString() },
         { status, rawStatus, message: rawStatus === 'NDR' ? 'Customer unavailable; reattempt available' : rawStatus, location: 'Destination hub', timestamp: now.toISOString() }
       ]
+    };
+  }
+
+  public async reconcileShipment(input: ReconcileShipmentInput): Promise<ReconcileShipmentResult> {
+    const tracked = await this.trackShipment(input);
+    return {
+      ...tracked,
+      providerOrderId: input.providerOrderId,
+      providerShipmentId: input.providerShipmentId,
+      courierId: 10,
+      pickupStatus: 'Pickup Scheduled',
+      pickupDate: new Date().toISOString()
     };
   }
 

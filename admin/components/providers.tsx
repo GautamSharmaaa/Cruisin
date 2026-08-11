@@ -6,7 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { IDENTITY_CONFIG } from '@/constants/config';
 export interface ProvidersProps { children: ReactNode; }
 export function Providers({ children }: ProvidersProps): ReactNode {
-  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false } } }));
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: true } } }));
   const content = <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   return IDENTITY_CONFIG.googleClientId ? <GoogleOAuthProvider clientId={IDENTITY_CONFIG.googleClientId}>{content}</GoogleOAuthProvider> : content;
 }

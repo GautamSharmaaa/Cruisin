@@ -3,6 +3,7 @@ import { CategoryModel } from '../models/category.model.js';
 import { CollectionModel } from '../models/collection.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
+import { ShipmentModel } from '../models/shipment.model.js';
 import { UserModel } from '../models/user.model.js';
 import { ApiError } from '../utils/api-error.js';
 import { addIstDays, endOfIstDay, formatIstDay, startOfIstDay } from '../utils/analytics-simulation.js';
@@ -19,6 +20,7 @@ export interface AnalyticsSummaryRange {
   timezone: 'Asia/Kolkata';
   preset: string;
   analyticsTestBatchId?: string;
+  includeTestOrders?: boolean;
 }
 
 export interface AnalyticsSummary {
@@ -27,7 +29,15 @@ export interface AnalyticsSummary {
   summary: {
     totalOrders: number;
     paidOrders: number;
+    todayOrders: number;
+    codOrders: number;
+    prepaidOrders: number;
     pendingOrders: number;
+    processingOrders: number;
+    shippedOrders: number;
+    deliveredOrders: number;
+    returnedOrders: number;
+    rtoOrders: number;
     cancelledOrders: number;
     failedPaymentOrders: number;
     refundedOrders: number;
@@ -85,6 +95,8 @@ type OrderLike = {
   refundAmount?: number;
   orderNumber?: string;
   createdAt: Date;
+  isTestOrder?: boolean;
+  isAnalyticsTestData?: boolean;
 };
 
 type ProductLike = {
@@ -104,14 +116,18 @@ type AnalyticsUserLike = { _id: unknown; name?: string; email?: string; createdA
 
 const roundMoney = (value: number): number => Math.round(value * 100) / 100;
 const objectId = (value: unknown): string => String(value && typeof value === 'object' && '_id' in value ? (value as { _id: unknown })._id : value);
-const collectedFor = (order: OrderLike): number => order.amountPaid && order.amountPaid > 0 ? Math.min(order.total, order.amountPaid) : order.total;
-const isRevenueEligible = (order: OrderLike): boolean => order.orderStatus !== 'cancelled' && ['paid', 'partially_paid', 'refunded', 'partially_refunded'].includes(order.paymentStatus);
-const netRevenueFor = (order: OrderLike): number => {
-  if (order.orderStatus === 'cancelled') return 0;
-  if (order.paymentStatus === 'paid') return collectedFor(order);
-  if (order.paymentStatus === 'partially_paid') return Math.max(0, order.amountPaid ?? 0);
-  if (order.paymentStatus === 'refunded' || order.paymentStatus === 'partially_refunded') return Math.max(0, collectedFor(order) - (order.refundAmount ?? (order.paymentStatus === 'refunded' ? collectedFor(order) : 0)));
-  return 0;
+const collectedFor = (order: OrderLike): number => {
+  if ((order.amountPaid ?? 0) > 0) return Math.min(order.total, order.amountPaid ?? 0);
+  return ['paid', 'refunded', 'partially_refunded'].includes(order.paymentStatus) ? order.total : 0;
+};
+const isRevenueEligible = (order: OrderLike): boolean => collectedFor(order) > 0;
+const refundFor = (order: OrderLike): number => Math.max(0, Math.min(collectedFor(order), order.refundAmount ?? (order.paymentStatus === 'refunded' ? collectedFor(order) : 0)));
+const netRevenueFor = (order: OrderLike): number => Math.max(0, collectedFor(order) - refundFor(order));
+const isBusinessOrder = (order: OrderLike): boolean => {
+  if (isRevenueEligible(order)) return true;
+  if (order.paymentMode === 'cod') return !['pending', 'cancelled'].includes(order.orderStatus);
+  if (['authorized', 'partially_paid'].includes(order.paymentStatus)) return true;
+  return ['confirmed', 'processing', 'shipped', 'delivered', 'returned'].includes(order.orderStatus);
 };
 
 const outstandingFor = (orders: OrderLike[]): { cod: number; partial: number; total: number } => {
@@ -121,49 +137,58 @@ const outstandingFor = (orders: OrderLike[]): { cod: number; partial: number; to
 };
 
 const summarizeOrders = (orders: OrderLike[], users: AnalyticsUserLike[], start: Date, end: Date): AnalyticsSummary['summary'] => {
-  const orderUsers = new Set(orders.flatMap((order) => order.user ? [objectId(order.user)] : []));
+  const businessOrders = orders.filter(isBusinessOrder);
+  const orderUsers = new Set(businessOrders.flatMap((order) => order.user ? [objectId(order.user)] : []));
   const orderCountsByUser = new Map<string, number>();
-  for (const order of orders) {
+  for (const order of businessOrders) {
     if (!order.user) continue;
     const id = objectId(order.user);
     orderCountsByUser.set(id, (orderCountsByUser.get(id) ?? 0) + 1);
   }
   const relevantUsers = users.filter((user) => orderUsers.has(objectId(user._id)));
   const summary: AnalyticsSummary['summary'] = {
-    totalOrders: orders.length,
-    paidOrders: orders.filter((order) => order.paymentStatus === 'paid' && order.orderStatus !== 'cancelled').length,
-    pendingOrders: orders.filter((order) => order.paymentStatus === 'pending').length,
-    cancelledOrders: orders.filter((order) => order.orderStatus === 'cancelled').length,
+    totalOrders: businessOrders.length,
+    paidOrders: businessOrders.filter(isRevenueEligible).length,
+    todayOrders: businessOrders.filter((order) => formatIstDay(order.createdAt) === formatIstDay(new Date())).length,
+    codOrders: businessOrders.filter((order) => order.paymentMode === 'cod').length,
+    prepaidOrders: businessOrders.filter((order) => order.paymentMode !== 'cod').length,
+    pendingOrders: businessOrders.filter((order) => ['pending', 'placed', 'confirmed'].includes(order.orderStatus)).length,
+    processingOrders: businessOrders.filter((order) => order.orderStatus === 'processing').length,
+    shippedOrders: businessOrders.filter((order) => order.orderStatus === 'shipped').length,
+    deliveredOrders: businessOrders.filter((order) => order.orderStatus === 'delivered').length,
+    returnedOrders: businessOrders.filter((order) => order.orderStatus === 'returned').length,
+    rtoOrders: 0,
+    cancelledOrders: businessOrders.filter((order) => order.orderStatus === 'cancelled').length,
     failedPaymentOrders: orders.filter((order) => order.paymentStatus === 'failed').length,
-    refundedOrders: orders.filter((order) => order.paymentStatus === 'refunded' || order.paymentStatus === 'partially_refunded').length,
-    grossRevenue: roundMoney(orders.filter(isRevenueEligible).reduce((sum, order) => sum + order.subtotal, 0)),
-    netRevenue: roundMoney(orders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
-    discounts: roundMoney(orders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
-    tax: roundMoney(orders.filter(isRevenueEligible).reduce((sum, order) => sum + order.tax, 0)),
-    shipping: roundMoney(orders.filter(isRevenueEligible).reduce((sum, order) => sum + order.shipping, 0)),
+    refundedOrders: businessOrders.filter((order) => order.paymentStatus === 'refunded' || order.paymentStatus === 'partially_refunded').length,
+    grossRevenue: roundMoney(businessOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
+    netRevenue: roundMoney(businessOrders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
+    discounts: roundMoney(businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
+    tax: roundMoney(businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.tax, 0)),
+    shipping: roundMoney(businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.shipping, 0)),
     averageOrderValue: 0,
     customers: orderUsers.size,
     newCustomers: relevantUsers.filter((user) => user.createdAt >= start && user.createdAt <= end).length,
     returningCustomers: relevantUsers.filter((user) => (orderCountsByUser.get(objectId(user._id)) ?? 0) > 1 || user.createdAt < start).length,
-    unitsSold: orders.filter(isRevenueEligible).reduce((sum, order) => sum + order.items.reduce((lineSum, item) => lineSum + item.quantity, 0), 0),
-    refunds: roundMoney(orders.reduce((sum, order) => sum + (order.refundAmount ?? 0), 0))
+    unitsSold: businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.items.reduce((lineSum, item) => lineSum + item.quantity, 0), 0),
+    refunds: roundMoney(businessOrders.reduce((sum, order) => sum + refundFor(order), 0))
   };
-  summary.averageOrderValue = summary.paidOrders > 0 ? roundMoney(summary.netRevenue / summary.paidOrders) : 0;
+  summary.averageOrderValue = summary.paidOrders > 0 ? roundMoney(summary.grossRevenue / summary.paidOrders) : 0;
   return summary;
 };
 
 const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): AnalyticsSummary['revenueByDay'] => {
   const rows: AnalyticsSummary['revenueByDay'] = [];
   for (let day = startDate; day <= endDate; day = addIstDays(day, 1)) {
-    const dayOrders = orders.filter((order) => formatIstDay(order.createdAt) === day);
+    const dayOrders = orders.filter((order) => isBusinessOrder(order) && formatIstDay(order.createdAt) === day);
     rows.push({
       day,
-      grossRevenue: roundMoney(dayOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.subtotal, 0)),
+      grossRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
       netRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
       discounts: roundMoney(dayOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
-      refunds: roundMoney(dayOrders.reduce((sum, order) => sum + (order.refundAmount ?? 0), 0)),
+      refunds: roundMoney(dayOrders.reduce((sum, order) => sum + refundFor(order), 0)),
       orders: dayOrders.length,
-      paidOrders: dayOrders.filter((order) => order.paymentStatus === 'paid' && order.orderStatus !== 'cancelled').length
+      paidOrders: dayOrders.filter(isRevenueEligible).length
     });
   }
   return rows;
@@ -183,27 +208,37 @@ const analyticsRange = (query: Record<string, unknown>): AnalyticsSummaryRange =
     const endDate = parseIsoDay(query.endDate, 'endDate');
     if (startOfIstDay(startDate) > endOfIstDay(endDate)) throw new ApiError(400, 'startDate must be before or equal to endDate');
     const analyticsTestBatchId = typeof query.analyticsTestBatchId === 'string' && query.analyticsTestBatchId.trim() ? query.analyticsTestBatchId.trim() : undefined;
-    return { startDate, endDate, timezone: 'Asia/Kolkata', preset: 'custom', analyticsTestBatchId };
+    return { startDate, endDate, timezone: 'Asia/Kolkata', preset: 'custom', analyticsTestBatchId, includeTestOrders: query.includeTestOrders === true || query.includeTestOrders === 'true' };
   }
   const analyticsTestBatchId = typeof query.analyticsTestBatchId === 'string' && query.analyticsTestBatchId.trim() ? query.analyticsTestBatchId.trim() : undefined;
-  if (preset === 'last7') return { startDate: addIstDays(today, -6), endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'today') return { startDate: today, endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'last30') return { startDate: addIstDays(today, -29), endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'last90') return { startDate: addIstDays(today, -89), endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'previous30') return { startDate: addIstDays(today, -59), endDate: addIstDays(today, -30), timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'thisMonth') return { startDate: today.slice(0, 8) + '01', endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
+  const includeTestOrders = query.includeTestOrders === true || query.includeTestOrders === 'true';
+  const base = { timezone: 'Asia/Kolkata' as const, preset, analyticsTestBatchId, includeTestOrders };
+  if (preset === 'last7') return { startDate: addIstDays(today, -6), endDate: today, ...base };
+  if (preset === 'today') return { startDate: today, endDate: today, ...base };
+  if (preset === 'last30') return { startDate: addIstDays(today, -29), endDate: today, ...base };
+  if (preset === 'last90') return { startDate: addIstDays(today, -89), endDate: today, ...base };
+  if (preset === 'previous30') return { startDate: addIstDays(today, -59), endDate: addIstDays(today, -30), ...base };
+  if (preset === 'thisMonth') return { startDate: today.slice(0, 8) + '01', endDate: today, ...base };
   if (preset === 'lastMonth') {
     const currentMonthStart = startOfIstDay(today.slice(0, 8) + '01');
     const lastMonthEnd = formatIstDay(new Date(currentMonthStart.getTime() - 1));
-    return { startDate: lastMonthEnd.slice(0, 8) + '01', endDate: lastMonthEnd, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
+    return { startDate: lastMonthEnd.slice(0, 8) + '01', endDate: lastMonthEnd, ...base };
   }
-  if (preset === 'saleWeek') return { startDate: '2026-06-03', endDate: '2026-06-10', timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
-  if (preset === 'full60') return { startDate: addIstDays(today, -59), endDate: today, timezone: 'Asia/Kolkata', preset, analyticsTestBatchId };
+  if (preset === 'saleWeek') return { startDate: '2026-06-03', endDate: '2026-06-10', ...base };
+  if (preset === 'full60') return { startDate: addIstDays(today, -59), endDate: today, ...base };
   throw new ApiError(400, 'Unsupported analytics preset');
 };
 
 export const AdminService = {
-  async overview(): Promise<Record<string, number>> { const start = new Date(); start.setHours(0, 0, 0, 0); const [orders, users, products, revenue] = await Promise.all([OrderModel.countDocuments({ createdAt: { $gte: start } }), UserModel.countDocuments(), ProductModel.countDocuments({ isActive: true }), OrderModel.aggregate<{ total: number }>([{ $match: { paymentStatus: 'paid', createdAt: { $gte: start } } }, { $group: { _id: null, total: { $sum: '$total' } } }])]); return { revenue: revenue[0]?.total ?? 0, orders, users, products, conversionRate: orders > 0 && users > 0 ? Number(((orders / users) * 100).toFixed(2)) : 0 }; },
+  async overview(): Promise<Record<string, number>> {
+    const [analytics, users, products] = await Promise.all([
+      this.analyticsSummary({ preset: 'today' }),
+      UserModel.countDocuments(),
+      ProductModel.countDocuments({ isActive: true, isArchived: { $ne: true } })
+    ]);
+    const orders = analytics.summary.totalOrders;
+    return { revenue: analytics.summary.netRevenue, orders, users, products, conversionRate: orders > 0 && users > 0 ? Number(((orders / users) * 100).toFixed(2)) : 0 };
+  },
   async analytics(days: number): Promise<AnalyticsPoint[]> {
     const safeDays = Math.min(Math.max(days, 7), 90);
     const endDate = formatIstDay(new Date());
@@ -219,11 +254,15 @@ export const AdminService = {
     const dayCount = Math.round((startOfIstDay(range.endDate).getTime() - start.getTime()) / 86_400_000) + 1;
     const previousEndDate = addIstDays(range.startDate, -1);
     const previousStartDate = addIstDays(previousEndDate, -(dayCount - 1));
-    const previousRange: AnalyticsSummaryRange = { startDate: previousStartDate, endDate: previousEndDate, timezone: 'Asia/Kolkata', preset: 'previous-equivalent-period', analyticsTestBatchId: range.analyticsTestBatchId };
+    const previousRange: AnalyticsSummaryRange = { startDate: previousStartDate, endDate: previousEndDate, timezone: 'Asia/Kolkata', preset: 'previous-equivalent-period', analyticsTestBatchId: range.analyticsTestBatchId, includeTestOrders: range.includeTestOrders };
     const orderMatch: Record<string, unknown> = { createdAt: { $gte: start, $lte: end } };
     if (range.analyticsTestBatchId) orderMatch.analyticsTestBatchId = range.analyticsTestBatchId;
     const previousMatch: Record<string, unknown> = { createdAt: { $gte: startOfIstDay(previousStartDate), $lte: endOfIstDay(previousEndDate) } };
     if (range.analyticsTestBatchId) previousMatch.analyticsTestBatchId = range.analyticsTestBatchId;
+    if (!range.includeTestOrders && !range.analyticsTestBatchId) {
+      orderMatch.$and = [{ isTestOrder: { $ne: true } }, { isAnalyticsTestData: { $ne: true } }];
+      previousMatch.$and = [{ isTestOrder: { $ne: true } }, { isAnalyticsTestData: { $ne: true } }];
+    }
     const [orders, previousOrders, inventoryProducts] = await Promise.all([
       OrderModel.find(orderMatch).select('-shippingAddress -billingAddress -timeline').lean<OrderLike[]>(),
       OrderModel.find(previousMatch).select('-shippingAddress -billingAddress -timeline').lean<OrderLike[]>(),
@@ -240,10 +279,16 @@ export const AdminService = {
 
     const summary = summarizeOrders(orders, users, start, end);
     const previousSummary = summarizeOrders(previousOrders, users, startOfIstDay(previousStartDate), endOfIstDay(previousEndDate));
+    const [rtoOrderIds, previousRtoOrderIds] = await Promise.all([
+      ShipmentModel.distinct('order', { order: { $in: orders.filter(isBusinessOrder).map((order) => order._id) }, shipmentStatus: { $in: ['rto_initiated', 'rto_in_transit', 'rto_delivered'] } }),
+      ShipmentModel.distinct('order', { order: { $in: previousOrders.filter(isBusinessOrder).map((order) => order._id) }, shipmentStatus: { $in: ['rto_initiated', 'rto_in_transit', 'rto_delivered'] } })
+    ]);
+    summary.rtoOrders = rtoOrderIds.length;
+    previousSummary.rtoOrders = previousRtoOrderIds.length;
     const revenueByDay = dailyRevenue(orders, range.startDate, range.endDate);
     const previousRevenueByDay = dailyRevenue(previousOrders, previousStartDate, previousEndDate);
-    const outstanding = outstandingFor(orders);
-    const previousOutstanding = outstandingFor(previousOrders);
+    const outstanding = outstandingFor(orders.filter(isBusinessOrder));
+    const previousOutstanding = outstandingFor(previousOrders.filter(isBusinessOrder));
 
     const productsById = new Map(products.map((product) => [objectId(product._id), product]));
     const categoriesById = new Map(categories.map((category) => [objectId(category._id), category]));
@@ -295,11 +340,12 @@ export const AdminService = {
       }
     }
 
-    const ordersByStatus = orders.reduce<Record<string, number>>((acc, order) => {
+    const businessOrders = orders.filter(isBusinessOrder);
+    const ordersByStatus = businessOrders.reduce<Record<string, number>>((acc, order) => {
       acc[order.orderStatus] = (acc[order.orderStatus] ?? 0) + 1;
       return acc;
     }, {});
-    const paymentStatus = orders.reduce<Record<string, number>>((acc, order) => {
+    const paymentStatus = businessOrders.reduce<Record<string, number>>((acc, order) => {
       acc[order.paymentStatus] = (acc[order.paymentStatus] ?? 0) + 1;
       return acc;
     }, {});
@@ -316,10 +362,10 @@ export const AdminService = {
       coupons: [...couponRows.values()].sort((left, right) => right.discount - left.discount),
       ordersByStatus,
       paymentStatus,
-      paymentModes: orders.reduce<Record<string, number>>((acc, order) => { const mode = order.paymentMode ?? 'online'; acc[mode] = (acc[mode] ?? 0) + 1; return acc; }, {}),
+      paymentModes: businessOrders.reduce<Record<string, number>>((acc, order) => { const mode = order.paymentMode ?? 'online'; acc[mode] = (acc[mode] ?? 0) + 1; return acc; }, {}),
       outstanding,
       inventory: (() => { const rows = inventoryProducts.map((product) => { const variants = (product.variants ?? []).filter((variant) => variant.enabled !== false); const stock = variants.reduce((sum, variant) => sum + Math.max(0, variant.stock ?? 0), 0); const threshold = product.lowStockThreshold ?? Math.max(1, ...variants.map((variant) => variant.lowStockThreshold ?? 5)); const status = stock <= 0 ? 'out_of_stock' as const : stock <= threshold ? 'low_stock' as const : null; return { productId: objectId(product._id), title: product.title, slug: product.slug ?? '', productCode: product.productCode ?? '', stock, threshold, status, value: stock * (product.costPrice ?? 0) }; }); const actionable = rows.filter((row): row is typeof row & { status: 'low_stock' | 'out_of_stock' } => row.status !== null).sort((left, right) => left.stock - right.stock); return { lowStock: actionable.filter((row) => row.status === 'low_stock').length, outOfStock: actionable.filter((row) => row.status === 'out_of_stock').length, estimatedValue: roundMoney(rows.reduce((sum, row) => sum + row.value, 0)), products: actionable.slice(0, 10).map(({ value: _value, ...row }) => row) }; })(),
-      recentOrders: orders.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()).slice(0, 10).map((order) => { const customer = users.find((user) => objectId(user._id) === objectId(order.user)); return { orderId: objectId(order._id), orderNumber: order.orderNumber ?? objectId(order._id), customer: customer?.name ?? customer?.email ?? 'Guest/legacy', date: order.createdAt.toISOString(), total: order.total, paymentMode: order.paymentMode ?? 'online', paymentStatus: order.paymentStatus, orderStatus: order.orderStatus }; })
+      recentOrders: businessOrders.slice().sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()).slice(0, 10).map((order) => { const customer = users.find((user) => objectId(user._id) === objectId(order.user)); return { orderId: objectId(order._id), orderNumber: order.orderNumber ?? objectId(order._id), customer: customer?.name ?? customer?.email ?? 'Guest/legacy', date: order.createdAt.toISOString(), total: order.total, paymentMode: order.paymentMode ?? 'online', paymentStatus: order.paymentStatus, orderStatus: order.orderStatus }; })
     };
   }
 };

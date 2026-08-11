@@ -39,7 +39,9 @@ export interface ShipmentTracking {
     courierName?: string;
     awb?: string;
     estimatedDelivery?: string;
-    scans: Array<{ status: string; rawStatus: string; message: string; location?: string; timestamp: string }>;
+    latestUpdate?: string;
+    latestLocation?: string;
+    scans: Array<{ status: string; message: string; location?: string; timestamp: string }>;
   }>;
 }
 

@@ -330,8 +330,12 @@ export const useUpdateOrderStatus = () => {
       await api.patch('/admin/orders/' + input.id + '/status', input);
     },
     onSuccess: async (_data, input): Promise<void> => {
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })
+      ]);
     }
   });
 };
@@ -344,8 +348,43 @@ export const useOrderPaymentAction = () => {
       else await api.post('/admin/orders/' + input.id + '/' + input.action);
     },
     onSuccess: async (_data, input): Promise<void> => {
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })
+      ]);
+    }
+  });
+};
+
+export interface OrderDeleteEligibility {
+  eligible: boolean;
+  classification: 'SAFE_TEST_ORDER' | 'REAL_ORDER_ARCHIVE_ONLY' | 'UNSAFE_TO_DELETE';
+  blockers: string[];
+  relatedRecordCounts: Record<string, number>;
+}
+
+export const getOrderDeleteEligibility = async (id: string): Promise<OrderDeleteEligibility> => {
+  const response = await api.get('/admin/orders/' + id + '/delete-eligibility');
+  return response.data.data as OrderDeleteEligibility;
+};
+
+export const useOrderManagementAction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; action: 'archive' | 'restore' | 'delete'; reason?: string; orderNumber?: string }): Promise<void> => {
+      if (input.action === 'archive') await api.post('/admin/orders/' + input.id + '/archive', { reason: input.reason });
+      else if (input.action === 'restore') await api.post('/admin/orders/' + input.id + '/restore');
+      else await api.delete('/admin/orders/' + input.id, { data: { orderNumber: input.orderNumber, reason: input.reason } });
+    },
+    onSuccess: async (_data, input): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })
+      ]);
     }
   });
 };

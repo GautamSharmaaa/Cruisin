@@ -12,7 +12,6 @@ import type {
   LogisticsAddress,
   PackageMeasurement,
   ShipmentStatus,
-  TrackingScan,
 } from "../../types/logistics.types.js";
 import { LogisticsProviderError } from "../../types/logistics.types.js";
 import { ApiError } from "../../utils/api-error.js";
@@ -20,18 +19,11 @@ import { logger } from "../../utils/logger.js";
 import { calculatePackage, type PackageLine } from "./package-calculator.js";
 import { LogisticsAutomationService } from "./logistics-automation.service.js";
 import { LogisticsNotificationService } from "./logistics-notification.service.js";
+import { applyShiprocketSnapshot, recordShiprocketSyncFailure, type ShiprocketSyncSource } from "./logistics-sync.service.js";
 import { getLogisticsProvider } from "./provider-factory.js";
-import { canApplyShipmentStatus } from "./logistics-status.js";
 
 const money = (value: number): number =>
   Math.round((value + Number.EPSILON) * 100) / 100;
-const fingerprintScan = (scan: TrackingScan): string =>
-  crypto
-    .createHash("sha256")
-    .update(
-      `${scan.timestamp}|${scan.rawStatus}|${scan.location ?? ""}|${scan.message}`,
-    )
-    .digest("hex");
 const objectId = (value: string): Types.ObjectId => {
   if (!Types.ObjectId.isValid(value))
     throw new ApiError(400, "Invalid identifier");
@@ -166,6 +158,29 @@ const safeDocumentError = (error: unknown): string =>
       "$1=[redacted]",
     )
     .slice(0, 500);
+const customerStatus = (status: ShipmentStatus): string => {
+  if (["draft", "pending_provider", "provider_order_created", "awb_assigned", "pickup_scheduled", "out_for_pickup"].includes(status)) return "preparing_for_shipment";
+  if (["picked_up", "shipped"].includes(status)) return "shipped";
+  if (["in_transit", "reached_destination_hub"].includes(status)) return "in_transit";
+  if (status === "out_for_delivery") return "out_for_delivery";
+  if (status === "delivered") return "delivered";
+  if (["delivery_exception", "ndr", "lost", "damaged"].includes(status)) return "delivery_delayed";
+  if (status.startsWith("rto_")) return "return_to_sender";
+  if (["return_in_transit", "returned"].includes(status)) return "returned";
+  if (status === "cancelled") return "cancelled";
+  return "preparing_for_shipment";
+};
+const customerStatusMessage = (status: ShipmentStatus): string => ({
+  preparing_for_shipment: "Your order is being prepared for shipment",
+  shipped: "Your order has shipped",
+  in_transit: "Your order is in transit",
+  out_for_delivery: "Your order is out for delivery",
+  delivered: "Your order was delivered",
+  delivery_delayed: "Your delivery needs additional time",
+  return_to_sender: "The shipment is returning to the sender",
+  returned: "The shipment was returned",
+  cancelled: "The shipment was cancelled",
+}[customerStatus(status)] ?? "Shipment update received");
 const assertDocumentUrl = (url: string): void => {
   let parsed: URL;
   try {
@@ -190,33 +205,6 @@ const assertDocumentUrl = (url: string): void => {
       502,
     );
   }
-};
-
-const notificationEventForStatus = (
-  status: ShipmentStatus,
-):
-  | "picked_up"
-  | "shipped"
-  | "in_transit"
-  | "out_for_delivery"
-  | "delivered"
-  | "ndr"
-  | "rto_initiated"
-  | "rto_delivered"
-  | null => {
-  if (
-    status === "picked_up" ||
-    status === "shipped" ||
-    status === "in_transit" ||
-    status === "out_for_delivery" ||
-    status === "delivered" ||
-    status === "ndr"
-  )
-    return status;
-  if (status === "rto_initiated" || status === "rto_in_transit")
-    return "rto_initiated";
-  if (status === "rto_delivered") return "rto_delivered";
-  return null;
 };
 
 export const LogisticsService = {
@@ -674,96 +662,49 @@ export const LogisticsService = {
     actorType: "admin" | "system" = "system",
     adminId?: string,
   ): Promise<unknown> {
+    const source: ShiprocketSyncSource = actorType === "admin" ? "manual_sync" : "scheduled_reconciliation";
+    const result = await this.reconcileShiprocketShipment(shipmentId, source, adminId) as { shipment: unknown };
+    return result.shipment;
+  },
+
+  async reconcileShiprocketShipment(
+    shipmentId: string,
+    source: ShiprocketSyncSource,
+    adminId?: string,
+  ): Promise<unknown> {
     const shipment = await getShipment(shipmentId);
-    if (!shipment.awb && !shipment.providerShipmentId)
-      throw new ApiError(
-        409,
-        "Tracking is unavailable before provider order creation",
-      );
+    if (shipment.provider !== "shiprocket") throw new ApiError(409, "Shipment is not managed by Shiprocket");
+    if (!shipment.providerOrderId && !shipment.providerShipmentId) {
+      throw new ApiError(409, "Create the Shiprocket order before synchronization");
+    }
+    await ShipmentModel.updateOne({ _id: shipment._id }, { $set: { lastSyncAttemptAt: new Date(), lastSyncSource: source } });
     try {
-      const result = await getLogisticsProvider().trackShipment({
-        awb: shipment.awb ?? undefined,
-        providerShipmentId: shipment.providerShipmentId ?? undefined,
+      const snapshot = await getLogisticsProvider().reconcileShipment({
         providerOrderId: shipment.providerOrderId ?? undefined,
+        providerShipmentId: shipment.providerShipmentId ?? undefined,
+        awb: shipment.awb ?? undefined,
       });
-      const current = shipment.shipmentStatus as ShipmentStatus;
-      if (canApplyShipmentStatus(current, result.status))
-        shipment.shipmentStatus = result.status;
-      shipment.rawProviderStatus = result.rawStatus;
-      shipment.lastSyncAt = new Date();
-      shipment.lastTrackingUpdate = new Date();
-      shipment.estimatedDelivery = result.estimatedDelivery
-        ? new Date(result.estimatedDelivery)
-        : shipment.estimatedDelivery;
-      if (result.courierName) shipment.courierName = result.courierName;
-      const existing = new Set(
-        shipment.trackingScans.map((scan) => scan.fingerprint),
-      );
-      for (const scan of result.scans) {
-        const fingerprint = fingerprintScan(scan);
-        if (!existing.has(fingerprint)) {
-          shipment.trackingScans.push({
-            ...scan,
-            fingerprint,
-            timestamp: new Date(scan.timestamp),
-          });
-          existing.add(fingerprint);
-        }
-      }
-      if (shipment.trackingScans.length > 200)
-        shipment.trackingScans.splice(0, shipment.trackingScans.length - 200);
-      if (shipment.shipmentStatus === "delivered") {
-        shipment.deliveredDate ??= new Date();
-        await OrderModel.updateOne(
-          { _id: shipment.order },
-          {
-            $set: { fulfillmentStatus: "fulfilled", orderStatus: "delivered" },
-          },
-        );
-      } else if (shipment.shipmentStatus === "ndr") {
-        if (!shipment.ndr)
-          throw new ApiError(500, "Shipment NDR state is unavailable");
-        shipment.ndr.occurredAt ??= new Date();
-        shipment.ndr.reason =
-          result.scans.at(-1)?.message ?? "Delivery attempt failed";
-        shipment.ndr.attemptCount += 1;
-      } else if (shipment.shipmentStatus.startsWith("rto_")) {
-        if (!shipment.rto)
-          throw new ApiError(500, "Shipment RTO state is unavailable");
-        shipment.rto.initiatedAt ??= new Date();
-        shipment.rto.status =
-          shipment.shipmentStatus === "rto_delivered"
-            ? "delivered"
-            : shipment.shipmentStatus === "rto_in_transit"
-              ? "in_transit"
-              : "initiated";
-      }
-      await shipment.save();
+      const applied = await applyShiprocketSnapshot(shipment, snapshot, source);
       await audit({
-        action: "tracking_refreshed",
-        actorType,
+        action: "shiprocket_reconciled",
+        actorType: source === "manual_sync" ? "admin" : "system",
         admin: adminId,
         order: shipment.order,
         shipment: shipment._id,
-        newValue: { status: result.status, scansAdded: result.scans.length },
+        newValue: { source, status: snapshot.status, changed: applied.changed, scansAdded: applied.scansAdded },
       });
-      const notificationEvent =
-        current !== shipment.shipmentStatus
-          ? notificationEventForStatus(
-              shipment.shipmentStatus as ShipmentStatus,
-            )
-          : null;
-      if (notificationEvent) {
-        await LogisticsNotificationService.emit({
-          eventType: notificationEvent,
-          orderId: String(shipment.order),
-          shipmentId: String(shipment._id),
-          entityReference: shipment.rawProviderStatus,
-        });
-      }
-      return shipment;
+      return applied;
     } catch (error) {
-      return providerFailure(shipmentId, "tracking_refresh_failed", error);
+      await recordShiprocketSyncFailure(shipmentId, source, error);
+      await audit({
+        action: "shiprocket_reconcile_failed",
+        actorType: source === "manual_sync" ? "admin" : "system",
+        admin: adminId,
+        order: shipment.order,
+        shipment: shipment._id,
+        failureReason: error instanceof Error ? error.message.slice(0, 500) : "Shiprocket synchronization failed",
+      });
+      throw error;
     }
   },
 
@@ -980,11 +921,18 @@ export const LogisticsService = {
       shipments: shipments.map((shipment) => ({
         id: String(shipment._id),
         type: shipment.shipmentType,
-        status: shipment.shipmentStatus,
+        status: customerStatus(shipment.shipmentStatus),
         courierName: shipment.courierName,
         awb: shipment.awb,
         estimatedDelivery: shipment.estimatedDelivery,
-        scans: shipment.trackingScans,
+        latestUpdate: shipment.lastTrackingUpdate,
+        latestLocation: shipment.trackingScans.at(-1)?.location,
+        scans: shipment.trackingScans.map((scan) => ({
+          status: customerStatus(scan.status),
+          message: customerStatusMessage(scan.status),
+          location: scan.location,
+          timestamp: scan.timestamp,
+        })),
       })),
     };
   },
@@ -1087,6 +1035,26 @@ export const LogisticsService = {
       deliveryRate: total ? money((delivered / total) * 100) : 0,
       ndrRate: total ? money((ndr / total) * 100) : 0,
       rtoRate: total ? money((rto / total) * 100) : 0,
+    };
+  },
+
+  async syncHealth(): Promise<unknown> {
+    const activeStatuses = [
+      "provider_order_created", "awb_assigned", "pickup_scheduled", "out_for_pickup", "picked_up",
+      "shipped", "in_transit", "reached_destination_hub", "out_for_delivery", "delivery_exception",
+      "ndr", "rto_initiated", "rto_in_transit",
+    ];
+    const [activeShipments, lastWebhook, lastReconciliation, syncFailures] = await Promise.all([
+      ShipmentModel.countDocuments({ provider: "shiprocket", shipmentStatus: { $in: activeStatuses } }),
+      ShipmentModel.findOne({ lastWebhookAt: { $exists: true } }).sort({ lastWebhookAt: -1 }).select("lastWebhookAt").lean(),
+      ShipmentModel.findOne({ lastSyncSource: "scheduled_reconciliation", lastSuccessfulSyncAt: { $exists: true } }).sort({ lastSuccessfulSyncAt: -1 }).select("lastSuccessfulSyncAt").lean(),
+      ShipmentModel.countDocuments({ provider: "shiprocket", syncErrorCode: { $type: "string" }, shipmentStatus: { $in: activeStatuses } }),
+    ]);
+    return {
+      activeShipments,
+      lastWebhookAt: lastWebhook?.lastWebhookAt,
+      lastReconciliationAt: lastReconciliation?.lastSuccessfulSyncAt,
+      syncFailures,
     };
   },
 

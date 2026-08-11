@@ -101,7 +101,11 @@ const orderSchema = new Schema(
     cancellation: { type: cancellationSchema },
     timeline: { type: [timelineSchema], default: [] },
     analyticsTestBatchId: { type: String, trim: true, index: true },
-    isAnalyticsTestData: { type: Boolean, default: false, index: true }
+    isAnalyticsTestData: { type: Boolean, default: false, index: true },
+    isTestOrder: { type: Boolean, default: false },
+    archivedAt: { type: Date },
+    archivedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    archiveReason: { type: String, trim: true, maxlength: 500 }
   },
   { timestamps: true }
 );

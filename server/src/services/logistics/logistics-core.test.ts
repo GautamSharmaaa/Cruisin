@@ -1,11 +1,11 @@
 // Governed by .rules v1.0
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 process.env.NODE_ENV = 'test';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-logistics-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -25,18 +25,30 @@ let MockLogisticsProvider: typeof import('./mock-logistics-provider.js').MockLog
 let fixtures: typeof import('./mock-logistics-provider.js').mockLogisticsFixtures;
 let normalizeShipmentStatus: typeof import('./logistics-status.js').normalizeShipmentStatus;
 let canApplyShipmentStatus: typeof import('./logistics-status.js').canApplyShipmentStatus;
+let applyShiprocketSnapshot: typeof import('./logistics-sync.service.js').applyShiprocketSnapshot;
+let ShipmentModel: typeof import('../../models/shipment.model.js').ShipmentModel;
+let OrderModel: typeof import('../../models/order.model.js').OrderModel;
+let LogisticsNotificationService: typeof import('./logistics-notification.service.js').LogisticsNotificationService;
 
 beforeAll(async () => {
-  const [packageModule, mockModule, statusModule] = await Promise.all([
+  const [packageModule, mockModule, statusModule, syncModule, shipmentModule, orderModule, notificationModule] = await Promise.all([
     import('./package-calculator.js'),
     import('./mock-logistics-provider.js'),
-    import('./logistics-status.js')
+    import('./logistics-status.js'),
+    import('./logistics-sync.service.js'),
+    import('../../models/shipment.model.js'),
+    import('../../models/order.model.js'),
+    import('./logistics-notification.service.js')
   ]);
   calculatePackage = packageModule.calculatePackage;
   MockLogisticsProvider = mockModule.MockLogisticsProvider;
   fixtures = mockModule.mockLogisticsFixtures;
   normalizeShipmentStatus = statusModule.normalizeShipmentStatus;
   canApplyShipmentStatus = statusModule.canApplyShipmentStatus;
+  applyShiprocketSnapshot = syncModule.applyShiprocketSnapshot;
+  ShipmentModel = shipmentModule.ShipmentModel;
+  OrderModel = orderModule.OrderModel;
+  LogisticsNotificationService = notificationModule.LogisticsNotificationService;
 });
 
 describe('package calculation', () => {
@@ -120,5 +132,51 @@ describe('mock provider and status normalization', () => {
     expect(normalizeShipmentStatus('Out For Delivery')).toBe('out_for_delivery');
     expect(canApplyShipmentStatus('delivered', 'in_transit')).toBe(false);
     expect(canApplyShipmentStatus('in_transit', 'ndr')).toBe(true);
+  });
+
+  it.each([
+    ['Pickup Queued', undefined, 'pickup_scheduled'],
+    ['Out for Pickup', 19, 'out_for_pickup'],
+    ['Picked Up', 42, 'picked_up'],
+    ['Delayed', 13, 'delivery_exception'],
+    ['RTO In Transit', 46, 'rto_in_transit'],
+    ['Untraceable', 76, 'lost'],
+    ['Destroyed', 25, 'damaged'],
+    ['provider wording unavailable', 17, 'out_for_delivery']
+  ])('maps Shiprocket status %s / %s to %s', (raw, statusId, expected) => {
+    expect(normalizeShipmentStatus(raw, statusId)).toBe(expected);
+  });
+
+  it('deduplicates synchronized scans and refuses a terminal status downgrade', async () => {
+    const shipment = new ShipmentModel({
+      order: '66b000000000000000000001',
+      sourceOrderId: 'CR-SYNC-UNIT',
+      providerOrderId: '1001',
+      providerShipmentId: '2001',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'delivered',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'forward:sync-unit'
+    });
+    vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    const orderUpdate = vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null });
+    const notify = vi.spyOn(LogisticsNotificationService, 'emit').mockResolvedValue({} as never);
+    const snapshot = {
+      providerOrderId: '1001',
+      providerShipmentId: '2001',
+      awb: 'AWB-SYNC-UNIT',
+      status: 'in_transit' as const,
+      rawStatus: 'In Transit',
+      scans: [{ status: 'in_transit' as const, rawStatus: 'In Transit', message: 'Parcel moving', location: 'Bengaluru', timestamp: '2026-08-11T08:00:00.000Z' }]
+    };
+    const first = await applyShiprocketSnapshot(shipment, snapshot, 'manual_sync');
+    const second = await applyShiprocketSnapshot(shipment, snapshot, 'manual_sync');
+    expect(shipment.shipmentStatus).toBe('delivered');
+    expect(first.scansAdded).toBe(1);
+    expect(second.scansAdded).toBe(0);
+    expect(shipment.trackingScans).toHaveLength(1);
+    expect(orderUpdate).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });
