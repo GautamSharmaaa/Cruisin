@@ -170,7 +170,7 @@ test('manual synchronization failure is visible and retryable', async ({ page })
   });
   await loginAndOpenLogistics(page);
   await page.getByRole('button', { name: 'Sync with Shiprocket' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Shiprocket sync failed — Retry' })).toContainText('Shiprocket sync failed — Retry');
+  await expect(page.getByRole('alert').filter({ hasText: 'Shiprocket sync did not complete' })).toContainText('This read-only action performs no Shiprocket mutations');
   await expect(page.getByRole('button', { name: 'Sync with Shiprocket' })).toBeEnabled();
 });
 

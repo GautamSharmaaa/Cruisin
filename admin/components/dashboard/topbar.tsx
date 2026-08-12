@@ -32,7 +32,7 @@ export function Topbar({ onMenu }: TopbarProps): ReactNode {
         tone: summary.failed ? 'warning' : 'success',
         message: `Shiprocket sync complete: ${summary.scanned} scanned, ${summary.changed} changed, ${summary.unchanged} unchanged, ${summary.failed} failed. Analytics and order views were refreshed.`,
       }),
-      onError: (error) => setSyncNotice({ tone: 'error', message: `Shiprocket sync failed — Retry: ${error.message}` }),
+      onError: (error) => setSyncNotice({ tone: 'error', message: `Shiprocket sync did not complete: ${error.message}. This read-only action performs no Shiprocket mutations; check sync health before retrying.` }),
     });
   };
   useEffect(() => {

@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { SHIPROCKET_BULK_SYNC_TIMEOUT_MS } from "@/constants/config";
 
 interface ApiEnvelope<TData> {
   data: TData;
@@ -319,7 +320,11 @@ export const useShiprocketBulkSync = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<ShiprocketBulkSyncSummary> =>
-      (await api.post<ApiEnvelope<ShiprocketBulkSyncSummary>>("/admin/logistics/sync", {})).data.data,
+      (await api.post<ApiEnvelope<ShiprocketBulkSyncSummary>>(
+        "/admin/logistics/sync",
+        {},
+        { timeout: SHIPROCKET_BULK_SYNC_TIMEOUT_MS },
+      )).data.data,
     onSuccess: async (): Promise<void> => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ["admin", "logistics"] }),
