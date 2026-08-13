@@ -81,9 +81,9 @@ export const LogisticsController = {
       ),
     );
   }),
-  kpis: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  kpis: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(
-      new ApiResponse(await LogisticsService.kpis(), "Logistics KPIs loaded"),
+      new ApiResponse(await LogisticsService.kpis(typeof req.query.startDate === "string" ? req.query.startDate : undefined), "Logistics KPIs loaded"),
     );
   }),
   syncHealth: asyncHandler(async (_req: Request, res: Response): Promise<void> => {

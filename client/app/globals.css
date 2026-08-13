@@ -20,6 +20,12 @@
   animation: account-order-glow-run 2.4s linear infinite;
 }
 
+.account-order-progress-cancelled {
+  background: var(--color-danger);
+  box-shadow: none;
+  animation: none;
+}
+
 .tracking-truck { animation: tracking-truck-glide 1.8s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {

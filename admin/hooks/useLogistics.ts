@@ -253,13 +253,13 @@ export const useShipments = (
         })
       ).data.data,
   });
-export const useLogisticsKpis = () =>
+export const useLogisticsKpis = (startDate?: string) =>
   useQuery({
-    queryKey: ["admin", "logistics", "kpis"],
+    queryKey: ["admin", "logistics", "kpis", startDate],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<LogisticsKpis> =>
-      (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis")).data
+      (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis", { params: startDate ? { startDate } : undefined })).data
         .data,
   });
 export const useLogisticsSyncHealth = () =>

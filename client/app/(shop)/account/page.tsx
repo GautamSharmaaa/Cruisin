@@ -77,7 +77,7 @@ export default function AccountPage(): ReactNode {
           </div>
           <ArrowRight className="h-7 w-7 shrink-0 text-text-primary transition duration-300 group-hover:translate-x-1 group-hover:text-accent-gold" aria-hidden="true" />
         </div>
-        <div className="mt-8 h-1 overflow-hidden bg-border" aria-hidden="true"><div className="account-order-progress h-full transition-all duration-700" style={{ width: `${orderProgress(latestOrder.orderStatus)}%` }} /></div>
+        <div className="mt-8 h-1 overflow-hidden bg-border" aria-hidden="true"><div className={`${latestOrder.orderStatus.toLowerCase() === 'cancelled' ? 'account-order-progress-cancelled' : 'account-order-progress'} h-full transition-all duration-700`} style={{ width: `${orderProgress(latestOrder.orderStatus)}%` }} /></div>
         <div className="mt-4 grid grid-cols-4 gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-text-muted sm:text-[11px]"><span>Placed</span><span className="text-center">Packed</span><span className="text-center">In transit</span><span className="text-right">Delivered</span></div>
       </Link> : null}
 

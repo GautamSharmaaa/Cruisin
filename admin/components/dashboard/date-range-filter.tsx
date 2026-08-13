@@ -9,17 +9,23 @@ export type DateRange = (typeof dateRangeOptions)[number];
 const labels: Record<DateRange, string> = { all: 'All time', today: 'Today', week: 'This week', month: 'This month', quarter: 'This quarter', year: 'This year' };
 const startOfDay = (value: Date): Date => new Date(value.getFullYear(), value.getMonth(), value.getDate());
 
+export const dateRangeStart = (range: DateRange, now = new Date()): Date | undefined => {
+  if (range === 'all') return undefined;
+  const today = startOfDay(now);
+  if (range === 'today') return today;
+  if (range === 'week') { const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); return start; }
+  if (range === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (range === 'quarter') return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  return new Date(now.getFullYear(), 0, 1);
+};
+
 export const isInDateRange = (value: string | Date | undefined, range: DateRange, now = new Date()): boolean => {
   if (range === 'all') return true;
   if (!value) return false;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return false;
-  const today = startOfDay(now);
-  if (range === 'today') return date >= today;
-  if (range === 'week') { const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); return date >= start; }
-  if (range === 'month') return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  if (range === 'quarter') return date.getFullYear() === now.getFullYear() && Math.floor(date.getMonth() / 3) === Math.floor(now.getMonth() / 3);
-  return date.getFullYear() === now.getFullYear();
+  const start = dateRangeStart(range, now);
+  return Boolean(start && date >= start && date <= now);
 };
 
 export function DateRangeFilter({ value, onChange, label = 'Date range' }: { value: DateRange; onChange: (value: DateRange) => void; label?: string }): ReactNode {

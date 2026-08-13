@@ -77,7 +77,7 @@ const assertDeliveredOrder = async (orderId: string, customerId: string) => {
   if (!order) throw new ApiError(404, 'Order not found');
   if (order.orderStatus !== 'delivered') throw new ApiError(409, 'Returns and exchanges are available after delivery');
   const shipment = await ShipmentModel.findOne({ order: order._id, shipmentType: 'forward', shipmentStatus: 'delivered' }).lean();
-  if (!shipment?.deliveredDate || Date.now() - shipment.deliveredDate.getTime() > 14 * 86_400_000) throw new ApiError(409, 'The 14-day return and exchange window has ended');
+  if (!shipment?.deliveredDate || Date.now() - shipment.deliveredDate.getTime() > 5 * 86_400_000) throw new ApiError(409, 'The 5-day return and exchange window has ended');
   return order;
 };
 

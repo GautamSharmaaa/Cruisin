@@ -1104,16 +1104,21 @@ export const LogisticsService = {
     };
   },
 
-  async kpis(): Promise<unknown> {
+  async kpis(startDate?: string): Promise<unknown> {
+    const parsedStart = startDate ? new Date(startDate) : undefined;
+    if (parsedStart && Number.isNaN(parsedStart.getTime())) throw new ApiError(400, "Invalid logistics KPI start date");
+    const dateFilter = parsedStart ? { createdAt: { $gte: parsedStart } } : {};
     const [total, ready, inTransit, delivered, ndr, rto, errors, cost, awaitingBilling] =
       await Promise.all([
-        ShipmentModel.countDocuments(),
+        ShipmentModel.countDocuments(dateFilter),
         ShipmentModel.countDocuments({
+          ...dateFilter,
           shipmentStatus: {
             $in: ["provider_order_created", "awb_assigned", "pickup_scheduled"],
           },
         }),
         ShipmentModel.countDocuments({
+          ...dateFilter,
           shipmentStatus: {
             $in: [
               "picked_up",
@@ -1124,15 +1129,17 @@ export const LogisticsService = {
             ],
           },
         }),
-        ShipmentModel.countDocuments({ shipmentStatus: "delivered" }),
-        ShipmentModel.countDocuments({ shipmentStatus: "ndr" }),
+        ShipmentModel.countDocuments({ ...dateFilter, shipmentStatus: "delivered" }),
+        ShipmentModel.countDocuments({ ...dateFilter, shipmentStatus: "ndr" }),
         ShipmentModel.countDocuments({
+          ...dateFilter,
           shipmentStatus: {
             $in: ["rto_initiated", "rto_in_transit", "rto_delivered"],
           },
         }),
-        ShipmentModel.countDocuments({ shipmentStatus: "error" }),
+        ShipmentModel.countDocuments({ ...dateFilter, shipmentStatus: "error" }),
         ShipmentModel.aggregate<{ total: number }>([
+          { $match: dateFilter },
           {
             $group: {
               _id: null,
@@ -1144,7 +1151,7 @@ export const LogisticsService = {
             },
           },
         ]),
-        ShipmentModel.countDocuments({ providerBillingStatus: { $ne: "current" }, $or: [{ providerOrderId: { $type: "string" } }, { providerShipmentId: { $type: "string" } }] }),
+        ShipmentModel.countDocuments({ ...dateFilter, providerBillingStatus: { $ne: "current" }, $or: [{ providerOrderId: { $type: "string" } }, { providerShipmentId: { $type: "string" } }] }),
       ]);
     return {
       total,

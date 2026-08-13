@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { LogisticsDocumentButtons } from '@/components/logistics/logistics-document-buttons';
 import { ShiprocketShipDialog } from '@/components/logistics/shiprocket-ship-dialog';
-import { DateRangeFilter, isInDateRange, type DateRange } from '@/components/dashboard/date-range-filter';
+import { DateRangeFilter, dateRangeStart, isInDateRange, type DateRange } from '@/components/dashboard/date-range-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAdminMe } from '@/hooks/useAdminResources';
@@ -31,7 +31,7 @@ export function LogisticsControlCenter({ initialStatus }: { initialStatus?: stri
   const me = useAdminMe();
   const canMutateShiprocket = me.data?.role === 'admin' || me.data?.role === 'superadmin';
   const shipments = useShipments({ limit: 50, status: status || undefined, search: search || undefined });
-  const kpis = useLogisticsKpis();
+  const kpis = useLogisticsKpis(dateRangeStart(dateRange)?.toISOString());
   const syncHealth = useLogisticsSyncHealth();
   const failedNotifications = useFailedLogisticsNotifications();
   const action = useLogisticsAction();
