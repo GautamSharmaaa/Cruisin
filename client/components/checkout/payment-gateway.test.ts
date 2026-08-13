@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { partialPaymentAmount, paymentMethodAvailability, type PaymentConfiguration } from '@/lib/payment-availability';
 
-const config: PaymentConfiguration = { paymentMode: 'test', codEnabled: true, partialPaymentEnabled: true, partialPaymentPercentage: 25, partialPaymentFixedAmount: null, minPartialPaymentOrderValue: 1_000, maxCodOrderValue: 5_000 };
+const config: PaymentConfiguration = { paymentMode: 'test', codEnabled: true, codFee: 49, partialPaymentEnabled: true, partialPaymentPercentage: 25, partialPaymentFixedAmount: null, minPartialPaymentOrderValue: 1_000, maxCodOrderValue: 5_000 };
 
 describe('paymentMethodAvailability', () => {
   it('disables COD above the configured maximum', () => {

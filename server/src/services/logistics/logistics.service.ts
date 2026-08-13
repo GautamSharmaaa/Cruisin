@@ -21,9 +21,32 @@ import { LogisticsAutomationService } from "./logistics-automation.service.js";
 import { LogisticsNotificationService } from "./logistics-notification.service.js";
 import { applyShiprocketSnapshot, recordShiprocketSyncFailure, type ShiprocketSyncSource } from "./logistics-sync.service.js";
 import { getLogisticsProvider } from "./provider-factory.js";
+import { buildCustomerTrackingMilestones } from "./customer-tracking.js";
 
 const money = (value: number): number =>
   Math.round((value + Number.EPSILON) * 100) / 100;
+const quotedProviderCost = () => ({
+  $add: [
+    { $ifNull: ["$providerShippingCost", 0] },
+    { $ifNull: ["$codCharge", 0] },
+    { $ifNull: ["$rtoCost", 0] },
+    { $ifNull: ["$otherProviderCharges", 0] },
+  ],
+});
+const effectiveProviderCost = () => ({
+  $cond: [
+    { $eq: ["$providerBillingStatus", "current"] },
+    { $ifNull: ["$providerBilledTotal", 0] },
+    quotedProviderCost(),
+  ],
+});
+const effectiveLogisticsCost = () => ({
+  $add: [
+    effectiveProviderCost(),
+    { $ifNull: ["$returnShippingCost", 0] },
+    { $ifNull: ["$exchangeShippingCost", 0] },
+  ],
+});
 const objectId = (value: string): Types.ObjectId => {
   if (!Types.ObjectId.isValid(value))
     throw new ApiError(400, "Invalid identifier");
@@ -722,6 +745,7 @@ export const LogisticsService = {
         providerOrderId: shipment.providerOrderId ?? undefined,
         providerShipmentId: shipment.providerShipmentId ?? undefined,
         awb: shipment.awb ?? undefined,
+        createdAt: shipment.createdAt.toISOString(),
       });
       const applied = await applyShiprocketSnapshot(shipment, snapshot, source);
       await audit({
@@ -1016,7 +1040,9 @@ export const LogisticsService = {
       orderId: String(order._id),
       orderNumber: order.orderNumber,
       fulfillmentStatus: order.fulfillmentStatus,
-      shipments: shipments.map((shipment) => ({
+      shipments: shipments.map((shipment) => {
+        const projection = buildCustomerTrackingMilestones({ type: shipment.shipmentType, status: shipment.shipmentStatus, createdAt: shipment.createdAt, scans: shipment.trackingScans.map((scan) => ({ status: scan.status, message: scan.message, location: scan.location ?? undefined, timestamp: scan.timestamp })) });
+        return ({
         id: String(shipment._id),
         type: shipment.shipmentType,
         status: customerStatus(shipment.shipmentStatus),
@@ -1025,13 +1051,16 @@ export const LogisticsService = {
         estimatedDelivery: shipment.estimatedDelivery,
         latestUpdate: shipment.lastTrackingUpdate,
         latestLocation: shipment.trackingScans.at(-1)?.location,
+        currentMilestone: projection.currentMilestone,
+        latestMessage: projection.latestMessage,
+        milestones: projection.milestones,
         scans: shipment.trackingScans.map((scan) => ({
           status: customerStatus(scan.status),
           message: customerStatusMessage(scan.status),
           location: scan.location,
           timestamp: scan.timestamp,
         })),
-      })),
+      }); }),
     };
   },
 
@@ -1076,7 +1105,7 @@ export const LogisticsService = {
   },
 
   async kpis(): Promise<unknown> {
-    const [total, ready, inTransit, delivered, ndr, rto, errors, cost] =
+    const [total, ready, inTransit, delivered, ndr, rto, errors, cost, awaitingBilling] =
       await Promise.all([
         ShipmentModel.countDocuments(),
         ShipmentModel.countDocuments({
@@ -1108,20 +1137,14 @@ export const LogisticsService = {
             $group: {
               _id: null,
               total: {
-                $sum: {
-                  $add: [
-                    { $ifNull: ["$providerShippingCost", 0] },
-                    { $ifNull: ["$codCharge", 0] },
-                    { $ifNull: ["$rtoCost", 0] },
-                    { $ifNull: ["$returnShippingCost", 0] },
-                    { $ifNull: ["$exchangeShippingCost", 0] },
-                    { $ifNull: ["$otherProviderCharges", 0] },
-                  ],
-                },
+                $sum: effectiveLogisticsCost(),
               },
+              billed: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, { $ifNull: ["$providerBilledTotal", 0] }, 0] } },
+              estimated: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, 0, quotedProviderCost()] } },
             },
           },
         ]),
+        ShipmentModel.countDocuments({ providerBillingStatus: { $ne: "current" }, $or: [{ providerOrderId: { $type: "string" } }, { providerShipmentId: { $type: "string" } }] }),
       ]);
     return {
       total,
@@ -1132,6 +1155,9 @@ export const LogisticsService = {
       rto,
       errors,
       logisticsCost: money(cost[0]?.total ?? 0),
+      billedLogisticsCost: money((cost[0] as { billed?: number } | undefined)?.billed ?? 0),
+      estimatedLogisticsCost: money((cost[0] as { estimated?: number } | undefined)?.estimated ?? 0),
+      shipmentsAwaitingBilling: awaitingBilling,
       deliveryRate: total ? money((delivered / total) * 100) : 0,
       ndrRate: total ? money((ndr / total) * 100) : 0,
       rtoRate: total ? money((rto / total) * 100) : 0,
@@ -1168,17 +1194,10 @@ export const LogisticsService = {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
             shipments: { $sum: 1 },
             cost: {
-              $sum: {
-                $add: [
-                  { $ifNull: ["$providerShippingCost", 0] },
-                  { $ifNull: ["$codCharge", 0] },
-                  { $ifNull: ["$rtoCost", 0] },
-                  { $ifNull: ["$returnShippingCost", 0] },
-                  { $ifNull: ["$exchangeShippingCost", 0] },
-                  { $ifNull: ["$otherProviderCharges", 0] },
-                ],
-              },
+              $sum: effectiveLogisticsCost(),
             },
+            billedShipments: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, 1, 0] } },
+            estimatedShipments: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, 0, 1] } },
           },
         },
         { $sort: { _id: 1 } },
@@ -1203,17 +1222,10 @@ export const LogisticsService = {
               $sum: { $cond: [{ $eq: ["$shipmentStatus", "ndr"] }, 1, 0] },
             },
             cost: {
-              $sum: {
-                $add: [
-                  { $ifNull: ["$providerShippingCost", 0] },
-                  { $ifNull: ["$codCharge", 0] },
-                  { $ifNull: ["$rtoCost", 0] },
-                  { $ifNull: ["$returnShippingCost", 0] },
-                  { $ifNull: ["$exchangeShippingCost", 0] },
-                  { $ifNull: ["$otherProviderCharges", 0] },
-                ],
-              },
+              $sum: effectiveLogisticsCost(),
             },
+            billedShipments: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, 1, 0] } },
+            estimatedShipments: { $sum: { $cond: [{ $eq: ["$providerBillingStatus", "current"] }, 0, 1] } },
           },
         },
         { $sort: { shipments: -1 } },

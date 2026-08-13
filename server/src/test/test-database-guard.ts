@@ -19,7 +19,10 @@ const assertSafeTestDatabase = (): void => {
     throw new Error('Test database guard refused a non-isolated MongoDB target');
   }
   process.env.NODE_ENV = 'test';
-  process.env.MONGODB_URI = REQUIRED_TEST_MONGO_URI;
+  // Preserve an explicitly supplied localhost port so CI can test against the
+  // same MongoDB major version as production. The database name and localhost
+  // constraints above remain mandatory.
+  process.env.MONGODB_URI = configuredUri;
   process.env.SHIPROCKET_MODE = 'mock';
   process.env.SHIPROCKET_ALLOW_LIVE_READS = 'false';
   process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS = 'false';

@@ -70,7 +70,7 @@ const installMockApi = async (page: Page, capturedCheckout: { logisticsQuoteId?:
     if (path === '/categories' || path === '/collections' || path === '/tags') return fulfillJson(route, []);
     if (path.startsWith('/page-settings/')) return fulfillJson(route, null);
     if (path === '/site-settings') return fulfillJson(route, { standardShippingRate: 90, expressShippingRate: 180, freeStandardShippingThreshold: 25000, isStorefrontNavigationVisible: true });
-    if (path === '/payments/config') return fulfillJson(route, { paymentMode: 'test', codEnabled: true, partialPaymentEnabled: false, minPartialPaymentOrderValue: 10000, maxCodOrderValue: 100000 });
+    if (path === '/payments/config') return fulfillJson(route, { paymentMode: 'test', codEnabled: true, codFee: 49, partialPaymentEnabled: false, minPartialPaymentOrderValue: 10000, maxCodOrderValue: 100000 });
     if (path === '/logistics/quotes' && request.method() === 'POST') return fulfillJson(route, {
       quoteId: logisticsQuoteId,
       deliveryPostcode: '110001',

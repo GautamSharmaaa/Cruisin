@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { OrderCancellationDialog } from '@/components/account/order-cancellation-dialog';
+import { OrderReturnPanel } from '@/components/account/order-return-panel';
 import { SafeImage } from '@/components/shared/safe-image';
 import { ROUTES } from '@/constants/routes';
 import { useOrder } from '@/hooks/useOrders';
@@ -83,6 +84,8 @@ const OrderDetails = ({ order }: { order: Order }): ReactNode => {
             <div className="hidden text-right sm:block"><p className="text-xs text-text-muted">Qty {item.quantity}</p><p className="mt-1 font-mono text-sm text-accent-gold">{formatPrice(item.price * item.quantity)}</p><p className="mt-1 text-xs text-text-muted">{formatPrice(item.price)} each</p></div>
           </article>)}</div>
         </section>
+
+        <OrderReturnPanel order={order} />
 
         {order.cancellation ? <section className="border border-danger/50 bg-danger/10 p-5 sm:p-6" aria-labelledby="cancellation-heading">
           <div className="flex items-center gap-3"><RotateCcw className="h-5 w-5 text-text-primary" aria-hidden="true" /><h2 id="cancellation-heading" className="font-display text-2xl">Cancellation & refund</h2></div>

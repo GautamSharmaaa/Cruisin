@@ -37,7 +37,7 @@ beforeAll(async () => {
 
 describe('logistics notification event contract', () => {
   it('has deterministic templates for every required event type', () => {
-    expect(eventTypes).toHaveLength(18);
+    expect(eventTypes).toHaveLength(23);
     for (const eventType of eventTypes) {
       const output = render(eventType, 'CR-TEST-001');
       expect(output.title.length).toBeGreaterThan(3);

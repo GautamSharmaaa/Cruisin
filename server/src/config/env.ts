@@ -9,7 +9,11 @@ const optionalString = z.preprocess((value) => value === '' ? undefined : value,
 const envBoolean = (defaultValue: boolean) => z.preprocess((value) => {
   if (value === undefined || value === '') return defaultValue;
   if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
   return value;
 }, z.boolean());
 
@@ -47,14 +51,19 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1, 'RAZORPAY_KEY_ID is required'),
   RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET is required'),
   RAZORPAY_WEBHOOK_SECRET: optionalSecret,
+  RAZORPAYX_ENABLED: envBoolean(false),
+  RAZORPAYX_ACCOUNT_NUMBER: optionalSecret,
+  MANUAL_REFUND_UPI_ENABLED: envBoolean(true),
+  REFUND_DESTINATION_ENCRYPTION_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(32).optional()),
   PAYMENT_MODE: z.enum(['test', 'live']).default('test'),
   COD_ENABLED: envBoolean(false),
   COD_CHECKOUT_ENABLED: envBoolean(false),
   COD_FEE: z.coerce.number().min(0).default(0),
-  PARTIAL_PAYMENT_ENABLED: z.coerce.boolean().default(false),
+  PARTIAL_PAYMENT_ENABLED: envBoolean(false),
   PARTIAL_PAYMENT_PERCENTAGE: z.coerce.number().positive().max(100).optional(),
   PARTIAL_PAYMENT_FIXED_AMOUNT: z.coerce.number().positive().optional(),
   MAX_COD_ORDER_VALUE: z.coerce.number().positive().default(50000),
+  RETURN_HANDLING_FEE: z.coerce.number().min(1).max(10_000).default(100),
   MIN_PARTIAL_PAYMENT_ORDER_VALUE: z.coerce.number().min(0).default(0),
   STRIPE_SECRET_KEY: optionalSecret,
   STRIPE_WEBHOOK_SECRET: optionalSecret,
@@ -106,6 +115,9 @@ const envSchema = z.object({
   }
   if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_REFRESH_SECRET'], message: 'JWT access and refresh secrets must be different' });
+  }
+  if (value.RAZORPAYX_ENABLED && !value.RAZORPAYX_ACCOUNT_NUMBER) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['RAZORPAYX_ACCOUNT_NUMBER'], message: 'RAZORPAYX_ACCOUNT_NUMBER is required when alternate bank or UPI refunds are enabled' });
   }
   if (!value.REDIS_URL && (!value.UPSTASH_REDIS_REST_URL || !value.UPSTASH_REDIS_REST_TOKEN)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'Provide REDIS_URL or both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN' });

@@ -26,7 +26,7 @@ const { addressBookService, cartModel, couponModel, orderModel, productModel, si
   productModel: { find: vi.fn(), updateOne: vi.fn() },
   siteSettingsModel: { findOne: vi.fn() },
   webhookEventModel: { create: vi.fn() },
-  userModel: { findById: vi.fn() },
+  userModel: { findById: vi.fn(), updateOne: vi.fn() },
   paymentService: { getProvider: vi.fn(), refund: vi.fn(), fetchRazorpayRefund: vi.fn() },
   sendEmail: vi.fn()
 }));
@@ -46,6 +46,7 @@ describe('OrderService authenticated checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     addressBookService.saveCheckoutAddress.mockResolvedValue(null);
+    userModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
     siteSettingsModel.findOne.mockReturnValue({
       select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
     });
@@ -79,6 +80,11 @@ describe('OrderService authenticated checkout', () => {
     expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, shipping: 0, total: 1_000, amountPaid: 0, amountDue: 1_000, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black', unitCostBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, unitCostTotal: 380 })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
     expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledWith(customerId, expect.objectContaining({ line1: '1 Test Street' }));
+    expect(userModel.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: customerId, $or: expect.arrayContaining([{ name: 'Cruisin Member' }]) }),
+      { $set: { name: 'Customer' } },
+      { runValidators: true }
+    );
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_000 });
   });
 

@@ -7,7 +7,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 're
 import { EmptyPanel } from '@/components/dashboard/empty-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAdminCategories, useAdminCollections, useAdminNavigation, useAdminPageSettings, useAdminProducts, useAdminSiteSettings, useAdminTags } from '@/hooks/useAdminResources';
+import { useAdminCategories, useAdminCollections, useAdminMe, useAdminNavigation, useAdminPageSettings, useAdminProducts, useAdminSiteSettings, useAdminTags } from '@/hooks/useAdminResources';
 import { api } from '@/lib/api';
 import { formatPrice, slugify } from '@/lib/utils';
 import type { CategoryDto, CollectionDto, MegaMenuCollectionCardDto, MegaMenuColumnDto, MegaMenuLinkDto, MegaMenuPromoDto, NavigationItemDto, PageSettingsDto, ProductDto, SiteSettingsDto, TagDto } from '@/types/dto.types';
@@ -51,6 +51,7 @@ export function StorefrontManager({ initialTab = 'navigation' }: StorefrontManag
   const tags = useAdminTags();
   const pages = useAdminPageSettings();
   const site = useAdminSiteSettings();
+  const me = useAdminMe();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [toast, setToast] = useState<Toast>(null);
   const [editingNav, setEditingNav] = useState<NavigationItemDto | null>(null);
@@ -253,6 +254,12 @@ export function StorefrontManager({ initialTab = 'navigation' }: StorefrontManag
       queryClient.setQueryData(['admin', 'site-settings'], response.data.data);
     }, 'Site settings saved.');
   };
+  const savePaymentSettings = (patch: { codCheckoutEnabled: boolean; codFee: number }): void => {
+    void run(async () => {
+      const response = await api.put<{ data: SiteSettingsDto }>('/admin/site-settings/payment', patch);
+      queryClient.setQueryData(['admin', 'site-settings'], response.data.data);
+    }, 'COD payment settings saved.');
+  };
 
   return <section className="grid gap-5">
     {toast ? <div className={(toast.tone === 'success' ? 'border-success text-success' : 'border-danger text-danger') + ' fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg'}>{toast.tone === 'success' ? <Check size={14} className="mr-2 inline" /> : null}{toast.message}</div> : null}
@@ -272,7 +279,7 @@ export function StorefrontManager({ initialTab = 'navigation' }: StorefrontManag
     {tab === 'collections' ? <CollectionsPanel collections={collections.data ?? []} productOptions={products.data?.items ?? []} categoryOptions={categories.data ?? []} form={collectionForm} setForm={setCollectionForm} editing={editingCollection} pendingVisibility={pendingVisibility} onCancel={() => { setEditingCollection(null); setCollectionForm(collectionDefaults); }} onEdit={editCollection} onSubmit={saveCollection} onDelete={(collection) => void run(async () => { await api.delete('/admin/collections/' + idOf(collection)); }, 'Collection hidden.')} onToggleVisibility={(collection) => toggleVisibility('collection:' + idOf(collection), async () => { await api.put('/admin/collections/' + idOf(collection), { isVisible: !collection.isVisible }); }, collection.isVisible ? 'Collection hidden.' : 'Collection shown.')} /> : null}
     {tab === 'filters' ? <TagsPanel tags={tags.data ?? []} form={tagForm} setForm={setTagForm} editing={editingTag} pendingVisibility={pendingVisibility} onCancel={() => { setEditingTag(null); setTagForm(tagDefaults); }} onEdit={editTag} onSubmit={saveTag} onDelete={(tag) => void run(async () => { await api.delete('/admin/tags/' + idOf(tag)); }, 'Filter chip hidden.')} onToggleVisibility={(tag) => toggleVisibility('tag:' + idOf(tag), async () => { await api.put('/admin/tags/' + idOf(tag), { isVisible: !tag.isVisible }); }, tag.isVisible ? 'Filter chip hidden.' : 'Filter chip shown.')} /> : null}
     {tab === 'pages' ? <PagesPanel pages={pages.data ?? []} form={pageForm} setForm={setPageForm} editing={editingPage} pendingVisibility={pendingVisibility} onCancel={() => { setEditingPage(null); setPageForm(pageDefaults); }} onEdit={editPage} onSubmit={savePage} onToggleVisibility={(page) => toggleVisibility('page:' + idOf(page), async () => { await api.put('/admin/page-settings/' + idOf(page), { isPublished: !(page.isPublished ?? true) }); }, (page.isPublished ?? true) ? 'Page hidden.' : 'Page shown.')} /> : null}
-    {tab === 'delivery' ? <DeliveryPanel site={site.data} onSave={saveSite} /> : null}
+    {tab === 'delivery' ? <DeliveryPanel site={site.data} onSave={saveSite} onSavePayment={savePaymentSettings} canManagePayment={['admin', 'superadmin'].includes(String(me.data?.role))} /> : null}
     {tab === 'settings' ? <SettingsPanel site={site.data} onSave={saveSite} /> : null}
   </section>;
 }
@@ -281,8 +288,8 @@ function Panel({ title, body, children }: { title: string; body: string; childre
   return <section className="grid gap-5 border border-border bg-background-elevated p-5 shadow-lg"><div><h2 className="font-display text-2xl text-text-primary">{title}</h2><p className="mt-2 text-sm leading-6 text-text-secondary">{body}</p></div>{children}</section>;
 }
 
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }): ReactNode {
-  return <label className="flex min-h-11 items-center gap-3 border border-border px-3 text-sm text-text-secondary"><input type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 accent-accent-gold" />{label}</label>;
+function Toggle({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }): ReactNode {
+  return <label className="flex min-h-11 items-center gap-3 border border-border px-3 text-sm text-text-secondary has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"><input type="checkbox" checked={value} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 accent-accent-gold" />{label}</label>;
 }
 
 function Select({ label, value, onChange, children }: { label: string; value: string | number; onChange: (value: string) => void; children: ReactNode }): ReactNode {
@@ -613,16 +620,18 @@ type DeliveryForm = {
   standardShippingCompareAt: string;
   expressShippingRate: string;
   freeStandardShippingThreshold: string;
+  codFee: string;
 };
 
 const deliveryFormFromSite = (site?: SiteSettingsDto): DeliveryForm => ({
   standardShippingRate: String(site?.standardShippingRate ?? 900),
   standardShippingCompareAt: String(site?.standardShippingCompareAt ?? 0),
   expressShippingRate: String(site?.expressShippingRate ?? 1800),
-  freeStandardShippingThreshold: String(site?.freeStandardShippingThreshold ?? 25_000)
+  freeStandardShippingThreshold: String(site?.freeStandardShippingThreshold ?? 25_000),
+  codFee: String(site?.codFee ?? 49)
 });
 
-function DeliveryPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patch: Record<string, unknown>) => void }): ReactNode {
+function DeliveryPanel({ site, onSave, onSavePayment, canManagePayment }: { site?: SiteSettingsDto; onSave: (patch: Record<string, unknown>) => void; onSavePayment: (patch: { codCheckoutEnabled: boolean; codFee: number }) => void; canManagePayment: boolean }): ReactNode {
   const [form, setForm] = useState<DeliveryForm>(() => deliveryFormFromSite(site));
   const [initialized, setInitialized] = useState(Boolean(site));
 
@@ -639,7 +648,8 @@ function DeliveryPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patc
     standardShippingRate: Number(form.standardShippingRate),
     standardShippingCompareAt: Number(form.standardShippingCompareAt),
     expressShippingRate: Number(form.expressShippingRate),
-    freeStandardShippingThreshold: Number(form.freeStandardShippingThreshold)
+    freeStandardShippingThreshold: Number(form.freeStandardShippingThreshold),
+    codFee: Number(form.codFee)
   };
   const invalidNumber = Object.values(form).some((value) => value.trim() === '')
     || Object.values(values).some((value) => !Number.isFinite(value) || value < 0);
@@ -653,7 +663,7 @@ function DeliveryPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patc
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (validationMessage) return;
-    onSave(values);
+    onSave({ standardShippingRate: values.standardShippingRate, standardShippingCompareAt: values.standardShippingCompareAt, expressShippingRate: values.expressShippingRate, freeStandardShippingThreshold: values.freeStandardShippingThreshold });
   };
   const standardIsDiscounted = values.standardShippingCompareAt > values.standardShippingRate;
   const thresholdOriginalPrice = Math.max(values.standardShippingRate, values.standardShippingCompareAt);
@@ -684,6 +694,19 @@ function DeliveryPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patc
                 <span className="text-success">Free</span>
               </div>
             ) : <p className="mt-3 text-sm text-text-secondary">Threshold promotion disabled</p>}
+          </div>
+        </div>
+
+        <div className="grid gap-4 border border-accent-gold/40 bg-accent-gold/5 p-4 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-accent-gold">Cash on delivery</p>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">Offer COD at checkout and collect one transparent handling fee. The selected courier must still support COD for the delivery pincode.</p>
+            {!canManagePayment ? <p className="mt-2 text-xs text-warning">Only an admin or superadmin can change COD payment settings.</p> : null}
+          </div>
+          <div className="grid gap-3">
+            <Toggle label="Enable cash on delivery" value={site.codCheckoutEnabled ?? false} onChange={(codCheckoutEnabled) => onSavePayment({ codCheckoutEnabled, codFee: values.codFee })} disabled={!canManagePayment} />
+            <Input label="COD handling fee (₹)" type="number" min="0" max="10000" step="1" value={form.codFee} error={invalidNumber ? 'Required' : undefined} disabled={!canManagePayment} onChange={(event) => setField('codFee', event.target.value)} />
+            <Button type="button" variant="secondary" disabled={!canManagePayment || invalidNumber} onClick={() => onSavePayment({ codCheckoutEnabled: site.codCheckoutEnabled ?? false, codFee: values.codFee })}>Save COD Settings</Button>
           </div>
         </div>
 

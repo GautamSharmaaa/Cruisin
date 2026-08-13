@@ -47,6 +47,14 @@ export interface Shipment {
   codCharge?: number;
   otherProviderCharges?: number;
   rtoCost?: number;
+  providerBilledFreightCost?: number;
+  providerBilledCodCharge?: number;
+  providerBilledOtherCharges?: number;
+  providerBilledRtoCost?: number;
+  providerBilledTotal?: number;
+  providerBillingStatus?: "unavailable" | "current";
+  providerBillingSource?: "statement";
+  providerBillingSyncedAt?: string;
   package?: {
     deadWeightKg: number;
     lengthCm: number;
@@ -98,6 +106,7 @@ export interface Shipment {
     inspectedAt?: string;
   };
   updatedAt: string;
+  createdAt?: string;
 }
 export interface ShipmentPage {
   items: Shipment[];
@@ -115,6 +124,9 @@ export interface LogisticsKpis {
   rto: number;
   errors: number;
   logisticsCost: number;
+  billedLogisticsCost: number;
+  estimatedLogisticsCost: number;
+  shipmentsAwaitingBilling: number;
   deliveryRate: number;
   ndrRate: number;
   rtoRate: number;
@@ -151,13 +163,15 @@ export interface CourierComparison {
 }
 export interface LogisticsAnalytics {
   days: number;
-  daily: Array<{ _id: string; shipments: number; cost: number }>;
+  daily: Array<{ _id: string; shipments: number; cost: number; billedShipments: number; estimatedShipments: number }>;
   couriers: Array<{
     _id: string;
     shipments: number;
     delivered: number;
     ndr: number;
     cost: number;
+    billedShipments: number;
+    estimatedShipments: number;
   }>;
   statuses: Array<{ _id: string; count: number }>;
 }
@@ -166,10 +180,25 @@ export interface WorkflowRequest {
   requestNumber: string;
   status: string;
   reason?: string;
+  details?: string;
+  evidence?: Array<{ url: string; format: string }>;
+  items?: Array<{ sku: string; title: string; size?: string; color?: string; quantity: number }>;
+  handlingFee?: number;
+  handlingFeePaymentStatus?: string;
+  handlingFeePaidAt?: string;
+  handlingFeePaymentReference?: string;
   requestedSku?: string;
   refundStatus?: string;
+  productRefundAmount?: number;
+  productRefundReference?: string;
+  refundWindowOpenedAt?: string;
+  refundDestination?: { method?: "original_payment" | "wallet" | "upi" | "bank"; verificationStatus?: "not_submitted" | "pending" | "verified" | "failed"; maskedDetails?: string; registeredName?: string; manualUpiId?: string; submittedByRole?: "customer" | "admin" | "superadmin"; submittedAt?: string; verifiedAt?: string };
+  manualTransferReference?: string;
+  manualTransferredAt?: string;
   createdAt: string;
   order?: { orderNumber?: string };
+  customer?: { name?: string; email?: string; phone?: string };
+  reverseShipment?: { shipmentStatus?: string; returnStatus?: string; courierName?: string; awb?: string; pickupStatus?: string; lastTrackingUpdate?: string };
 }
 export interface LogisticsDocumentAccess {
   shipmentId: string;
@@ -364,14 +393,26 @@ export const useWorkflowAction = (kind: "returns" | "exchanges") => {
       id: string;
       action: string;
       note?: string;
+      upiId?: string;
+      transactionReference?: string;
+      transferredAt?: string;
     }): Promise<unknown> =>
       (
         await api.post<ApiEnvelope<unknown>>(
           `/admin/${kind}/${input.id}/action`,
-          { action: input.action, note: input.note },
+          { action: input.action, note: input.note, ...(input.upiId ? { upiId: input.upiId } : {}), ...(input.transactionReference ? { transactionReference: input.transactionReference } : {}), ...(input.transferredAt ? { transferredAt: input.transferredAt } : {}) },
         )
       ).data.data,
     onSuccess: async (): Promise<void> =>
       client.invalidateQueries({ queryKey: ["admin", kind] }),
+  });
+};
+
+export const useAdminSetRefundDestination = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; destination: { method: "wallet" } | { method: "upi"; upiId: string } }): Promise<unknown> =>
+      (await api.post<ApiEnvelope<unknown>>(`/admin/returns/${input.id}/refund-destination`, input.destination)).data.data,
+    onSuccess: async (): Promise<void> => client.invalidateQueries({ queryKey: ["admin", "returns"] }),
   });
 };

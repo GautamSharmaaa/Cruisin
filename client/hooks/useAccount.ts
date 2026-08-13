@@ -24,7 +24,10 @@ export const useUpdateProfile = () => {
     },
     onSuccess: async (user): Promise<void> => {
       if (accessToken) setSession(user, accessToken);
-      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+        queryClient.invalidateQueries({ queryKey: ['account'] })
+      ]);
     }
   });
 };
@@ -117,6 +120,7 @@ export const useRevokeOtherSessions = () => {
 export const useAddressBook = (enabled = true) => useQuery({
   queryKey: ['account', 'address-book'],
   enabled,
+  refetchOnWindowFocus: true,
   queryFn: async (): Promise<AddressBookEntry[]> => {
     const response = await api.get<ApiEnvelope<AddressBookEntry[]>>('/auth/addresses');
     return response.data.data;

@@ -9,6 +9,7 @@ import { applicationModels } from '../models/model-registry.js';
 import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
+import { SiteSettingsModel } from '../models/site-settings.model.js';
 import { UserModel } from '../models/user.model.js';
 
 const expectedDatabase = 'cruisin-sync-order-analytics-tests';
@@ -193,6 +194,14 @@ const seed = async (): Promise<void> => {
         isActive: true
       }
     ]);
+    await SiteSettingsModel.create({
+      singletonKey: 'global',
+      codCheckoutEnabled: true,
+      codFee: 49,
+      standardShippingRate: 92,
+      expressShippingRate: 150,
+      freeStandardShippingThreshold: 5_000
+    });
     await CategoryModel.create({
       _id: objectId(fixtureIds.category),
       name: 'Logistics E2E',

@@ -5,6 +5,7 @@ import { ShipmentModel } from '../../models/shipment.model.js';
 import type { ReconcileShipmentResult, TrackingScan } from '../../types/logistics.types.js';
 import { applyShiprocketSnapshot, recordShiprocketSyncFailure } from './logistics-sync.service.js';
 import { normalizeShipmentStatus } from './logistics-status.js';
+import { LogisticsJobService } from './logistics-job.service.js';
 
 interface WebhookInput {
   awb?: string | number;
@@ -120,6 +121,7 @@ export const LogisticsWebhookService = {
     };
     try {
       await applyShiprocketSnapshot(shipment, snapshot, 'webhook');
+      if (process.env.NODE_ENV !== 'test') await LogisticsJobService.enqueue('reconcile_tracking', { shipmentId: String(shipment._id) }, `webhook-reconcile:${fingerprint}`).catch(() => undefined);
       event.shipment = shipment._id;
       event.status = 'processed';
       event.processedAt = new Date();

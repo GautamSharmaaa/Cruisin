@@ -15,9 +15,10 @@ export interface OrderSummaryProps {
 	shippingMethod?: ShippingMethod;
 	shippingSettings?: ShippingRateSettings;
 	shippingAmountOverride?: number;
+	codFee?: number;
 }
 
-export function OrderSummary({ shippingMethod = 'standard', shippingSettings, shippingAmountOverride }: OrderSummaryProps): ReactNode {
+export function OrderSummary({ shippingMethod = 'standard', shippingSettings, shippingAmountOverride, codFee = 0 }: OrderSummaryProps): ReactNode {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
 
@@ -30,7 +31,7 @@ export function OrderSummary({ shippingMethod = 'standard', shippingSettings, sh
 	const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 	const discountedSubtotal = taxInclusiveCheckoutTotals(subtotal, discount, 0).discountedSubtotal;
 	const delivery = shippingAmountOverride === undefined ? shippingQuote(discountedSubtotal, freeShipping, shippingMethod, shippingSettings) : { amount: shippingAmountOverride, compareAt: 0, isFree: shippingAmountOverride === 0, promotionReason: freeShipping ? 'coupon' as const : null, remainingForFreeStandardShipping: 0 };
-	const totals = taxInclusiveCheckoutTotals(subtotal, discount, delivery.amount);
+	const totals = taxInclusiveCheckoutTotals(subtotal, discount, delivery.amount + codFee);
 	return (
 		<aside className="border border-border bg-background-elevated/70 p-6 shadow-lg backdrop-blur-xl lg:sticky lg:top-28">
 			<p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{COPY.checkout.payment}</p>
@@ -40,6 +41,7 @@ export function OrderSummary({ shippingMethod = 'standard', shippingSettings, sh
 				<div className="flex justify-between"><span>{COPY.cart.subtotal}</span><span className="font-mono text-text-primary">{formatPrice(subtotal)}</span></div>
 				{discount > 0 ? <div className="flex justify-between text-success"><span>Discount</span><span className="font-mono">-{formatPrice(discount)}</span></div> : null}
 				<div className="flex items-center justify-between gap-4"><span>{COPY.cart.shipping}</span><DeliveryPrice quote={delivery} /></div>
+				{codFee > 0 ? <div className="flex justify-between"><span>Cash on delivery fee</span><span className="font-mono text-text-primary">{formatPrice(codFee)}</span></div> : null}
 				<div className="flex justify-between"><span>{COPY.cart.tax}</span><span className="font-mono text-success">{COPY.cart.taxIncluded}</span></div>
 				<div className="flex justify-between border-t border-border pt-5 font-mono text-xl text-accent-gold"><span>{COPY.cart.total}</span><span>{formatPrice(totals.total)}</span></div>
 			</div>

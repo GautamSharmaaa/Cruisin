@@ -14,6 +14,8 @@ const siteSettingsSchema = new Schema(
     expressShippingRate: { type: Number, min: 0, default: 1800 },
     freeStandardShippingThreshold: { type: Number, min: 0, default: 25_000 },
     standardShippingCompareAt: { type: Number, min: 0, default: 0 },
+    codCheckoutEnabled: { type: Boolean, default: false },
+    codFee: { type: Number, min: 0, max: 10_000, default: 49 },
     globalFilterSettings: { type: Schema.Types.Mixed, default: {} }
   },
   { timestamps: true }

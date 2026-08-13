@@ -28,7 +28,8 @@ const filterRoleOptions = [{ label: 'All roles', value: 'all' }, ...roleOptions]
 
 const formatCurrency = (value = 0): string => new Intl.NumberFormat('en-IN', { currency: 'INR', maximumFractionDigits: 0, style: 'currency' }).format(value);
 const formatDate = (value?: string): string => value ? new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value)) : 'Not recorded';
-const userLabel = (user: UserDto): string => user.email || user.name || userId(user);
+const userLabel = (user: UserDto): string => user.name || user.email || userId(user);
+const emailLabel = (user: UserDto): string => user.email || 'Not provided';
 const statusTone = (user: UserDto): 'success' | 'warning' | 'danger' | 'neutral' => {
   if (!user.isActive) return 'danger';
   if (!user.isVerified) return 'warning';
@@ -73,7 +74,7 @@ export function UserManager({ users, isLoading }: UserManagerProps): ReactNode {
     const nextRole = roles[id] ?? user.role;
     const nextActive = active[id] ?? user.isActive;
     if (nextRole === user.role && nextActive === user.isActive) return;
-    const message = `Update ${user.email} to role ${nextRole} and ${nextActive ? 'active' : 'inactive'}?`;
+    const message = `Update ${userLabel(user)} to role ${nextRole} and ${nextActive ? 'active' : 'inactive'}?`;
     if (window.confirm(message)) updateUser.mutate({ id, role: nextRole, isActive: nextActive });
   };
 
@@ -84,7 +85,7 @@ export function UserManager({ users, isLoading }: UserManagerProps): ReactNode {
       <AdminStat label="Users loaded" value={stats.total} helper="Latest 100 admin records" />
       <AdminStat label="Active accounts" value={stats.active} tone="success" helper="Allowed to sign in" />
       <AdminStat label="Admin roles" value={stats.admins} tone="gold" helper="Admin, manager, viewer, superadmin" />
-      <AdminStat label="Customer spend" value={formatCurrency(stats.customerSpend)} helper="Paid order value in this list" />
+      <AdminStat label="Customer spend" value={formatCurrency(stats.customerSpend)} helper="Net collected value from active business orders" />
     </AdminStatsGrid>
 
     <AdminFilters>
@@ -125,12 +126,12 @@ export function UserManager({ users, isLoading }: UserManagerProps): ReactNode {
                 </div>
               </div>
             </td>
-            <td className="p-4 text-text-secondary"><p className="break-all">{user.email}</p><p className="mt-1">{user.phone ?? 'No phone'}</p></td>
+            <td className="p-4 text-text-secondary"><p className="break-all">{emailLabel(user)}</p><p className="mt-1">{user.phone ?? 'No phone'}</p></td>
             <td className="p-4 font-mono text-text-primary">{user.orderCount ?? 0}</td>
             <td className="p-4 font-mono text-text-primary">{formatCurrency(user.totalSpend)}</td>
-            <td className="p-4 text-text-secondary"><p>{formatDate(user.lastOrderAt)}</p><p className="mt-1 text-xs uppercase tracking-[0.12em] text-text-muted">{user.lastOrderStatus ?? 'No orders'}{user.lastCouponCode ? ' / ' + user.lastCouponCode : ''}</p></td>
-            <td className="p-4"><SelectField label={'Role for ' + userLabel(user)} options={roleOptions} value={roles[id] ?? user.role} onChange={(event) => setRoles((current) => ({ ...current, [id]: event.target.value as UserRole }))} /></td>
-            <td className="p-4"><SelectField label={'Active status for ' + userLabel(user)} options={[{ label: COPY.common.yes, value: 'true' }, { label: COPY.common.no, value: 'false' }]} value={String(active[id] ?? user.isActive)} onChange={(event) => setActive((current) => ({ ...current, [id]: event.target.value === 'true' }))} /></td>
+            <td className="p-4 text-text-secondary"><p>{user.lastOrderNumber ?? formatDate(user.lastOrderAt)}</p><p className="mt-1 text-xs uppercase tracking-[0.12em] text-text-muted">{user.lastOrderStatus ?? 'No orders'}{user.lastCouponCode ? ' / ' + user.lastCouponCode : ''}</p></td>
+            <td className="p-4"><SelectField id={`role-${id}`} label="Role" options={roleOptions} value={roles[id] ?? user.role} onChange={(event) => setRoles((current) => ({ ...current, [id]: event.target.value as UserRole }))} /></td>
+            <td className="p-4"><SelectField id={`status-${id}`} label="Account status" options={[{ label: 'Active', value: 'true' }, { label: 'Inactive', value: 'false' }]} value={String(active[id] ?? user.isActive)} onChange={(event) => setActive((current) => ({ ...current, [id]: event.target.value === 'true' }))} /></td>
             <td className="p-4">
               <div className="flex justify-end gap-2">
                 <button type="button" aria-label={'View customer details ' + userLabel(user)} onClick={() => setSelectedUser(user)} className="grid h-11 w-11 place-items-center border border-border text-text-secondary transition hover:border-accent-gold hover:text-accent-gold"><Eye size={16} /></button>
@@ -155,7 +156,7 @@ function UserDetailDrawer({ user, onClose }: { user: UserDto; onClose: () => voi
         <div className="min-w-0">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-gold">Customer detail</p>
           <h2 className="mt-2 truncate font-display text-2xl text-text-primary">{user.name}</h2>
-          <p className="mt-1 break-all text-sm text-text-secondary">{user.email}</p>
+          <p className="mt-1 break-all text-sm text-text-secondary">{emailLabel(user)}</p>
         </div>
         <button type="button" aria-label="Close customer details" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center border border-border text-text-secondary hover:border-accent-gold hover:text-accent-gold"><X size={16} /></button>
       </div>

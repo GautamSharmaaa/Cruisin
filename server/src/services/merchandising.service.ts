@@ -316,6 +316,8 @@ const siteSettingsDefaults = {
   expressShippingRate: 1800,
   freeStandardShippingThreshold: 25_000,
   standardShippingCompareAt: 0,
+  codCheckoutEnabled: false,
+  codFee: 49,
   globalFilterSettings: {}
 } as const;
 

@@ -21,8 +21,16 @@ process.env.SENDGRID_API_KEY = 'test';
 process.env.SHIPROCKET_MODE = 'mock';
 
 const controller = vi.hoisted(() => ({
+  uploadEvidence: vi.fn(),
   createReturn: vi.fn(),
+  verifyReturnPayment: vi.fn(),
+  submitRefundDestination: vi.fn(),
+  setRefundDestinationByAdmin: vi.fn((_req: unknown, res: { json: (value: unknown) => void }): void => res.json({})),
+  refreshRefundDestination: vi.fn(),
+  wallet: vi.fn(),
   createExchange: vi.fn(),
+  exchangeOptions: vi.fn(),
+  verifyExchangePayment: vi.fn(),
   mine: vi.fn(),
   returns: vi.fn((_req: unknown, res: { json: (value: unknown) => void }): void => res.json({})),
   exchanges: vi.fn((_req: unknown, res: { json: (value: unknown) => void }): void => res.json({})),
@@ -51,11 +59,17 @@ describe('return and exchange Shiprocket mutation access', () => {
     expect((await request(app).get('/admin/returns').set('Authorization', `Bearer ${tokenFor('manager')}`)).status).toBe(200);
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'approved' })).status).toBe(200);
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'create_reverse_pickup' })).status).toBe(403);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'open_refund_window' })).status).toBe(403);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'refund_pending' })).status).toBe(403);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'record_manual_upi_refund', upiId: '9876543210@upi', transactionReference: 'UTR123456' })).status).toBe(403);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/refund-destination').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ method: 'upi', upiId: '9876543210@upi' })).status).toBe(403);
     expect((await request(app).post('/admin/exchanges/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'replacement_shipped' })).status).toBe(403);
   });
 
   it.each(['admin', 'superadmin'] as const)('allows %s to trigger provider-backed workflow actions', async (role) => {
     const response = await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor(role)}`).send({ action: 'create_reverse_pickup' });
     expect(response.status).toBe(200);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor(role)}`).send({ action: 'open_refund_window' })).status).toBe(200);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/refund-destination').set('Authorization', `Bearer ${tokenFor(role)}`).send({ method: 'wallet' })).status).toBe(200);
   });
 });

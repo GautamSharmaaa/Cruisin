@@ -7,6 +7,7 @@ import { LogisticsQuoteModel } from '../../models/logistics-quote.model.js';
 import { LogisticsWebhookEventModel } from '../../models/logistics-webhook-event.model.js';
 import { ReturnRequestModel } from '../../models/return-request.model.js';
 import { ShipmentModel } from '../../models/shipment.model.js';
+import { WalletModel } from '../../models/wallet.model.js';
 
 type Index = [Record<string, number>, Record<string, unknown>];
 const expectIndex = (
@@ -54,6 +55,11 @@ describe('critical production logistics index contract', () => {
 
     expectIndex(LogisticsWebhookEventModel.schema.indexes() as Index[], { provider: 1, fingerprint: 1 }, { unique: true });
     expectIndex(ReturnRequestModel.schema.indexes() as Index[], { idempotencyKey: 1 }, { unique: true });
+    expectIndex(ReturnRequestModel.schema.indexes() as Index[], { handlingFeeProviderOrderId: 1 }, { unique: true, sparse: true });
+    expectIndex(ReturnRequestModel.schema.indexes() as Index[], { handlingFeePaymentReference: 1 }, { unique: true, sparse: true });
+    expectIndex(ReturnRequestModel.schema.indexes() as Index[], { 'refundDestination.providerValidationId': 1 }, { unique: true, sparse: true });
+    expectIndex(ReturnRequestModel.schema.indexes() as Index[], { manualTransferReference: 1 }, { unique: true, sparse: true });
+    expectIndex(WalletModel.schema.indexes() as Index[], { customer: 1 }, { unique: true });
     expectIndex(ExchangeRequestModel.schema.indexes() as Index[], { idempotencyKey: 1 }, { unique: true });
     expectIndex(LogisticsNotificationEventModel.schema.indexes() as Index[], { dedupeKey: 1 }, { unique: true });
   });

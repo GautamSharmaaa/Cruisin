@@ -44,7 +44,7 @@ export interface ParsedCatalogue {
 
 const trimBom = (value: string): string => value.replace(/^\uFEFF/, '');
 
-const parseDelimited = (input: string, delimiter: string): string[][] => {
+export const parseDelimited = (input: string, delimiter: string): string[][] => {
   const rows: string[][] = [];
   let current = '';
   let row: string[] = [];

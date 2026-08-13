@@ -41,6 +41,9 @@ export interface ShipmentTracking {
     estimatedDelivery?: string;
     latestUpdate?: string;
     latestLocation?: string;
+    currentMilestone: string;
+    latestMessage: string;
+    milestones: Array<{ key: string; label: string; message: string; reachedAt?: string; current: boolean; completed: boolean; exception: boolean; scans: Array<{ message: string; location?: string; timestamp: string }> }>;
     scans: Array<{ status: string; message: string; location?: string; timestamp: string }>;
   }>;
 }

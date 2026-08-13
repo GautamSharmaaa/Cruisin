@@ -108,6 +108,14 @@ export const applyShiprocketSnapshot = async (
   assign(shipment.codCharge ?? undefined, snapshot.codCharge, (value) => { shipment.codCharge = value as number; });
   assign(shipment.otherProviderCharges ?? undefined, snapshot.otherProviderCharges, (value) => { shipment.otherProviderCharges = value as number; });
   assign(shipment.rtoCost ?? undefined, snapshot.rtoCost, (value) => { shipment.rtoCost = value as number; });
+  assign(shipment.providerBilledFreightCost ?? undefined, snapshot.providerBilledFreightCost, (value) => { shipment.providerBilledFreightCost = value as number; });
+  assign(shipment.providerBilledCodCharge ?? undefined, snapshot.providerBilledCodCharge, (value) => { shipment.providerBilledCodCharge = value as number; });
+  assign(shipment.providerBilledOtherCharges ?? undefined, snapshot.providerBilledOtherCharges, (value) => { shipment.providerBilledOtherCharges = value as number; });
+  assign(shipment.providerBilledRtoCost ?? undefined, snapshot.providerBilledRtoCost, (value) => { shipment.providerBilledRtoCost = value as number; });
+  assign(shipment.providerBilledTotal ?? undefined, snapshot.providerBilledTotal, (value) => { shipment.providerBilledTotal = value as number; });
+  assign(shipment.providerBillingStatus ?? undefined, snapshot.providerBillingStatus, (value) => { shipment.providerBillingStatus = value as 'unavailable' | 'current'; });
+  assign(shipment.providerBillingSource ?? undefined, snapshot.providerBillingSource, (value) => { shipment.providerBillingSource = value as 'statement'; });
+  if (snapshot.providerBillingStatus === 'current') shipment.providerBillingSyncedAt = now;
   if (shipment.package && snapshot.chargedWeightKg !== undefined && shipment.package.chargedWeightKg !== snapshot.chargedWeightKg) {
     shipment.package.chargedWeightKg = snapshot.chargedWeightKg;
     changed = true;

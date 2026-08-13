@@ -5,6 +5,7 @@ import { Archive, Eye, PackageCheck, RotateCcw, Search, Trash2, Truck, X } from 
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 import { AdminCard, AdminDataTable, AdminFilters, AdminStat, AdminStatsGrid } from '@/components/dashboard/admin-ui';
+import { DateRangeFilter, isInDateRange, type DateRange } from '@/components/dashboard/date-range-filter';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>('all');
   const [paymentFilter, setPaymentFilter] = useState<(typeof paymentStatuses)[number]>('all');
   const [paymentModeFilter, setPaymentModeFilter] = useState<(typeof paymentModes)[number]>('all');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
   const [statusesById, setStatusesById] = useState<Record<string, OrderStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [tracking, setTracking] = useState<Record<string, string>>({});
@@ -94,9 +96,9 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
     const needle = query.trim().toLowerCase();
     return orders.filter((order) => {
       const haystack = [orderId(order), order.orderNumber, order.shippingAddress?.fullName, order.shippingAddress?.phone, order.shippingAddress?.city, order.items?.map((item) => item.title + ' ' + item.sku + ' ' + (item.color ?? '') + ' ' + (item.size ?? '')).join(' '), order.couponCode, order.trackingNumber, order.cancellation?.reason, order.cancellation?.details, order.cancellation?.refundStatus].join(' ').toLowerCase();
-      return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || order.orderStatus === statusFilter) && (paymentFilter === 'all' || order.paymentStatus === paymentFilter) && (paymentModeFilter === 'all' || order.paymentMode === paymentModeFilter);
+      return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || order.orderStatus === statusFilter) && (paymentFilter === 'all' || order.paymentStatus === paymentFilter) && (paymentModeFilter === 'all' || order.paymentMode === paymentModeFilter) && isInDateRange(order.createdAt, dateRange);
     });
-  }, [orders, paymentFilter, paymentModeFilter, query, statusFilter]);
+  }, [dateRange, orders, paymentFilter, paymentModeFilter, query, statusFilter]);
 
   const onUpdate = (order: OrderDto): void => {
     const id = orderId(order);
@@ -121,7 +123,8 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
     </AdminStatsGrid>
 
     <div className="flex flex-wrap gap-2" role="group" aria-label="Order archive view">{(['active', 'archived', 'all'] as const).map((option) => <Button key={option} variant={view === option ? 'primary' : 'secondary'} onClick={() => onViewChange(option)}>{option[0].toUpperCase() + option.slice(1)}</Button>)}</div>
-    <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); }}>Reset Filters</Button>}>
+    <DateRangeFilter value={dateRange} onChange={setDateRange} label="Order date range" />
+    <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); setDateRange('all'); }}>Reset Filters</Button>}>
       <label className="grid min-w-[260px] flex-1 gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>Search order, customer, product, cancellation</span><span className="flex h-11 items-center border border-border bg-background-input px-3"><Search size={16} className="mr-2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm normal-case text-text-primary outline-none" /></span></label>
       <SelectField label="Order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])} options={statuses.map((value) => ({ value, label: value === 'all' ? 'All statuses' : value === 'placed' ? 'Placed' : value === 'returned' ? 'Returned' : COPY.orders.statuses[value] }))} />
       <SelectField label="Payment status" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as (typeof paymentStatuses)[number])} options={paymentStatuses.map((value) => ({ value, label: value === 'all' ? 'All payments' : value }))} />

@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
-import { objectIdSchema } from './common.validator.js';
+import { objectIdSchema, queryBooleanSchema } from './common.validator.js';
 
 const imageSchema = z.object({ url: z.string().url(), alt: z.string().min(2), width: z.number().int().positive(), height: z.number().int().positive(), publicId: z.string().optional() });
 const orderedImagesSchema = z.array(imageSchema).max(24).superRefine((images, context) => {
@@ -90,10 +90,10 @@ export const productQuerySchema = z.object({
   collection: z.string().optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   gender: z.enum(['men', 'women', 'unisex']).optional(),
-  sale: z.coerce.boolean().optional(),
-  featured: z.coerce.boolean().optional(),
-  bestseller: z.coerce.boolean().optional(),
-  latestDrop: z.coerce.boolean().optional(),
+  sale: queryBooleanSchema.optional(),
+  featured: queryBooleanSchema.optional(),
+  bestseller: queryBooleanSchema.optional(),
+  latestDrop: queryBooleanSchema.optional(),
   size: z.string().optional(),
   color: z.string().optional(),
   minPrice: z.coerce.number().optional(),

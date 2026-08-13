@@ -5,7 +5,7 @@ import { requireAdmin, requireRole } from '../../middleware/admin.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema, slugParamSchema } from '../../validators/common.validator.js';
-import { collectionBodySchema, megaMenuCollectionCardBodySchema, megaMenuColumnBodySchema, megaMenuLinkBodySchema, megaMenuPromoBodySchema, megaMenuQuerySchema, navigationItemBodySchema, navigationSortSchema, pageSettingsBodySchema, pageSettingsParamSchema, pageSettingsQuerySchema, siteSettingsBodySchema, tagBodySchema } from '../../validators/merchandising.validator.js';
+import { collectionBodySchema, megaMenuCollectionCardBodySchema, megaMenuColumnBodySchema, megaMenuLinkBodySchema, megaMenuPromoBodySchema, megaMenuQuerySchema, navigationItemBodySchema, navigationSortSchema, pageSettingsBodySchema, pageSettingsParamSchema, pageSettingsQuerySchema, paymentSettingsBodySchema, siteSettingsBodySchema, tagBodySchema } from '../../validators/merchandising.validator.js';
 
 export const navigationRouter = Router();
 navigationRouter.get('/', MerchandisingController.navigation);
@@ -64,6 +64,7 @@ merchandisingAdminRouter.put('/page-settings/:id', requireRole(['admin', 'supera
 
 merchandisingAdminRouter.get('/site-settings', MerchandisingController.siteSettings);
 merchandisingAdminRouter.put('/site-settings', requireRole(['admin', 'superadmin', 'manager']), validate({ body: siteSettingsBodySchema.partial() }), MerchandisingController.updateSiteSettings);
+merchandisingAdminRouter.put('/site-settings/payment', requireRole(['admin', 'superadmin']), validate({ body: paymentSettingsBodySchema }), MerchandisingController.updatePaymentSettings);
 
 merchandisingAdminRouter.get('/tags', MerchandisingController.adminTags);
 merchandisingAdminRouter.post('/tags', requireRole(['admin', 'superadmin', 'manager']), validate({ body: tagBodySchema }), MerchandisingController.createTag);

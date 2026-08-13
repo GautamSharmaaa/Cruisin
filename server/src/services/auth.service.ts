@@ -358,7 +358,7 @@ export const AuthService = {
   },
   async listAddressBook(userId: string): Promise<unknown[]> {
     await AddressBookService.backfillCheckoutAddresses(userId);
-    return AddressModel.find({ user: userId }).sort({ isDefault: -1, updatedAt: -1 }).lean();
+    return AddressModel.find({ user: userId }).sort({ isDefault: -1, lastUsedAt: -1, updatedAt: -1 }).lean();
   },
   async createAddressBook(userId: string, input: AddressBookInput): Promise<unknown> {
     if (input.isDefault) await AddressModel.updateMany({ user: userId }, { isDefault: false });

@@ -43,6 +43,7 @@ import { UserPreferenceModel } from './user-preference.model.js';
 import { UserSessionModel } from './user-session.model.js';
 import { UserModel } from './user.model.js';
 import { WishlistModel } from './wishlist.model.js';
+import { WalletModel } from './wallet.model.js';
 
 export const applicationModels = [
   AddressModel,
@@ -89,5 +90,6 @@ export const applicationModels = [
   UserPreferenceModel,
   UserSessionModel,
   UserModel,
+  WalletModel,
   WishlistModel
 ] as const;

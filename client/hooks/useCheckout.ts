@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import type { ShippingMethod } from '@/lib/shipping';
@@ -58,6 +58,7 @@ export const clearCheckoutAttempt = (): void => {
 };
 
 export const useCheckout = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CheckoutInput): Promise<CheckoutResult> => {
       const cartState = useCartStore.getState();
@@ -69,6 +70,13 @@ export const useCheckout = () => {
       const idempotencyKey = input.idempotencyKey ?? checkoutAttemptKey(fingerprint);
       const response = await api.post<ApiEnvelope<CheckoutResult>>(endpoint, { ...input, idempotencyKey, couponCode: cartState.coupon });
       return response.data.data;
+    },
+    onSuccess: async (): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['me'] }),
+        queryClient.invalidateQueries({ queryKey: ['account'] }),
+        queryClient.invalidateQueries({ queryKey: ['orders'] })
+      ]);
     }
   });
 };

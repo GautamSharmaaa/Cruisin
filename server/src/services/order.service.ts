@@ -26,8 +26,8 @@ type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInp
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
-const shippingSettings = async (): Promise<{ standardShippingRate?: number; expressShippingRate?: number; freeStandardShippingThreshold?: number }> => {
-  const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('standardShippingRate expressShippingRate freeStandardShippingThreshold').lean();
+const shippingSettings = async (): Promise<{ standardShippingRate?: number; expressShippingRate?: number; freeStandardShippingThreshold?: number; codCheckoutEnabled?: boolean; codFee?: number }> => {
+  const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('standardShippingRate expressShippingRate freeStandardShippingThreshold codCheckoutEnabled codFee').lean();
   return settings ?? {};
 };
 const orderNumber = (): string => `CR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -256,6 +256,24 @@ const rememberCheckoutAddress = async (userId: string, address: AddressInput): P
   }
 };
 
+const synchronizeCheckoutCustomer = async (userId: string, address: AddressInput): Promise<void> => {
+  const checkoutName = typeof address.fullName === 'string' ? address.fullName.trim().replace(/\s+/g, ' ') : '';
+  if (!checkoutName) return;
+  try {
+    await UserModel.updateOne(
+      { _id: userId, $or: [{ name: 'Cruisin Member' }, { name: /^\s*$/ }] },
+      { $set: { name: checkoutName } },
+      { runValidators: true }
+    );
+  } catch (error) {
+    logger.error('Checkout profile name could not be synchronized', { userId, error });
+  }
+};
+
+const rememberCheckoutCustomer = async (userId: string, address: AddressInput): Promise<void> => {
+  await Promise.all([rememberCheckoutAddress(userId, address), synchronizeCheckoutCustomer(userId, address)]);
+};
+
 const completeOnlinePayment = async (orderId: string, paymentId: string, note: string, method?: string): Promise<unknown> => {
   const settlementStartedAt = new Date();
   const staleSettlement = new Date(settlementStartedAt.getTime() - 5 * 60_000);
@@ -335,7 +353,7 @@ export const OrderService = {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
     const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
     if (existing) {
-      await rememberCheckoutAddress(userId, input.shippingAddress);
+      await rememberCheckoutCustomer(userId, input.shippingAddress);
       return existingCheckoutResult(existing);
     }
     const mode = input.paymentMode ?? (input.paymentMethod === 'cod' ? 'cod' : 'online');
@@ -372,10 +390,10 @@ export const OrderService = {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
-      await rememberCheckoutAddress(userId, input.shippingAddress);
+      await rememberCheckoutCustomer(userId, input.shippingAddress);
       return existingCheckoutResult(duplicate);
     }
-    await rememberCheckoutAddress(userId, input.shippingAddress);
+    await rememberCheckoutCustomer(userId, input.shippingAddress);
     try {
       const payment = await PaymentService.getProvider(input.paymentMethod).createOrder(advance, 'INR', { localOrderId: String(order._id), orderNumber: order.orderNumber ?? String(order._id), paymentMode: mode });
       if (input.paymentMethod === 'razorpay') order.razorpayOrderId = payment.id;
@@ -395,10 +413,11 @@ export const OrderService = {
 
   async createCodOrder(userId: string, input: CheckoutInput): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
-    if (!env.COD_ENABLED || !env.COD_CHECKOUT_ENABLED) throw new ApiError(400, 'Cash on delivery is unavailable');
+    const settings = await shippingSettings();
+    if (settings.codCheckoutEnabled !== true) throw new ApiError(400, 'Cash on delivery is unavailable');
     const existing = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
     if (existing) {
-      await rememberCheckoutAddress(userId, input.shippingAddress);
+      await rememberCheckoutCustomer(userId, input.shippingAddress);
       return existingCheckoutResult(existing);
     }
     const cart = await CartModel.findOne({ user: userId }).lean();
@@ -418,21 +437,22 @@ export const OrderService = {
       freeShipping: Boolean(couponResult?.freeShipping)
     }) : null;
     const shippingMethod = logisticsQuote?.shippingMethod ?? requestedShippingMethod;
-    const shipping = logisticsQuote?.shippingCharge ?? (logisticsConfig.customerFreeShipping ? 0 : calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, await shippingSettings()));
+    const shipping = logisticsQuote?.shippingCharge ?? (logisticsConfig.customerFreeShipping ? 0 : calculateShippingRate(subtotal - discount, Boolean(couponResult?.freeShipping), shippingMethod, settings));
     const tax = 0;
-    const total = money(subtotal - discount + shipping + tax + env.COD_FEE);
+    const codFee = money(settings.codFee ?? 49);
+    const total = money(subtotal - discount + shipping + tax + codFee);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee: env.COD_FEE, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
-      await rememberCheckoutAddress(userId, input.shippingAddress);
+      await rememberCheckoutCustomer(userId, input.shippingAddress);
       return existingCheckoutResult(duplicate);
     }
-    await rememberCheckoutAddress(userId, input.shippingAddress);
+    await rememberCheckoutCustomer(userId, input.shippingAddress);
     await reserveStock(String(order._id));
     if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId);
     if (coupon) await CouponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });

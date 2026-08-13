@@ -3,6 +3,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes tracking-truck-glide {
+  0%, 100% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+
+@keyframes account-order-glow-run {
+  from { background-position: 180% 50%; }
+  to { background-position: -80% 50%; }
+}
+
+.account-order-progress {
+  background-image: linear-gradient(100deg, var(--accent-gold-dim) 0%, var(--accent-gold) 35%, var(--text-primary) 49%, var(--accent-gold) 60%, var(--accent-gold-dim) 100%);
+  background-size: 240% 100%;
+  box-shadow: 0 0 8px rgba(200, 169, 126, 0.75), 0 0 18px rgba(200, 169, 126, 0.38);
+  animation: account-order-glow-run 2.4s linear infinite;
+}
+
+.tracking-truck { animation: tracking-truck-glide 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tracking-truck { animation: none; }
+  .account-order-progress { animation: none; background-position: 50% 50%; }
+}
+
 :root {
   --font-body: "DM Sans", "Helvetica Neue", Inter, sans-serif;
   --font-accent: "Bebas Neue", "Helvetica Neue", sans-serif;

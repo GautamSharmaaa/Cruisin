@@ -12,6 +12,8 @@ export interface AnalyticsPoint {
   day: string;
   revenue: number;
   orders: number;
+  pendingCod: number;
+  codOrders: number;
 }
 
 export interface AnalyticsSummaryRange {
@@ -56,10 +58,10 @@ export interface AnalyticsSummary {
   comparison: {
     range: AnalyticsSummaryRange;
     summary: AnalyticsSummary['summary'];
-    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
     outstanding: { cod: number; partial: number; total: number };
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
   topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
@@ -116,14 +118,14 @@ type AnalyticsUserLike = { _id: unknown; name?: string; email?: string; createdA
 
 const roundMoney = (value: number): number => Math.round(value * 100) / 100;
 const objectId = (value: unknown): string => String(value && typeof value === 'object' && '_id' in value ? (value as { _id: unknown })._id : value);
-const collectedFor = (order: OrderLike): number => {
+export const collectedFor = (order: OrderLike): number => {
   if ((order.amountPaid ?? 0) > 0) return Math.min(order.total, order.amountPaid ?? 0);
   return ['paid', 'refunded', 'partially_refunded'].includes(order.paymentStatus) ? order.total : 0;
 };
 const isRevenueEligible = (order: OrderLike): boolean => collectedFor(order) > 0;
 const refundFor = (order: OrderLike): number => Math.max(0, Math.min(collectedFor(order), order.refundAmount ?? (order.paymentStatus === 'refunded' ? collectedFor(order) : 0)));
-const netRevenueFor = (order: OrderLike): number => Math.max(0, collectedFor(order) - refundFor(order));
-const isBusinessOrder = (order: OrderLike): boolean => {
+export const netRevenueFor = (order: OrderLike): number => Math.max(0, collectedFor(order) - refundFor(order));
+export const isBusinessOrder = (order: OrderLike): boolean => {
   if (isRevenueEligible(order)) return true;
   if (order.paymentMode === 'cod') return !['pending', 'cancelled'].includes(order.orderStatus);
   if (['authorized', 'partially_paid'].includes(order.paymentStatus)) return true;
@@ -181,6 +183,7 @@ const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): 
   const rows: AnalyticsSummary['revenueByDay'] = [];
   for (let day = startDate; day <= endDate; day = addIstDays(day, 1)) {
     const dayOrders = orders.filter((order) => isBusinessOrder(order) && formatIstDay(order.createdAt) === day);
+    const codOrders = dayOrders.filter((order) => order.paymentMode === 'cod');
     rows.push({
       day,
       grossRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
@@ -188,7 +191,9 @@ const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): 
       discounts: roundMoney(dayOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
       refunds: roundMoney(dayOrders.reduce((sum, order) => sum + refundFor(order), 0)),
       orders: dayOrders.length,
-      paidOrders: dayOrders.filter(isRevenueEligible).length
+      paidOrders: dayOrders.filter(isRevenueEligible).length,
+      pendingCod: roundMoney(codOrders.filter((order) => order.paymentStatus === 'cod_pending').reduce((sum, order) => sum + (order.amountDue ?? order.total), 0)),
+      codOrders: codOrders.length
     });
   }
   return rows;
@@ -244,7 +249,7 @@ export const AdminService = {
     const endDate = formatIstDay(new Date());
     const startDate = addIstDays(endDate, -(safeDays - 1));
     const summary = await this.analyticsSummary({ startDate, endDate });
-    return summary.revenueByDay.map((point) => ({ day: point.day, revenue: point.netRevenue, orders: point.orders }));
+    return summary.revenueByDay.map((point) => ({ day: point.day, revenue: point.netRevenue, orders: point.orders, pendingCod: point.pendingCod, codOrders: point.codOrders }));
   },
 
   async analyticsSummary(query: Record<string, unknown>): Promise<AnalyticsSummary> {

@@ -188,6 +188,7 @@ export interface ReconcileShipmentInput {
   providerOrderId?: string;
   providerShipmentId?: string;
   awb?: string;
+  createdAt?: string;
 }
 
 export interface ReconcileShipmentResult extends TrackingResult {
@@ -203,6 +204,13 @@ export interface ReconcileShipmentResult extends TrackingResult {
   chargedWeightKg?: number;
   otherProviderCharges?: number;
   rtoCost?: number;
+  providerBilledFreightCost?: number;
+  providerBilledCodCharge?: number;
+  providerBilledOtherCharges?: number;
+  providerBilledRtoCost?: number;
+  providerBilledTotal?: number;
+  providerBillingStatus?: 'unavailable' | 'current';
+  providerBillingSource?: 'statement';
 }
 
 export interface CancelShipmentInput {

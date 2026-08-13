@@ -2,8 +2,10 @@
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { env } from '../config/env.js';
+import { SiteSettingsModel } from '../models/site-settings.model.js';
 import { OrderService } from '../services/order.service.js';
 import { PaymentService } from '../services/payment.service.js';
+import { ReturnExchangeService } from '../services/logistics/return-exchange.service.js';
 import { ApiError } from '../utils/api-error.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
@@ -16,14 +18,17 @@ const rawBody = (body: unknown): Buffer => {
 
 export const PaymentController = {
   config: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('codCheckoutEnabled codFee').lean();
     res.json(new ApiResponse({
       paymentMode: env.PAYMENT_MODE,
-      codEnabled: env.COD_ENABLED && env.COD_CHECKOUT_ENABLED,
+      codEnabled: settings?.codCheckoutEnabled === true,
+      codFee: settings?.codFee ?? 49,
       partialPaymentEnabled: env.PARTIAL_PAYMENT_ENABLED,
       partialPaymentPercentage: env.PARTIAL_PAYMENT_PERCENTAGE ?? null,
       partialPaymentFixedAmount: env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? null,
       minPartialPaymentOrderValue: env.MIN_PARTIAL_PAYMENT_ORDER_VALUE,
-      maxCodOrderValue: env.MAX_COD_ORDER_VALUE
+      maxCodOrderValue: env.MAX_COD_ORDER_VALUE,
+      returnHandlingFee: env.RETURN_HANDLING_FEE
     }, 'Payment configuration loaded'));
   }),
   stripeWebhook: asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -48,7 +53,15 @@ export const PaymentController = {
     const headerEventId = typeof req.headers['x-razorpay-event-id'] === 'string' ? req.headers['x-razorpay-event-id'] : '';
     const eventId = headerEventId || event.id || crypto.createHash('sha256').update(body).digest('hex');
     const processed = await OrderService.processRazorpayWebhook(eventId, event.event, event.payload);
-    res.json(new ApiResponse({ received: true, processed }, processed ? 'Razorpay webhook processed' : 'Duplicate Razorpay webhook ignored'));
+    const paymentEntity = (event.payload.payment as { entity?: Record<string, unknown> } | undefined)?.entity;
+    const returnProcessed = ['payment.captured', 'order.paid'].includes(event.event)
+      ? await ReturnExchangeService.settleReturnPayment(String(paymentEntity?.order_id ?? ''), String(paymentEntity?.id ?? ''))
+      : false;
+    const refundEntity = (event.payload.refund as { entity?: Record<string, unknown> } | undefined)?.entity;
+    const returnRefundProcessed = ['refund.processed', 'refund.failed'].includes(event.event)
+      ? await ReturnExchangeService.settleReturnRefund(String(refundEntity?.id ?? ''), event.event === 'refund.processed' ? 'processed' : 'failed')
+      : false;
+    res.json(new ApiResponse({ received: true, processed: processed || returnProcessed || returnRefundProcessed }, processed || returnProcessed || returnRefundProcessed ? 'Razorpay webhook processed' : 'Duplicate Razorpay webhook ignored'));
   }),
 
   refund: asyncHandler(async (req: Request<Record<string, string>, unknown, { amount: number; reason?: string; idempotencyKey: string }>, res: Response): Promise<void> => {

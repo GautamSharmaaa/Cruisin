@@ -10,6 +10,7 @@ import { LogisticsWebhookEventModel } from '../models/logistics-webhook-event.mo
 import { applicationModels } from '../models/model-registry.js';
 import { ReturnRequestModel } from '../models/return-request.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
+import { WalletModel } from '../models/wallet.model.js';
 import { logger } from '../utils/logger.js';
 import { validateIndexTarget } from './index-target.js';
 import { assertShipmentIndexesReadyForDeployment } from './shipment-index-migration.js';
@@ -40,6 +41,7 @@ interface RequiredIndex {
   };
   key: Record<string, number>;
   unique?: boolean;
+  sparse?: boolean;
   expireAfterSeconds?: number;
   partialFilterExpression?: Record<string, unknown>;
 }
@@ -82,6 +84,11 @@ const verifyCriticalIndexes = async (): Promise<void> => {
     { label: 'job lease', model: LogisticsJobModel, key: { status: 1, runAt: 1, leaseExpiresAt: 1 } },
     { label: 'webhook fingerprint', model: LogisticsWebhookEventModel, key: { provider: 1, fingerprint: 1 }, unique: true },
     { label: 'return request idempotency', model: ReturnRequestModel, key: { idempotencyKey: 1 }, unique: true },
+    { label: 'return fee provider order', model: ReturnRequestModel, key: { handlingFeeProviderOrderId: 1 }, unique: true, sparse: true },
+    { label: 'return fee payment reference', model: ReturnRequestModel, key: { handlingFeePaymentReference: 1 }, unique: true, sparse: true },
+    { label: 'return refund destination validation', model: ReturnRequestModel, key: { 'refundDestination.providerValidationId': 1 }, unique: true, sparse: true },
+    { label: 'manual refund transfer reference', model: ReturnRequestModel, key: { manualTransferReference: 1 }, unique: true, sparse: true },
+    { label: 'wallet customer', model: WalletModel, key: { customer: 1 }, unique: true },
     { label: 'exchange request idempotency', model: ExchangeRequestModel, key: { idempotencyKey: 1 }, unique: true },
     { label: 'notification event dedupe', model: LogisticsNotificationEventModel, key: { dedupeKey: 1 }, unique: true }
   ];
@@ -99,6 +106,7 @@ const verifyCriticalIndexes = async (): Promise<void> => {
     ));
     if (!match
       || (requirement.unique !== undefined && match.unique !== requirement.unique)
+      || (requirement.sparse !== undefined && match.sparse !== requirement.sparse)
       || (requirement.expireAfterSeconds !== undefined && Number(match.expireAfterSeconds) !== requirement.expireAfterSeconds)
       || (requirement.partialFilterExpression !== undefined
         && JSON.stringify(match.partialFilterExpression) !== JSON.stringify(requirement.partialFilterExpression))) {

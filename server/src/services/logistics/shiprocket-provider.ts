@@ -109,6 +109,8 @@ const trackingSchema = z.object({
 
 const genericStatusSchema = z.record(z.unknown());
 const providerDetailsSchema = z.record(z.unknown());
+const STATEMENT_PAGE_SIZE = 200;
+const MAX_STATEMENT_PAGES = 100;
 
 type UnknownRecord = Record<string, unknown>;
 const asRecord = (value: unknown): UnknownRecord | undefined => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : undefined;
@@ -125,11 +127,63 @@ const nonnegativeValue = (record: UnknownRecord | undefined, keys: string[]): nu
   const candidate = numericValue(record, keys);
   return candidate !== undefined && candidate >= 0 ? candidate : undefined;
 };
+const statementRows = (response: UnknownRecord): UnknownRecord[] => Array.isArray(response.data)
+  ? response.data.map(asRecord).filter((row): row is UnknownRecord => Boolean(row))
+  : [];
+const statementLastPage = (response: UnknownRecord): number | undefined => {
+  const meta = asRecord(response.meta);
+  const pagination = asRecord(response.pagination);
+  const candidate = [response.last_page, meta?.last_page, pagination?.last_page]
+    .map(Number)
+    .find((value) => Number.isInteger(value) && value > 0);
+  return candidate;
+};
 const dataRecord = (response: UnknownRecord): UnknownRecord => asRecord(response.data) ?? response;
 const shipmentRecord = (order: UnknownRecord, expectedShipmentId?: string): UnknownRecord | undefined => {
   const shipments = Array.isArray(order.shipments) ? order.shipments.map(asRecord).filter((item): item is UnknownRecord => Boolean(item)) : [];
   if (!expectedShipmentId) return shipments[0];
   return shipments.find((shipment) => stringValue(shipment, ['id', 'shipment_id']) === expectedShipmentId) ?? shipments[0];
+};
+
+const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const statementAmount = (record: UnknownRecord, key: 'debit_amount' | 'credit_amount'): number => {
+  const value = numericValue(record, [key]);
+  return value !== undefined && value >= 0 ? value : 0;
+};
+const statementChargesForAwb = (response: UnknownRecord, awb: string): Pick<ReconcileShipmentResult,
+  'providerBilledFreightCost' | 'providerBilledCodCharge' | 'providerBilledOtherCharges' | 'providerBilledRtoCost' |
+  'providerBilledTotal' | 'providerBillingStatus' | 'providerBillingSource' | 'chargedWeightKg'> | undefined => {
+  const rows = statementRows(response);
+  const matching = rows.filter((row) => [stringValue(row, ['awb_code']), stringValue(row, ['return_awb_code'])].includes(awb));
+  if (!matching.length) return undefined;
+  const totals = { freight: 0, cod: 0, other: 0, rto: 0 };
+  for (const row of matching) {
+    const net = statementAmount(row, 'debit_amount') - statementAmount(row, 'credit_amount');
+    if (!net) continue;
+    const description = [stringValue(row, ['action']), stringValue(row, ['charge']), stringValue(row, ['description'])]
+      .filter(Boolean).join(' ').toLowerCase();
+    if (/\b(rto|return)\b/.test(description)) totals.rto += net;
+    else if (/\bcod\b|cash on delivery/.test(description)) totals.cod += net;
+    else if (/freight|shipping|forward/.test(description)) totals.freight += net;
+    else totals.other += net;
+  }
+  const providerBilledFreightCost = money(Math.max(0, totals.freight));
+  const providerBilledCodCharge = money(Math.max(0, totals.cod));
+  const providerBilledOtherCharges = money(Math.max(0, totals.other));
+  const providerBilledRtoCost = money(Math.max(0, totals.rto));
+  const providerBilledTotal = money(providerBilledFreightCost + providerBilledCodCharge + providerBilledOtherCharges + providerBilledRtoCost);
+  if (!providerBilledTotal) return undefined;
+  const chargedWeightKg = matching.map((row) => nonnegativeValue(row, ['billed_weight', 'charged_weight', 'applied_weight'])).find((value) => value !== undefined);
+  return {
+    providerBilledFreightCost,
+    providerBilledCodCharge,
+    providerBilledOtherCharges,
+    providerBilledRtoCost,
+    providerBilledTotal,
+    chargedWeightKg,
+    providerBillingStatus: 'current',
+    providerBillingSource: 'statement'
+  };
 };
 
 const numberValue = (value: string | number | undefined): number | undefined => {
@@ -200,7 +254,44 @@ const orderBody = (input: CreateLogisticsOrderInput): Record<string, unknown> =>
 });
 
 export class ShiprocketProvider implements LogisticsProvider {
+  private readonly statementCache = new Map<string, { expiresAt: number; value: Promise<UnknownRecord> }>();
+
   public constructor(private readonly client = new ShiprocketClient()) {}
+
+  private statement(input: ReconcileShipmentInput): Promise<UnknownRecord> {
+    const today = new Date();
+    const fromDate = input.createdAt ? new Date(input.createdAt) : new Date(today.getTime() - 30 * 86_400_000);
+    if (Number.isNaN(fromDate.getTime())) fromDate.setTime(today.getTime() - 30 * 86_400_000);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 2);
+    const toDate = new Date(today.getTime() + 86_400_000);
+    const from = fromDate.toISOString().slice(0, 10);
+    const to = toDate.toISOString().slice(0, 10);
+    const cacheKey = `${from}:${to}`;
+    const cached = this.statementCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const load = async (): Promise<UnknownRecord> => {
+      const first = await this.client.get('/account/details/statement', providerDetailsSchema, { page: 1, per_page: STATEMENT_PAGE_SIZE, from, to });
+      const rows = statementRows(first);
+      const declaredLastPage = statementLastPage(first);
+      let page = 1;
+      let latestPageSize = rows.length;
+      while ((declaredLastPage ? page < declaredLastPage : latestPageSize === STATEMENT_PAGE_SIZE) && page < MAX_STATEMENT_PAGES) {
+        page += 1;
+        const response = await this.client.get('/account/details/statement', providerDetailsSchema, { page, per_page: STATEMENT_PAGE_SIZE, from, to });
+        const nextRows = statementRows(response);
+        rows.push(...nextRows);
+        latestPageSize = nextRows.length;
+      }
+      if ((declaredLastPage && page < declaredLastPage) || (!declaredLastPage && latestPageSize === STATEMENT_PAGE_SIZE)) {
+        throw new LogisticsProviderError('permanent_provider', 'Shiprocket statement exceeded the safe reconciliation page limit', false, 502);
+      }
+      return { ...first, data: rows };
+    };
+    const value = load();
+    this.statementCache.set(cacheKey, { expiresAt: Date.now() + 60_000, value });
+    void value.catch(() => this.statementCache.delete(cacheKey));
+    return value;
+  }
 
   public authenticate(): Promise<void> {
     return this.client.authenticate();
@@ -362,6 +453,15 @@ export class ShiprocketProvider implements LogisticsProvider {
         tracking = undefined;
       }
     }
+    let billing: ReturnType<typeof statementChargesForAwb>;
+    const billingAwb = tracking?.awb ?? awb;
+    if (billingAwb) {
+      try {
+        billing = statementChargesForAwb(await this.statement(input), billingAwb);
+      } catch {
+        billing = undefined;
+      }
+    }
     return {
       providerOrderId,
       providerShipmentId,
@@ -380,6 +480,7 @@ export class ShiprocketProvider implements LogisticsProvider {
       chargedWeightKg,
       otherProviderCharges,
       rtoCost,
+      ...billing,
       scans: tracking?.scans ?? []
     };
   }

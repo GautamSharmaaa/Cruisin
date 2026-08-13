@@ -16,6 +16,7 @@ export interface UserDto {
   totalSpend?: number;
   lastOrderAt?: string;
   lastOrderId?: string;
+  lastOrderNumber?: string;
   lastOrderStatus?: string;
   lastPaymentStatus?: string;
   lastOrderTotal?: number;
@@ -298,6 +299,8 @@ export interface SiteSettingsDto {
   expressShippingRate: number;
   freeStandardShippingThreshold: number;
   standardShippingCompareAt: number;
+  codCheckoutEnabled?: boolean;
+  codFee?: number;
   globalFilterSettings?: Record<string, unknown>;
 }
 
@@ -450,6 +453,8 @@ export interface AdminAnalyticsPointDto {
   day: string;
   revenue: number;
   orders: number;
+  pendingCod: number;
+  codOrders: number;
 }
 
 export interface AdminAnalyticsSummaryDto {
@@ -492,10 +497,10 @@ export interface AdminAnalyticsSummaryDto {
   comparison: {
     range: AdminAnalyticsSummaryDto['range'];
     summary: AdminAnalyticsSummaryDto['summary'];
-    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
     outstanding: { cod: number; partial: number; total: number };
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
   topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
@@ -511,4 +516,20 @@ export interface AdminAnalyticsSummaryDto {
     products: Array<{ productId: string; title: string; slug: string; productCode: string; stock: number; threshold: number; status: 'low_stock' | 'out_of_stock' }>;
   };
   recentOrders: Array<{ orderId: string; orderNumber: string; customer: string; date: string; total: number; paymentMode: string; paymentStatus: string; orderStatus: string }>;
+}
+
+export interface ProfitabilityRowDto {
+  orderId: string; orderNumber: string; date: string; productId: string; sku: string; product: string; size: string; color: string; quantity: number;
+  sellingValue: number; paymentMode: string; paymentStatus: string; orderStatus: string; codState: 'not_cod' | 'pending' | 'collected';
+  collectedRevenue: number; codFee: number; returnFee: number; exchangeFee: number; refund: number;
+  manufacturingCost: number; packagingCost: number; marketingCost: number; handlingCost: number; otherCost: number; productCost: number;
+  forwardFreight: number; reverseFreight: number; freightSource: 'billed' | 'estimated' | 'missing'; totalIncome: number; totalCost: number; netProfit: number; margin: number;
+  missingCosts: boolean; hasReturn: boolean; hasExchange: boolean;
+}
+
+export interface ProfitabilityAnalyticsDto {
+  range: { startDate: string; endDate: string; preset: string; timezone: 'Asia/Kolkata' };
+  generatedAt: string; filenameLabel: string;
+  summary: { orders: number; lines: number; collectedRevenue: number; pendingCod: number; codFees: number; returnFees: number; exchangeFees: number; productCosts: number; logisticsCosts: number; refunds: number; netProfit: number; missingCostLines: number };
+  rows: ProfitabilityRowDto[];
 }

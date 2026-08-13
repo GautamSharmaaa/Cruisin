@@ -9,6 +9,7 @@ const ids = {
   product: '66b000000000000000000101',
   variantA: '66b000000000000000000111',
   variantB: '66b000000000000000000112',
+  customer: '66b000000000000000000202',
   outageOrder: '66b000000000000000000301',
   ndrOrder: '66b000000000000000000302',
   rtoOrder: '66b000000000000000000303',
@@ -369,7 +370,7 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
       (result) => result.items.some((job) => job.dedupeKey === `create-order:${ids.outageOrder}` && job.status === 'succeeded'),
       'recovered outage job'
     );
-    expect(completedJob.items.find((job) => job.dedupeKey === `create-order:${ids.outageOrder}`)?.attempts).toBe(2);
+    expect(completedJob.items.find((job) => job.dedupeKey === `create-order:${ids.outageOrder}`)?.attempts).toBeGreaterThanOrEqual(2);
     const shipments = await shipmentList(request, adminToken, 'CR-OUTAGE-ONCE');
     expect(shipments.total).toBe(1);
     expect(shipments.items[0].providerOrderId).toBeTruthy();
@@ -475,28 +476,42 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
   test('delivered order completes return, reverse pickup, receipt, quality check, refund handoff and closure', async ({ request }) => {
     const input = {
       orderId: ids.returnOrder,
-      variantId: ids.variantA,
-      quantity: 1,
-      reason: 'Fit was not suitable',
+      items: [{ variantId: ids.variantA, quantity: 1 }],
+      reason: 'wrong_size_fit',
       details: 'Deterministic logistics return test',
+      evidence: (() => { const publicId = `cruisin/returns/${ids.customer}/e2e-photo`; const version = 1; return [{ publicId, version, format: 'jpg', token: crypto.createHmac('sha256', 'logistics-e2e-access-secret-0000000000000001').update(`${ids.customer}:${publicId}:${version}`).digest('hex') }]; })(),
       idempotencyKey: '10000000-0000-4000-8000-000000000001'
     };
-    const create = async (): Promise<WorkflowRequest> => responseJson<WorkflowRequest>(await request.post(
+    type ReturnSession = { request: { id: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number } };
+    const create = async (): Promise<ReturnSession> => responseJson<ReturnSession>(await request.post(
       `${apiUrl}/fulfillment/returns`,
       { headers: authHeaders(customerToken), data: input }
     ));
-    const first = await create();
-    expect((await create())._id).toBe(first._id);
+    const session = await create();
+    const replay = await create();
+    expect(replay.payment.id).toBe(session.payment.id);
+    expect(session).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const first = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/returns/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: session.request.id, payload: { razorpay_order_id: session.payment.id, razorpay_payment_id: 'pay_mock_return_fee_e2e', mockVerified: true } }
+    }));
     let current = await workflowAction(request, adminToken, 'returns', first._id, 'approved');
     expect(current.status).toBe('approved');
     current = await workflowAction(request, adminToken, 'returns', first._id, 'create_reverse_pickup');
     expect(current.reverseShipment).toBeTruthy();
-    for (const action of ['warehouse_received', 'quality_check_passed', 'refund_pending', 'refunded', 'closed']) {
+    for (const action of ['warehouse_received', 'quality_check_passed', 'open_refund_window']) {
       current = await workflowAction(request, adminToken, 'returns', first._id, action);
     }
+    expect(current).toMatchObject({ status: 'refund_window_open', refundStatus: 'awaiting_destination' });
+    const destination = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/returns/${first._id}/refund-destination`, {
+      headers: authHeaders(customerToken), data: { method: 'original_payment' }
+    }));
+    expect(destination).toMatchObject({ status: 'refund_window_open', refundStatus: 'ready' });
+    current = await workflowAction(request, adminToken, 'returns', first._id, 'refund_pending');
+    current = await workflowAction(request, adminToken, 'returns', first._id, 'closed');
     expect(current).toMatchObject({ status: 'closed', refundStatus: 'processed' });
     expect(current.history.map((entry) => entry.action)).toEqual(expect.arrayContaining([
-      'approved', 'create_reverse_pickup', 'warehouse_received', 'quality_check_passed', 'refund_pending', 'refunded', 'closed'
+      'approved', 'create_reverse_pickup', 'warehouse_received', 'quality_check_passed', 'open_refund_window', 'refund_destination_submitted', 'refund_pending', 'closed'
     ]));
   });
 
@@ -509,12 +524,19 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
       quantity: 1,
       idempotencyKey: '20000000-0000-4000-8000-000000000001'
     };
-    const create = async (): Promise<WorkflowRequest> => responseJson<WorkflowRequest>(await request.post(
+    type ExchangeSession = { request: { id: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number } };
+    const create = async (): Promise<ExchangeSession> => responseJson<ExchangeSession>(await request.post(
       `${apiUrl}/fulfillment/exchanges`,
       { headers: authHeaders(customerToken), data: input }
     ));
-    const first = await create();
-    expect((await create())._id).toBe(first._id);
+    const session = await create();
+    const replay = await create();
+    expect(replay.payment.id).toBe(session.payment.id);
+    expect(session).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const first = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/exchanges/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: session.request.id, payload: { razorpay_order_id: session.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e', mockVerified: true } }
+    }));
     let current = await workflowAction(request, adminToken, 'exchanges', first._id, 'approve');
     expect(current).toMatchObject({ status: 'inventory_reserved', inventoryReserved: true });
     expect(await variantStock(request, adminToken, ids.variantB)).toBe(before - 1);

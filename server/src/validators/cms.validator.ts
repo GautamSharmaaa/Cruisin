@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
-import { objectIdSchema } from './common.validator.js';
+import { objectIdSchema, queryBooleanSchema } from './common.validator.js';
 
 export const cmsSectionTypeSchema = z.enum([
   'announcement_bar',
@@ -61,7 +61,7 @@ export const cmsSectionBodySchema = z.object({
 
 export const cmsReorderBodySchema = z.object({ ids: z.array(objectIdSchema).min(1) });
 export const cmsRestoreBodySchema = z.object({ versionId: objectIdSchema });
-export const cmsPreviewQuerySchema = z.object({ previewToken: z.string().optional(), includeInactive: z.coerce.boolean().default(false), scheduledAt: z.coerce.date().optional() });
+export const cmsPreviewQuerySchema = z.object({ previewToken: z.string().optional(), includeInactive: queryBooleanSchema.default(false), scheduledAt: z.coerce.date().optional() });
 export const cmsMediaBodySchema = z.object({
   url: z.string().url(),
   type: z.enum(['image', 'video']),

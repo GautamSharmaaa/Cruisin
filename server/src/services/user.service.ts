@@ -4,6 +4,7 @@ import { OrderModel } from '../models/order.model.js';
 import type { PaginatedResult } from '../types/api.types.js';
 import { ApiError } from '../utils/api-error.js';
 import { normalizeEmail } from '../utils/sanitize.js';
+import { isBusinessOrder, netRevenueFor } from './admin.service.js';
 
 export interface UserFilters {
   q?: string;
@@ -14,6 +15,7 @@ export interface UserFilters {
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const objectId = (value: unknown): string => String(value ?? '');
+const isSyntheticEmail = (email: string): boolean => email.endsWith('@phone.cruisin.local') || email.endsWith('@cruisin.local');
 
 export const UserService = {
   async list(filters: UserFilters): Promise<PaginatedResult<unknown>> {
@@ -34,14 +36,23 @@ export const UserService = {
       UserModel.countDocuments(query)
     ]);
     const userIds = items.map((user) => user._id);
-    const [orderStats, latestOrders] = await Promise.all([
-      OrderModel.aggregate<{ _id: unknown; orderCount: number; totalSpend: number; lastOrderAt?: Date }>([
-        { $match: { user: { $in: userIds } } },
-        { $group: { _id: '$user', orderCount: { $sum: 1 }, totalSpend: { $sum: { $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$total', 0] } }, lastOrderAt: { $max: '$createdAt' } } }
-      ]),
-      OrderModel.find({ user: { $in: userIds } }).select('user orderStatus paymentStatus total couponCode createdAt').sort({ createdAt: -1 }).lean()
-    ]);
-    const statsByUser = new Map(orderStats.map((item) => [objectId(item._id), item]));
+    const eligibleOrders = (await OrderModel.find({
+      user: { $in: userIds },
+      archivedAt: { $exists: false },
+      isTestOrder: { $ne: true },
+      isAnalyticsTestData: { $ne: true }
+    }).select('user orderNumber orderStatus paymentStatus paymentMode total amountPaid amountDue refundAmount discount tax shipping subtotal couponCode shippingAddress createdAt items isTestOrder isAnalyticsTestData').sort({ createdAt: -1 }).lean())
+      .filter((order) => isBusinessOrder(order as never));
+    const statsByUser = new Map<string, { orderCount: number; totalSpend: number; lastOrderAt?: Date }>();
+    for (const order of eligibleOrders) {
+      const id = objectId(order.user);
+      const current = statsByUser.get(id) ?? { orderCount: 0, totalSpend: 0 };
+      current.orderCount += 1;
+      current.totalSpend += netRevenueFor(order as never);
+      current.lastOrderAt ??= order.createdAt;
+      statsByUser.set(id, current);
+    }
+    const latestOrders = eligibleOrders;
     const latestByUser = new Map<string, (typeof latestOrders)[number]>();
     for (const order of latestOrders) {
       const id = objectId(order.user);
@@ -51,11 +62,12 @@ export const UserService = {
       const id = objectId(user._id);
       const stats = statsByUser.get(id);
       const latest = latestByUser.get(id);
+      const profileName = user.name?.trim();
       return {
         id,
         _id: id,
-        name: user.name,
-        email: user.email,
+        name: !profileName || profileName === 'Cruisin Member' ? latest?.shippingAddress?.fullName?.trim() || 'Customer' : profileName,
+        email: isSyntheticEmail(user.email.toLowerCase()) ? '' : user.email,
         phone: user.phone,
         role: user.role,
         status: user.status,
@@ -68,6 +80,7 @@ export const UserService = {
         totalSpend: stats?.totalSpend ?? 0,
         lastOrderAt: latest?.createdAt ?? stats?.lastOrderAt,
         lastOrderId: latest ? objectId(latest._id) : undefined,
+        lastOrderNumber: latest?.orderNumber,
         lastOrderStatus: latest?.orderStatus,
         lastPaymentStatus: latest?.paymentStatus,
         lastOrderTotal: latest?.total,
