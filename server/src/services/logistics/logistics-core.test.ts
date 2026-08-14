@@ -182,7 +182,11 @@ describe('mock provider and status normalization', () => {
     expect(second.scansAdded).toBe(0);
     expect(second.changed).toBe(false);
     expect(shipment.trackingScans).toHaveLength(1);
-    expect(orderUpdate).not.toHaveBeenCalled();
+    expect(orderUpdate).toHaveBeenCalledTimes(2);
+    expect(orderUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ _id: shipment.order }),
+      { $set: { fulfillmentStatus: 'fulfilled', orderStatus: 'delivered' } }
+    );
     expect(notify).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
@@ -228,6 +232,7 @@ describe('mock provider and status normalization', () => {
       idempotencyKey: 'forward:sync-costs'
     });
     vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    const orderUpdate = vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null });
     const result = await applyShiprocketSnapshot(shipment, {
       providerOrderId: '1002',
       providerShipmentId: '2002',
@@ -244,6 +249,10 @@ describe('mock provider and status normalization', () => {
     expect(result.changed).toBe(true);
     expect(shipment).toMatchObject({ shippingMode: 'surface', providerShippingCost: 82, codCharge: 18, otherProviderCharges: 4, rtoCost: 0 });
     expect(shipment.package?.chargedWeightKg).toBe(0.75);
+    expect(orderUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: shipment.order }),
+      { $set: { fulfillmentStatus: 'partially_fulfilled', orderStatus: 'shipped' } }
+    );
     vi.restoreAllMocks();
   });
 

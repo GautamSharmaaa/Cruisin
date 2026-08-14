@@ -170,7 +170,9 @@ export const applyShiprocketSnapshot = async (
   if (source === 'webhook') shipment.lastWebhookAt = now;
   await shipment.save();
   const affectsForwardOrder = shipment.shipmentType !== 'return' && shipment.shipmentType !== 'exchange_replacement';
-  if (statusChanged && affectsForwardOrder) {
+  // Always reconcile the parent order. This repairs legacy/stale order records even
+  // when Shiprocket repeats the same terminal shipment status on a later sync.
+  if (affectsForwardOrder) {
     await reconcileOrderFulfilment(shipment.order, currentStatus);
   }
   const eventType = statusChanged ? notificationEventForStatus(currentStatus) : null;

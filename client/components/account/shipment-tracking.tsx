@@ -1,7 +1,7 @@
 'use client';
 
 // Governed by .rules v1.0
-import { AlertTriangle, Check, ChevronDown, MapPin, PackageCheck, Truck } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, MapPin, PackageCheck, Truck, X } from 'lucide-react';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { ShipmentTracking as ShipmentTrackingData } from '@/hooks/useLogistics';
 import { humanizeOrderStatus } from '@/lib/order-cancellation';
@@ -16,13 +16,14 @@ function MilestoneJourney({ shipment }: { shipment: Shipment }): ReactNode {
   const updates = shipment.milestones.flatMap((milestone) => milestone.scans.map((scan) => ({ ...scan, milestone: milestone.label })));
   const currentIndex = Math.max(0, normal.findIndex((milestone) => milestone.current));
   const journeyPercent = normal.length > 1 ? Math.min(100, Math.max(0, (currentIndex / (normal.length - 1)) * 100)) : 0;
+  const cancelled = shipment.status === 'cancelled';
   const progressStyle = { '--journey-progress': `${journeyPercent}%` } as CSSProperties;
 
   return <div className="mt-6">
     {exception ? <div role="status" className="border border-danger/50 bg-danger/5 p-4"><div className="flex gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger" /><div><p className="font-medium text-text-primary">{exception.label}</p><p className="mt-1 text-sm leading-6 text-text-secondary">{exception.message}</p>{exception.reachedAt ? <p className="mt-2 text-xs text-text-muted">{formatDate(exception.reachedAt)}</p> : null}</div></div></div> : null}
     <ol aria-label="Shipment progress" className="relative mt-6 grid gap-0 md:grid-cols-6" style={progressStyle}>
       <div aria-hidden="true" className="absolute left-[1.15rem] top-5 h-[calc(100%-2.5rem)] w-px bg-border md:left-5 md:right-5 md:top-5 md:h-px md:w-auto" />
-      <div aria-hidden="true" className="absolute left-[1.15rem] top-5 h-[var(--journey-progress)] w-px bg-accent-gold transition-[height] duration-700 motion-reduce:transition-none md:left-5 md:top-5 md:h-px md:w-[var(--journey-progress)] md:transition-[width]" />
+      <div aria-hidden="true" className={`absolute left-[1.15rem] top-5 h-[var(--journey-progress)] w-px transition-[height] duration-700 motion-reduce:transition-none md:left-5 md:top-5 md:h-px md:w-[var(--journey-progress)] md:transition-[width] ${cancelled ? 'bg-danger' : 'bg-accent-gold'}`} />
       {normal.map((milestone) => {
         const moving = milestone.current && !['delivered', 'received'].includes(milestone.key);
         return <li key={milestone.key} className="relative grid min-h-24 grid-cols-[2.5rem_minmax(0,1fr)] gap-3 pb-5 md:min-h-0 md:grid-cols-1 md:justify-items-center md:px-1 md:pb-0 md:text-center">
@@ -41,8 +42,8 @@ function MilestoneJourney({ shipment }: { shipment: Shipment }): ReactNode {
 }
 
 export function ShipmentTracking({ tracking }: { tracking: ShipmentTrackingData }): ReactNode {
-  return <div className="grid gap-6">{tracking.shipments.length === 0 ? <section className="border border-border bg-background-elevated p-6"><PackageCheck className="h-5 w-5 text-accent-gold" /><h2 className="mt-4 font-display text-2xl">Preparing your shipment</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Your order is confirmed. Courier details will appear here as soon as the parcel is prepared.</p></section> : tracking.shipments.map((shipment) => <section key={shipment.id} className="overflow-hidden border border-border bg-background-elevated p-5 sm:p-6">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-[0.14em] text-accent-gold">Order {tracking.orderNumber ?? tracking.orderId} · {humanizeOrderStatus(shipment.type)}</p><h2 className="mt-2 font-display text-3xl">{shipment.latestMessage}</h2></div>{shipment.milestones.some((milestone) => milestone.exception) ? <AlertTriangle className="h-6 w-6 text-danger" /> : <Truck className="h-6 w-6 text-accent-gold" />}</header>
+  return <div className="grid gap-6">{tracking.shipments.length === 0 ? tracking.orderStatus === 'cancelled' ? <section className="border border-danger/50 bg-danger/10 p-6"><X className="h-6 w-6 text-danger" /><h2 className="mt-4 font-display text-3xl text-danger">Order cancelled</h2><p className="mt-2 text-sm leading-6 text-text-secondary">This order was cancelled before a courier shipment was created. No parcel is in transit.</p></section> : <section className="border border-border bg-background-elevated p-6"><PackageCheck className="h-5 w-5 text-accent-gold" /><h2 className="mt-4 font-display text-2xl">Preparing your shipment</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Your order is confirmed. Courier details will appear here as soon as the parcel is prepared.</p></section> : tracking.shipments.map((shipment) => <section key={shipment.id} className="overflow-hidden border border-border bg-background-elevated p-5 sm:p-6">
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className={`text-xs uppercase tracking-[0.14em] ${shipment.status === 'cancelled' ? 'text-danger' : 'text-accent-gold'}`}>Order {tracking.orderNumber ?? tracking.orderId} · {humanizeOrderStatus(shipment.type)}</p><h2 className={`mt-2 font-display text-3xl ${shipment.status === 'cancelled' ? 'text-danger' : ''}`}>{shipment.latestMessage}</h2></div>{shipment.status === 'cancelled' ? <X className="h-6 w-6 text-danger" /> : shipment.status === 'delivered' ? <Check className="h-6 w-6 text-success" /> : shipment.milestones.some((milestone) => milestone.exception) ? <AlertTriangle className="h-6 w-6 text-danger" /> : <Truck className="h-6 w-6 text-accent-gold" />}</header>
     <dl className="mt-5 grid gap-3 border-y border-border py-4 text-sm sm:grid-cols-2 lg:grid-cols-5"><div><dt className="text-text-muted">Courier</dt><dd className="mt-1 text-text-primary">{shipment.courierName ?? 'Being assigned'}</dd></div><div><dt className="text-text-muted">Tracking number</dt><dd className="mt-1 break-all font-mono text-xs text-text-primary">{shipment.awb ?? 'Pending'}</dd></div><div><dt className="text-text-muted">Estimated delivery</dt><dd className="mt-1 text-text-primary">{formatDate(shipment.estimatedDelivery)}</dd></div><div><dt className="text-text-muted">Latest update</dt><dd className="mt-1 text-text-primary">{formatDate(shipment.latestUpdate)}</dd></div><div><dt className="text-text-muted">Latest location</dt><dd className="mt-1 text-text-primary">{shipment.latestLocation ?? 'Not available'}</dd></div></dl><MilestoneJourney shipment={shipment} />
   </section>)}</div>;
 }

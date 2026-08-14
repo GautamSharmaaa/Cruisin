@@ -31,7 +31,9 @@ export interface LogisticsQuote {
 export interface ShipmentTracking {
   orderId: string;
   orderNumber?: string;
+  orderStatus: string;
   fulfillmentStatus: string;
+  returnWindow?: { deliveredAt: string; endsAt: string; eligible: boolean; daysRemaining: number };
   shipments: Array<{
     id: string;
     type: 'forward' | 'return' | 'exchange_replacement';

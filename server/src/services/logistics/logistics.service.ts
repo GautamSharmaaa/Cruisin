@@ -1036,16 +1036,29 @@ export const LogisticsService = {
     const shipments = await ShipmentModel.find({ order: order._id })
       .sort({ createdAt: 1 })
       .lean();
+    const forwardShipment = [...shipments].reverse().find((shipment) => shipment.shipmentType === 'forward');
+    const deliveredAt = forwardShipment?.deliveredDate;
+    const returnWindowEndsAt = deliveredAt ? new Date(deliveredAt.getTime() + 5 * 86_400_000) : undefined;
+    const returnWindowRemainingMs = returnWindowEndsAt ? Math.max(0, returnWindowEndsAt.getTime() - Date.now()) : 0;
+    const returnWindow = deliveredAt ? {
+      deliveredAt,
+      endsAt: returnWindowEndsAt,
+      eligible: order.orderStatus !== 'cancelled' && forwardShipment?.shipmentStatus === 'delivered' && returnWindowRemainingMs > 0,
+      daysRemaining: Math.ceil(returnWindowRemainingMs / 86_400_000)
+    } : undefined;
     return {
       orderId: String(order._id),
       orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
       fulfillmentStatus: order.fulfillmentStatus,
+      returnWindow,
       shipments: shipments.map((shipment) => {
-        const projection = buildCustomerTrackingMilestones({ type: shipment.shipmentType, status: shipment.shipmentStatus, createdAt: shipment.createdAt, scans: shipment.trackingScans.map((scan) => ({ status: scan.status, message: scan.message, location: scan.location ?? undefined, timestamp: scan.timestamp })) });
+        const effectiveStatus = shipment.shipmentType === 'forward' && order.orderStatus === 'cancelled' ? 'cancelled' : shipment.shipmentStatus;
+        const projection = buildCustomerTrackingMilestones({ type: shipment.shipmentType, status: effectiveStatus, createdAt: shipment.createdAt, scans: shipment.trackingScans.map((scan) => ({ status: scan.status, message: scan.message, location: scan.location ?? undefined, timestamp: scan.timestamp })) });
         return ({
         id: String(shipment._id),
         type: shipment.shipmentType,
-        status: customerStatus(shipment.shipmentStatus),
+        status: customerStatus(effectiveStatus),
         courierName: shipment.courierName,
         awb: shipment.awb,
         estimatedDelivery: shipment.estimatedDelivery,

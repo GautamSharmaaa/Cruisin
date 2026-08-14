@@ -10,6 +10,7 @@ import { OrderReturnPanel } from '@/components/account/order-return-panel';
 import { SafeImage } from '@/components/shared/safe-image';
 import { ROUTES } from '@/constants/routes';
 import { useOrder } from '@/hooks/useOrders';
+import { useOrderTracking, type ShipmentTracking } from '@/hooks/useLogistics';
 import { canCustomerCancel, customerFacingOrderStatus, humanizeOrderStatus, orderId } from '@/lib/order-cancellation';
 import { formatPrice } from '@/lib/utils';
 import type { Address, Order } from '@/types/order.types';
@@ -61,7 +62,7 @@ const BillBreakdown = ({ order }: { order: Order }): ReactNode => {
   </section>;
 };
 
-const OrderDetails = ({ order }: { order: Order }): ReactNode => {
+const OrderDetails = ({ order, returnWindow }: { order: Order; returnWindow?: ShipmentTracking['returnWindow'] }): ReactNode => {
   const id = orderId(order);
   const displayStatus = customerFacingOrderStatus(order);
 
@@ -85,7 +86,7 @@ const OrderDetails = ({ order }: { order: Order }): ReactNode => {
           </article>)}</div>
         </section>
 
-        <OrderReturnPanel order={order} />
+        <OrderReturnPanel order={order} returnWindow={returnWindow} />
 
         {order.cancellation ? <section className="border border-danger/50 bg-danger/10 p-5 sm:p-6" aria-labelledby="cancellation-heading">
           <div className="flex items-center gap-3"><RotateCcw className="h-5 w-5 text-text-primary" aria-hidden="true" /><h2 id="cancellation-heading" className="font-display text-2xl">Cancellation & refund</h2></div>
@@ -117,10 +118,11 @@ const OrderDetails = ({ order }: { order: Order }): ReactNode => {
 export default function OrderDetailPage(): ReactNode {
   const params = useParams<{ id: string }>();
   const order = useOrder(params.id);
+  const tracking = useOrderTracking(params.id);
 
   return <main className="mx-auto min-h-[70vh] max-w-7xl px-5 pb-24 pt-28 sm:px-8 lg:px-12 lg:pt-36">
     {order.isError ? <section className="mx-auto max-w-2xl border border-border bg-background-elevated p-8 text-center shadow-lg"><p className="font-accent text-xs uppercase tracking-[0.16em] text-accent-gold">Private order</p><h1 className="mt-4 font-display text-4xl text-text-primary">We couldn’t load this order</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-text-secondary">{order.error instanceof Error ? order.error.message : 'Order details are only available to the customer who placed the order.'}</p><Link href={ROUTES.orders} className="mt-8 inline-flex min-h-11 items-center justify-center bg-accent-gold px-6 text-xs font-medium uppercase tracking-[0.1em] text-text-inverse shadow-gold transition hover:brightness-110">My orders</Link></section> : null}
     {order.isLoading ? <DetailSkeleton /> : null}
-    {order.data ? <OrderDetails order={order.data} /> : null}
+    {order.data ? <OrderDetails order={order.data} returnWindow={tracking.data?.returnWindow} /> : null}
   </main>;
 }
