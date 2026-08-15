@@ -83,6 +83,7 @@ const installMockApi = async (page: Page, capturedCheckout: { logisticsQuoteId?:
     if (path === '/products') return fulfillJson(route, { items: [product], page: 1, limit: 24, total: 1, pages: 1 });
     if (path === '/cart' && request.method() === 'GET') return fulfillJson(route, { items: [] });
     if (path === '/cart/items' && ['PUT', 'POST'].includes(request.method())) return fulfillJson(route, { ok: true });
+    if (path === '/cart/coupon' && request.method() === 'POST') return fulfillJson(route, { coupon: 'SAVE600', discount: 600, freeShipping: false });
     if (path === '/orders/cod' && request.method() === 'POST') {
       const body = request.postDataJSON() as { logisticsQuoteId?: string; metaEventId?: string };
       capturedCheckout.logisticsQuoteId = body.logisticsQuoteId;
@@ -149,6 +150,12 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
   await page.getByRole('dialog').getByRole('link', { name: 'Proceed To Checkout' }).click();
   await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'InitiateCheckout').length).toBe(1);
+
+  await page.getByLabel('Coupon code').fill('save600');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByText('SAVE600 applied')).toBeVisible();
+  await expect(page.getByText('Discount (SAVE600)')).toBeVisible();
+  await expect(page.getByText('-₹600')).toBeVisible();
 
   await page.getByRole('button', { name: /Cash on delivery/ }).click();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'AddPaymentInfo').length).toBe(1);

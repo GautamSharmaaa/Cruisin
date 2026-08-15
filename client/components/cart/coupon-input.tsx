@@ -3,7 +3,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,13 @@ export function CouponInput(_props: CouponInputProps): ReactNode {
   const setCoupon = useCartStore((state) => state.setCoupon);
   const clearCoupon = useCartStore((state) => state.clearCoupon);
   const removeItem = useCartStore((state) => state.removeItem);
-  const { register, handleSubmit, formState, setError } = useForm<CouponForm>({ resolver: zodResolver(couponSchema) });
+  const { register, handleSubmit, formState, setError, setValue } = useForm<CouponForm>({
+    resolver: zodResolver(couponSchema),
+    defaultValues: { code: coupon ?? '' }
+  });
+  useEffect(() => {
+    setValue('code', coupon ?? '', { shouldDirty: false, shouldValidate: false });
+  }, [coupon, setValue]);
   const onSubmit = async (data: CouponForm): Promise<void> => {
     clearCoupon();
     try {
