@@ -137,7 +137,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const overlay = asNumber(content, 'overlayOpacity', 44) / 100;
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
-    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
+    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full bg-background-primary object-contain opacity-80 md:object-cover" /></picture>
     <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(0,0,0,${overlay * 0.4}), rgba(0,0,0,${overlay + 0.12}))` }} />
     <div className="relative flex min-h-dvh flex-col justify-end px-6 pb-24 lg:px-20">
       <p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'campaignLabel', section.position ?? 'Campaign')}</p>
@@ -173,7 +173,10 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
   return <section className={className + ' relative min-h-[100svh] overflow-hidden bg-background-primary'}>
     {hasVideo
       ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
-      : <img src={optimizedImageUrl(imageUrl, 900)} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
+      : <>
+        <img src={optimizedImageUrl(imageUrl, 900)} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+        <img src={optimizedImageUrl(imageUrl, 900)} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain" />
+      </>}
     {overlay > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: overlay }} /> : null}
     {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="mobile-media-cta inline-flex min-h-12 items-center justify-center px-5 py-3 text-center font-accent text-sm uppercase tracking-[0.22em]" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
   </section>;
