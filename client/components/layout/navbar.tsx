@@ -94,9 +94,9 @@ export function Navbar(_props: NavbarProps): ReactNode {
   }, [pathname]);
 
   return (
-    <motion.header ref={headerRef} variants={navReveal} initial="initial" animate="animate" className={'fixed inset-x-0 top-0 z-[100] transition-all duration-500 ' + (scrolled || activeId || mobile ? 'border-b border-border-subtle bg-background-primary/95 shadow-lg backdrop-blur-2xl' : isHomepage ? 'bg-gradient-to-b from-background-primary/65 via-background-primary/25 to-transparent' : 'bg-gradient-to-b from-background-primary/80 to-background-primary/20 backdrop-blur-sm')}>
+    <motion.header ref={headerRef} variants={navReveal} initial="initial" animate="animate" className={'fixed inset-x-0 top-0 z-[100] transition-all duration-500 ' + (isHomepage ? 'border-b border-[#138808] bg-[linear-gradient(to_bottom,#ff9933_0_15%,#f8f8f4_15%_85%,#138808_85%_100%)] shadow-lg' : scrolled || activeId || mobile ? 'border-b border-border-subtle bg-background-primary/95 shadow-lg backdrop-blur-2xl' : 'bg-gradient-to-b from-background-primary/80 to-background-primary/20 backdrop-blur-sm')}>
       <a href="#main" className="sr-only focus:not-sr-only">Skip to main content</a>
-      <div className="relative z-[90] grid h-20 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-10">
+      <div className={'relative z-[90] grid h-20 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-10 ' + (isHomepage ? '[&_a]:!text-[#000080] [&_button]:!text-[#000080]' : '')}>
         <div className="flex min-w-0 items-center justify-start gap-2">
           {navItems.length > 0 ? <AnimatedMenuButton open={Boolean(activeId) || mobile} onClick={openMenu} /> : null}
         </div>

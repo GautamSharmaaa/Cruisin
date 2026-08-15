@@ -103,7 +103,7 @@ export function CmsHomepage({ sections }: CmsHomepageProps): ReactNode {
   });
   const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar' || section.type === 'marquee_strip');
   return <div data-testid="cms-homepage" className="relative -mt-16 lg:-mt-20"><h1 className="sr-only">Cruisin</h1>{visible.map((section, index) => index === announcementIndex
-    ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-16 z-40 lg:top-20"><CmsSectionRenderer section={section} /></div>
+    ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-36 z-40 lg:top-40"><CmsSectionRenderer section={section} /></div>
     : <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</div>;
 }
 
