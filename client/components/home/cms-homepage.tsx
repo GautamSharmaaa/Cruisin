@@ -170,7 +170,7 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
   const overlay = Number.isFinite(rawOverlay) ? Math.min(100, Math.max(0, rawOverlay)) / 100 : 0.2;
   const hasVideo = mediaType === 'video' && isPlayableVideo(videoUrl);
   if (!hasVideo && !imageUrl) return null;
-  return <section className={className + ' relative min-h-[100svh] overflow-hidden bg-background-primary'}>
+  return <section className={className + ' relative min-h-[calc(100svh-9rem)] overflow-hidden bg-background-primary'}>
     {hasVideo
       ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
       : <>
