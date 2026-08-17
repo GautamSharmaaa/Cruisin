@@ -22,6 +22,25 @@ describe('checkoutSchema Meta event ID', () => {
   });
 });
 
+describe('checkoutSchema Indian delivery country', () => {
+  it.each(['IN', 'IND', 'India', ' india '])('normalizes %s to the Shiprocket domestic country value', (country) => {
+    const result = checkoutSchema.parse({
+      ...checkout,
+      shippingAddress: { ...checkout.shippingAddress, country },
+      billingAddress: { ...checkout.billingAddress, country }
+    });
+    expect(result.shippingAddress.country).toBe('India');
+    expect(result.billingAddress.country).toBe('India');
+  });
+
+  it('rejects opaque country identifiers that Shiprocket can classify as international', () => {
+    expect(checkoutSchema.safeParse({
+      ...checkout,
+      shippingAddress: { ...checkout.shippingAddress, country: '101' }
+    }).success).toBe(false);
+  });
+});
+
 describe('customerCancellationSchema', () => {
   it('accepts a common cancellation reason without free text', () => {
     expect(customerCancellationSchema.safeParse({ reasonCode: 'wrong_item' }).success).toBe(true);

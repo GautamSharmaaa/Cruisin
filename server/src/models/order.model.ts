@@ -21,6 +21,7 @@ const itemSchema = new Schema(
     variant: { type: Schema.Types.ObjectId, required: true },
     title: { type: String, required: true, trim: true },
     sku: { type: String, required: true, trim: true },
+    hsn: { type: String, trim: true, default: '' },
     size: { type: String, trim: true },
     color: { type: String, trim: true },
     quantity: { type: Number, required: true, min: 1 },

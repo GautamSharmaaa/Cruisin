@@ -2,6 +2,7 @@
 import { AddressModel } from '../models/address.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { UserModel } from '../models/user.model.js';
+import { normalizeIndiaCountry } from '../utils/india-address.js';
 
 export interface CheckoutAddressInput {
   fullName?: unknown;
@@ -35,7 +36,7 @@ const canonicalPhone = (value: unknown): string => {
 };
 const canonicalCountry = (value: unknown): string => {
   const country = clean(value);
-  return /^(in|india)$/i.test(country) ? 'India' : country;
+  return normalizeIndiaCountry(country);
 };
 
 export const checkoutAddressToBookValue = (address: CheckoutAddressInput): AddressBookValue | null => {

@@ -15,6 +15,7 @@ import type {
 } from "../../types/logistics.types.js";
 import { LogisticsProviderError } from "../../types/logistics.types.js";
 import { ApiError } from "../../utils/api-error.js";
+import { isIndiaCountry, normalizeIndiaCountry } from "../../utils/india-address.js";
 import { logger } from "../../utils/logger.js";
 import { calculatePackage, type PackageLine } from "./package-calculator.js";
 import { LogisticsAutomationService } from "./logistics-automation.service.js";
@@ -182,6 +183,8 @@ const addressForProvider = async (order: {
     postalCode: string;
   };
 }): Promise<LogisticsAddress> => {
+  if (!isIndiaCountry(order.shippingAddress.country))
+    throw new ApiError(409, "Shipping country must be India before creating a Shiprocket order");
   const user = order.user
     ? await UserModel.findById(order.user).select("email").lean()
     : null;
@@ -193,7 +196,7 @@ const addressForProvider = async (order: {
     address2: order.shippingAddress.line2 ?? undefined,
     city: order.shippingAddress.city,
     state: order.shippingAddress.state,
-    country: order.shippingAddress.country,
+    country: normalizeIndiaCountry(order.shippingAddress.country),
     postcode: order.shippingAddress.postalCode,
   };
 };
@@ -409,10 +412,12 @@ export const LogisticsService = {
           sellingPrice: item.price,
           discount: 0,
           tax: 0,
+          hsn: item.hsn ?? "",
         })),
         paymentMode: order.paymentMode === "cod" ? "cod" : "prepaid",
         subtotal: order.subtotal,
         shippingCharge: order.shipping,
+        codHandlingCharge: order.paymentMode === "cod" ? order.codFee : 0,
         totalDiscount: order.discount,
         total: order.total,
         package: claimed.package as PackageMeasurement,

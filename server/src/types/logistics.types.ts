@@ -116,6 +116,7 @@ export interface CreateLogisticsOrderInput {
   paymentMode: 'prepaid' | 'cod';
   subtotal: number;
   shippingCharge: number;
+  codHandlingCharge?: number;
   totalDiscount: number;
   total: number;
   package: PackageMeasurement;

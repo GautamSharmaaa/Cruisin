@@ -18,8 +18,9 @@ const mutationOrderInput = {
   },
   items: [{ name: 'Contract Tee', sku: 'CONTRACT-TEE-M', units: 1, sellingPrice: 1_000, discount: 50, tax: 0 }],
   paymentMode: 'prepaid' as const,
-  subtotal: 950,
+  subtotal: 1_000,
   shippingCharge: 92,
+  codHandlingCharge: 0,
   totalDiscount: 50,
   total: 1_042,
   package: {
@@ -163,12 +164,57 @@ describe('ShiprocketProvider live response compatibility', () => {
     await expect(provider.createReturn({ ...mutationOrderInput, sourceOrderId: 'CR-CONTRACT-RETURN', returnReason: 'Contract return' })).resolves.toMatchObject({ providerOrderId: '777', providerShipmentId: '888' });
 
     expect(post.mock.calls.map(([path, body, , operation]) => ({ path, body, operation }))).toEqual([
-      expect.objectContaining({ path: '/orders/create/adhoc', body: expect.objectContaining({ order_id: 'CR-CONTRACT-MUTATION', pickup_location: 'Contract Warehouse', payment_method: 'Prepaid', sub_total: 950, weight: 0.5 }), operation: undefined }),
+      expect.objectContaining({ path: '/orders/create/adhoc', body: expect.objectContaining({ order_id: 'CR-CONTRACT-MUTATION', pickup_location: 'Contract Warehouse', payment_method: 'Prepaid', sub_total: 1_000, weight: 0.5 }), operation: undefined }),
       { path: '/courier/assign/awb', body: { shipment_id: 555, courier_id: 42 }, operation: undefined },
       { path: '/courier/generate/pickup', body: { shipment_id: [555] }, operation: undefined },
       { path: '/manifests/generate', body: { shipment_id: [555] }, operation: undefined },
       { path: '/orders/cancel/shipment/awbs', body: { awbs: ['AWB-CONTRACT'] }, operation: undefined },
       expect.objectContaining({ path: '/shipments/create/return-shipment', body: expect.objectContaining({ order_id: 'CR-CONTRACT-RETURN', return_reason: 'Contract return', pickup_pincode: 560001 }), operation: undefined })
     ]);
+  });
+
+  it('represents the Cruisin COD handling fee without changing item prices', async () => {
+    const post = vi.fn().mockResolvedValue({ order_id: 444, shipment_id: 555, status: 'NEW' });
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await provider.createOrder({
+      ...mutationOrderInput,
+      paymentMode: 'cod',
+      subtotal: 999,
+      shippingCharge: 0,
+      codHandlingCharge: 49,
+      totalDiscount: 0,
+      total: 1_048,
+      items: [{ ...mutationOrderInput.items[0], sellingPrice: 999, discount: 0 }]
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/orders/create/adhoc',
+      expect.objectContaining({
+        payment_method: 'COD',
+        sub_total: 999,
+        shipping_charges: 0,
+        transaction_charges: 49,
+        total_discount: 0,
+        order_items: [expect.objectContaining({ selling_price: 999 })]
+      }),
+      expect.anything()
+    );
+  });
+
+  it('refuses a provider payload whose represented charges differ from the Cruisin total', async () => {
+    const post = vi.fn();
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await expect(provider.createOrder({
+      ...mutationOrderInput,
+      paymentMode: 'cod',
+      subtotal: 999,
+      shippingCharge: 0,
+      codHandlingCharge: 0,
+      totalDiscount: 0,
+      total: 1_048
+    })).rejects.toThrow('do not reconcile');
+    expect(post).not.toHaveBeenCalled();
   });
 });

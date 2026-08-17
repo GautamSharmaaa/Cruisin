@@ -162,7 +162,7 @@ const createPricedItems = async (cartItems: Array<{ product: unknown; variant: u
       other: money(product.costBreakdown?.other ?? 0)
     };
     const unitCostTotal = money(Object.values(unitCostBreakdown).reduce((sum, value) => sum + value, 0));
-    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
+    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, hsn: product.hsnCode ?? '', size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
   });
 };
 
