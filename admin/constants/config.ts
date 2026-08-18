@@ -1,5 +1,9 @@
 // Governed by .rules v1.0
-export const API_CONFIG = { baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1', timeout: 12_000 } as const;
+export const API_CONFIG = {
+  baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1',
+  timeout: 12_000,
+  uploadTimeout: 120_000
+} as const;
 export const IDENTITY_CONFIG = { googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '' } as const;
 export const PRODUCT_FORM_DEFAULTS = {
   colorHex: '#080808',
