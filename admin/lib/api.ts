@@ -9,7 +9,7 @@ interface ApiEnvelope<TData> {
 }
 
 export const api = axios.create({ baseURL: API_CONFIG.baseUrl, withCredentials: true, timeout: API_CONFIG.timeout });
-export const externalUploadApi = axios.create({ timeout: API_CONFIG.timeout });
+export const externalUploadApi = axios.create({ timeout: API_CONFIG.uploadTimeout });
 let refreshPromise: Promise<string | null> | null = null;
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {

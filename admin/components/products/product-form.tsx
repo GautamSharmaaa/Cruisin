@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { AxiosResponse } from 'axios';
 import { useDropzone } from 'react-dropzone';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -258,7 +259,15 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       formData.append('folder', sig.folder);
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
       if (!cloudName) throw new Error('Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME');
-      const response = await externalUploadApi.post<CloudinaryUploadResponse>(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, formData);
+      let response: AxiosResponse<CloudinaryUploadResponse>;
+      try {
+        response = await externalUploadApi.post<CloudinaryUploadResponse>(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, formData);
+      } catch (error) {
+        if (error instanceof Error && /timeout/i.test(error.message)) {
+          throw new Error(`Upload timed out for ${file.name}. Check the connection and retry this image.`);
+        }
+        throw error;
+      }
       if (!response.data.secure_url) throw new Error(`Upload failed for ${file.name}`);
       urls.push(response.data.secure_url);
     }
