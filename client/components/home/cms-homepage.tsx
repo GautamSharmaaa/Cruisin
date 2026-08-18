@@ -137,7 +137,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const overlay = asNumber(content, 'overlayOpacity', 44) / 100;
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
-    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full bg-background-primary object-contain opacity-80 md:object-cover" /></picture>
+    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full bg-background-primary object-cover opacity-80" /></picture>
     <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(0,0,0,${overlay * 0.4}), rgba(0,0,0,${overlay + 0.12}))` }} />
     <div className="relative flex min-h-dvh flex-col justify-end px-6 pb-24 lg:px-20">
       <p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'campaignLabel', section.position ?? 'Campaign')}</p>
