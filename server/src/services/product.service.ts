@@ -92,6 +92,11 @@ const tagList = (tags?: string | string[]): string[] => {
   return values.map((tag) => tag.trim()).filter(Boolean);
 };
 
+const tagMatchers = (tags: string[]): RegExp[] => {
+  const values = tags.flatMap((tag) => [tag, tag.replace(/[-_]+/g, ' ')]);
+  return Array.from(new Set(values.map((tag) => tag.trim()).filter(Boolean))).map(exactCaseInsensitive);
+};
+
 const isTrue = (value: unknown): boolean => value === true || value === 'true';
 const exactCaseInsensitive = (value: string): RegExp => new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 const totalStock = (product: { variants?: Array<{ stock?: number }> }): number => (product.variants ?? []).reduce((sum, variant) => sum + (variant.stock ?? 0), 0);
@@ -133,7 +138,7 @@ export const ProductService = {
       and.push({ $or: [{ collections: collection._id }, { collectionSlugs: collection.slug }, { _id: { $in: collection.productIds ?? [] } }] });
     }
     const tags = tagList(filters.tags);
-    if (tags.length > 0) query.tags = { $in: tags };
+    if (tags.length > 0) query.tags = { $in: tagMatchers(tags) };
     if (filters.gender) query.gender = filters.gender === 'unisex' ? 'unisex' : { $in: [filters.gender, 'unisex'] };
     if (isTrue(filters.sale)) and.push({ $or: [{ isSale: true }, { comparePrice: { $gt: 0 } }] });
     if (isTrue(filters.featured)) query.isFeatured = true;

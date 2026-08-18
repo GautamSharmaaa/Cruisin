@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
   },
   images: {
     unoptimized: process.env.NODE_ENV !== 'production',
+    qualities: [60, 75, 85, 92],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
