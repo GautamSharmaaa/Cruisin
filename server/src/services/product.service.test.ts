@@ -43,6 +43,14 @@ beforeEach(() => {
 });
 
 describe('ProductService public variant filtering', () => {
+  it('matches tag slugs against display-name tags without case sensitivity', async () => {
+    await ProductService.list(filters({ tags: 'latest-drop,joggers' }));
+
+    const query = productModel.find.mock.calls[0]?.[0] as { tags: { $in: RegExp[] } };
+    expect(query.tags.$in.some((matcher) => matcher.test('Latest Drop'))).toBe(true);
+    expect(query.tags.$in.some((matcher) => matcher.test('Joggers'))).toBe(true);
+  });
+
   it('uses a literal case-insensitive substring across public search fields', async () => {
     await ProductService.list(filters({ q: 'qa-catalogue.multi' }));
 
