@@ -322,6 +322,60 @@ export interface CouponDto {
   isActive: boolean;
 }
 
+export type PromotionPopupFrequency = 'once_per_session' | 'once_per_24_hours' | 'always';
+export type PromotionExperienceStatus = 'live' | 'scheduled' | 'disabled' | 'expired' | 'linked_offer_inactive';
+
+export interface PromotionExperienceConfigDto {
+  enabled: boolean;
+  promotionId?: string | null;
+  campaignName: string;
+  campaignKey: string;
+  popupEnabled: boolean;
+  bagMarqueeEnabled: boolean;
+  checkoutStripEnabled: boolean;
+  popupEyebrow: string;
+  popupHeadline: string;
+  popupDescription: string;
+  popupPrimaryCta: string;
+  popupSecondaryCta: string;
+  marqueeAvailableText: string;
+  marqueeAppliedText: string;
+  checkoutAvailableText: string;
+  checkoutAppliedText: string;
+  popupDelayMs: number;
+  popupFrequency: PromotionPopupFrequency;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}
+
+export interface LinkedPromotionDto {
+  id: string;
+  code: string;
+  type: CouponDto['type'];
+  value: number;
+  displayValue: string;
+  discountLabel: string;
+  isActive: boolean;
+  validFrom: string;
+  validUntil: string;
+  usageLimit?: number | null;
+  usedCount: number;
+  userUsageLimit?: number | null;
+  minOrderValue: number;
+  maxDiscount?: number | null;
+  applicableProductCount: number;
+  applicableCategoryCount: number;
+}
+
+export interface AdminPromotionExperienceDto {
+  config: PromotionExperienceConfigDto;
+  linkedPromotion: LinkedPromotionDto | null;
+  status: PromotionExperienceStatus;
+  reason?: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
 export interface OrderDto {
   id: string;
   _id?: string;

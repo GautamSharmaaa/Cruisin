@@ -7,6 +7,7 @@ import { CartItem } from '@/components/cart/cart-item';
 import { CartSummary } from '@/components/cart/cart-summary';
 import { CouponInput } from '@/components/cart/coupon-input';
 import { ShippingProgress } from '@/components/cart/shipping-progress';
+import { PromotionMarquee } from '@/components/promotion/promotion-marquee';
 import { Drawer } from '@/components/shared/drawer';
 import { EmptyState } from '@/components/shared/empty-state';
 import { COPY } from '@/constants/copy';
@@ -35,6 +36,7 @@ export function CartDrawer(_props: CartDrawerProps): ReactNode {
         <EmptyState title={COPY.cart.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.cart.continue} href={ROUTES.shop} />
       ) : (
         <div className="space-y-6">
+          <PromotionMarquee />
           {visibleItems.map((item, index) => <CartItem key={item.product.id + item.variantId} item={item} priority={isOpen && index === 0} />)}
           <ShippingProgress subtotal={discountedSubtotal} threshold={freeThreshold} />
           <CouponInput />

@@ -68,6 +68,8 @@ export interface MetaFbq {
   (command: 'trackSingle', pixelId: string, eventName: 'PageView'): void;
   (command: 'trackSingle', pixelId: string, eventName: 'Search', parameters: MetaSearchParameters, options?: MetaEventOptions): void;
   (command: 'trackSingle', pixelId: string, eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>, parameters: MetaCommerceParameters, options?: MetaEventOptions): void;
+  (command: 'trackCustom', eventName: string, parameters?: Record<string, string | number | boolean>): void;
+  (command: 'trackSingleCustom', pixelId: string, eventName: string, parameters?: Record<string, string | number | boolean>): void;
   callMethod?: (...args: unknown[]) => void;
   queue?: unknown[][];
   loaded?: boolean;
@@ -269,6 +271,16 @@ export const trackPurchase = (input: MetaPurchaseInput, eventID?: string): boole
   const coupon = input.coupon?.trim();
   if (coupon) parameters.coupon = coupon;
   return sendCommerceEvent('Purchase', parameters, eventID);
+};
+
+export const trackCustomEvent = (eventName: string, properties: Record<string, string | number | boolean>): boolean => {
+  if (!isBrowser() || !window.fbq) return false;
+  const normalizedName = eventName.trim();
+  if (!normalizedName) return false;
+  const pixelId = configuredPixelId();
+  if (pixelId) window.fbq('trackSingleCustom', pixelId, normalizedName, properties);
+  else window.fbq('trackCustom', normalizedName, properties);
+  return true;
 };
 
 export const generateEventId = (namespace = 'event'): string => {

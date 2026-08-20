@@ -608,7 +608,7 @@ export const MerchandisingService = {
   },
 
   async siteSettings(): Promise<unknown> {
-    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).lean();
+    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('-promotionExperience').lean();
     return settings ? { ...siteSettingsDefaults, ...settings } : { singletonKey: 'global', ...siteSettingsDefaults };
   },
 
