@@ -263,9 +263,9 @@ export const ProductService = {
       description: configuredAnchor?.completeTheFit?.description || defaultCompleteTheFit.description
     };
     const bundleDiscount = {
-      enabled: configuredAnchor?.completeTheFit?.bundleDiscount?.enabled === true,
-      twoItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 0,
-      threeItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 0
+      enabled: true,
+      twoItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 100,
+      threeItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 300
     };
 
     const currentBundle = { currentBundleDiscount: bundlePricing.amount, bundleEligibleProductCount: bundlePricing.eligibleProductCount };
@@ -287,9 +287,9 @@ export const ProductService = {
           eyebrow: manualCopy?.eyebrow || copy.eyebrow,
           description: manualCopy?.description || copy.description,
           bundleDiscount: {
-            enabled: manualCopy?.bundleDiscount?.enabled === true,
-            twoItemDiscount: manualCopy?.bundleDiscount?.twoItemDiscount ?? 0,
-            threeItemDiscount: manualCopy?.bundleDiscount?.threeItemDiscount ?? 0
+            enabled: true,
+            twoItemDiscount: manualCopy?.bundleDiscount?.twoItemDiscount ?? 100,
+            threeItemDiscount: manualCopy?.bundleDiscount?.threeItemDiscount ?? 300
           },
           items: manualItems
         };

@@ -151,9 +151,9 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
     eyebrow: input.completeTheFitEyebrow || 'Your kit is building',
     description: input.completeTheFitDescription || 'Explore one more piece.',
     bundleDiscount: {
-      enabled: input.bundleDiscountEnabled ?? false,
-      twoItemDiscount: input.bundleTwoItemDiscount ?? 0,
-      threeItemDiscount: input.bundleThreeItemDiscount ?? 0
+      enabled: input.bundleDiscountEnabled ?? true,
+      twoItemDiscount: input.bundleTwoItemDiscount ?? 100,
+      threeItemDiscount: input.bundleThreeItemDiscount ?? 300
     }
   },
   isActive: input.status !== 'draft' && input.visibility !== 'hidden',

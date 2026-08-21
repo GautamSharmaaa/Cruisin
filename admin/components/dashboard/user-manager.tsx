@@ -82,7 +82,7 @@ export function UserManager({ users, isLoading }: UserManagerProps): ReactNode {
 
   return <section className="grid gap-5">
     <AdminStatsGrid>
-      <AdminStat label="Users loaded" value={stats.total} helper="Latest 100 admin records" />
+      <AdminStat label="Users loaded" value={stats.total} helper="All customer and admin records" />
       <AdminStat label="Active accounts" value={stats.active} tone="success" helper="Allowed to sign in" />
       <AdminStat label="Admin roles" value={stats.admins} tone="gold" helper="Admin, manager, viewer, superadmin" />
       <AdminStat label="Customer spend" value={formatCurrency(stats.customerSpend)} helper="Net collected value from active business orders" />

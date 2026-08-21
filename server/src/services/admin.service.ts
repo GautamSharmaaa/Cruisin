@@ -11,9 +11,11 @@ import { addIstDays, endOfIstDay, formatIstDay, startOfIstDay } from '../utils/a
 export interface AnalyticsPoint {
   day: string;
   revenue: number;
+  totalRevenue: number;
   orders: number;
   pendingCod: number;
   codOrders: number;
+  prepaidOrders: number;
 }
 
 export interface AnalyticsSummaryRange {
@@ -58,10 +60,10 @@ export interface AnalyticsSummary {
   comparison: {
     range: AnalyticsSummaryRange;
     summary: AnalyticsSummary['summary'];
-    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
     outstanding: { cod: number; partial: number; total: number };
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
   topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
@@ -188,12 +190,14 @@ const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): 
       day,
       grossRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
       netRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
+      totalRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + order.total - refundFor(order), 0)),
       discounts: roundMoney(dayOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
       refunds: roundMoney(dayOrders.reduce((sum, order) => sum + refundFor(order), 0)),
       orders: dayOrders.length,
       paidOrders: dayOrders.filter(isRevenueEligible).length,
       pendingCod: roundMoney(codOrders.filter((order) => order.paymentStatus === 'cod_pending').reduce((sum, order) => sum + (order.amountDue ?? order.total), 0)),
-      codOrders: codOrders.length
+      codOrders: codOrders.length,
+      prepaidOrders: dayOrders.filter((order) => order.paymentMode !== 'cod').length
     });
   }
   return rows;
@@ -249,7 +253,7 @@ export const AdminService = {
     const endDate = formatIstDay(new Date());
     const startDate = addIstDays(endDate, -(safeDays - 1));
     const summary = await this.analyticsSummary({ startDate, endDate });
-    return summary.revenueByDay.map((point) => ({ day: point.day, revenue: point.netRevenue, orders: point.orders, pendingCod: point.pendingCod, codOrders: point.codOrders }));
+    return summary.revenueByDay.map((point) => ({ day: point.day, revenue: point.netRevenue, totalRevenue: point.totalRevenue, orders: point.orders, pendingCod: point.pendingCod, codOrders: point.codOrders, prepaidOrders: point.prepaidOrders }));
   },
 
   async analyticsSummary(query: Record<string, unknown>): Promise<AnalyticsSummary> {

@@ -49,16 +49,19 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
   const [typedOrderNumber, setTypedOrderNumber] = useState('');
   const [deleteReason, setDeleteReason] = useState('Test order cleanup');
   const [managementError, setManagementError] = useState('');
+  const [managementNotice, setManagementNotice] = useState('');
 
   const archiveOrder = (order: OrderDto): void => {
     const id = orderId(order);
     if (!window.confirm('Archive this order?\n\nThe order will be hidden from the default active order list. Payment, shipment, tracking and financial history remain unchanged.')) return;
     setManagementError('');
-    management.mutate({ id, action: 'archive' }, { onError: (error) => setManagementError(error.message) });
+    setManagementNotice('');
+    management.mutate({ id, action: 'archive' }, { onSuccess: () => setManagementNotice(`${orderLabel(order)} archived. Select Archived or All to review or restore it.`), onError: (error) => setManagementError(error.message) });
   };
   const restoreOrder = (order: OrderDto): void => {
     setManagementError('');
-    management.mutate({ id: orderId(order), action: 'restore' }, { onError: (error) => setManagementError(error.message) });
+    setManagementNotice('');
+    management.mutate({ id: orderId(order), action: 'restore' }, { onSuccess: () => setManagementNotice(`${orderLabel(order)} restored to the active order list.`), onError: (error) => setManagementError(error.message) });
   };
   const inspectDelete = async (order: OrderDto): Promise<void> => {
     setManagementError('');
@@ -124,6 +127,8 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
 
     <div className="flex flex-wrap gap-2" role="group" aria-label="Order archive view">{(['active', 'archived', 'all'] as const).map((option) => <Button key={option} variant={view === option ? 'primary' : 'secondary'} onClick={() => onViewChange(option)}>{option[0].toUpperCase() + option.slice(1)}</Button>)}</div>
     <DateRangeFilter value={dateRange} onChange={setDateRange} label="Order date range" />
+    {managementNotice ? <p role="status" className="border border-success/50 bg-success/10 p-4 text-sm text-success">{managementNotice}</p> : null}
+    {managementError ? <p role="alert" className="border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{managementError}</p> : null}
     <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); setDateRange('all'); }}>Reset Filters</Button>}>
       <label className="grid min-w-[260px] flex-1 gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>Search order, customer, product, cancellation</span><span className="flex h-11 items-center border border-border bg-background-input px-3"><Search size={16} className="mr-2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm normal-case text-text-primary outline-none" /></span></label>
       <SelectField label="Order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])} options={statuses.map((value) => ({ value, label: value === 'all' ? 'All statuses' : value === 'placed' ? 'Placed' : value === 'returned' ? 'Returned' : COPY.orders.statuses[value] }))} />
@@ -151,7 +156,6 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
     </AdminDataTable>
 
     {selectedOrder ? <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} /> : null}
-    {managementError ? <p role="alert" className="border border-danger/50 bg-danger/10 p-4 text-sm text-danger">{managementError}</p> : null}
     {deleteOrder ? <div className="fixed inset-0 z-50 grid place-items-center bg-background-primary/80 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-order-title"><div className="w-full max-w-lg border border-danger/60 bg-background-elevated p-6 shadow-lg"><h2 id="delete-order-title" className="font-display text-2xl">Permanently delete {orderLabel(deleteOrder)}?</h2><p className="mt-3 text-sm leading-6 text-text-secondary">This is available only for an explicitly marked safe test order. Type the order number to confirm.</p><div className="mt-5 grid gap-4"><Input label="Order number" value={typedOrderNumber} onChange={(event) => setTypedOrderNumber(event.target.value)} /><Input label="Deletion reason" value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} /></div><div className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="secondary" onClick={() => setDeleteOrder(null)}>Cancel</Button><Button variant="danger" onClick={permanentlyDelete} disabled={management.isPending || typedOrderNumber !== orderLabel(deleteOrder) || deleteReason.trim().length < 3}>Delete Permanently</Button></div></div></div> : null}
   </section>;
 }

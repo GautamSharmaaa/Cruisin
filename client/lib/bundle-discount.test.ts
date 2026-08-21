@@ -17,6 +17,11 @@ describe('automaticBundleDiscount', () => {
     expect(automaticBundleDiscount([{ product: anchor, quantity: 1 }, { product: product('second'), quantity: 1 }, { product: product('third'), quantity: 1 }, { product: product('fourth'), quantity: 4 }])).toMatchObject({ amount: 300, threshold: 3 });
   });
 
+  it('enables the global milestone for every product, even without a product-specific configuration', () => {
+    expect(automaticBundleDiscount([{ product: product('first'), quantity: 1 }, { product: product('second'), quantity: 1 }])).toMatchObject({ amount: 100, threshold: 2, eligibleProductCount: 2 });
+    expect(automaticBundleDiscount([{ product: product('first'), quantity: 3 }])).toMatchObject({ amount: 300, threshold: 3, eligibleProductCount: 3 });
+  });
+
   it('stacks with a coupon but never discounts below zero', () => {
     const anchor = product('anchor', ['second']);
     expect(combinedCartDiscount([{ product: anchor, quantity: 1 }, { product: product('second'), quantity: 1 }], 450, 500)).toEqual({ couponDiscount: 450, bundleDiscount: 100, totalDiscount: 500 });

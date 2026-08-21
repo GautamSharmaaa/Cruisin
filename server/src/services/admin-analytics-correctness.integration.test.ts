@@ -62,6 +62,6 @@ describe('analytics business truth', () => {
     expect(result.summary).toMatchObject({ totalOrders: 3, paidOrders: 2, todayOrders: 2, codOrders: 1, prepaidOrders: 2, cancelledOrders: 1, failedPaymentOrders: 1, grossRevenue: 210, refunds: 20, netRevenue: 190 });
     expect(result.outstanding).toEqual({ cod: 80, partial: 0, total: 80 });
     expect(result.revenueByDay.find((row) => row.day === previousDay)).toMatchObject({ grossRevenue: 100, refunds: 20, netRevenue: 80, orders: 1 });
-    expect(result.revenueByDay.find((row) => row.day === today)).toMatchObject({ grossRevenue: 110, refunds: 0, netRevenue: 110, orders: 2, codOrders: 1, pendingCod: 80 });
+    expect(result.revenueByDay.find((row) => row.day === today)).toMatchObject({ grossRevenue: 110, refunds: 0, netRevenue: 110, totalRevenue: 190, orders: 2, codOrders: 1, prepaidOrders: 1, pendingCod: 80 });
   });
 });

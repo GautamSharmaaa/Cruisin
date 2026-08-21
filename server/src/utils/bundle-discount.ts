@@ -27,6 +27,7 @@ export interface BundleDiscountResult {
 const money = (value: number): number => Math.max(0, Math.round((value + Number.EPSILON) * 100) / 100);
 const TWO_ITEM_DISCOUNT_CAP = 100;
 const THREE_ITEM_DISCOUNT_CAP = 300;
+const DEFAULT_BUNDLE_DISCOUNT = { twoItemDiscount: TWO_ITEM_DISCOUNT_CAP, threeItemDiscount: THREE_ITEM_DISCOUNT_CAP };
 
 export const calculateBundleDiscount = (lines: BundleDiscountLine[], products: BundleDiscountProduct[]): BundleDiscountResult => {
   const visibleLines = lines.filter((line) => line.quantity > 0);
@@ -35,15 +36,13 @@ export const calculateBundleDiscount = (lines: BundleDiscountLine[], products: B
   let best: BundleDiscountResult = { amount: 0, eligibleProductCount: 0, threshold: null, label: '' };
 
   for (const product of products) {
-    if (!cartIdSet.has(product.id) || product.bundleDiscount?.enabled !== true) continue;
-    const eligibleIds = product.strategy === 'manual'
-      ? new Set([product.id, ...product.recommendedProductIds])
-      : cartIdSet;
+    if (!cartIdSet.has(product.id)) continue;
+    const eligibleIds = cartIdSet;
     const eligibleProductCount = visibleLines.reduce((count, line) => (
       eligibleIds.has(line.productId) ? count + line.quantity : count
     ), 0);
-    const twoItemDiscount = Math.min(TWO_ITEM_DISCOUNT_CAP, money(product.bundleDiscount.twoItemDiscount ?? 0));
-    const threeItemDiscount = Math.min(THREE_ITEM_DISCOUNT_CAP, money(product.bundleDiscount.threeItemDiscount ?? 0));
+    const twoItemDiscount = Math.min(TWO_ITEM_DISCOUNT_CAP, money(product.bundleDiscount?.twoItemDiscount ?? DEFAULT_BUNDLE_DISCOUNT.twoItemDiscount));
+    const threeItemDiscount = Math.min(THREE_ITEM_DISCOUNT_CAP, money(product.bundleDiscount?.threeItemDiscount ?? DEFAULT_BUNDLE_DISCOUNT.threeItemDiscount));
     const threshold = eligibleProductCount >= 3 && threeItemDiscount > 0 ? 3 : eligibleProductCount >= 2 && twoItemDiscount > 0 ? 2 : null;
     const amount = threshold === 3 ? threeItemDiscount : threshold === 2 ? twoItemDiscount : 0;
     if (amount > best.amount || (amount === best.amount && eligibleProductCount > best.eligibleProductCount)) {
