@@ -104,7 +104,7 @@ const productSchema = new Schema(
       eyebrow: { type: String, trim: true, maxlength: 80, default: 'Your kit is building' },
       description: { type: String, trim: true, maxlength: 160, default: 'Explore one more piece.' },
       bundleDiscount: {
-        enabled: { type: Boolean, default: false },
+        enabled: { type: Boolean, default: true },
         twoItemDiscount: { type: Number, min: 0, max: 100, default: 100 },
         threeItemDiscount: { type: Number, min: 0, max: 300, default: 300 }
       }

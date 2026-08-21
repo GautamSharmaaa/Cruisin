@@ -518,9 +518,11 @@ export interface AdminOverviewDto {
 export interface AdminAnalyticsPointDto {
   day: string;
   revenue: number;
+  totalRevenue: number;
   orders: number;
   pendingCod: number;
   codOrders: number;
+  prepaidOrders: number;
 }
 
 export interface AdminAnalyticsSummaryDto {
@@ -563,10 +565,10 @@ export interface AdminAnalyticsSummaryDto {
   comparison: {
     range: AdminAnalyticsSummaryDto['range'];
     summary: AdminAnalyticsSummaryDto['summary'];
-    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
     outstanding: { cod: number; partial: number; total: number };
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number }>;
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
   topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;

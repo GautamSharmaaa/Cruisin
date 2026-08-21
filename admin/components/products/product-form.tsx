@@ -95,7 +95,7 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     completeTheFitEyebrow: 'Your kit is building',
     completeTheFitDescription: 'Explore one more piece.',
     recommendedProducts: '',
-    bundleDiscountEnabled: false,
+    bundleDiscountEnabled: true,
     bundleTwoItemDiscount: 100,
     bundleThreeItemDiscount: 300
   };
@@ -126,9 +126,9 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     completeTheFitEyebrow: product.completeTheFit?.eyebrow ?? 'Your kit is building',
     completeTheFitDescription: product.completeTheFit?.description ?? 'Explore one more piece.',
     recommendedProducts: idList(product.recommendedProducts),
-    bundleDiscountEnabled: product.completeTheFit?.bundleDiscount?.enabled ?? false,
-    bundleTwoItemDiscount: product.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 0,
-    bundleThreeItemDiscount: product.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 0,
+    bundleDiscountEnabled: product.completeTheFit?.bundleDiscount?.enabled ?? true,
+    bundleTwoItemDiscount: product.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 100,
+    bundleThreeItemDiscount: product.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 300,
     materialCare: product.materialCare ?? '',
     fitDetails: product.fitDetails ?? '',
     shippingReturns: product.shippingReturns ?? '',

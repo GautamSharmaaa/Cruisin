@@ -17,9 +17,9 @@ describe('calculateBundleDiscount', () => {
     expect(calculateBundleDiscount([{ productId: 'anchor', quantity: 1 }, { productId: 'second', quantity: 1 }, { productId: 'third', quantity: 1 }, { productId: 'fourth', quantity: 10 }], [anchor])).toMatchObject({ amount: 300, threshold: 3 });
   });
 
-  it('does not count unrelated products in a manual bundle', () => {
+  it('counts every bag item toward the global milestone, including manually curated rails', () => {
     const result = calculateBundleDiscount([{ productId: 'anchor', quantity: 1 }, { productId: 'unrelated', quantity: 1 }], [anchor]);
-    expect(result).toMatchObject({ amount: 0, eligibleProductCount: 1, threshold: null });
+    expect(result).toMatchObject({ amount: 100, eligibleProductCount: 2, threshold: 2 });
   });
 
   it('allows automatic strategies to use distinct products in the bag', () => {

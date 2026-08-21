@@ -51,7 +51,17 @@ export const useAdminPageSettings = () => useQuery({ queryKey: ['admin', 'page-s
 export const useAdminSiteSettings = () => useQuery({ queryKey: ['admin', 'site-settings'], queryFn: async (): Promise<SiteSettingsDto> => { const response = await api.get<ApiEnvelope<SiteSettingsDto>>('/admin/site-settings'); return response.data.data; } });
 export const useAdminCoupons = () => useQuery({ queryKey: ['admin', 'coupons'], queryFn: async (): Promise<CouponDto[]> => { const response = await api.get<ApiEnvelope<CouponDto[]>>('/admin/coupons'); return response.data.data; } });
 export const useAdminPromotionExperience = () => useQuery({ queryKey: ['admin', 'promotion-experience'], queryFn: async (): Promise<AdminPromotionExperienceDto> => { const response = await api.get<ApiEnvelope<AdminPromotionExperienceDto>>('/admin/promotion-experience'); return response.data.data; }, staleTime: 0, refetchOnWindowFocus: true });
-export const useAdminUsers = (enabled = true) => useQuery({ queryKey: ['admin', 'users'], queryFn: async (): Promise<UserDto[]> => { const response = await api.get<ApiEnvelope<PaginatedResult<UserDto>>>('/admin/users', { params: { limit: 100 } }); return response.data.data.items; }, enabled });
+export const useAdminUsers = (enabled = true) => useQuery({
+  queryKey: ['admin', 'users'],
+  queryFn: async (): Promise<UserDto[]> => {
+    const first = await api.get<ApiEnvelope<PaginatedResult<UserDto>>>('/admin/users', { params: { limit: 100, page: 1 } });
+    const { items, pages } = first.data.data;
+    if (pages <= 1) return items;
+    const remaining = await Promise.all(Array.from({ length: pages - 1 }, (_, index) => api.get<ApiEnvelope<PaginatedResult<UserDto>>>('/admin/users', { params: { limit: 100, page: index + 2 } })));
+    return [...items, ...remaining.flatMap((response) => response.data.data.items)];
+  },
+  enabled
+});
 export const useAdminBanners = () => useQuery({ queryKey: ['admin', 'banners'], queryFn: async (): Promise<CmsSectionDto[]> => { const response = await api.get<ApiEnvelope<CmsSectionDto[]>>('/cms/banners'); return response.data.data; } });
 export const useCmsPages = () => useQuery({ queryKey: ['admin', 'cms', 'pages'], queryFn: async (): Promise<CmsPageDto[]> => { const response = await api.get<ApiEnvelope<CmsPageDto[]>>('/cms/pages'); return response.data.data; } });
 export const useCmsPageSections = (pageId?: string) => useQuery({ queryKey: ['admin', 'cms', 'sections', pageId], queryFn: async (): Promise<CmsSectionDto[]> => { const response = await api.get<ApiEnvelope<CmsSectionDto[]>>('/cms/pages/' + pageId + '/sections'); return response.data.data; }, enabled: Boolean(pageId) });

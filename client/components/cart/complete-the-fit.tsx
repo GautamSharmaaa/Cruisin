@@ -17,6 +17,7 @@ export interface CompleteTheFitProps { context?: 'page' | 'drawer'; }
 const enabledVariants = (product: Product): ProductVariant[] => product.variants.filter((variant) => variant.enabled !== false);
 const sellableVariants = (product: Product): ProductVariant[] => enabledVariants(product).filter((variant) => variant.stock > 0);
 const colorKey = (color: string): string => color.trim().toLowerCase();
+const defaultBundleDiscount = { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 };
 
 export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): ReactNode {
   const items = useCartStore((state) => state.items);
@@ -32,9 +33,7 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
   const [unlockNotice, setUnlockNotice] = useState('');
   const data = recommendations.data;
   const availableProducts = (data?.items ?? []).filter((product) => !productIds.includes(product.id) && sellableVariants(product).length > 0);
-  const rewardEligibleIds = data?.source === 'manual'
-    ? new Set([data.anchorProductId ?? '', ...(data.eligibleProductIds ?? [])])
-    : new Set(productIds);
+  const rewardEligibleIds = new Set(productIds);
   const observedEligibleCount = items.reduce((count, item) => (
     rewardEligibleIds.has(item.product.id) ? count + item.quantity : count
   ), 0);
@@ -51,10 +50,11 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
     return () => window.clearTimeout(timeout);
   }, [observedEligibleCount]);
 
-  if (!data || (!availableProducts.length && !data.bundleDiscount.enabled)) return null;
+  if (items.length === 0) return null;
 
-  const twoSaving = Math.min(100, Math.max(0, data.bundleDiscount.twoItemDiscount));
-  const threeSaving = Math.min(300, Math.max(0, data.bundleDiscount.threeItemDiscount));
+  const bundleDiscount = data?.bundleDiscount ?? defaultBundleDiscount;
+  const twoSaving = Math.min(100, Math.max(0, bundleDiscount.twoItemDiscount));
+  const threeSaving = Math.min(300, Math.max(0, bundleDiscount.threeItemDiscount));
   const liveEligibleProductCount = observedEligibleCount;
   const extraThreeItemSaving = Math.max(0, threeSaving - twoSaving);
   const milestoneSteps = [
@@ -118,8 +118,8 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
   return <>
     <section className="border-y border-border-subtle bg-background-primary py-6 md:border md:py-8" aria-labelledby={`complete-the-fit-${context}`}>
       <div className="flex items-start justify-between gap-4 px-5 md:px-7">
-        <h2 id={`complete-the-fit-${context}`} className="min-w-0 text-2xl font-semibold tracking-[-0.04em] text-text-primary md:text-3xl">{data.title}</h2>
-        <p className={`shrink-0 self-center text-center text-[9px] uppercase tracking-[0.16em] ${data.source === 'best_sellers' ? 'hot-selling-shine font-semibold' : 'text-text-muted'}`}>{data.source === 'manual' ? 'Curated' : data.source === 'frequently_bought_together' ? 'Bought together' : 'Hot selling'}</p>
+        <h2 id={`complete-the-fit-${context}`} className="min-w-0 text-2xl font-semibold tracking-[-0.04em] text-text-primary md:text-3xl">{data?.title ?? 'Complete The Fit'}</h2>
+        <p className={`shrink-0 self-center text-center text-[9px] uppercase tracking-[0.16em] ${data?.source === 'best_sellers' || !data ? 'hot-selling-shine font-semibold' : 'text-text-muted'}`}>{data?.source === 'manual' ? 'Curated' : data?.source === 'frequently_bought_together' ? 'Bought together' : 'Hot selling'}</p>
       </div>
 
       {availableProducts.length ? <div className="mt-5 grid snap-x snap-mandatory auto-cols-[32%] grid-flow-col gap-2 overflow-x-auto px-5 [scrollbar-width:none] md:auto-cols-auto md:grid-flow-row md:grid-cols-4 md:gap-3 md:overflow-visible md:px-7 [&::-webkit-scrollbar]:hidden">
@@ -137,7 +137,7 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
           </article>;
         })}
       </div> : null}
-      {data.bundleDiscount.enabled && milestoneSteps.length > 1 ? <div className="relative mt-5 overflow-hidden border-y border-accent-gold/20 bg-gradient-to-r from-[#b97845]/[0.08] via-transparent to-accent-gold/[0.08] px-5 py-3 md:px-7" role="progressbar" aria-label="Bundle saving progress" aria-valuemin={1} aria-valuemax={finalThreshold} aria-valuenow={Math.min(liveEligibleProductCount, finalThreshold)}>
+      {bundleDiscount.enabled && milestoneSteps.length > 1 ? <div className="relative mt-5 overflow-hidden border-y border-accent-gold/20 bg-gradient-to-r from-[#b97845]/[0.08] via-transparent to-accent-gold/[0.08] px-5 py-3 md:px-7" role="progressbar" aria-label="Bundle saving progress" aria-valuemin={1} aria-valuemax={finalThreshold} aria-valuenow={Math.min(liveEligibleProductCount, finalThreshold)}>
         {unlockNotice ? <div className="pointer-events-none absolute inset-x-0 top-1 flex justify-around text-accent-gold" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <span key={index} className="reward-sparkle" style={{ animationDelay: `${index * 70}ms` }}>✦</span>)}</div> : null}
         <div className="mb-2 text-center"><p className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${unlockNotice ? 'text-success' : 'text-accent-gold'}`} aria-live="polite">{rewardHeadline}</p><p className="mt-0.5 text-[9px] leading-4 text-text-secondary">{rewardSupport}</p></div>
         <div className="relative">
