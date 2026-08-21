@@ -14,7 +14,7 @@ export const LogisticsController = {
       req: Request<
         Record<string, string>,
         unknown,
-        { deliveryPostcode: string; paymentMode: "prepaid" | "cod" }
+        { deliveryPostcode: string; paymentMode: "prepaid" | "cod"; expectedCartVersion?: number }
       >,
       res: Response,
     ): Promise<void> => {

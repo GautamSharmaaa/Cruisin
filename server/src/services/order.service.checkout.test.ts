@@ -17,13 +17,36 @@ process.env.RAZORPAY_KEY_SECRET = 'test';
 process.env.STRIPE_SECRET_KEY = 'test';
 process.env.STRIPE_WEBHOOK_SECRET = 'test';
 process.env.SENDGRID_API_KEY = 'test';
+process.env.SHIPROCKET_ENABLED = 'false';
 
-const { addressBookService, cartModel, couponModel, orderModel, productModel, siteSettingsModel, webhookEventModel, userModel, paymentService, sendEmail } = vi.hoisted(() => ({
+const {
+  addressBookService,
+  cartModel,
+  couponModel,
+  couponRedemptionService,
+  logisticsJobService,
+  mongoTransaction,
+  orderModel,
+  productModel,
+  siteSettingsModel,
+  webhookEventModel,
+  userModel,
+  paymentService,
+  sendEmail
+} = vi.hoisted(() => ({
   addressBookService: { saveCheckoutAddress: vi.fn() },
   cartModel: { findOne: vi.fn(), updateOne: vi.fn(), deleteOne: vi.fn() },
   couponModel: { findOne: vi.fn(), findByIdAndUpdate: vi.fn() },
+  couponRedemptionService: {
+    assertCouponCustomerEligible: vi.fn(),
+    confirmCouponRedemption: vi.fn(),
+    releaseCouponRedemption: vi.fn(),
+    reserveCouponRedemption: vi.fn()
+  },
+  logisticsJobService: { enqueue: vi.fn() },
+  mongoTransaction: { withMongoTransaction: vi.fn() },
   orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), countDocuments: vi.fn() },
-  productModel: { find: vi.fn(), updateOne: vi.fn() },
+  productModel: { bulkWrite: vi.fn(), find: vi.fn(), updateOne: vi.fn() },
   siteSettingsModel: { findOne: vi.fn() },
   webhookEventModel: { create: vi.fn() },
   userModel: { findById: vi.fn(), updateOne: vi.fn() },
@@ -40,12 +63,72 @@ vi.mock('../models/payment-webhook-event.model.js', () => ({ PaymentWebhookEvent
 vi.mock('../models/user.model.js', () => ({ UserModel: userModel }));
 vi.mock('./address-book.service.js', () => ({ AddressBookService: addressBookService }));
 vi.mock('./payment.service.js', () => ({ PaymentService: paymentService }));
+vi.mock('./coupon-redemption.service.js', () => couponRedemptionService);
+vi.mock('./logistics/logistics-job.service.js', () => ({ LogisticsJobService: logisticsJobService }));
+vi.mock('../utils/mongo-transaction.js', () => mongoTransaction);
 vi.mock('../utils/send-email.js', () => ({ sendEmail }));
+
+const checkoutAddress = {
+  fullName: 'Customer',
+  phone: '+919876543210',
+  line1: '1 Test Street',
+  city: 'Delhi',
+  state: 'Delhi',
+  postalCode: '110001',
+  country: 'IN'
+};
+
+const primeCheckoutCart = (input: { price?: number; stock?: number; version?: number; quantity?: number } = {}) => {
+  const productId = new Types.ObjectId();
+  const variantId = new Types.ObjectId();
+  const cartId = new Types.ObjectId();
+  const price = input.price ?? 1_000;
+  const stock = input.stock ?? 2;
+  const version = input.version ?? 4;
+  const quantity = input.quantity ?? 1;
+  cartModel.findOne.mockReturnValue({
+    lean: vi.fn().mockResolvedValue({
+      _id: cartId,
+      version,
+      items: [{ product: productId, variant: variantId, quantity }]
+    })
+  });
+  productModel.find.mockReturnValue({
+    lean: vi.fn().mockResolvedValue([{
+      _id: productId,
+      title: 'Authoritative Checkout Piece',
+      status: 'published',
+      visibility: 'visible',
+      isActive: true,
+      isArchived: false,
+      images: [],
+      variants: [{ _id: variantId, sku: 'AUTH-S', size: 'S', color: 'Black', stock, price, images: [] }]
+    }])
+  });
+  return { cartId, productId, variantId, price, stock, version, quantity };
+};
+
+const enableCodCheckout = (codFee = 49): void => {
+  siteSettingsModel.findOne.mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ codCheckoutEnabled: true, codFee, standardShippingRate: 0 })
+    })
+  });
+};
 
 describe('OrderService authenticated checkout', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mongoTransaction.withMongoTransaction.mockImplementation(async (work: (session?: undefined) => unknown) => await work(undefined));
     addressBookService.saveCheckoutAddress.mockResolvedValue(null);
+    couponRedemptionService.assertCouponCustomerEligible.mockResolvedValue(undefined);
+    couponRedemptionService.confirmCouponRedemption.mockResolvedValue(undefined);
+    couponRedemptionService.releaseCouponRedemption.mockResolvedValue(undefined);
+    couponRedemptionService.reserveCouponRedemption.mockResolvedValue(undefined);
+    logisticsJobService.enqueue.mockResolvedValue({});
+    productModel.bulkWrite.mockImplementation(async (operations: unknown[]) => ({ modifiedCount: operations.length }));
+    productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
     siteSettingsModel.findOne.mockReturnValue({
       select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
@@ -59,9 +142,9 @@ describe('OrderService authenticated checkout', () => {
     const orderId = new Types.ObjectId();
     orderModel.findOne.mockResolvedValueOnce(null);
     cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
-    productModel.find
-      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], costBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, variants: [{ _id: variantId, sku: 'TEST-S', size: 'S', color: 'Black', stock: 2, price: 1_000, images: [] }] }]) });
+    productModel.find.mockReturnValue({
+      lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Cruisin Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], costBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, variants: [{ _id: variantId, sku: 'TEST-S', size: 'S', color: 'Black', stock: 2, price: 1_000, images: [] }] }])
+    });
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-TEST', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
@@ -79,13 +162,300 @@ describe('OrderService authenticated checkout', () => {
 
     expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, shipping: 0, total: 1_000, amountPaid: 0, amountDue: 1_000, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black', unitCostBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, unitCostTotal: 380 })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
-    expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledWith(customerId, expect.objectContaining({ line1: '1 Test Street' }));
-    expect(userModel.updateOne).toHaveBeenCalledWith(
-      expect.objectContaining({ _id: customerId, $or: expect.arrayContaining([{ name: 'Cruisin Member' }]) }),
-      { $set: { name: 'Customer' } },
-      { runValidators: true }
+    expect(addressBookService.saveCheckoutAddress).not.toHaveBeenCalled();
+    expect(userModel.updateOne).not.toHaveBeenCalled();
+    expect(logisticsJobService.enqueue).toHaveBeenCalledWith(
+      'release_payment_reservation',
+      { orderId: expect.any(String) },
+      expect.stringMatching(/^release-payment-reservation:/),
+      8,
+      expect.objectContaining({ runAt: expect.any(Date) })
     );
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_000 });
+  });
+
+  it('creates a COD order with an immutable address snapshot, cart cleanup and durable outbox job', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const { cartId, version } = primeCheckoutCart();
+    enableCodCheckout(49);
+    orderModel.findOne.mockResolvedValueOnce(null);
+    const order = { _id: new Types.ObjectId(), orderNumber: 'CR-COD', paymentAttempts: [], timeline: [] };
+    orderModel.create.mockResolvedValueOnce(order);
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.checkout(customerId, {
+      idempotencyKey: '20202020-2020-4020-8020-202020202020',
+      expectedCartVersion: version,
+      paymentMethod: 'cod',
+      paymentMode: 'cod',
+      shippingMethod: 'standard',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    });
+
+    expect(orderModel.findOne).toHaveBeenCalledTimes(1);
+    expect(productModel.bulkWrite).toHaveBeenCalledOnce();
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({
+      user: customerId,
+      checkoutCartVersion: version,
+      paymentMode: 'cod',
+      paymentStatus: 'cod_pending',
+      orderStatus: 'placed',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress,
+      codFee: 49,
+      amountPaid: 0,
+      stockReserved: true
+    }));
+    expect(cartModel.deleteOne).toHaveBeenCalledWith(
+      { _id: cartId, version },
+      expect.any(Object)
+    );
+    const createdOrderId = String((orderModel.create.mock.calls[0]?.[0] as { _id: Types.ObjectId })._id);
+    expect(logisticsJobService.enqueue).toHaveBeenCalledWith(
+      'order_created',
+      { orderId: createdOrderId },
+      `order-created:${createdOrderId}`,
+      8,
+      expect.any(Object)
+    );
+    expect(addressBookService.saveCheckoutAddress).not.toHaveBeenCalled();
+    expect(result).toEqual({ order, payment: null, amountToPay: 0 });
+  });
+
+  it('resolves a concurrent COD double click to the unique existing order', async () => {
+    const customerId = new Types.ObjectId().toString();
+    primeCheckoutCart();
+    enableCodCheckout();
+    const existing = {
+      _id: new Types.ObjectId(),
+      user: customerId,
+      paymentMode: 'cod',
+      paymentProvider: 'cod',
+      paymentAttempts: []
+    };
+    orderModel.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    orderModel.create.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: 11000 }));
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.checkout(customerId, {
+      idempotencyKey: '21212121-2121-4121-8121-212121212121',
+      paymentMethod: 'cod',
+      paymentMode: 'cod',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    });
+
+    expect(result).toMatchObject({ order: existing, payment: null, amountToPay: 0, reused: true });
+    expect(orderModel.create).toHaveBeenCalledOnce();
+    expect(orderModel.findOne).toHaveBeenLastCalledWith({
+      user: customerId,
+      checkoutIdempotencyKey: '21212121-2121-4121-8121-212121212121'
+    });
+  });
+
+  it('rejects checkout immediately when the submitted cart version is stale', async () => {
+    const customerId = new Types.ObjectId().toString();
+    primeCheckoutCart({ version: 9 });
+    orderModel.findOne.mockResolvedValueOnce(null);
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '22222222-2222-4222-8222-222222222222',
+      expectedCartVersion: 8,
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    })).rejects.toMatchObject({ statusCode: 409, message: 'Your bag changed. Review it before placing the order.' });
+
+    expect(productModel.find).not.toHaveBeenCalled();
+    expect(productModel.bulkWrite).not.toHaveBeenCalled();
+    expect(orderModel.create).not.toHaveBeenCalled();
+  });
+
+  it('atomically rejects a stock or price race before creating an order', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const { price, quantity } = primeCheckoutCart({ price: 1_499, stock: 1 });
+    orderModel.findOne.mockResolvedValueOnce(null);
+    productModel.bulkWrite.mockResolvedValueOnce({ modifiedCount: 0 });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '23232323-2323-4323-8323-232323232323',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    })).rejects.toMatchObject({ statusCode: 409, message: 'Stock or price changed for an item in your bag; review your bag' });
+
+    expect(productModel.bulkWrite).toHaveBeenCalledWith([
+      expect.objectContaining({
+        updateOne: expect.objectContaining({
+          filter: expect.objectContaining({
+            variants: {
+              $elemMatch: expect.objectContaining({
+                stock: { $gte: quantity },
+                $or: expect.arrayContaining([{ priceOverride: price }])
+              })
+            }
+          })
+        })
+      })
+    ], expect.objectContaining({ ordered: true }));
+    expect(orderModel.create).not.toHaveBeenCalled();
+    expect(paymentService.getProvider).not.toHaveBeenCalled();
+  });
+
+  it('rejects COD before inventory mutation when the administrator has disabled it', async () => {
+    const customerId = new Types.ObjectId().toString();
+    primeCheckoutCart();
+    orderModel.findOne.mockResolvedValueOnce(null);
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '24242424-2424-4424-8424-242424242424',
+      paymentMethod: 'cod',
+      paymentMode: 'cod',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    })).rejects.toMatchObject({ statusCode: 400, message: 'Cash on delivery is unavailable' });
+
+    expect(productModel.bulkWrite).not.toHaveBeenCalled();
+    expect(orderModel.create).not.toHaveBeenCalled();
+  });
+
+  it('releases inventory and marks the local order failed when Razorpay order creation fails', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const { productId, variantId } = primeCheckoutCart();
+    orderModel.findOne.mockResolvedValueOnce(null);
+    const order = {
+      _id: new Types.ObjectId(),
+      orderNumber: 'CR-PROVIDER-FAILURE',
+      stockReserved: true,
+      items: [{ product: productId, variant: variantId, quantity: 1 }],
+      paymentAttempts: [],
+      timeline: [],
+      save: vi.fn()
+    };
+    orderModel.create.mockResolvedValueOnce(order);
+    paymentService.getProvider.mockReturnValue({
+      createOrder: vi.fn().mockRejectedValueOnce(new Error('Razorpay unavailable'))
+    });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '25252525-2525-4525-8525-252525252525',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: checkoutAddress,
+      billingAddress: checkoutAddress
+    })).rejects.toMatchObject({
+      statusCode: 502,
+      message: 'Payment provider unavailable',
+      data: { retryWithNewAttempt: true }
+    });
+
+    expect(productModel.updateOne).toHaveBeenCalledWith(
+      { _id: productId, 'variants._id': variantId },
+      { $inc: { 'variants.$.stock': 1 } },
+      expect.any(Object)
+    );
+    expect(orderModel.updateOne).toHaveBeenCalledWith(
+      { _id: order._id, paymentStatus: 'pending' },
+      expect.objectContaining({
+        $set: expect.objectContaining({ paymentStatus: 'failed', stockReserved: false }),
+        $unset: { stockReservationExpiresAt: 1 }
+      }),
+      expect.any(Object)
+    );
+    expect(order.save).not.toHaveBeenCalled();
+  });
+
+  it('releases an expired unpaid reservation and restores its coupon allowance', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const productId = new Types.ObjectId();
+    const variantId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValueOnce({
+      _id: orderId,
+      stockReserved: true,
+      logisticsQuoteId: undefined,
+      items: [{ product: productId, variant: variantId, quantity: 2 }]
+    });
+    orderModel.updateOne.mockResolvedValueOnce({ modifiedCount: 1 });
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.releaseExpiredReservation(orderId);
+
+    expect(orderModel.findOne).toHaveBeenCalledWith(expect.objectContaining({
+      _id: orderId,
+      stockReserved: true,
+      paymentSettlementStartedAt: { $exists: false }
+    }));
+    expect(productModel.updateOne).toHaveBeenCalledWith(
+      { _id: productId, 'variants._id': variantId },
+      { $inc: { 'variants.$.stock': 2 } },
+      expect.any(Object)
+    );
+    expect(couponRedemptionService.releaseCouponRedemption).toHaveBeenCalledWith(orderId, undefined);
+    expect(orderModel.updateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: orderId, paymentSettlementStartedAt: { $exists: false } }),
+      expect.objectContaining({ $set: expect.objectContaining({ stockReserved: false, paymentStatus: 'cancelled' }) }),
+      expect.any(Object)
+    );
+  });
+
+  it('does not expire inventory after verified payment settlement has started', async () => {
+    const orderId = new Types.ObjectId().toString();
+    orderModel.findOne.mockResolvedValueOnce(null);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.releaseExpiredReservation(orderId);
+
+    expect(orderModel.findOne).toHaveBeenCalledWith(expect.objectContaining({
+      paymentSettlementStartedAt: { $exists: false }
+    }));
+    expect(productModel.updateOne).not.toHaveBeenCalled();
+    expect(couponRedemptionService.releaseCouponRedemption).not.toHaveBeenCalled();
+    expect(orderModel.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('keeps duplicate ORDER_CREATED job delivery idempotent across all post-order side effects', async () => {
+    const orderId = new Types.ObjectId().toString();
+    const customerId = new Types.ObjectId().toString();
+    const completedAt = new Date();
+    const fresh = {
+      user: customerId,
+      shippingAddress: checkoutAddress,
+      confirmationEmailSentAt: undefined,
+      fulfillmentPreparedAt: undefined,
+      customerSnapshotSynchronizedAt: undefined
+    };
+    const completed = {
+      ...fresh,
+      confirmationEmailSentAt: completedAt,
+      fulfillmentPreparedAt: completedAt,
+      customerSnapshotSynchronizedAt: completedAt
+    };
+    orderModel.findById
+      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(fresh) }) })
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ user: customerId, orderNumber: 'CR-OUTBOX' }) })
+      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(completed) }) });
+    userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue({ email: 'customer@example.com' }) });
+    sendEmail.mockResolvedValue(undefined);
+    const { OrderService } = await import('./order.service.js');
+
+    await OrderService.processOrderCreatedOutbox(orderId);
+    await OrderService.processOrderCreatedOutbox(orderId);
+
+    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledOnce();
+    expect(userModel.updateOne).toHaveBeenCalledOnce();
+    expect(orderModel.updateOne).toHaveBeenCalledTimes(3);
+    expect(orderModel.updateOne).toHaveBeenCalledWith(
+      { _id: orderId, customerSnapshotSynchronizedAt: { $exists: false } },
+      { $set: { customerSnapshotSynchronizedAt: expect.any(Date) } }
+    );
   });
 
   it('enforces the configured Complete the Fit saving in the server-authoritative payment amount', async () => {
@@ -99,9 +469,7 @@ describe('OrderService authenticated checkout', () => {
       { product: anchorId, variant: anchorVariantId, quantity: 1 },
       { product: secondId, variant: secondVariantId, quantity: 1 }
     ] }) });
-    productModel.find
-      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: anchorId }, { _id: secondId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([
+    productModel.find.mockReturnValue({ lean: vi.fn().mockResolvedValue([
         { _id: anchorId, title: 'Bundle Anchor', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], recommendedProducts: [secondId], completeTheFit: { strategy: 'manual', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 } }, variants: [{ _id: anchorVariantId, sku: 'BUNDLE-A', size: 'M', color: 'Black', stock: 2, price: 1_000, images: [] }] },
         { _id: secondId, title: 'Bundle Second', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: secondVariantId, sku: 'BUNDLE-B', size: 'M', color: 'Black', stock: 2, price: 1_000, images: [] }] }
       ]) });
@@ -139,9 +507,9 @@ describe('OrderService authenticated checkout', () => {
     });
     orderModel.findOne.mockResolvedValueOnce(null);
     cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
-    productModel.find
-      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Threshold Test', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'THRESHOLD-1', size: 'ONE', color: 'Black', stock: 2, price: 1_000, images: [] }] }]) });
+    productModel.find.mockReturnValue({
+      lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Threshold Test', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'THRESHOLD-1', size: 'ONE', color: 'Black', stock: 2, price: 1_000, images: [] }] }])
+    });
     couponModel.findOne.mockResolvedValue(null);
     const order = { _id: orderId, orderNumber: 'CR-THRESHOLD', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
     orderModel.create.mockResolvedValue(order);
@@ -193,6 +561,34 @@ describe('OrderService authenticated checkout', () => {
     expect(orderModel.create).not.toHaveBeenCalled();
   });
 
+  it('never reopens a failed provider order whose inventory was released', async () => {
+    const customerId = new Types.ObjectId().toString();
+    orderModel.findOne.mockResolvedValueOnce({
+      _id: new Types.ObjectId(),
+      user: customerId,
+      paymentMode: 'online',
+      paymentProvider: 'razorpay',
+      paymentStatus: 'failed',
+      razorpayOrderId: 'order_released_inventory',
+      paymentAttempts: [{ providerOrderId: 'order_released_inventory', amount: 2_080, status: 'failed' }]
+    });
+    const { OrderService } = await import('./order.service.js');
+
+    await expect(OrderService.checkout(customerId, {
+      idempotencyKey: '34343434-3434-4434-8434-343434343434',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: {},
+      billingAddress: {}
+    })).rejects.toMatchObject({
+      statusCode: 409,
+      data: { retryWithNewAttempt: true }
+    });
+
+    expect(cartModel.findOne).not.toHaveBeenCalled();
+    expect(paymentService.getProvider).not.toHaveBeenCalled();
+  });
+
   it('records a browser-reported Razorpay failure for the authenticated order', async () => {
     const customerId = new Types.ObjectId().toString();
     const orderId = new Types.ObjectId();
@@ -201,19 +597,28 @@ describe('OrderService authenticated checkout', () => {
       user: customerId,
       razorpayOrderId: 'order_failed_browser',
       paymentStatus: 'pending',
+      orderStatus: 'pending',
+      amountPaid: 0,
+      stockReserved: true,
+      items: [],
       paymentAttempts: [{ providerOrderId: 'order_failed_browser', amount: 2, status: 'created' }],
       timeline: [],
       save: vi.fn().mockResolvedValue(undefined)
     };
+    const failed = { ...order, paymentStatus: 'failed', stockReserved: false };
     orderModel.findOne.mockResolvedValue(order);
+    orderModel.findOneAndUpdate.mockResolvedValue(failed);
     const { OrderService } = await import('./order.service.js');
 
-    await OrderService.reportPaymentFailure(String(orderId), customerId, 'order_failed_browser');
+    const result = await OrderService.reportPaymentFailure(String(orderId), customerId, 'order_failed_browser');
 
-    expect(order.paymentStatus).toBe('failed');
-    expect(order.paymentAttempts[0]?.status).toBe('failed');
-    expect(order.timeline).toEqual([expect.objectContaining({ status: 'failed' })]);
-    expect(order.save).toHaveBeenCalledOnce();
+    expect(result).toBe(failed);
+    expect(couponRedemptionService.releaseCouponRedemption).toHaveBeenCalledWith(String(orderId), undefined);
+    expect(orderModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: String(orderId), stockReserved: true, amountPaid: 0 }),
+      expect.objectContaining({ $set: expect.objectContaining({ paymentStatus: 'failed', stockReserved: false, 'paymentAttempts.$[attempt].status': 'failed' }) }),
+      expect.objectContaining({ new: true, arrayFilters: [{ 'attempt.providerOrderId': 'order_failed_browser', 'attempt.status': 'created' }] })
+    );
   });
 
   it('rejects a browser failure report for a different provider order', async () => {
@@ -463,10 +868,7 @@ describe('OrderService authenticated checkout', () => {
     paymentService.getProvider.mockReturnValue({ verifyPayment: vi.fn().mockResolvedValue(true) });
     orderModel.findOne.mockResolvedValue(order);
     orderModel.findOneAndUpdate.mockResolvedValueOnce(order).mockResolvedValueOnce(null);
-    orderModel.findById
-      .mockResolvedValueOnce(order)
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-IDEMPOTENT' }) })
-      .mockResolvedValueOnce(order);
+    orderModel.findById.mockResolvedValue(order);
     productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
     cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
@@ -808,11 +1210,11 @@ describe('OrderService authenticated checkout', () => {
     const variantId = new Types.ObjectId();
     orderModel.findOne.mockResolvedValueOnce(null);
     cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [{ product: productId, variant: variantId, quantity: 1 }] }) });
-    productModel.find
-      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: productId }]) }) })
-      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Coupon Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'COUPON-S', stock: 2, price: 1_000, images: [] }] }]) });
+    productModel.find.mockReturnValue({
+      lean: vi.fn().mockResolvedValue([{ _id: productId, title: 'Coupon Test Piece', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: variantId, sku: 'COUPON-S', stock: 2, price: 1_000, images: [] }] }])
+    });
     couponModel.findOne.mockResolvedValue({ code: 'ONCE', userUsageLimit: 1 });
-    orderModel.countDocuments.mockResolvedValue(1);
+    couponRedemptionService.assertCouponCustomerEligible.mockRejectedValueOnce(new Error('This coupon has already been used on this account'));
     const { OrderService } = await import('./order.service.js');
 
     await expect(OrderService.checkout(customerId, {
@@ -822,7 +1224,7 @@ describe('OrderService authenticated checkout', () => {
       couponCode: 'once',
       shippingAddress: {},
       billingAddress: {}
-    })).rejects.toThrow('Coupon usage limit reached for this customer');
+    })).rejects.toThrow('This coupon has already been used on this account');
     expect(orderModel.create).not.toHaveBeenCalled();
   });
 });

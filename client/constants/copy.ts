@@ -19,6 +19,8 @@ export const COPY = {
     paymentMethod: 'Payment Method',
     placeOrder: 'Place Order',
     completePayment: 'Complete Payment',
+    creatingOrder: 'Creating your order…',
+    openingPayment: 'Opening secure payment…',
     success: 'Order Confirmed',
     onlineConfirmed: 'Payment confirmed.',
     codConfirmed: 'Order placed — {amount} is due on delivery.',

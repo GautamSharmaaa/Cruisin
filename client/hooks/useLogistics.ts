@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import { flushCartMutations } from '@/lib/server-cart';
 import { useCartStore } from '@/store/cartStore';
 import type { ApiEnvelope } from '@/types/api.types';
 
@@ -58,8 +59,8 @@ export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepai
   queryFn: async (): Promise<LogisticsQuote> => {
     const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
     if (items.length === 0) throw new Error('Add an item before checking delivery');
-    await api.put('/cart/sync', { items: items.map((item) => ({ product: item.product.id, variant: item.variantId, quantity: item.quantity })) });
-    const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode });
+    await flushCartMutations();
+    const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode, expectedCartVersion: useCartStore.getState().version });
     return response.data.data;
   }
 });

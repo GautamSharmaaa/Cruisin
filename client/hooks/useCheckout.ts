@@ -1,7 +1,8 @@
 // Governed by .rules v1.0
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiRequestError } from '@/lib/api';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import { flushCartMutations } from '@/lib/server-cart';
 import type { ShippingMethod } from '@/lib/shipping';
 import { useCartStore } from '@/store/cartStore';
 import type { ApiEnvelope } from '@/types/api.types';
@@ -61,14 +62,14 @@ export const useCheckout = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CheckoutInput): Promise<CheckoutResult> => {
-      const cartState = useCartStore.getState();
-      const checkoutItems = cartState.items.filter((item) => isCustomerVisibleProduct(item.product));
+      await flushCartMutations();
+      const authoritativeCart = useCartStore.getState();
+      const checkoutItems = authoritativeCart.items.filter((item) => isCustomerVisibleProduct(item.product));
       if (checkoutItems.length === 0) throw new Error('Cart is empty');
-      await api.put('/cart/sync', { items: checkoutItems.map((item) => ({ product: item.product.id, variant: item.variantId, quantity: item.quantity })) });
       const endpoint = input.paymentMode === 'cod' ? '/orders/cod' : input.paymentMode === 'partial' ? '/orders/partial/create' : '/payments/razorpay/create-order';
-      const fingerprint = checkoutFingerprint(input, checkoutItems, cartState.coupon);
+      const fingerprint = checkoutFingerprint(input, checkoutItems, authoritativeCart.coupon);
       const idempotencyKey = input.idempotencyKey ?? checkoutAttemptKey(fingerprint);
-      const response = await api.post<ApiEnvelope<CheckoutResult>>(endpoint, { ...input, idempotencyKey, couponCode: cartState.coupon });
+      const response = await api.post<ApiEnvelope<CheckoutResult>>(endpoint, { ...input, idempotencyKey, couponCode: authoritativeCart.coupon, expectedCartVersion: authoritativeCart.version });
       return response.data.data;
     },
     onSuccess: async (): Promise<void> => {
@@ -77,6 +78,12 @@ export const useCheckout = () => {
         queryClient.invalidateQueries({ queryKey: ['account'] }),
         queryClient.invalidateQueries({ queryKey: ['orders'] })
       ]);
+    },
+    onError: (error): void => {
+      const data = error instanceof ApiRequestError && error.data && typeof error.data === 'object'
+        ? error.data as { retryWithNewAttempt?: unknown }
+        : undefined;
+      if (data?.retryWithNewAttempt === true) clearCheckoutAttempt();
     }
   });
 };

@@ -10,6 +10,8 @@ import { CategoryModel } from './category.model.js';
 import { CMSMediaModel, CMSPageModel, CMSSectionModel, CMSVersionModel } from './cms.model.js';
 import { CollectionModel } from './collection.model.js';
 import { CouponModel } from './coupon.model.js';
+import { CouponRedemptionModel } from './coupon-redemption.model.js';
+import { CouponUsageCounterModel } from './coupon-usage-counter.model.js';
 import { InventoryModel } from './inventory.model.js';
 import { ExchangeRequestModel } from './exchange-request.model.js';
 import { LogisticsAuditModel } from './logistics-audit.model.js';
@@ -60,6 +62,8 @@ export const applicationModels = [
   CMSVersionModel,
   CollectionModel,
   CouponModel,
+  CouponRedemptionModel,
+  CouponUsageCounterModel,
   ExchangeRequestModel,
   InventoryModel,
   LogisticsAuditModel,

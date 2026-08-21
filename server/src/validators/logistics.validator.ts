@@ -6,6 +6,7 @@ export const logisticsQuoteSchema = z
   .object({
     deliveryPostcode: z.string().regex(/^[1-9]\d{5}$/),
     paymentMode: z.enum(["prepaid", "cod"]),
+    expectedCartVersion: z.number().int().min(0).optional(),
   })
   .strict();
 

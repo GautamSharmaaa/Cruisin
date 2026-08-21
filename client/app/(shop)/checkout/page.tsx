@@ -181,6 +181,9 @@ export default function CheckoutPage(): ReactNode {
     : selectedPayment === 'partial'
       ? `Pay advance securely · ${formatPrice(orderTotal)}`
       : `Pay ${formatPrice(orderTotal)} securely`;
+  const pendingSubmitLabel = selectedPayment === 'cod'
+    ? COPY.checkout.creatingOrder
+    : COPY.checkout.openingPayment;
   const itemCount = visibleCartItems.reduce((sum, item) => sum + item.quantity, 0);
   const selectedDelivery = logisticsQuote.data?.options.find((option) => option.code === selectedShipping);
   const deliveryEstimate = selectedDelivery?.estimatedDeliveryDays
@@ -223,13 +226,13 @@ export default function CheckoutPage(): ReactNode {
             <PaymentGateway value={selectedPayment} onChange={changePayment} config={paymentConfig.data} orderTotal={orderTotal} />
           </section>
           {checkout.error || paymentMessage ? <p className="mx-5 text-sm text-danger md:mx-0" aria-live="polite">{paymentMessage || checkout.error?.message}</p> : null}
-          <section className="hidden md:block"><Button type="button" onClick={handleSubmit(onSubmit)} className="h-12 w-full text-xs font-semibold tracking-[0.14em]" isLoading={checkout.isPending} disabled={!selectedAddress || checkoutBusy}>{selectedAddress ? submitLabel : 'Add delivery address first'}</Button></section>
+          <section className="hidden md:block"><Button type="button" onClick={handleSubmit(onSubmit)} className="h-12 w-full text-xs font-semibold tracking-[0.14em]" disabled={!selectedAddress || checkoutBusy}>{selectedAddress ? checkout.isPending ? pendingSubmitLabel : submitLabel : 'Add delivery address first'}</Button></section>
         </motion.div>
         <motion.div variants={cinematicPanel} className="hidden lg:block"><OrderSummary shippingMethod={selectedShipping} shippingSettings={siteSettings.data} shippingAmountOverride={shipping} codFee={codFee} /></motion.div>
       </div>
     </motion.div>
     <div className="fixed inset-x-0 bottom-0 z-[90] border-t border-border bg-background-primary/95 px-4 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)] items-center gap-3"><div className="min-w-0"><motion.p key={orderTotal} initial={{ opacity: 0.4, y: 3 }} animate={{ opacity: 1, y: 0 }} className="truncate font-mono text-lg text-text-primary">{formatPrice(orderTotal)}</motion.p><p className={'mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] ' + (savings > 0 ? 'text-success' : 'text-text-muted')}>{savings > 0 ? `You save ${formatPrice(savings)}` : selectedPayment === 'cod' && codFee > 0 ? `Includes ${formatPrice(codFee)} COD fee` : 'Taxes included'}</p></div>{selectedAddress ? <button type="button" onClick={handleSubmit(onSubmit)} disabled={checkoutBusy} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse disabled:cursor-wait disabled:opacity-60">{checkout.isPending ? 'Processing…' : selectedPayment === 'cod' ? 'Place COD order →' : selectedPayment === 'partial' ? 'Pay advance →' : 'Pay securely →'}</button> : <button type="button" onClick={() => setAddressSheetOpen(true)} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse">Add delivery address →</button>}</div>
+      <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)] items-center gap-3"><div className="min-w-0"><motion.p key={orderTotal} initial={{ opacity: 0.4, y: 3 }} animate={{ opacity: 1, y: 0 }} className="truncate font-mono text-lg text-text-primary">{formatPrice(orderTotal)}</motion.p><p className={'mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] ' + (savings > 0 ? 'text-success' : 'text-text-muted')}>{savings > 0 ? `You save ${formatPrice(savings)}` : selectedPayment === 'cod' && codFee > 0 ? `Includes ${formatPrice(codFee)} COD fee` : 'Taxes included'}</p></div>{selectedAddress ? <button type="button" onClick={handleSubmit(onSubmit)} disabled={checkoutBusy} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse disabled:cursor-wait disabled:opacity-60">{checkout.isPending ? pendingSubmitLabel : selectedPayment === 'cod' ? 'Place COD order →' : selectedPayment === 'partial' ? 'Pay advance →' : 'Pay securely →'}</button> : <button type="button" onClick={() => setAddressSheetOpen(true)} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse">Add delivery address →</button>}</div>
     </div>
     <AddressBottomSheet open={addressSheetOpen} onOpenChange={setAddressSheetOpen} addresses={addresses} selectedAddressId={selectedAddress?._id} customerName={user.name} customerPhone={user.phone} onAddressSelected={(address) => applyAddress(address, true)} />
   </main>;

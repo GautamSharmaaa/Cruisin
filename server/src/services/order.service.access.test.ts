@@ -16,11 +16,21 @@ process.env.STRIPE_SECRET_KEY = 'test';
 process.env.STRIPE_WEBHOOK_SECRET = 'test';
 process.env.SENDGRID_API_KEY = 'test';
 
-const { orderModel } = vi.hoisted(() => ({ orderModel: { findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() } }));
+const { couponRedemptionService, mongoTransaction, orderModel } = vi.hoisted(() => ({
+  couponRedemptionService: { releaseCouponRedemption: vi.fn() },
+  mongoTransaction: { withMongoTransaction: vi.fn() },
+  orderModel: { findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() }
+}));
 vi.mock('../models/order.model.js', () => ({ OrderModel: orderModel }));
+vi.mock('./coupon-redemption.service.js', () => couponRedemptionService);
+vi.mock('../utils/mongo-transaction.js', () => mongoTransaction);
 
 describe('OrderService customer access', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    couponRedemptionService.releaseCouponRedemption.mockResolvedValue(false);
+    mongoTransaction.withMongoTransaction.mockImplementation(async (work: (session?: undefined) => unknown) => await work(undefined));
+  });
 
   it('rejects another customer and staff from the customer order endpoint', async () => {
     const { OrderService } = await import('./order.service.js');

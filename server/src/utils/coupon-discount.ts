@@ -22,13 +22,19 @@ interface CartItemLike {
   price: number;
 }
 
+interface CouponProductLike {
+  _id: unknown;
+  category?: unknown;
+  categoryIds?: unknown[];
+}
+
 const idString = (value: unknown): string => {
   if (typeof value === 'string') return value;
   if (value && typeof value === 'object' && '_id' in value) return String(value._id);
   return String(value ?? '');
 };
 
-export const calculateCouponDiscount = async (coupon: CouponLike, items: CartItemLike[]): Promise<{ discount: number; freeShipping: boolean; eligibleSubtotal: number }> => {
+export const calculateCouponDiscount = async (coupon: CouponLike, items: CartItemLike[], loadedProducts?: CouponProductLike[]): Promise<{ discount: number; freeShipping: boolean; eligibleSubtotal: number }> => {
   const now = new Date();
   if (coupon.validFrom > now || coupon.validUntil < now) throw new ApiError(400, 'Coupon is not active');
   if (coupon.usageLimit && (coupon.usedCount ?? 0) >= coupon.usageLimit) throw new ApiError(400, 'Coupon usage limit reached');
@@ -45,7 +51,7 @@ export const calculateCouponDiscount = async (coupon: CouponLike, items: CartIte
   }
 
   const productIds = Array.from(new Set(items.map((item) => idString(item.product)).filter(Boolean)));
-  const products = await ProductModel.find({ _id: { $in: productIds } }).select('_id category categoryIds').lean();
+  const products = loadedProducts ?? await ProductModel.find({ _id: { $in: productIds } }).select('_id category categoryIds').lean();
   const productMap = new Map(products.map((product) => [String(product._id), product]));
   const eligibleSubtotal = items.reduce((sum, item) => {
     const productId = idString(item.product);

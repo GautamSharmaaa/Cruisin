@@ -3,7 +3,9 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { setAccessToken } from '@/lib/access-token';
 import { api } from '@/lib/api';
+import type { ServerCart } from '@/lib/server-cart';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { User } from '@/types/user.types';
@@ -24,11 +26,15 @@ interface OtpRequestResult {
 const useAuthSuccess = () => {
   const setSession = useAuthStore((state) => state.setSession);
   const setWishlistIds = useWishlistStore((state) => state.setIds);
-  return (data: AuthResult): void => {
+  return async (data: AuthResult): Promise<void> => {
     setAccessToken(data.accessToken);
+    const [mergedCart, wishlist] = await Promise.all([
+      api.post<ApiEnvelope<ServerCart>>('/cart/merge').catch(() => null),
+      api.get<ApiEnvelope<{ products?: Array<{ _id?: string; id?: string }> }>>('/wishlist').catch(() => null)
+    ]);
+    if (mergedCart) useCartStore.getState().replaceFromServer(mergedCart.data.data);
+    if (wishlist) setWishlistIds((wishlist.data.data.products ?? []).map((product) => product.id ?? product._id ?? '').filter(Boolean));
     setSession(data.user, data.accessToken);
-    void api.post('/cart/merge').catch(() => undefined);
-    void api.get<ApiEnvelope<{ products?: Array<{ _id?: string; id?: string }> }>>('/wishlist').then((response) => setWishlistIds((response.data.data.products ?? []).map((product) => product.id ?? product._id ?? '').filter(Boolean))).catch(() => undefined);
   };
 };
 

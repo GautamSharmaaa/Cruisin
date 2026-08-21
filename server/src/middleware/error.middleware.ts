@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { ApiError } from '../utils/api-error.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { logger } from '../utils/logger.js';
+import { finishPerformanceFlow } from '../utils/request-performance.js';
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next): void => {
   const isBodyParserError = error instanceof SyntaxError && typeof (error as { status?: unknown }).status === 'number' && (error as { body?: unknown }).body !== undefined;
@@ -19,5 +20,6 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next): void
     stack: env.NODE_ENV === 'production' ? undefined : (isApiError ? apiError.stack : error?.stack || new Error().stack)
   });
   const visibleMessage = env.NODE_ENV === 'production' && !apiError.isOperational ? 'Internal server error' : apiError.message;
-  res.status(apiError.statusCode).json(new ApiResponse(null, visibleMessage, apiError.errors.length > 0 ? apiError.errors : [visibleMessage]));
+  finishPerformanceFlow(undefined, res);
+  res.status(apiError.statusCode).json(new ApiResponse(apiError.data ?? null, visibleMessage, apiError.errors.length > 0 ? apiError.errors : [visibleMessage]));
 };
