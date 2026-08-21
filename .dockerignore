@@ -1,0 +1,17 @@
+# Keep Railway Docker build contexts small and deterministic.
+.git
+.github
+.pnpm-store
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+test-results
+test-artifacts
+qa
+audit-artifacts
+*.md
+.env
+.env.*
