@@ -147,7 +147,7 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   completeTheFit: {
     enabled: input.completeTheFitEnabled ?? true,
     strategy: input.completeTheFitStrategy ?? 'frequently_bought_together',
-    title: input.completeTheFitTitle || 'Complete The Fit',
+    title: input.completeTheFitTitle || 'Suggested',
     eyebrow: input.completeTheFitEyebrow || 'Your kit is building',
     description: input.completeTheFitDescription || 'Explore one more piece.',
     bundleDiscount: {

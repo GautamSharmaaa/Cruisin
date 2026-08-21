@@ -72,7 +72,7 @@ const productFieldsSchema = z.object({
   completeTheFit: z.object({
     enabled: z.boolean().default(true),
     strategy: z.enum(['manual', 'frequently_bought_together', 'best_sellers']).default('frequently_bought_together'),
-    title: z.string().trim().min(2).max(80).default('Complete The Fit'),
+    title: z.string().trim().min(2).max(80).default('Suggested'),
     eyebrow: z.string().trim().min(2).max(80).default('Your kit is building'),
     description: z.string().trim().min(2).max(160).default('Explore one more piece.'),
     bundleDiscount: z.object({
@@ -83,7 +83,7 @@ const productFieldsSchema = z.object({
   }).default({
     enabled: true,
     strategy: 'frequently_bought_together',
-    title: 'Complete The Fit',
+    title: 'Suggested',
     eyebrow: 'Your kit is building',
     description: 'Explore one more piece.',
     bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }

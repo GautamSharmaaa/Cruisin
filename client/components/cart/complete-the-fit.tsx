@@ -71,7 +71,7 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
       ? `${formatPrice(twoSaving)} saved — add 1 more to unlock ${formatPrice(threeSaving)}`
       : `Add 1 more → save ${formatPrice(twoSaving)}`);
   const rewardSupport = liveEligibleProductCount >= 3
-    ? 'Maximum Complete The Fit reward unlocked.'
+    ? 'Maximum suggested reward unlocked.'
     : liveEligibleProductCount >= 2
       ? `One more eligible item unlocks an extra ${formatPrice(extraThreeItemSaving)}.`
       : `Then add one more to save ${formatPrice(threeSaving)} total.`;
@@ -118,7 +118,7 @@ export function CompleteTheFit({ context = 'page' }: CompleteTheFitProps): React
   return <>
     <section className="border-y border-border-subtle bg-background-primary py-6 md:border md:py-8" aria-labelledby={`complete-the-fit-${context}`}>
       <div className="flex items-start justify-between gap-4 px-5 md:px-7">
-        <h2 id={`complete-the-fit-${context}`} className="min-w-0 text-2xl font-semibold tracking-[-0.04em] text-text-primary md:text-3xl">{data?.title ?? 'Complete The Fit'}</h2>
+        <h2 id={`complete-the-fit-${context}`} className="min-w-0 text-2xl font-semibold tracking-[-0.04em] text-text-primary md:text-3xl">Suggested</h2>
         <p className={`shrink-0 self-center text-center text-[9px] uppercase tracking-[0.16em] ${data?.source === 'best_sellers' || !data ? 'hot-selling-shine font-semibold' : 'text-text-muted'}`}>{data?.source === 'manual' ? 'Curated' : data?.source === 'frequently_bought_together' ? 'Bought together' : 'Hot selling'}</p>
       </div>
 

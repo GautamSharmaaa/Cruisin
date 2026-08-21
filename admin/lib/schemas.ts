@@ -44,7 +44,7 @@ export const adminProductSchema = z.object({
   isLatestDrop: z.boolean().default(false),
   completeTheFitEnabled: z.boolean().default(true),
   completeTheFitStrategy: z.enum(['manual', 'frequently_bought_together', 'best_sellers']).default('frequently_bought_together'),
-  completeTheFitTitle: z.string().trim().min(2).max(80).default('Complete The Fit'),
+  completeTheFitTitle: z.string().trim().min(2).max(80).default('Suggested'),
   completeTheFitEyebrow: z.string().trim().min(2).max(80).default('Your kit is building'),
   completeTheFitDescription: z.string().trim().min(2).max(160).default('Explore one more piece.'),
   recommendedProducts: z.string().optional().default(''),

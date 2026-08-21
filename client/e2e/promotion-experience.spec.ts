@@ -17,7 +17,7 @@ const product = {
   tags: [], status: 'published', visibility: 'visible', isActive: true, isArchived: false, isFeatured: false,
   recommendedProducts: ['665f6d8403bd2edc93800012'],
   recommendedProductIds: ['665f6d8403bd2edc93800012'],
-  completeTheFit: { enabled: true, strategy: 'manual', title: 'Complete The Fit', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 } },
+  completeTheFit: { enabled: true, strategy: 'manual', title: 'Suggested', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 } },
   ratings: { avg: 0, count: 0 }, seo: { metaTitle: '', metaDesc: '', ogImage: '' }, reviews: []
 };
 const recommendationProduct = {
@@ -27,7 +27,7 @@ const recommendationProduct = {
   slug: 'complete-the-fit-overshirt',
   basePrice: 1800,
   recommendedProducts: [],
-  completeTheFit: { enabled: false, strategy: 'best_sellers', title: 'Complete The Fit', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: false, twoItemDiscount: 0, threeItemDiscount: 0 } },
+  completeTheFit: { enabled: false, strategy: 'best_sellers', title: 'Suggested', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: false, twoItemDiscount: 0, threeItemDiscount: 0 } },
   variants: [
     { ...product.variants[0], id: '665f6d8403bd2edc93800013', sku: 'FIT-QA-M', price: 1800 },
     { ...product.variants[0], id: '665f6d8403bd2edc93800014', size: 'L', sku: 'FIT-QA-L', price: 1800 }
@@ -57,7 +57,7 @@ const apiRoute = async (route: Route, activePromotion: unknown = promotion): Pro
   if (path.endsWith('/cart/coupon')) return route.fulfill({ status: 200, json: envelope({ coupon: 'CRUISIN10', discount: 100, freeShipping: false, eligibleSubtotal: 1000 }) });
   if (path.endsWith('/products/cart-recommendations')) {
     const bundleActive = (url.searchParams.get('productIds') ?? '').split(',').includes(recommendationProduct.id);
-    return route.fulfill({ status: 200, json: envelope({ source: 'manual', anchorProductId: product.id, eligibleProductIds: [recommendationProduct.id], currentBundleDiscount: bundleActive ? 100 : 0, bundleEligibleProductCount: bundleActive ? 2 : 1, title: 'Complete The Fit', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }, items: [recommendationProduct] }) });
+    return route.fulfill({ status: 200, json: envelope({ source: 'manual', anchorProductId: product.id, eligibleProductIds: [recommendationProduct.id], currentBundleDiscount: bundleActive ? 100 : 0, bundleEligibleProductCount: bundleActive ? 2 : 1, title: 'Suggested', eyebrow: 'Your kit is building', description: 'Explore one more piece.', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }, items: [recommendationProduct] }) });
   }
   if (path.endsWith('/cart') && request.method() === 'GET') return route.fulfill({ status: 200, json: envelope({ items: [{ product: product.id, variant: product.variants[0].id, quantity: 1, price: 1000 }] }) });
   if (path.includes('/cart/')) return route.fulfill({ status: 200, json: envelope({ items: [] }) });
@@ -97,7 +97,7 @@ test.describe('Admin-controlled promotion storefront journey', () => {
     await seedCart(page);
     await page.route('**/api/v1/**', (route) => apiRoute(route));
     await page.goto('/cart');
-    const section = page.getByRole('region', { name: 'Complete The Fit' });
+    const section = page.getByRole('region', { name: 'Suggested' });
     await expect(section).toContainText('₹100 OFF');
     await section.getByRole('button', { name: '+ Add' }).click();
     const dialog = page.getByRole('dialog', { name: 'Complete the Fit Overshirt' });

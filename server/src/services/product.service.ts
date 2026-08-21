@@ -58,7 +58,7 @@ const adminSortMap = { updated: { updatedAt: -1 }, newest: { createdAt: -1 }, ol
 type AdminDirectSort = keyof typeof adminSortMap;
 const publicProductQuery = { isActive: true, isArchived: { $ne: true }, visibility: 'visible', status: 'published' } as const;
 const publicProductProjection = '-costPrice -costBreakdown -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
-const defaultCompleteTheFit = { title: 'Complete The Fit', eyebrow: 'Your kit is building', description: 'Explore one more piece.' } as const;
+const defaultCompleteTheFit = { title: 'Suggested', eyebrow: 'Your kit is building', description: 'Explore one more piece.' } as const;
 type RecommendationStrategy = 'manual' | 'frequently_bought_together' | 'best_sellers';
 interface RecommendationAnchor {
   _id: unknown;

@@ -65,7 +65,7 @@ describe('product validator ordered variant media', () => {
       completeTheFit: {
         enabled: true,
         strategy: 'manual',
-        title: 'Complete The Fit',
+        title: 'Suggested',
         eyebrow: 'Your kit is building',
         description: 'Explore one more piece.',
         bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }

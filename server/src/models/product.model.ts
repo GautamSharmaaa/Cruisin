@@ -100,7 +100,7 @@ const productSchema = new Schema(
     completeTheFit: {
       enabled: { type: Boolean, default: true },
       strategy: { type: String, enum: ['manual', 'frequently_bought_together', 'best_sellers'], default: 'frequently_bought_together' },
-      title: { type: String, trim: true, maxlength: 80, default: 'Complete The Fit' },
+      title: { type: String, trim: true, maxlength: 80, default: 'Suggested' },
       eyebrow: { type: String, trim: true, maxlength: 80, default: 'Your kit is building' },
       description: { type: String, trim: true, maxlength: 160, default: 'Explore one more piece.' },
       bundleDiscount: {
