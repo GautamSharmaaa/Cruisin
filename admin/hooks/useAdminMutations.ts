@@ -22,6 +22,15 @@ export interface AdminProductInput {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isLatestDrop?: boolean;
+  completeTheFitEnabled?: boolean;
+  completeTheFitStrategy?: 'manual' | 'frequently_bought_together' | 'best_sellers';
+  completeTheFitTitle?: string;
+  completeTheFitEyebrow?: string;
+  completeTheFitDescription?: string;
+  recommendedProducts?: string;
+  bundleDiscountEnabled?: boolean;
+  bundleTwoItemDiscount?: number;
+  bundleThreeItemDiscount?: number;
   materialCare?: string;
   fitDetails?: string;
   shippingReturns?: string;

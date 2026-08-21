@@ -57,4 +57,22 @@ describe('product validator ordered variant media', () => {
     expect(productBodySchema.safeParse({ ...product, comparePrice: 799 }).success).toBe(false);
     expect(productBodySchema.safeParse({ ...product, comparePrice: 699 }).success).toBe(false);
   });
+
+  it('accepts Complete the Fit configuration and rejects a weaker 3-item tier', () => {
+    const configured = {
+      ...product,
+      recommendedProducts: ['665f6d8403bd2edc93800009'],
+      completeTheFit: {
+        enabled: true,
+        strategy: 'manual',
+        title: 'Complete The Fit',
+        eyebrow: 'Your kit is building',
+        description: 'Explore one more piece.',
+        bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }
+      }
+    };
+    expect(productBodySchema.safeParse(configured).success).toBe(true);
+    expect(productBodySchema.safeParse({ ...configured, completeTheFit: { ...configured.completeTheFit, bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 50 } } }).success).toBe(false);
+    expect(productBodySchema.safeParse({ ...configured, completeTheFit: { ...configured.completeTheFit, bundleDiscount: { enabled: true, twoItemDiscount: 101, threeItemDiscount: 301 } } }).success).toBe(false);
+  });
 });

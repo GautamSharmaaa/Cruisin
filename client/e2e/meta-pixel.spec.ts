@@ -58,12 +58,19 @@ const fulfillJson = async (route: Route, data: unknown, status = 200): Promise<v
 const logisticsQuoteId = '11111111-1111-4111-8111-111111111111';
 
 const installMockApi = async (page: Page, capturedCheckout: { logisticsQuoteId?: string; metaEventId?: string }): Promise<void> => {
+  let savedAddress: Record<string, unknown> | undefined;
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api\/v1/, '');
     if (path === '/auth/refresh') return fulfillJson(route, { accessToken: 'playwright-access-token' });
     if (path === '/auth/me') return fulfillJson(route, { id: 'user-1', name: 'Test Customer', email: 'test@example.invalid', role: 'customer', isVerified: true, phone: '+919876543210' });
+    if (path === '/auth/addresses' && request.method() === 'GET') return fulfillJson(route, savedAddress ? [savedAddress] : []);
+    if (path === '/auth/addresses' && request.method() === 'POST') {
+      const input = request.postDataJSON() as Record<string, unknown>;
+      savedAddress = { _id: 'address-1', ...input };
+      return fulfillJson(route, savedAddress);
+    }
     if (path === '/wishlist' && request.method() === 'GET') return fulfillJson(route, { products: [] });
     if (path === '/wishlist/product-1' && request.method() === 'POST') return fulfillJson(route, { added: true });
     if (path === '/navigation') return fulfillJson(route, []);
@@ -151,20 +158,26 @@ test('tracks the mocked storefront funnel once without contacting Meta or creati
   await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'InitiateCheckout').length).toBe(1);
 
+  await page.getByRole('button', { name: 'Have another coupon?' }).click();
   await page.getByLabel('Coupon code').fill('save600');
   await page.getByRole('button', { name: 'Apply' }).click();
-  await expect(page.getByText('SAVE600 applied')).toBeVisible();
-  await expect(page.getByText('Discount (SAVE600)')).toBeVisible();
-  await expect(page.getByText('-₹600')).toBeVisible();
+  await expect(page.getByText('SAVE600', { exact: true })).toBeVisible();
+  const orderSummary = page.getByRole('complementary');
+  await expect(orderSummary.getByText('Coupon (SAVE600)', { exact: false })).toBeVisible();
+  await expect(orderSummary.getByText('-₹600')).toBeVisible();
 
   await page.getByRole('button', { name: /Cash on delivery/ }).click();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'AddPaymentInfo').length).toBe(1);
-  await page.getByLabel('Full name').fill('Test Customer');
-  await page.getByLabel('Phone').fill('+919876543210');
-  await page.getByLabel('Address').fill('1 Test Street');
-  await page.getByLabel('City').fill('Delhi');
-  await page.getByLabel('State').fill('Delhi');
-  await page.getByLabel('Postal code').fill('110001');
+  await page.getByRole('button', { name: /Add delivery address Enter/ }).click();
+  const addressSheet = page.getByRole('dialog', { name: 'Add delivery address' });
+  await addressSheet.getByLabel('Pincode').fill('110001');
+  await addressSheet.getByLabel(/House \/ flat \/ building/).fill('1 Test Street');
+  await addressSheet.getByLabel(/Area \/ sector \/ village/).fill('Connaught Place');
+  await addressSheet.getByLabel(/Full name/).fill('Test Customer');
+  await addressSheet.getByLabel(/Phone number/).fill('+919876543210');
+  await expect(addressSheet.getByRole('button', { name: /Save & deliver here/ })).toBeEnabled();
+  await addressSheet.getByRole('button', { name: /Save & deliver here/ }).click();
+  await expect(addressSheet).toBeHidden();
   await page.getByRole('button', { name: 'Place COD order' }).click();
   await expect(page.getByRole('heading', { name: 'Order Confirmed' })).toBeVisible();
   await expect.poll(async () => (await metaCalls(page)).filter((call) => metaEventName(call) === 'Purchase').length).toBe(1);

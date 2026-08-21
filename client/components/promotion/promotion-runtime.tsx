@@ -17,7 +17,12 @@ export function PromotionRuntime({ blocked = false }: { blocked?: boolean }): Re
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const config = promotion.data;
-    if (!config || !config.placements.popup || blocked || !isPromotionBrowsingPath(pathname) || isPromotionApplied(config, coupon)) { setOpen(false); return; }
+    if (!config || !config.placements.popup || blocked || !isPromotionBrowsingPath(pathname)) { setOpen(false); return; }
+    // Once an open popup applies the linked offer, let PromotionPopup render its
+    // success confirmation and close itself. The applied coupon should suppress
+    // only future popup openings, not unmount the confirmation mid-transition.
+    if (isPromotionApplied(config, coupon)) return;
+    if (open) return;
     if (promotionFrequencyReached(config, pathname, alwaysSeenContexts)) return;
     const timer = window.setTimeout(() => {
       if (document.querySelector('[role="dialog"][data-state="open"]')) return;
@@ -25,7 +30,7 @@ export function PromotionRuntime({ blocked = false }: { blocked?: boolean }): Re
       setOpen(true);
     }, config.popup.delayMs);
     return () => window.clearTimeout(timer);
-  }, [blocked, coupon, pathname, promotion.data]);
+  }, [blocked, coupon, open, pathname, promotion.data]);
   if (!promotion.data) return null;
   return <PromotionPopup promotion={promotion.data} open={open} onClose={() => setOpen(false)} />;
 }

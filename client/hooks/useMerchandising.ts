@@ -56,7 +56,11 @@ export const usePromotionExperience = () => useQuery({
   queryFn: async (): Promise<ActivePromotionExperience | null> => {
     try {
       const response = await api.get<ApiEnvelope<ActivePromotionExperience | null>>('/promotion-experience');
-      return response.data.data;
+      const value = response.data.data;
+      if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+      if (typeof value.campaignKey !== 'string' || typeof value.promotion?.code !== 'string') return null;
+      if (!value.placements || !value.popup || !value.marquee || !value.checkout) return null;
+      return value;
     } catch {
       return null;
     }

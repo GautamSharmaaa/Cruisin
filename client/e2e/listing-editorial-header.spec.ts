@@ -17,7 +17,7 @@ test.describe('Cruisin editorial listing headers', () => {
 
     for (const listing of listingPages) {
       await page.goto(listing.path);
-      const header = page.getByTestId('listing-editorial-header');
+      const header = page.locator('#main').getByTestId('listing-editorial-header');
       await expect(header).toBeVisible();
       await expect(header.getByRole('heading', { level: 1 })).toHaveText(listing.title);
       await expect(header.getByText('Edition note', { exact: true })).toBeVisible();
@@ -36,7 +36,7 @@ test.describe('Cruisin editorial listing headers', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/category/men');
 
-    const header = page.getByTestId('listing-editorial-header');
+    const header = page.locator('#main').getByTestId('listing-editorial-header');
     await expect(header).toBeVisible();
     await expect(header.getByRole('heading', { level: 1 })).toHaveText('Men');
     await expect(header).toContainText('The Men edit—considered proportions, everyday utility, and pieces built for repeat wear.');

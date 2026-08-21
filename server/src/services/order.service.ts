@@ -11,6 +11,7 @@ import { UserModel } from '../models/user.model.js';
 import type { CheckoutPaymentMode, PaymentMethod } from '../types/payment.types.js';
 import { ApiError } from '../utils/api-error.js';
 import { calculateCouponDiscount } from '../utils/coupon-discount.js';
+import { calculateBundleDiscount, type BundleDiscountProduct } from '../utils/bundle-discount.js';
 import { sendEmail } from '../utils/send-email.js';
 import { logger } from '../utils/logger.js';
 import { calculateShippingRate, type ShippingMethod } from '../utils/shipping-rate.js';
@@ -147,7 +148,7 @@ const createPricedItems = async (cartItems: Array<{ product: unknown; variant: u
   const productIds = [...new Set(cartItems.map((item) => idString(item.product)).filter((id) => Types.ObjectId.isValid(id)))];
   const products = await ProductModel.find({ _id: { $in: productIds } }).lean();
   const byId = new Map(products.map((product) => [String(product._id), product]));
-  return cartItems.map((cartItem) => {
+  const items = cartItems.map((cartItem) => {
     const productId = idString(cartItem.product);
     const variantId = idString(cartItem.variant);
     const product = byId.get(productId);
@@ -164,6 +165,13 @@ const createPricedItems = async (cartItems: Array<{ product: unknown; variant: u
     const unitCostTotal = money(Object.values(unitCostBreakdown).reduce((sum, value) => sum + value, 0));
     return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, hsn: product.hsnCode ?? '', size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
   });
+  const bundleProducts: BundleDiscountProduct[] = products.map((product) => ({
+    id: String(product._id),
+    recommendedProductIds: (product.recommendedProducts ?? []).map((id) => idString(id)).filter(Boolean),
+    strategy: product.completeTheFit?.strategy,
+    bundleDiscount: product.completeTheFit?.bundleDiscount ?? undefined
+  }));
+  return { items, bundleProducts };
 };
 
 const enforceCustomerCouponLimit = async (userId: string, coupon: { code: string; userUsageLimit?: number | null }): Promise<void> => {
@@ -362,12 +370,16 @@ export const OrderService = {
     if (mode === 'partial' && (!env.PARTIAL_PAYMENT_ENABLED || input.paymentMethod !== 'razorpay')) throw new ApiError(400, 'Partial payment is unavailable');
     const cart = await CartModel.findOne({ user: userId }).lean();
     if (!cart?.items.length) throw new ApiError(400, 'Cart is empty');
-    const items = await priceCart(cart);
+    const pricedCart = await priceCart(cart);
+    const items = pricedCart.items;
     const subtotal = money(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const coupon = input.couponCode ? await CouponModel.findOne({ code: input.couponCode.toUpperCase(), isActive: true }) : null;
     if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
-    const discount = money(couponResult?.discount ?? 0);
+    const couponDiscount = money(couponResult?.discount ?? 0);
+    const bundleSaving = calculateBundleDiscount(items.map((item) => ({ productId: String(item.product), quantity: item.quantity })), pricedCart.bundleProducts);
+    const bundleDiscount = money(bundleSaving.amount);
+    const discount = money(Math.min(subtotal, couponDiscount + bundleDiscount));
     const requestedShippingMethod = input.shippingMethod ?? 'standard';
     const logisticsQuote = logisticsConfig.enabled ? await LogisticsQuoteService.validate(userId, {
       quoteId: input.logisticsQuoteId,
@@ -385,7 +397,7 @@ export const OrderService = {
     if (advance <= 0) throw new ApiError(400, 'Invalid partial-payment configuration');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: coupon ? `Order created with coupon ${coupon.code}` : 'Order created' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'pending', timestamp: new Date(), note: [coupon ? `Coupon ${coupon.code}` : '', bundleSaving.label].filter(Boolean).join(' · ') || 'Order created' }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
@@ -422,12 +434,16 @@ export const OrderService = {
     }
     const cart = await CartModel.findOne({ user: userId }).lean();
     if (!cart?.items.length) throw new ApiError(400, 'Cart is empty');
-    const items = await priceCart(cart);
+    const pricedCart = await priceCart(cart);
+    const items = pricedCart.items;
     const subtotal = money(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const coupon = input.couponCode ? await CouponModel.findOne({ code: input.couponCode.toUpperCase(), isActive: true }) : null;
     if (coupon) await enforceCustomerCouponLimit(userId, coupon);
     const couponResult = coupon ? await calculateCouponDiscount(coupon, items) : null;
-    const discount = money(couponResult?.discount ?? 0);
+    const couponDiscount = money(couponResult?.discount ?? 0);
+    const bundleSaving = calculateBundleDiscount(items.map((item) => ({ productId: String(item.product), quantity: item.quantity })), pricedCart.bundleProducts);
+    const bundleDiscount = money(bundleSaving.amount);
+    const discount = money(Math.min(subtotal, couponDiscount + bundleDiscount));
     const requestedShippingMethod = input.shippingMethod ?? 'standard';
     const logisticsQuote = logisticsConfig.enabled ? await LogisticsQuoteService.validate(userId, {
       quoteId: input.logisticsQuoteId,
@@ -444,7 +460,7 @@ export const OrderService = {
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     let order;
     try {
-      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: 'COD order placed; payment due on delivery' }] });
+      order = await OrderModel.create({ orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, timeline: [{ status: 'placed', timestamp: new Date(), note: ['COD order placed; payment due on delivery', bundleSaving.label].filter(Boolean).join(' · ') }] });
     } catch (error) {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });

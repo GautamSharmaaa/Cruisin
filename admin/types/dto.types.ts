@@ -63,6 +63,15 @@ export interface ProductDto {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isLatestDrop?: boolean;
+  recommendedProducts?: Array<string | ProductDto>;
+  completeTheFit?: {
+    enabled?: boolean;
+    strategy?: 'manual' | 'frequently_bought_together' | 'best_sellers';
+    title?: string;
+    eyebrow?: string;
+    description?: string;
+    bundleDiscount?: { enabled?: boolean; twoItemDiscount?: number; threeItemDiscount?: number };
+  };
   materialCare?: string;
   fitDetails?: string;
   shippingReturns?: string;
@@ -397,6 +406,9 @@ export interface OrderDto {
   tax?: number;
   shipping?: number;
   discount?: number;
+  couponDiscount?: number;
+  bundleDiscount?: number;
+  bundleDiscountLabel?: string;
   couponCode?: string;
   total: number;
   codFee?: number;

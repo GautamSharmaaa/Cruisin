@@ -22,7 +22,7 @@ export function OrderShippingPanel({ orderId }: { orderId: string }): ReactNode 
   const canSyncShiprocket = canMutateShiprocket || me.data?.role === 'manager';
   const [notice, setNotice] = useState('');
   const [shipDialog, setShipDialog] = useState<Shipment | null>(null);
-  const providerShipment = shipments.data?.items.find((shipment) => shipment.providerOrderId || shipment.providerShipmentId);
+  const providerShipment = (shipments.data?.items ?? []).find((shipment) => shipment.providerOrderId || shipment.providerShipmentId);
 
   const runAction = (path: string, success: string): void => {
     setNotice('');
@@ -34,7 +34,7 @@ export function OrderShippingPanel({ orderId }: { orderId: string }): ReactNode 
     <h2 className="font-display text-xl">Shipping operations</h2>
     <p className="mt-2 text-sm text-text-secondary">Create the Shiprocket order here. Complete courier, AWB, manifest and pickup manually in Shiprocket; Cruisin mirrors the result and keeps label/invoice printing available.</p>
     <div className="mt-5 grid gap-5">
-      {shipments.data?.items.map((shipment) => <section key={shipment._id} className="border-l border-accent-gold pl-4">
+      {(shipments.data?.items ?? []).map((shipment) => <section key={shipment._id} className="border-l border-accent-gold pl-4">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-xs text-accent-gold">{shipment.sourceOrderId}</p><h3 className="mt-1 text-lg text-text-primary">{label(shipment.shipmentStatus)}</h3></div>{shipment.providerOrderId || shipment.providerShipmentId ? <div className="flex flex-wrap gap-2">{canMutateShiprocket ? <Button className="min-h-9 px-4" onClick={() => setShipDialog(shipment)}>Ship <ExternalLink className="ml-2 h-3 w-3" /></Button> : null}{canSyncShiprocket ? <Button variant="secondary" className="min-h-9 px-4" onClick={() => runAction(`/admin/logistics/${shipment._id}/sync`, 'Synced just now')} disabled={action.isPending}><RefreshCw className={`mr-2 h-3 w-3 ${action.isPending ? 'animate-spin' : ''}`} />Sync now</Button> : null}{canMutateShiprocket ? <LogisticsDocumentButtons shipment={shipment} /> : null}</div> : null}</div>
         <dl className="mt-4 grid gap-3 text-xs text-text-secondary sm:grid-cols-2 lg:grid-cols-3">
           <div><dt className="text-text-muted">Shiprocket Order ID</dt><dd className="mt-1 break-all font-mono text-text-primary">{shipment.providerOrderId ?? 'Pending'}</dd></div>

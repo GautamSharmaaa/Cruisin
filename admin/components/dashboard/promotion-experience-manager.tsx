@@ -124,7 +124,7 @@ export function PromotionExperienceManager({ coupons }: { coupons: CouponDto[] }
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Toggle label="Promotional Experience" description="Master display switch" checked={form.enabled} onChange={(value) => patch('enabled', value)} />
         <Toggle label="Promotion Popup" description="Browsing and product pages" checked={form.popupEnabled} onChange={(value) => patch('popupEnabled', value)} />
-        <Toggle label="Bag Marquee" description="Bag page and drawer" checked={form.bagMarqueeEnabled} onChange={(value) => patch('bagMarqueeEnabled', value)} />
+        <Toggle label="Bag Marquee Strip" description="Slim strip below the Bag header" checked={form.bagMarqueeEnabled} onChange={(value) => patch('bagMarqueeEnabled', value)} />
         <Toggle label="Checkout Strip" description="Calm checkout placement" checked={form.checkoutStripEnabled} onChange={(value) => patch('checkoutStripEnabled', value)} />
       </div>
       {!form.enabled ? <p className="flex items-start gap-2 border border-border bg-background-primary p-4 text-sm text-text-secondary"><Check className="mt-0.5 shrink-0 text-success" size={16} />All automatic promotion UI is currently off. Customers can still enter valid coupons manually.</p> : null}
@@ -148,7 +148,7 @@ export function PromotionExperienceManager({ coupons }: { coupons: CouponDto[] }
       <SelectField label="Frequency" value={form.popupFrequency} onChange={(event) => patch('popupFrequency', event.target.value as PromotionExperienceConfigDto['popupFrequency'])} options={[{ label: 'Once per session', value: 'once_per_session' }, { label: 'Once every 24 hours', value: 'once_per_24_hours' }, { label: 'Always (eligible visits)', value: 'always' }]} />
     </AdminFormSection>
 
-    <AdminFormSection title="Bag marquee" description="Available and applied copy. The storefront substitutes only approved placeholders." columns={2}>
+    <AdminFormSection title="Bag marquee strip" description="Manage the slim Bag-page and drawer strip. The storefront substitutes only approved placeholders." columns={2}>
       <TextField label="Before application" value={form.marqueeAvailableText} maxLength={220} onChange={(value) => patch('marqueeAvailableText', value)} />
       <TextField label="After application" value={form.marqueeAppliedText} maxLength={220} onChange={(value) => patch('marqueeAppliedText', value)} />
     </AdminFormSection>
