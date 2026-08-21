@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { productModel, categoryModel, collectionModel, historyService, queryChain } = vi.hoisted(() => {
+const { productModel, categoryModel, collectionModel, orderModel, historyService, queryChain } = vi.hoisted(() => {
   const chain = {
     select: vi.fn(),
     populate: vi.fn(),
@@ -15,6 +15,7 @@ const { productModel, categoryModel, collectionModel, historyService, queryChain
     productModel: { find: vi.fn(), countDocuments: vi.fn(), findOne: vi.fn() },
     categoryModel: { findOne: vi.fn(), find: vi.fn() },
     collectionModel: { findOne: vi.fn() },
+    orderModel: { aggregate: vi.fn() },
     historyService: { markStale: vi.fn() }
   };
 });
@@ -22,6 +23,7 @@ const { productModel, categoryModel, collectionModel, historyService, queryChain
 vi.mock('../models/product.model.js', () => ({ ProductModel: productModel }));
 vi.mock('../models/category.model.js', () => ({ CategoryModel: categoryModel }));
 vi.mock('../models/collection.model.js', () => ({ CollectionModel: collectionModel }));
+vi.mock('../models/order.model.js', () => ({ OrderModel: orderModel }));
 vi.mock('./catalogueHistory.service.js', () => ({ CatalogueHistoryService: historyService }));
 
 import { ProductService, type ProductFilters } from './product.service.js';
@@ -96,5 +98,20 @@ describe('ProductService public variant filtering', () => {
 
     const result = await ProductService.list(filters());
     expect((result.items[0] as { variants: Array<{ sku: string }> }).variants).toEqual([{ sku: 'QA-BLK-M', enabled: true }]);
+  });
+
+  it('returns manually curated cart recommendations in the configured order', async () => {
+    const anchorId = '665f6d8403bd2edc93800001';
+    const firstId = '665f6d8403bd2edc93800002';
+    const secondId = '665f6d8403bd2edc93800003';
+    queryChain.lean
+      .mockResolvedValueOnce([{ _id: anchorId, recommendedProducts: [secondId, firstId], completeTheFit: { enabled: true, strategy: 'manual', title: 'Style the look', eyebrow: 'Bundle and save', description: 'Pick another piece.', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 250 } } }])
+      .mockResolvedValueOnce([{ _id: firstId, title: 'First' }, { _id: secondId, title: 'Second' }]);
+
+    const result = await ProductService.cartRecommendations({ productIds: anchorId, limit: 8 });
+
+    expect(result).toMatchObject({ source: 'manual', anchorProductId: anchorId, title: 'Style the look', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 250 } });
+    expect((result.items as Array<{ title: string }>).map((item) => item.title)).toEqual(['Second', 'First']);
+    expect(orderModel.aggregate).not.toHaveBeenCalled();
   });
 });

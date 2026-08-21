@@ -29,6 +29,15 @@ export interface ProductPayloadInput {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isLatestDrop?: boolean;
+  completeTheFitEnabled?: boolean;
+  completeTheFitStrategy?: 'manual' | 'frequently_bought_together' | 'best_sellers';
+  completeTheFitTitle?: string;
+  completeTheFitEyebrow?: string;
+  completeTheFitDescription?: string;
+  recommendedProducts?: string;
+  bundleDiscountEnabled?: boolean;
+  bundleTwoItemDiscount?: number;
+  bundleThreeItemDiscount?: number;
   materialCare?: string;
   fitDetails?: string;
   shippingReturns?: string;
@@ -134,6 +143,19 @@ export const productPayloadFromInput = (input: ProductPayloadInput): Record<stri
   isBestseller: input.isBestseller ?? false,
   isNewArrival: input.isNewArrival ?? false,
   isLatestDrop: input.isLatestDrop ?? false,
+  recommendedProducts: listFromCsv(input.recommendedProducts),
+  completeTheFit: {
+    enabled: input.completeTheFitEnabled ?? true,
+    strategy: input.completeTheFitStrategy ?? 'frequently_bought_together',
+    title: input.completeTheFitTitle || 'Complete The Fit',
+    eyebrow: input.completeTheFitEyebrow || 'Your kit is building',
+    description: input.completeTheFitDescription || 'Explore one more piece.',
+    bundleDiscount: {
+      enabled: input.bundleDiscountEnabled ?? false,
+      twoItemDiscount: input.bundleTwoItemDiscount ?? 0,
+      threeItemDiscount: input.bundleThreeItemDiscount ?? 0
+    }
+  },
   isActive: input.status !== 'draft' && input.visibility !== 'hidden',
   materialCare: input.materialCare ?? '',
   fitDetails: input.fitDetails ?? '',

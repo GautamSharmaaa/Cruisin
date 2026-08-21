@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowLeft, ArrowUp, Archive, Eye, ImageIcon, ImagePlus, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form';
 import type { z } from 'zod';
 import { AdminActionBar, AdminCard, AdminFormSection, AdminSectionHeader, AdminTabs } from '@/components/dashboard/admin-ui';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { SelectField } from '@/components/ui/select-field';
 import { PRODUCT_FORM_DEFAULTS } from '@/constants/config';
 import { COPY } from '@/constants/copy';
 import { useCreateProduct, useUpdateProduct, useUploadSignature } from '@/hooks/useAdminMutations';
-import { useAdminCategories, useAdminCollections, useAdminTags } from '@/hooks/useAdminResources';
+import { useAdminCategories, useAdminCollections, useAdminProducts, useAdminTags } from '@/hooks/useAdminResources';
 import { externalUploadApi } from '@/lib/api';
 import { adminProductSchema } from '@/lib/schemas';
 import { cn, slugify } from '@/lib/utils';
@@ -28,7 +28,7 @@ export interface ProductFormProps {
 }
 
 type ProductFormValues = z.infer<typeof adminProductSchema>;
-type FormTab = 'basic' | 'media' | 'pricing' | 'inventory' | 'taxonomy' | 'shipping' | 'seo';
+type FormTab = 'basic' | 'media' | 'pricing' | 'inventory' | 'taxonomy' | 'merchandising' | 'shipping' | 'seo';
 interface CloudinaryUploadResponse { secure_url?: string; }
 
 const tabs: Array<{ value: FormTab; label: string; helper?: string }> = [
@@ -37,6 +37,7 @@ const tabs: Array<{ value: FormTab; label: string; helper?: string }> = [
   { value: 'pricing', label: 'Pricing', helper: 'MRP and sale' },
   { value: 'inventory', label: 'Inventory', helper: 'SKU and stock' },
   { value: 'taxonomy', label: 'Categorization', helper: 'Categories and tags' },
+  { value: 'merchandising', label: 'Complete the Fit', helper: 'Bag bundles' },
   { value: 'shipping', label: 'Shipping', helper: 'Package data' },
   { value: 'seo', label: 'SEO', helper: 'Search preview' }
 ];
@@ -84,9 +85,19 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     basePrice: 0,
     variants: [emptyVariant()],
     lowStockThreshold: 10,
+    maximumQuantityPerPackage: 10,
     status: 'published',
     visibility: 'visible',
-    gender: 'unisex'
+    gender: 'unisex',
+    completeTheFitEnabled: true,
+    completeTheFitStrategy: 'frequently_bought_together',
+    completeTheFitTitle: 'Complete The Fit',
+    completeTheFitEyebrow: 'Your kit is building',
+    completeTheFitDescription: 'Explore one more piece.',
+    recommendedProducts: '',
+    bundleDiscountEnabled: false,
+    bundleTwoItemDiscount: 100,
+    bundleThreeItemDiscount: 300
   };
   const [image] = product.images ?? [];
   const [variant] = product.variants ?? [];
@@ -109,6 +120,15 @@ const formValuesFromProduct = (product: ProductDto | undefined): Partial<Product
     isBestseller: product.isBestseller ?? false,
     isNewArrival: product.isNewArrival ?? false,
     isLatestDrop: product.isLatestDrop ?? false,
+    completeTheFitEnabled: product.completeTheFit?.enabled ?? true,
+    completeTheFitStrategy: product.completeTheFit?.strategy ?? 'frequently_bought_together',
+    completeTheFitTitle: product.completeTheFit?.title ?? 'Complete The Fit',
+    completeTheFitEyebrow: product.completeTheFit?.eyebrow ?? 'Your kit is building',
+    completeTheFitDescription: product.completeTheFit?.description ?? 'Explore one more piece.',
+    recommendedProducts: idList(product.recommendedProducts),
+    bundleDiscountEnabled: product.completeTheFit?.bundleDiscount?.enabled ?? false,
+    bundleTwoItemDiscount: product.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 0,
+    bundleThreeItemDiscount: product.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 0,
     materialCare: product.materialCare ?? '',
     fitDetails: product.fitDetails ?? '',
     shippingReturns: product.shippingReturns ?? '',
@@ -166,6 +186,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const categories = useAdminCategories();
   const collections = useAdminCollections();
   const tags = useAdminTags();
+  const productCatalogue = useAdminProducts({ status: 'all', sort: 'title-asc', limit: 100 });
   const [activeTab, setActiveTab] = useState<FormTab>('basic');
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -183,6 +204,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const [newColorHex, setNewColorHex] = useState('#000000');
   const [newColorImages, setNewColorImages] = useState('');
   const [newSize, setNewSize] = useState('');
+  const [merchandisingSearch, setMerchandisingSearch] = useState('');
   const [uploadingColor, setUploadingColor] = useState<string | null>(null);
 
   useEffect(() => { reset(formValuesFromProduct(product)); }, [product, reset]);
@@ -194,6 +216,11 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const saleHelper = mrp > 0 && price > 0 ? Math.max(0, Math.round(((mrp - price) / mrp) * 100)) + '% off MRP' : 'Set MRP to show markdown context.';
   const colors = useMemo(() => Array.from(new Map(watchedVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex, images: variant.images }])).values()), [watchedVariants]);
   const sizes = useMemo(() => Array.from(new Set(watchedVariants.map((variant) => variant.size.trim()).filter(Boolean))), [watchedVariants]);
+  const selectedRecommendedIds = useMemo(() => (watch('recommendedProducts') ?? '').split(',').map((id) => id.trim()).filter(Boolean), [watch('recommendedProducts')]);
+  const selectableRecommendations = useMemo(() => {
+    const query = merchandisingSearch.trim().toLowerCase();
+    return (productCatalogue.data?.items ?? []).filter((candidate) => itemId(candidate) !== productId && !selectedRecommendedIds.includes(itemId(candidate)) && (!query || candidate.title.toLowerCase().includes(query) || candidate.slug.toLowerCase().includes(query))).slice(0, 24);
+  }, [merchandisingSearch, productCatalogue.data?.items, productId, selectedRecommendedIds]);
 
   const generatedSku = (color: string, size: string, offset: number): string => {
     const base = getValues('productCode') || getValues('slug') || getValues('title') || 'QA-VARIANT';
@@ -321,6 +348,17 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     setValue(field, next.join(', '), { shouldDirty: true, shouldValidate: true });
   };
 
+  const setRecommendedProducts = (ids: string[]): void => {
+    setValue('recommendedProducts', Array.from(new Set(ids)).join(', '), { shouldDirty: true, shouldValidate: true });
+  };
+  const moveRecommendedProduct = (index: number, offset: -1 | 1): void => {
+    const target = index + offset;
+    if (target < 0 || target >= selectedRecommendedIds.length) return;
+    const next = [...selectedRecommendedIds];
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    setRecommendedProducts(next);
+  };
+
   const onSubmit = (data: ProductFormValues): void => {
     setFeedback(null);
     const payload = { ...data, slug: normalizeProductSlug(data.slug, data.title) };
@@ -331,9 +369,25 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     createProduct.mutate(payload, { onSuccess: () => router.push('/products'), onError: (error) => setFeedback({ type: 'error', message: error.message }) });
   };
 
+  const onInvalid = (errors: FieldErrors<ProductFormValues>): void => {
+    const firstField = Object.keys(errors)[0] as keyof ProductFormValues | undefined;
+    const tabByField: Partial<Record<keyof ProductFormValues, FormTab>> = {
+      title: 'basic', slug: 'basic', description: 'basic', richDescription: 'basic', shortDescription: 'basic', status: 'basic', visibility: 'basic',
+      image: 'media', hoverImage: 'media', videoUrl: 'media', mobileVideoUrl: 'media', videoPosterImage: 'media', imageAltText: 'media',
+      basePrice: 'pricing', comparePrice: 'pricing', costPrice: 'pricing', manufacturingCost: 'pricing', packagingCost: 'pricing', marketingCost: 'pricing', handlingCost: 'pricing', otherCost: 'pricing', gstPercent: 'pricing', hsnCode: 'pricing',
+      variants: 'inventory', productCode: 'inventory', lowStockThreshold: 'inventory',
+      category: 'taxonomy', categoryIds: 'taxonomy', collections: 'taxonomy', tags: 'taxonomy', gender: 'taxonomy', productHighlights: 'taxonomy',
+      completeTheFitEnabled: 'merchandising', completeTheFitStrategy: 'merchandising', completeTheFitTitle: 'merchandising', completeTheFitEyebrow: 'merchandising', completeTheFitDescription: 'merchandising', recommendedProducts: 'merchandising', bundleDiscountEnabled: 'merchandising', bundleTwoItemDiscount: 'merchandising', bundleThreeItemDiscount: 'merchandising',
+      materialCare: 'shipping', fitDetails: 'shipping', shippingReturns: 'shipping', sizeGuide: 'shipping', pickupAddress: 'shipping', weight: 'shipping', length: 'shipping', width: 'shipping', height: 'shipping', packagingWeight: 'shipping', defaultPackagePreset: 'shipping', maximumQuantityPerPackage: 'shipping',
+      seoTitle: 'seo', seoDescription: 'seo', ogImage: 'seo'
+    };
+    if (firstField && tabByField[firstField]) setActiveTab(tabByField[firstField]);
+    setFeedback({ type: 'error', message: firstField ? `Review the highlighted ${String(firstField)} field before saving.` : 'Review the highlighted fields before saving.' });
+  };
+
   const isPending = createProduct.isPending || updateProduct.isPending || uploading;
 
-  return <form onSubmit={handleSubmit(onSubmit)} className="grid min-w-0 gap-6">
+  return <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="grid min-w-0 gap-6">
     <AdminCard className="grid gap-5">
       <AdminSectionHeader eyebrow="Product Record" title={product ? product.title : COPY.products.new} description="Create a storefront-ready product with clean merchandising data, media, pricing, inventory, taxonomy, and SEO." action={<div className="flex flex-wrap gap-2"><Link href="/products" className="inline-flex h-11 items-center border border-border px-4 text-sm text-text-secondary transition hover:border-accent-gold hover:text-accent-gold"><ArrowLeft size={15} className="mr-2" />Products</Link>{product?.slug ? <a href={storefrontBaseUrl + '/product/' + product.slug} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center border border-border px-4 text-sm text-text-secondary transition hover:border-accent-gold hover:text-accent-gold"><Eye size={15} className="mr-2" />Preview</a> : null}</div>} />
       <AdminTabs tabs={tabs} value={activeTab} onChange={setActiveTab} />
@@ -554,6 +608,71 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
       <Input label="Tags" error={formState.errors.tags?.message} list="tag-options" {...register('tags')} />
       <datalist id="tag-options">{(tags.data ?? []).map((tag) => <option key={itemId(tag)} value={tag.name} />)}</datalist>
       <Input label="Product highlights" error={formState.errors.productHighlights?.message} {...register('productHighlights')} />
+    </AdminFormSection> : null}
+
+    {activeTab === 'merchandising' ? <AdminFormSection title="Complete the Fit" description="Control the product rail shown in the Bag and Bag drawer. Choose a live sales signal or hand-pick products in the exact storefront order." columns={1}>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Toggle label="Show Complete the Fit in the Bag" value={watch('completeTheFitEnabled')} onChange={(value) => setValue('completeTheFitEnabled', value, { shouldDirty: true })} />
+        <SelectField label="Product source" options={[
+          { label: 'Frequently bought together', value: 'frequently_bought_together' },
+          { label: 'Best sellers / hot selling', value: 'best_sellers' },
+          { label: 'Manual product selection', value: 'manual' }
+        ]} value={watch('completeTheFitStrategy')} onChange={(event) => setValue('completeTheFitStrategy', event.target.value as ProductFormValues['completeTheFitStrategy'], { shouldDirty: true })} />
+        <Input label="Section title" error={formState.errors.completeTheFitTitle?.message} {...register('completeTheFitTitle')} />
+        <Input label="Progress eyebrow" error={formState.errors.completeTheFitEyebrow?.message} {...register('completeTheFitEyebrow')} />
+        <Input label="Supporting copy" error={formState.errors.completeTheFitDescription?.message} {...register('completeTheFitDescription')} />
+      </div>
+
+      <section className="grid gap-4 border border-accent-gold/40 bg-background-primary p-4 sm:p-5" aria-labelledby="bundle-discount-heading">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-gold">Automatic incentive</p>
+          <h3 id="bundle-discount-heading" className="mt-2 font-display text-2xl text-text-primary">Bundle discount</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-text-secondary">The saving is applied automatically in Bag and enforced again by Checkout. Every eligible unit counts toward the reward, including multiple quantities of the same product.</p>
+        </div>
+        <Toggle label="Enable automatic bundle discount" value={watch('bundleDiscountEnabled')} onChange={(value) => setValue('bundleDiscountEnabled', value, { shouldDirty: true })} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="2-item saving (max ₹100)" type="number" min={0} max={100} step="1" error={formState.errors.bundleTwoItemDiscount?.message} {...register('bundleTwoItemDiscount')} />
+          <Input label="3-item total saving (max ₹300)" type="number" min={0} max={300} step="1" error={formState.errors.bundleThreeItemDiscount?.message} {...register('bundleThreeItemDiscount')} />
+        </div>
+        <div className="border border-border bg-background-elevated p-4 text-sm text-text-secondary">
+          Customer message preview: {watch('bundleDiscountEnabled')
+            ? `Add 1 more item to get ₹${Number(watch('bundleTwoItemDiscount') ?? 0).toLocaleString('en-IN')} off${Number(watch('bundleThreeItemDiscount') ?? 0) > 0 ? ` · Add one more for an extra ₹${Math.max(0, Number(watch('bundleThreeItemDiscount') ?? 0) - Number(watch('bundleTwoItemDiscount') ?? 0)).toLocaleString('en-IN')} off · ₹${Number(watch('bundleThreeItemDiscount') ?? 0).toLocaleString('en-IN')} maximum total saving.` : '.'}`
+            : 'Bundle savings are currently off.'}
+        </div>
+      </section>
+
+      {watch('completeTheFitStrategy') === 'manual' ? <section className="grid gap-5 border border-border bg-background-primary p-4 sm:p-5" aria-labelledby="manual-merchandising-heading">
+        <div>
+          <h3 id="manual-merchandising-heading" className="font-display text-2xl text-text-primary">Customized products from the website</h3>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">Search the live catalogue, add products, then use the arrows to set their exact order in the Bag rail.</p>
+        </div>
+        <Input label="Search website products" value={merchandisingSearch} placeholder="Search by product name or slug" onChange={(event) => setMerchandisingSearch(event.target.value)} />
+
+        {selectedRecommendedIds.length ? <div className="grid gap-2" aria-label="Selected Complete the Fit products">
+          {selectedRecommendedIds.map((id, index) => {
+            const selected = productCatalogue.data?.items.find((candidate) => itemId(candidate) === id);
+            return <article key={id} className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 border border-border bg-background-elevated p-3">
+              <div className="aspect-[3/4] overflow-hidden bg-background-primary">{selected?.images?.[0]?.url ? <img src={selected.images[0].url} alt="" className="h-full w-full object-cover" /> : null}</div>
+              <div className="min-w-0"><p className="truncate text-sm text-text-primary">{selected?.title ?? id}</p><p className="mt-1 font-mono text-[11px] text-accent-gold">Position {index + 1}{selected ? ` · ₹${selected.basePrice.toLocaleString('en-IN')}` : ''}</p></div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="secondary" aria-label={`Move ${selected?.title ?? id} up`} disabled={index === 0} onClick={() => moveRecommendedProduct(index, -1)}><ArrowUp size={15} /></Button>
+                <Button type="button" variant="secondary" aria-label={`Move ${selected?.title ?? id} down`} disabled={index === selectedRecommendedIds.length - 1} onClick={() => moveRecommendedProduct(index, 1)}><ArrowDown size={15} /></Button>
+                <Button type="button" variant="danger" aria-label={`Remove ${selected?.title ?? id}`} onClick={() => setRecommendedProducts(selectedRecommendedIds.filter((candidate) => candidate !== id))}><Trash2 size={15} /></Button>
+              </div>
+            </article>;
+          })}
+        </div> : <p className="border border-dashed border-border p-5 text-sm text-text-muted">No manual products selected yet.</p>}
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {selectableRecommendations.map((candidate) => <button key={itemId(candidate)} type="button" onClick={() => setRecommendedProducts([...selectedRecommendedIds, itemId(candidate)])} className="grid min-h-20 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 border border-border bg-background-elevated p-3 text-left transition hover:border-accent-gold">
+            <span className="aspect-[3/4] overflow-hidden bg-background-primary">{candidate.images?.[0]?.url ? <img src={candidate.images[0].url} alt="" className="h-full w-full object-cover" /> : null}</span>
+            <span className="min-w-0"><span className="block truncate text-sm text-text-primary">{candidate.title}</span><span className="mt-1 block font-mono text-[11px] text-accent-gold">₹{candidate.basePrice.toLocaleString('en-IN')}</span></span>
+            <Plus size={17} className="text-accent-gold" />
+          </button>)}
+        </div>
+        {productCatalogue.isLoading ? <p className="text-sm text-text-muted">Loading website products…</p> : null}
+        {!productCatalogue.isLoading && selectableRecommendations.length === 0 ? <p className="text-sm text-text-muted">No additional matching products.</p> : null}
+      </section> : <div className="border border-border bg-background-primary p-5 text-sm leading-6 text-text-secondary">{watch('completeTheFitStrategy') === 'best_sellers' ? 'The rail ranks published products by Bestseller status, lifetime sales, and recency.' : 'The rail learns from valid orders containing this product, then falls back to best sellers when there is not enough order history.'}</div>}
     </AdminFormSection> : null}
 
     {activeTab === 'shipping' ? <AdminFormSection title="Shipping & Attributes" description="Defaults are 12 × 10 inches (30.48 × 25.4 cm), 2 cm high and 0.2 kg. Replace them with measured packed values whenever needed." columns={3}>

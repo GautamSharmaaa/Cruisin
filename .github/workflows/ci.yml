@@ -3,10 +3,52 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  NODE_ENV: test
+  APP_ENV: development
+  CLIENT_URL: http://127.0.0.1:3100
+  ADMIN_URL: http://127.0.0.1:3101
+  MONGODB_URI: mongodb://127.0.0.1:27017/cruisin-test
+  REDIS_URL: redis://127.0.0.1:6379/14
+  JWT_ACCESS_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  JWT_REFRESH_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  CLOUDINARY_CLOUD_NAME: test
+  CLOUDINARY_API_KEY: test
+  CLOUDINARY_API_SECRET: test
+  RAZORPAY_KEY_ID: rzp_test_ci
+  RAZORPAY_KEY_SECRET: test
+  RAZORPAY_WEBHOOK_SECRET: test
+  STRIPE_SECRET_KEY: test
+  STRIPE_WEBHOOK_SECRET: test
+  SENDGRID_API_KEY: SG.test
+  EMAIL_FROM: ci@example.test
+  NEXT_PUBLIC_API_URL: http://127.0.0.1:8100/api/v1
+  PLAYWRIGHT_API_URL: http://127.0.0.1:8100/api/v1
+  PLAYWRIGHT_ADMIN_URL: http://127.0.0.1:3101
+  PLAYWRIGHT_STOREFRONT_URL: http://127.0.0.1:3100
+  SHIPROCKET_ENABLED: 'true'
+  SHIPROCKET_MODE: mock
+  SHIPROCKET_ALLOW_LIVE_READS: 'false'
+  SHIPROCKET_ALLOW_LIVE_DOCUMENTS: 'false'
+  SHIPROCKET_ALLOW_LIVE_MUTATIONS: 'false'
+  SHIPROCKET_PICKUP_LOCATION: Mock Warehouse
+  SHIPROCKET_PICKUP_POSTCODE: '560001'
 
 jobs:
-  verify:
+  quality:
+    name: Quality, tests and production builds
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       mongo:
         image: mongo:7
@@ -26,30 +68,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    env:
-      NODE_ENV: test
-      APP_ENV: development
-      CLIENT_URL: http://localhost:3000
-      ADMIN_URL: http://localhost:3001
-      MONGODB_URI: mongodb://localhost:27017/cruisin-test
-      REDIS_URL: redis://localhost:6379
-      JWT_ACCESS_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      JWT_REFRESH_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-      CLOUDINARY_CLOUD_NAME: test
-      CLOUDINARY_API_KEY: test
-      CLOUDINARY_API_SECRET: test
-      RAZORPAY_KEY_ID: test
-      RAZORPAY_KEY_SECRET: test
-      STRIPE_SECRET_KEY: test
-      STRIPE_WEBHOOK_SECRET: test
-      SENDGRID_API_KEY: SG.test
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-      SHIPROCKET_ENABLED: 'true'
-      SHIPROCKET_MODE: mock
-      SHIPROCKET_ALLOW_LIVE_READS: 'false'
-      SHIPROCKET_ALLOW_LIVE_MUTATIONS: 'false'
-      SHIPROCKET_PICKUP_LOCATION: Mock Warehouse
-      SHIPROCKET_PICKUP_POSTCODE: '560001'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -58,8 +76,45 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
-      - run: npm run verify:logistics
+      - run: npm run verify:logistics:focused
+      - run: npm run verify:logistics:secrets
+      - run: npm run build
+        env:
+          NODE_ENV: production
+
+  browser-e2e:
+    name: Isolated production-server browser tests
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run build
         env:
           NODE_ENV: production
@@ -75,4 +130,31 @@ jobs:
         env:
           NODE_ENV: development
           PLAYWRIGHT_PRODUCTION_SERVERS: 'true'
+      - run: npm --workspace client run test:e2e:meta
       - run: npm run test:e2e:logistics
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: |
+            client/playwright-report
+            client/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  deployment-gate:
+    name: Deployment gate
+    if: always()
+    needs: [quality, browser-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every verification job
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          BROWSER_RESULT: ${{ needs.browser-e2e.result }}
+        run: |
+          echo "Quality result: $QUALITY_RESULT"
+          echo "Browser result: $BROWSER_RESULT"
+          test "$QUALITY_RESULT" = "success"
+          test "$BROWSER_RESULT" = "success"

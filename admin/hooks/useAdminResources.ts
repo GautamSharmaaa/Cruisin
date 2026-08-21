@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
+import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, AdminPromotionExperienceDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
 
 interface ApiEnvelope<TData> {
   success: boolean;
@@ -50,6 +50,7 @@ export const useAdminTags = () => useQuery({ queryKey: ['admin', 'tags'], queryF
 export const useAdminPageSettings = () => useQuery({ queryKey: ['admin', 'page-settings'], queryFn: async (): Promise<PageSettingsDto[]> => { const response = await api.get<ApiEnvelope<PaginatedResult<PageSettingsDto>>>('/admin/page-settings', { params: { limit: 100 } }); return response.data.data.items; } });
 export const useAdminSiteSettings = () => useQuery({ queryKey: ['admin', 'site-settings'], queryFn: async (): Promise<SiteSettingsDto> => { const response = await api.get<ApiEnvelope<SiteSettingsDto>>('/admin/site-settings'); return response.data.data; } });
 export const useAdminCoupons = () => useQuery({ queryKey: ['admin', 'coupons'], queryFn: async (): Promise<CouponDto[]> => { const response = await api.get<ApiEnvelope<CouponDto[]>>('/admin/coupons'); return response.data.data; } });
+export const useAdminPromotionExperience = () => useQuery({ queryKey: ['admin', 'promotion-experience'], queryFn: async (): Promise<AdminPromotionExperienceDto> => { const response = await api.get<ApiEnvelope<AdminPromotionExperienceDto>>('/admin/promotion-experience'); return response.data.data; }, staleTime: 0, refetchOnWindowFocus: true });
 export const useAdminUsers = (enabled = true) => useQuery({ queryKey: ['admin', 'users'], queryFn: async (): Promise<UserDto[]> => { const response = await api.get<ApiEnvelope<PaginatedResult<UserDto>>>('/admin/users', { params: { limit: 100 } }); return response.data.data.items; }, enabled });
 export const useAdminBanners = () => useQuery({ queryKey: ['admin', 'banners'], queryFn: async (): Promise<CmsSectionDto[]> => { const response = await api.get<ApiEnvelope<CmsSectionDto[]>>('/cms/banners'); return response.data.data; } });
 export const useCmsPages = () => useQuery({ queryKey: ['admin', 'cms', 'pages'], queryFn: async (): Promise<CmsPageDto[]> => { const response = await api.get<ApiEnvelope<CmsPageDto[]>>('/cms/pages'); return response.data.data; } });

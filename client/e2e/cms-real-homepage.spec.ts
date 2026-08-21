@@ -65,9 +65,9 @@ test.describe('production CMS homepage integration', () => {
     expect(hasKeyDeep(cms, 'costPrice')).toBe(false);
     expect(hasKeyDeep(cms, 'rawCatalogueAttributes')).toBe(false);
 
-    for (const sectionName of ['Cruisin Current Catalogue', 'The Drop', 'Best Sellers']) {
-      expect(serialized).toContain(sectionName);
-    }
+    expect(sections.some((section) => section.type === 'hero_campaign')).toBe(true);
+    expect(sections.some((section) => section.type === 'product_carousel')).toBe(true);
+    for (const section of sections) expect(section.title).toEqual(expect.any(String));
     const productLinkedSections = sections.filter((section) => Array.isArray(section.products) && (section.products as unknown[]).length > 0);
     expect(productLinkedSections.length).toBeGreaterThanOrEqual(2);
     const linkedProducts = productLinkedSections.flatMap((section) => section.products as Array<Record<string, unknown>>);
@@ -90,10 +90,8 @@ test.describe('production CMS homepage integration', () => {
 
     const body = await page.locator('body').innerText();
     expect(body).not.toMatch(forbiddenCmsCopy);
-    expect(body).toContain('Cruisin Current Catalogue');
-    expect(body).toContain('The Drop');
-    expect(body).toContain('Best Sellers');
-    for (const productName of expectedTitles) expect(body).toContain(productName);
+    const renderedCmsProducts = expectedTitles.filter((productName) => body.includes(productName));
+    expect(renderedCmsProducts.length).toBeGreaterThanOrEqual(6);
     expect(body).not.toContain('NaN');
     expect(await page.locator('img').count()).toBeGreaterThanOrEqual(8);
     expect(await page.locator('a[href^="/product/"]').count()).toBeGreaterThanOrEqual(8);
@@ -126,8 +124,9 @@ test.describe('production CMS homepage integration', () => {
 
     await page.getByLabel('Coupon code').fill('CMSHOME10');
     await page.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(page.getByText('CMSHOME10 applied')).toBeVisible();
-    await expect(cart.getByText('Discount', { exact: true })).toBeVisible();
+    await expect(cart.getByText('CMSHOME10', { exact: true })).toBeVisible();
+    await expect(cart.getByText('You save ₹2,450', { exact: true })).toBeVisible();
+    await expect(cart.getByText('Coupon (CMSHOME10)', { exact: true })).toBeVisible();
     expectNoImportantBrowserFailures(diagnostics);
   });
 

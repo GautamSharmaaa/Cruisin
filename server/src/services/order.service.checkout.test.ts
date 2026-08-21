@@ -88,6 +88,41 @@ describe('OrderService authenticated checkout', () => {
     expect(result).toMatchObject({ order, payment: { id: 'order_test_provider' }, amountToPay: 1_000 });
   });
 
+  it('enforces the configured Complete the Fit saving in the server-authoritative payment amount', async () => {
+    const customerId = new Types.ObjectId().toString();
+    const anchorId = new Types.ObjectId();
+    const secondId = new Types.ObjectId();
+    const anchorVariantId = new Types.ObjectId();
+    const secondVariantId = new Types.ObjectId();
+    orderModel.findOne.mockResolvedValueOnce(null);
+    cartModel.findOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: new Types.ObjectId(), items: [
+      { product: anchorId, variant: anchorVariantId, quantity: 1 },
+      { product: secondId, variant: secondVariantId, quantity: 1 }
+    ] }) });
+    productModel.find
+      .mockReturnValueOnce({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue([{ _id: anchorId }, { _id: secondId }]) }) })
+      .mockReturnValueOnce({ lean: vi.fn().mockResolvedValue([
+        { _id: anchorId, title: 'Bundle Anchor', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], recommendedProducts: [secondId], completeTheFit: { strategy: 'manual', bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 } }, variants: [{ _id: anchorVariantId, sku: 'BUNDLE-A', size: 'M', color: 'Black', stock: 2, price: 1_000, images: [] }] },
+        { _id: secondId, title: 'Bundle Second', status: 'published', visibility: 'visible', isActive: true, isArchived: false, images: [], variants: [{ _id: secondVariantId, sku: 'BUNDLE-B', size: 'M', color: 'Black', stock: 2, price: 1_000, images: [] }] }
+      ]) });
+    couponModel.findOne.mockResolvedValue(null);
+    const order = { _id: new Types.ObjectId(), orderNumber: 'CR-BUNDLE', paymentAttempts: [], timeline: [], save: vi.fn().mockResolvedValue(undefined) };
+    orderModel.create.mockResolvedValue(order);
+    paymentService.getProvider.mockReturnValue({ createOrder: vi.fn().mockResolvedValue({ id: 'order_bundle', amount: 1_900, currency: 'INR', provider: 'razorpay' }) });
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.checkout(customerId, {
+      idempotencyKey: '12121212-1212-4121-8121-121212121212',
+      paymentMethod: 'razorpay',
+      paymentMode: 'online',
+      shippingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
+      billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
+    });
+
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ subtotal: 2_000, couponDiscount: 0, bundleDiscount: 100, discount: 100, total: 1_900, amountDue: 1_900, bundleDiscountLabel: '2-piece Complete the Fit saving' }));
+    expect(result).toMatchObject({ payment: { id: 'order_bundle', amount: 1_900 }, amountToPay: 1_900 });
+  });
+
   it('uses the administrator delivery threshold as the server-authoritative order price', async () => {
     const customerId = new Types.ObjectId().toString();
     const productId = new Types.ObjectId();

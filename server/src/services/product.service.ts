@@ -1,7 +1,10 @@
+import { Types } from 'mongoose';
 import { CategoryModel } from '../models/category.model.js';
 import { CollectionModel } from '../models/collection.model.js';
+import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ApiError } from '../utils/api-error.js';
+import { calculateBundleDiscount } from '../utils/bundle-discount.js';
 import type { PaginatedResult } from '../types/api.types.js';
 import { CatalogueHistoryService } from './catalogueHistory.service.js';
 
@@ -47,6 +50,7 @@ export interface AdminProductFilters {
   pickupAddress?: string;
   sort: 'updated' | 'newest' | 'oldest' | 'price-asc' | 'price-desc' | 'stock-asc' | 'stock-desc' | 'sales-desc' | 'title-asc';
 }
+export interface CartRecommendationFilters { productIds: string; limit: number; }
 export type ProductInput = Record<string, unknown>;
 const markCatalogueStale = (): void => { CatalogueHistoryService.markStale().catch(() => undefined); };
 const sortMap = { newest: { sortOrder: 1, createdAt: -1 }, 'price-asc': { basePrice: 1 }, 'price-desc': { basePrice: -1 }, 'best-selling': { lifetimeSales: -1, createdAt: -1 }, 'top-rated': { 'ratings.avg': -1 } } as const;
@@ -54,6 +58,29 @@ const adminSortMap = { updated: { updatedAt: -1 }, newest: { createdAt: -1 }, ol
 type AdminDirectSort = keyof typeof adminSortMap;
 const publicProductQuery = { isActive: true, isArchived: { $ne: true }, visibility: 'visible', status: 'published' } as const;
 const publicProductProjection = '-costPrice -costBreakdown -rawCatalogueAttributes -catalogueSource -lastCatalogueImportId -categoryMappingRaw -collectionMappingRaw';
+const defaultCompleteTheFit = { title: 'Complete The Fit', eyebrow: 'Your kit is building', description: 'Explore one more piece.' } as const;
+type RecommendationStrategy = 'manual' | 'frequently_bought_together' | 'best_sellers';
+interface RecommendationAnchor {
+  _id: unknown;
+  recommendedProducts?: unknown[];
+  completeTheFit?: { enabled?: boolean; strategy?: RecommendationStrategy; title?: string; eyebrow?: string; description?: string; bundleDiscount?: { enabled?: boolean; twoItemDiscount?: number; threeItemDiscount?: number } };
+}
+const idString = (value: unknown): string => String(value && typeof value === 'object' && '_id' in value ? (value as { _id: unknown })._id : value);
+const uniqueIds = (values: unknown[]): string[] => Array.from(new Set(values.map(idString).filter((id) => /^[a-f\d]{24}$/i.test(id))));
+const publicRecommendationProducts = async (ids: string[], excludedIds: string[]): Promise<unknown[]> => {
+  if (!ids.length) return [];
+  const products = await ProductModel.find({ _id: { $in: ids, $nin: excludedIds }, ...publicProductQuery }).select(publicProductProjection).lean();
+  const byId = new Map((products as unknown as Array<{ _id: unknown }>).map((product) => [idString(product._id), product]));
+  return ids.map((id) => byId.get(id)).filter(Boolean).map(sanitizePublicProduct);
+};
+const bestSellerRecommendations = async (excludedIds: string[], limit: number): Promise<unknown[]> => {
+  const products = await ProductModel.find({ _id: { $nin: excludedIds }, ...publicProductQuery })
+    .select(publicProductProjection)
+    .sort({ isBestseller: -1, lifetimeSales: -1, createdAt: -1 })
+    .limit(limit)
+    .lean();
+  return (products as unknown[]).map(sanitizePublicProduct);
+};
 
 const categoryFromFilter = async (category?: string, publicOnly = false): Promise<{ _id: unknown } | null | undefined> => {
   if (!category) return undefined;
@@ -210,6 +237,83 @@ export const ProductService = {
     const start = (filters.page - 1) * filters.limit;
     const items = filteredItems.slice(start, start + filters.limit);
     return { items, total: filteredItems.length, page: filters.page, pages: Math.ceil(filteredItems.length / filters.limit) };
+  },
+  async cartRecommendations(filters: CartRecommendationFilters): Promise<{ source: RecommendationStrategy; anchorProductId?: string; eligibleProductIds: string[]; currentBundleDiscount: number; bundleEligibleProductCount: number; title: string; eyebrow: string; description: string; bundleDiscount: { enabled: boolean; twoItemDiscount: number; threeItemDiscount: number }; items: unknown[] }> {
+    const cartIds = uniqueIds(filters.productIds.split(',').map((id) => id.trim()));
+    const limit = Math.min(12, Math.max(1, filters.limit));
+    const anchorsRaw = await ProductModel.find({ _id: { $in: cartIds }, ...publicProductQuery })
+      .select('_id recommendedProducts completeTheFit')
+      .lean();
+    const anchorsById = new Map((anchorsRaw as unknown as RecommendationAnchor[]).map((anchor) => [idString(anchor._id), anchor]));
+    const anchors = cartIds.map((id) => anchorsById.get(id)).filter((anchor): anchor is RecommendationAnchor => Boolean(anchor));
+    const enabledAnchors = anchors.filter((anchor) => anchor.completeTheFit?.enabled !== false);
+    const bundlePricing = calculateBundleDiscount(
+      cartIds.map((productId) => ({ productId, quantity: 1 })),
+      enabledAnchors.map((anchor) => ({
+        id: idString(anchor._id),
+        recommendedProductIds: uniqueIds(anchor.recommendedProducts ?? []),
+        strategy: anchor.completeTheFit?.strategy,
+        bundleDiscount: anchor.completeTheFit?.bundleDiscount
+      }))
+    );
+    const configuredAnchor = enabledAnchors[0];
+    const copy = {
+      title: configuredAnchor?.completeTheFit?.title || defaultCompleteTheFit.title,
+      eyebrow: configuredAnchor?.completeTheFit?.eyebrow || defaultCompleteTheFit.eyebrow,
+      description: configuredAnchor?.completeTheFit?.description || defaultCompleteTheFit.description
+    };
+    const bundleDiscount = {
+      enabled: configuredAnchor?.completeTheFit?.bundleDiscount?.enabled === true,
+      twoItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.twoItemDiscount ?? 0,
+      threeItemDiscount: configuredAnchor?.completeTheFit?.bundleDiscount?.threeItemDiscount ?? 0
+    };
+
+    const currentBundle = { currentBundleDiscount: bundlePricing.amount, bundleEligibleProductCount: bundlePricing.eligibleProductCount };
+    if (!configuredAnchor) return { source: 'best_sellers', eligibleProductIds: [], ...currentBundle, ...copy, bundleDiscount, items: [] };
+
+    const manualAnchors = enabledAnchors.filter((anchor) => anchor.completeTheFit?.strategy === 'manual' && (anchor.recommendedProducts?.length ?? 0) > 0);
+    if (manualAnchors.length) {
+      const configuredManualIds = uniqueIds(manualAnchors.flatMap((anchor) => anchor.recommendedProducts ?? []));
+      const manualIds = configuredManualIds.filter((id) => !cartIds.includes(id));
+      const manualItems = (await publicRecommendationProducts(manualIds, cartIds)).slice(0, limit);
+      if (manualItems.length || configuredManualIds.some((id) => cartIds.includes(id))) {
+        const manualCopy = manualAnchors[0]?.completeTheFit;
+        return {
+          source: 'manual',
+          anchorProductId: idString(manualAnchors[0]?._id),
+          eligibleProductIds: configuredManualIds,
+          ...currentBundle,
+          title: manualCopy?.title || copy.title,
+          eyebrow: manualCopy?.eyebrow || copy.eyebrow,
+          description: manualCopy?.description || copy.description,
+          bundleDiscount: {
+            enabled: manualCopy?.bundleDiscount?.enabled === true,
+            twoItemDiscount: manualCopy?.bundleDiscount?.twoItemDiscount ?? 0,
+            threeItemDiscount: manualCopy?.bundleDiscount?.threeItemDiscount ?? 0
+          },
+          items: manualItems
+        };
+      }
+    }
+
+    const useFrequentlyBoughtTogether = enabledAnchors.some((anchor) => (anchor.completeTheFit?.strategy ?? 'frequently_bought_together') === 'frequently_bought_together');
+    if (useFrequentlyBoughtTogether) {
+      const objectIds = cartIds.map((id) => new Types.ObjectId(id));
+      const recentOrderCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1_000);
+      const coPurchases = await OrderModel.aggregate<{ _id: Types.ObjectId; purchases: number }>([
+        { $match: { 'items.product': { $in: objectIds }, orderStatus: { $in: ['placed', 'confirmed', 'processing', 'shipped', 'delivered'] }, paymentStatus: { $in: ['paid', 'partially_paid', 'cod_pending'] }, createdAt: { $gte: recentOrderCutoff }, isAnalyticsTestData: { $ne: true }, isTestOrder: { $ne: true } } },
+        { $unwind: '$items' },
+        { $match: { 'items.product': { $nin: objectIds } } },
+        { $group: { _id: '$items.product', purchases: { $sum: '$items.quantity' } } },
+        { $sort: { purchases: -1 } },
+        { $limit: limit * 4 }
+      ]);
+      const coPurchaseIds = uniqueIds(coPurchases.map((row) => row._id));
+      const coPurchaseItems = (await publicRecommendationProducts(coPurchaseIds, cartIds)).slice(0, limit);
+      if (coPurchaseItems.length) return { source: 'frequently_bought_together', anchorProductId: idString(configuredAnchor._id), eligibleProductIds: [], ...currentBundle, ...copy, bundleDiscount, items: coPurchaseItems };
+    }
+
+    return { source: 'best_sellers', anchorProductId: idString(configuredAnchor._id), eligibleProductIds: [], ...currentBundle, ...copy, bundleDiscount, items: await bestSellerRecommendations(cartIds, limit) };
   },
   async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return sanitizePublicProduct(product); },
   async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },

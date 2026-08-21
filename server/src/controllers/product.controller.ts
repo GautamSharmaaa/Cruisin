@@ -1,11 +1,12 @@
 // Governed by .rules v1.0
 import type { Request, Response } from 'express';
-import { ProductService, type AdminProductFilters, type ProductFilters } from '../services/product.service.js';
+import { ProductService, type AdminProductFilters, type CartRecommendationFilters, type ProductFilters } from '../services/product.service.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
 
 export const ProductController = {
   list: asyncHandler(async (req: Request, res: Response): Promise<void> => { const result = await ProductService.list(req.query as unknown as ProductFilters); res.json(new ApiResponse(result, 'Products loaded')); }),
+  cartRecommendations: asyncHandler(async (req: Request, res: Response): Promise<void> => { const result = await ProductService.cartRecommendations(req.query as unknown as CartRecommendationFilters); res.json(new ApiResponse(result, 'Cart recommendations loaded')); }),
   adminList: asyncHandler(async (req: Request, res: Response): Promise<void> => { const result = await ProductService.adminList(req.query as unknown as AdminProductFilters); res.json(new ApiResponse(result, 'Admin products loaded')); }),
   adminById: asyncHandler(async (req: Request, res: Response): Promise<void> => { const product = await ProductService.adminById(String(req.params.id ?? '')); res.json(new ApiResponse(product, 'Product loaded')); }),
   bySlug: asyncHandler(async (req: Request, res: Response): Promise<void> => { const product = await ProductService.bySlug(String(req.params.slug ?? '')); res.json(new ApiResponse(product, 'Product loaded')); }),

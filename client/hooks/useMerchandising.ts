@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { ApiEnvelope, PaginatedResult } from '@/types/api.types';
 import type { CollectionDto, NavigationItemDto, PageSettingsDto, SiteSettingsDto, TagDto } from '@/types/dto.types';
+import type { ActivePromotionExperience } from '@/types/promotion-experience.types';
 
 export const useNavigation = () => useQuery({
   queryKey: ['navigation'],
@@ -48,6 +49,26 @@ export const useSiteSettings = () => useQuery({
     const response = await api.get<ApiEnvelope<SiteSettingsDto>>('/site-settings');
     return response.data.data;
   }
+});
+
+export const usePromotionExperience = () => useQuery({
+  queryKey: ['promotion-experience'],
+  queryFn: async (): Promise<ActivePromotionExperience | null> => {
+    try {
+      const response = await api.get<ApiEnvelope<ActivePromotionExperience | null>>('/promotion-experience');
+      const value = response.data.data;
+      if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+      if (typeof value.campaignKey !== 'string' || typeof value.promotion?.code !== 'string') return null;
+      if (!value.placements || !value.popup || !value.marquee || !value.checkout) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  },
+  staleTime: 0,
+  refetchInterval: 60_000,
+  refetchOnWindowFocus: true,
+  retry: false
 });
 
 export const useTags = () => useQuery({

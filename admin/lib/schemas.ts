@@ -42,6 +42,15 @@ export const adminProductSchema = z.object({
   isBestseller: z.boolean().default(false),
   isNewArrival: z.boolean().default(false),
   isLatestDrop: z.boolean().default(false),
+  completeTheFitEnabled: z.boolean().default(true),
+  completeTheFitStrategy: z.enum(['manual', 'frequently_bought_together', 'best_sellers']).default('frequently_bought_together'),
+  completeTheFitTitle: z.string().trim().min(2).max(80).default('Complete The Fit'),
+  completeTheFitEyebrow: z.string().trim().min(2).max(80).default('Your kit is building'),
+  completeTheFitDescription: z.string().trim().min(2).max(160).default('Explore one more piece.'),
+  recommendedProducts: z.string().optional().default(''),
+  bundleDiscountEnabled: z.boolean().default(false),
+  bundleTwoItemDiscount: z.coerce.number().min(0).max(100, 'The 2-item saving is capped at ₹100').default(100),
+  bundleThreeItemDiscount: z.coerce.number().min(0).max(300, 'The total bundle saving is capped at ₹300').default(300),
   materialCare: z.string().optional().default(''),
   fitDetails: z.string().optional().default(''),
   shippingReturns: z.string().optional().default(''),
@@ -80,6 +89,9 @@ export const adminProductSchema = z.object({
 }).superRefine((product, context) => {
   if (product.comparePrice !== undefined && product.comparePrice > 0 && product.comparePrice <= product.basePrice) {
     context.addIssue({ code: 'custom', path: ['comparePrice'], message: 'MRP must be greater than the selling price.' });
+  }
+  if (product.bundleDiscountEnabled && product.bundleThreeItemDiscount > 0 && product.bundleThreeItemDiscount < product.bundleTwoItemDiscount) {
+    context.addIssue({ code: 'custom', path: ['bundleThreeItemDiscount'], message: 'The 3-item saving must be at least the 2-item saving.' });
   }
   const skus = new Map<string, number>();
   const combinations = new Map<string, number>();

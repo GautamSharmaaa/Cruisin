@@ -97,6 +97,18 @@ const productSchema = new Schema(
     sortOrder: { type: Number, default: 0, index: true },
     relatedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
     recommendedProducts: { type: [{ type: Schema.Types.ObjectId, ref: 'Product' }], default: [] },
+    completeTheFit: {
+      enabled: { type: Boolean, default: true },
+      strategy: { type: String, enum: ['manual', 'frequently_bought_together', 'best_sellers'], default: 'frequently_bought_together' },
+      title: { type: String, trim: true, maxlength: 80, default: 'Complete The Fit' },
+      eyebrow: { type: String, trim: true, maxlength: 80, default: 'Your kit is building' },
+      description: { type: String, trim: true, maxlength: 160, default: 'Explore one more piece.' },
+      bundleDiscount: {
+        enabled: { type: Boolean, default: false },
+        twoItemDiscount: { type: Number, min: 0, max: 100, default: 100 },
+        threeItemDiscount: { type: Number, min: 0, max: 300, default: 300 }
+      }
+    },
     weight: { type: Number, min: 0, max: 100, default: 0.27 },
     dimensions: {
       length: { type: Number, min: 0, max: 300, default: 30.48 },
