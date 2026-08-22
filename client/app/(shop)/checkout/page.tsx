@@ -68,6 +68,8 @@ export default function CheckoutPage(): ReactNode {
   const coupon = useCartStore((state) => state.coupon);
   const couponDiscount = useCartStore((state) => state.couponDiscount);
   const freeShipping = useCartStore((state) => state.freeShipping);
+  const cartVersion = useCartStore((state) => state.version);
+  const cartSyncStatus = useCartStore((state) => state.syncStatus);
   const visibleCartItems = cartItems.filter((item) => isCustomerVisibleProduct(item.product));
   const subtotal = visibleCartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const recommendations = useCartRecommendations(Array.from(new Set(visibleCartItems.map((item) => item.product.id))), visibleCartItems.length > 0);
@@ -189,7 +191,13 @@ export default function CheckoutPage(): ReactNode {
   const deliveryEstimate = selectedDelivery?.estimatedDeliveryDays
     ? `Delivery in ${selectedDelivery.estimatedDeliveryDays}–${selectedDelivery.estimatedDeliveryDays + 1} days`
     : 'Delivery estimate shown after pincode check';
-  const checkoutBusy = checkout.isPending || paymentConfig.isLoading || siteSettings.isLoading || logisticsQuote.isLoading;
+  const quoteMatchesCart = logisticsQuote.data?.cartVersion === cartVersion;
+  const checkoutBusy = checkout.isPending
+    || paymentConfig.isLoading
+    || siteSettings.isLoading
+    || logisticsQuote.isFetching
+    || cartSyncStatus === 'syncing'
+    || !quoteMatchesCart;
   const savings = automaticDiscounts.totalDiscount;
   return <main className="min-h-dvh pb-28 md:px-6 md:py-28 lg:px-20 lg:py-32">
     <motion.div variants={staggerContainer} initial="initial" animate="animate" className="mx-auto max-w-[1440px]">

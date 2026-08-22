@@ -22,12 +22,19 @@ export interface LogisticsQuoteOption {
 
 export interface LogisticsQuote {
   quoteId: string;
+  cartVersion: number;
   deliveryPostcode: string;
   paymentMode: 'prepaid' | 'cod';
   options: LogisticsQuoteOption[];
   expiresAt: string;
   package: { measurementConfirmed: boolean; warnings: string[] };
 }
+
+export const logisticsQuoteQueryKey = (
+  deliveryPostcode: string,
+  paymentMode: 'prepaid' | 'cod',
+  cartVersion: number
+) => ['logistics-quote', deliveryPostcode, paymentMode, cartVersion] as const;
 
 export interface ShipmentTracking {
   orderId: string;
@@ -51,19 +58,24 @@ export interface ShipmentTracking {
   }>;
 }
 
-export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepaid' | 'cod') => useQuery({
-  queryKey: ['logistics-quote', deliveryPostcode, paymentMode],
-  enabled: /^[1-9]\d{5}$/.test(deliveryPostcode),
-  retry: false,
-  staleTime: 10 * 60_000,
-  queryFn: async (): Promise<LogisticsQuote> => {
-    const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
-    if (items.length === 0) throw new Error('Add an item before checking delivery');
-    await flushCartMutations();
-    const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode, expectedCartVersion: useCartStore.getState().version });
-    return response.data.data;
-  }
-});
+export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepaid' | 'cod') => {
+  const cartVersion = useCartStore((state) => state.version);
+  const cartSyncStatus = useCartStore((state) => state.syncStatus);
+  return useQuery({
+    queryKey: logisticsQuoteQueryKey(deliveryPostcode, paymentMode, cartVersion),
+    enabled: /^[1-9]\d{5}$/.test(deliveryPostcode) && cartSyncStatus !== 'syncing',
+    retry: false,
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<LogisticsQuote> => {
+      const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
+      if (items.length === 0) throw new Error('Add an item before checking delivery');
+      await flushCartMutations();
+      const expectedCartVersion = useCartStore.getState().version;
+      const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode, expectedCartVersion });
+      return response.data.data;
+    }
+  });
+};
 
 export const useOrderTracking = (orderId: string | undefined) => useQuery({
   queryKey: ['order-tracking', orderId],
