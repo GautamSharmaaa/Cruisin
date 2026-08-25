@@ -10,7 +10,7 @@ import { OrderController } from '../../controllers/order.controller.js';
 import { PaymentController } from '../../controllers/payment.controller.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema } from '../../validators/common.validator.js';
-import { orderArchiveSchema, orderPermanentDeleteSchema, orderStatusSchema, refundSchema } from '../../validators/order.validator.js';
+import { adminShippingAddressSchema, orderArchiveSchema, orderPermanentDeleteSchema, orderStatusSchema, refundSchema } from '../../validators/order.validator.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -27,6 +27,7 @@ adminRouter.post('/orders/:id/restore', requireRole(['manager', 'admin', 'supera
 adminRouter.get('/orders/:id/delete-eligibility', validate({ params: idParamSchema }), OrderController.deleteEligibility);
 adminRouter.delete('/orders/:id', requireRole(['superadmin']), validate({ params: idParamSchema, body: orderPermanentDeleteSchema }), OrderController.permanentlyDelete);
 adminRouter.patch('/orders/:id/status', requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema, body: orderStatusSchema }), OrderController.updateStatus);
+adminRouter.patch('/orders/:id/shipping-address', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema, body: adminShippingAddressSchema }), OrderController.updateShippingAddress);
 adminRouter.post('/orders/:id/mark-cod-paid', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.markCodPaid);
 adminRouter.post('/orders/:id/mark-partial-paid', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.markPartialPaid);
 adminRouter.post('/orders/:id/refund', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema, body: refundSchema }), PaymentController.refund);

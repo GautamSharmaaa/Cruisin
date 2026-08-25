@@ -5,6 +5,7 @@ import { logisticsConfig } from '../config/logistics.js';
 import { CartModel } from '../models/cart.model.js';
 import { CouponModel } from '../models/coupon.model.js';
 import { OrderModel } from '../models/order.model.js';
+import { ShipmentModel } from '../models/shipment.model.js';
 import { PaymentWebhookEventModel } from '../models/payment-webhook-event.model.js';
 import { ProductModel, type ProductDocument } from '../models/product.model.js';
 import { SiteSettingsModel } from '../models/site-settings.model.js';
@@ -1001,6 +1002,26 @@ export const OrderService = {
       { new: true }
     );
     if (!updated) throw new ApiError(409, 'Order status changed; refresh and try again');
+    return updated;
+  },
+  async updateShippingAddress(id: string, shippingAddress: Record<string, string>, adminId: string): Promise<unknown> {
+    const order = await OrderModel.findById(id);
+    if (!order) throw new ApiError(404, 'Order not found');
+    const providerShipment = await ShipmentModel.exists({
+      order: order._id,
+      shipmentType: 'forward',
+      $or: [{ providerOrderId: { $exists: true, $ne: '' } }, { providerShipmentId: { $exists: true, $ne: '' } }]
+    });
+    if (providerShipment) throw new ApiError(409, 'Shipping address cannot be changed after a Shiprocket order has been created');
+    const updated = await OrderModel.findOneAndUpdate(
+      { _id: order._id },
+      {
+        $set: { shippingAddress },
+        $push: { timeline: { status: order.orderStatus, timestamp: new Date(), note: `Shipping address updated by admin ${adminId}` } }
+      },
+      { new: true }
+    );
+    if (!updated) throw new ApiError(409, 'Order changed; refresh and try again');
     return updated;
   }
 };

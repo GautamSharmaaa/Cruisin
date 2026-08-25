@@ -349,6 +349,21 @@ export const useUpdateOrderStatus = () => {
   });
 };
 
+export const useUpdateOrderShippingAddress = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; shippingAddress: { fullName: string; phone: string; line1: string; line2?: string; city: string; state: string; postalCode: string; country: string } }): Promise<void> => {
+      await api.patch('/admin/orders/' + input.id + '/shipping-address', { shippingAddress: input.shippingAddress });
+    },
+    onSuccess: async (_data, input): Promise<void> => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders', input.id] })
+      ]);
+    }
+  });
+};
+
 export const useOrderPaymentAction = () => {
   const queryClient = useQueryClient();
   return useMutation({
