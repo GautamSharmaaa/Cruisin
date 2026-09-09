@@ -271,7 +271,14 @@ const seed = async (): Promise<void> => {
       paidOrder(fixtureIds.ndrOrder, 'CR-E2E-NDR'),
       { ...paidOrder(fixtureIds.rtoOrder, 'CR-E2E-RTO', 'a', 2), stockReserved: true },
       { ...paidOrder(fixtureIds.returnOrder, 'CR-E2E-RETURN'), orderStatus: 'delivered' },
-      { ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'), orderStatus: 'delivered' },
+      {
+        ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'),
+        items: [item('a'), item('b')],
+        orderStatus: 'delivered',
+        subtotal: 2_500,
+        total: 2_592,
+        amountPaid: 2_592
+      },
       { ...paidOrder(fixtureIds.cancellationOrder, 'CR-E2E-CANCEL'), orderStatus: 'confirmed', fulfillmentStatus: 'ready_to_ship' },
       {
         _id: objectId(fixtureIds.safeDeleteOrder),

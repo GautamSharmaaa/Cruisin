@@ -188,6 +188,7 @@ export interface WorkflowRequest {
   handlingFeePaidAt?: string;
   handlingFeePaymentReference?: string;
   requestedSku?: string;
+  originalItem?: { sku?: string; quantity?: number };
   refundStatus?: string;
   productRefundAmount?: number;
   productRefundReference?: string;
@@ -196,7 +197,7 @@ export interface WorkflowRequest {
   manualTransferReference?: string;
   manualTransferredAt?: string;
   createdAt: string;
-  order?: { orderNumber?: string };
+  order?: { _id?: string; orderNumber?: string };
   customer?: { name?: string; email?: string; phone?: string };
   reverseShipment?: { shipmentStatus?: string; returnStatus?: string; courierName?: string; awb?: string; pickupStatus?: string; lastTrackingUpdate?: string };
 }

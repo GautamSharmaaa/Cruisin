@@ -40,6 +40,7 @@ interface Shipment {
   _id: string;
   order: { _id?: string; orderNumber?: string } | string;
   sourceOrderId: string;
+  shipmentType: 'forward' | 'return' | 'exchange_replacement';
   providerOrderId?: string;
   providerShipmentId?: string;
   awb?: string;
@@ -515,33 +516,56 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
     ]));
   });
 
-  test('delivered order completes exchange with one stock reservation, reverse pickup and replacement shipment', async ({ request }) => {
+  test('admin approves each exchange product before creating one consolidated reverse pickup', async ({ request }) => {
     const before = await variantStock(request, adminToken, ids.variantB);
-    const input = {
+    type ExchangeInput = { orderId: string; variantId: string; requestedVariantId: string; quantity: number; idempotencyKey: string };
+    const firstInput: ExchangeInput = {
       orderId: ids.exchangeOrder,
       variantId: ids.variantA,
       requestedVariantId: ids.variantB,
       quantity: 1,
       idempotencyKey: '20000000-0000-4000-8000-000000000001'
     };
+    const secondInput: ExchangeInput = {
+      orderId: ids.exchangeOrder,
+      variantId: ids.variantB,
+      requestedVariantId: ids.variantA,
+      quantity: 1,
+      idempotencyKey: '20000000-0000-4000-8000-000000000002'
+    };
     type ExchangeSession = { request: { id: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number } };
-    const create = async (): Promise<ExchangeSession> => responseJson<ExchangeSession>(await request.post(
+    const create = async (input: ExchangeInput): Promise<ExchangeSession> => responseJson<ExchangeSession>(await request.post(
       `${apiUrl}/fulfillment/exchanges`,
       { headers: authHeaders(customerToken), data: input }
     ));
-    const session = await create();
-    const replay = await create();
-    expect(replay.payment.id).toBe(session.payment.id);
-    expect(session).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const firstSession = await create(firstInput);
+    const replay = await create(firstInput);
+    expect(replay.payment.id).toBe(firstSession.payment.id);
+    expect(firstSession).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const secondSession = await create(secondInput);
     const first = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/exchanges/verify-payment`, {
       headers: authHeaders(customerToken),
-      data: { requestId: session.request.id, payload: { razorpay_order_id: session.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e', mockVerified: true } }
+      data: { requestId: firstSession.request.id, payload: { razorpay_order_id: firstSession.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e_1', mockVerified: true } }
+    }));
+    const second = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/exchanges/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: secondSession.request.id, payload: { razorpay_order_id: secondSession.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e_2', mockVerified: true } }
     }));
     let current = await workflowAction(request, adminToken, 'exchanges', first._id, 'approve');
     expect(current).toMatchObject({ status: 'inventory_reserved', inventoryReserved: true });
+    const blockedPickup = await request.post(`${apiUrl}/admin/exchanges/${first._id}/action`, {
+      headers: authHeaders(adminToken), data: { action: 'create_reverse_pickup' }
+    });
+    expect(blockedPickup.status()).toBe(409);
+    await workflowAction(request, adminToken, 'exchanges', second._id, 'approve');
     expect(await variantStock(request, adminToken, ids.variantB)).toBe(before - 1);
     current = await workflowAction(request, adminToken, 'exchanges', first._id, 'create_reverse_pickup');
     expect(current.reverseShipment).toBeTruthy();
+    const exchanges = await responseJson<WorkflowRequest[]>(await request.get(`${apiUrl}/admin/exchanges`, { headers: authHeaders(adminToken) }));
+    const secondAfterPickup = exchanges.find((exchange) => exchange._id === second._id);
+    expect(secondAfterPickup).toMatchObject({ status: 'reverse_pickup', reverseShipment: current.reverseShipment });
+    const shipmentsAfterPickup = await shipmentList(request, adminToken);
+    expect(shipmentsAfterPickup.items.filter((shipment) => shipment.shipmentType === 'return' && (typeof shipment.order === 'string' ? shipment.order : shipment.order._id) === ids.exchangeOrder)).toHaveLength(1);
     for (const action of ['warehouse_received', 'quality_check_passed', 'replacement_shipped', 'complete', 'close']) {
       current = await workflowAction(request, adminToken, 'exchanges', first._id, action);
     }

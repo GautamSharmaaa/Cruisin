@@ -13,6 +13,7 @@ import { ApiError } from '../../utils/api-error.js';
 import { calculatePackage } from './package-calculator.js';
 import { getLogisticsProvider } from './provider-factory.js';
 import { LogisticsNotificationService } from './logistics-notification.service.js';
+import { planExchangePickup } from './exchange-pickup-plan.js';
 import { PaymentService } from '../payment.service.js';
 import { OrderService } from '../order.service.js';
 import { UploadService, type ReturnEvidenceInput } from '../upload.service.js';
@@ -94,8 +95,12 @@ const ensureReverseShipment = async (request: {
   items?: Array<{ product: unknown; variant: unknown; sku: string; quantity: number }> | null;
   reason: string;
   reverseShipment?: unknown;
+  idempotencyKey?: string;
 }, adminId: string) => {
-  if (request.reverseShipment) return ShipmentModel.findById(request.reverseShipment);
+  if (request.reverseShipment) {
+    const linked = await ShipmentModel.findById(request.reverseShipment);
+    if (linked?.providerShipmentId) return linked;
+  }
   const requestItems = request.items?.length ? request.items : request.item ? [request.item] : [];
   if (!requestItems.length) throw new ApiError(409, 'Return request item data is missing');
   const order = await OrderModel.findById(request.order);
@@ -106,17 +111,46 @@ const ensureReverseShipment = async (request: {
     return { item, product, variant, quantity: requestItem.quantity };
   }));
   const parcel = await calculatePackage(loadedItems.map(({ product, variant, quantity }) => ({ product, variant, quantity })));
-  let shipment = await ShipmentModel.create({
-    order: order._id,
-    shipmentType: 'return',
-    sourceOrderId: request.requestNumber,
-    pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
-    package: parcel,
-    shipmentStatus: 'pending_provider',
-    returnStatus: 'approved',
-    idempotencyKey: `return:${request._id}`,
-    createdBy: objectId(adminId)
-  });
+  const idempotencyKey = request.idempotencyKey ?? `return:${request._id}`;
+  let shipment = request.reverseShipment
+    ? await ShipmentModel.findById(request.reverseShipment)
+    : await ShipmentModel.findOne({ provider: 'shiprocket', idempotencyKey });
+  if (shipment?.providerShipmentId) return shipment;
+  if (shipment) {
+    const staleBefore = new Date(Date.now() - 5 * 60_000);
+    shipment = await ShipmentModel.findOneAndUpdate(
+      {
+        _id: shipment._id,
+        $or: [
+          { shipmentStatus: 'error' },
+          { shipmentStatus: 'pending_provider', updatedAt: { $lte: staleBefore } }
+        ]
+      },
+      { $set: { shipmentStatus: 'pending_provider' }, $unset: { lastProviderError: 1 } },
+      { new: true }
+    );
+    if (!shipment) throw new ApiError(409, 'Reverse pickup creation is already in progress');
+  } else {
+    try {
+      shipment = await ShipmentModel.create({
+        order: order._id,
+        shipmentType: 'return',
+        sourceOrderId: request.requestNumber,
+        pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
+        package: parcel,
+        shipmentStatus: 'pending_provider',
+        returnStatus: 'approved',
+        idempotencyKey,
+        createdBy: objectId(adminId)
+      });
+    } catch (error) {
+      const duplicateKey = typeof error === 'object' && error !== null && 'code' in error && error.code === 11_000;
+      if (!duplicateKey) throw error;
+      const existing = await ShipmentModel.findOne({ provider: 'shiprocket', idempotencyKey });
+      if (existing?.providerShipmentId) return existing;
+      throw new ApiError(409, 'Reverse pickup creation is already in progress');
+    }
+  }
   try {
     const original = await ShipmentModel.findOne({ order: order._id, shipmentType: 'forward' }).lean();
     const result = await getLogisticsProvider().createReturn({
@@ -539,7 +573,15 @@ export const ReturnExchangeService = {
     }
     const order = await assertDeliveredOrder(input.orderId, customerId);
     const item = orderItem(order, input.variantId);
-    if (input.quantity > item.quantity) throw new ApiError(400, 'Exchange quantity exceeds the purchased quantity');
+    const [activeReturns, activeExchanges] = await Promise.all([
+      ReturnRequestModel.find({ order: order._id, status: { $nin: ['rejected', 'closed'] } }).select('item items').lean(),
+      ExchangeRequestModel.find({ order: order._id, status: { $nin: ['rejected', 'closed'] } }).select('originalItem').lean()
+    ]);
+    const alreadyRequested = activeReturns.reduce((sum, activeReturn) => {
+      const items = activeReturn.items?.length ? activeReturn.items : activeReturn.item ? [activeReturn.item] : [];
+      return sum + items.filter((candidate) => String(candidate.variant) === input.variantId).reduce((itemSum, candidate) => itemSum + candidate.quantity, 0);
+    }, 0) + activeExchanges.reduce((sum, activeExchange) => String(activeExchange.originalItem?.variant) === input.variantId ? sum + (activeExchange.originalItem?.quantity ?? 0) : sum, 0);
+    if (input.quantity > item.quantity - alreadyRequested) throw new ApiError(409, 'Exchange quantity exceeds the remaining eligible quantity');
     const { product, variant } = await loadProductVariant(item.product, input.requestedVariantId);
     if (variant.stock < input.quantity || variant.enabled === false) throw new ApiError(409, 'Requested replacement is out of stock');
     const request = await ExchangeRequestModel.create({
@@ -875,15 +917,41 @@ export const ReturnExchangeService = {
       request.inventoryReserved = true;
       request.status = 'inventory_reserved';
     } else if (input.action === 'create_reverse_pickup' && request.status === 'inventory_reserved') {
-      const shipment = await ensureReverseShipment({
-        _id: request._id,
-        requestNumber: request.requestNumber,
+      const orderRequests = await ExchangeRequestModel.find({
         order: request.order,
-        item: request.originalItem,
-        reason: 'Customer exchange'
+        status: { $in: ['requested', 'inventory_reserved'] }
+      }).sort({ _id: 1 });
+      const plan = planExchangePickup(orderRequests.map((candidate) => ({
+        id: String(candidate._id),
+        status: candidate.status,
+        hasReverseShipment: Boolean(candidate.reverseShipment)
+      })));
+      if (!plan.ready) {
+        if (plan.reason === 'awaiting_approval') {
+          throw new ApiError(409, `Approve or reject the remaining ${plan.awaitingApproval} product${plan.awaitingApproval === 1 ? '' : 's'} before creating the pickup`);
+        }
+        throw new ApiError(409, 'There are no approved products waiting for pickup');
+      }
+      if (!plan.requestIds.includes(String(request._id))) throw new ApiError(409, 'This product is no longer waiting for pickup');
+      const pickupRequests = orderRequests.filter((candidate) => plan.requestIds.includes(String(candidate._id)));
+      if (pickupRequests.some((candidate) => !candidate.originalItem)) throw new ApiError(409, 'An exchange request is missing product data');
+      const shipment = await ensureReverseShipment({
+        _id: plan.batchToken,
+        requestNumber: `EXC-PICKUP-${plan.batchToken.toUpperCase()}`,
+        order: request.order,
+        items: pickupRequests.map((candidate) => candidate.originalItem!),
+        reason: 'Customer exchange',
+        idempotencyKey: `exchange-return:${request.order}:${plan.batchToken}`
       }, adminId);
-      request.reverseShipment = shipment?._id;
-      request.status = 'reverse_pickup';
+      const pickupCreatedAt = new Date();
+      await ExchangeRequestModel.updateMany(
+        { _id: { $in: plan.requestIds.map((id) => objectId(id)) }, status: 'inventory_reserved' },
+        {
+          $set: { reverseShipment: shipment?._id, status: 'reverse_pickup' },
+          $push: { history: { action: 'create_reverse_pickup', note: `Consolidated pickup for ${plan.requestIds.length} product${plan.requestIds.length === 1 ? '' : 's'}`, admin: objectId(adminId), createdAt: pickupCreatedAt } }
+        }
+      );
+      return ExchangeRequestModel.findById(request._id);
     } else if (input.action === 'reject' && request.status === 'requested') {
       request.status = 'rejected';
     } else if (input.action === 'warehouse_received' && ['reverse_pickup', 'in_transit'].includes(request.status)) {

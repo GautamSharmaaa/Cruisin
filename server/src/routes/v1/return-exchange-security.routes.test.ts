@@ -63,6 +63,7 @@ describe('return and exchange Shiprocket mutation access', () => {
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'refund_pending' })).status).toBe(403);
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'record_manual_upi_refund', upiId: '9876543210@upi', transactionReference: 'UTR123456' })).status).toBe(403);
     expect((await request(app).post('/admin/returns/000000000000000000000002/refund-destination').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ method: 'upi', upiId: '9876543210@upi' })).status).toBe(403);
+    expect((await request(app).post('/admin/exchanges/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'create_reverse_pickup' })).status).toBe(403);
     expect((await request(app).post('/admin/exchanges/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'replacement_shipped' })).status).toBe(403);
   });
 
