@@ -188,7 +188,8 @@ export interface WorkflowRequest {
   handlingFeePaidAt?: string;
   handlingFeePaymentReference?: string;
   requestedSku?: string;
-  originalItem?: { sku?: string; quantity?: number };
+  requestedVariant?: string;
+  originalItem?: { product?: string; variant?: string; sku?: string; quantity?: number };
   refundStatus?: string;
   productRefundAmount?: number;
   productRefundReference?: string;
@@ -197,7 +198,12 @@ export interface WorkflowRequest {
   manualTransferReference?: string;
   manualTransferredAt?: string;
   createdAt: string;
-  order?: { _id?: string; orderNumber?: string };
+  order?: {
+    _id?: string;
+    orderNumber?: string;
+    items?: Array<{ product?: string; variant?: string; title?: string; sku?: string; size?: string; color?: string; quantity?: number; image?: string }>;
+    shippingAddress?: { fullName?: string; phone?: string; city?: string; state?: string; postalCode?: string };
+  };
   customer?: { name?: string; email?: string; phone?: string };
   reverseShipment?: { shipmentStatus?: string; returnStatus?: string; courierName?: string; awb?: string; pickupStatus?: string; lastTrackingUpdate?: string };
 }
