@@ -20,6 +20,7 @@ import { UploadService, type ReturnEvidenceInput } from '../upload.service.js';
 import { RazorpayXPayoutService, type AlternateRefundDestination } from '../razorpayx-payout.service.js';
 import { WalletService } from '../wallet.service.js';
 import { RefundDestinationVault } from '../refund-destination-vault.service.js';
+import { LogisticsProviderError } from '../../types/logistics.types.js';
 
 const requestNumber = (prefix: string): string => `${prefix}-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 const objectId = (value: string): Types.ObjectId => {
@@ -153,12 +154,16 @@ const ensureReverseShipment = async (request: {
   }
   try {
     const original = await ShipmentModel.findOne({ order: order._id, shipmentType: 'forward' }).lean();
+    const mockReturnAddress = logisticsConfig.mode === 'mock' ? await address(order) : undefined;
+    const returnAddress = logisticsConfig.returnAddress ?? (mockReturnAddress ? { ...mockReturnAddress, email: mockReturnAddress.email ?? 'returns@example.test' } : undefined);
+    if (!returnAddress) throw new ApiError(503, 'Shiprocket return warehouse address is not configured');
     const result = await getLogisticsProvider().createReturn({
       localOrderId: String(order._id),
       sourceOrderId: request.requestNumber,
       orderDate: new Date(),
       pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
       address: await address(order),
+      returnAddress,
       items: loadedItems.map(({ item, quantity }) => ({ name: item.title, sku: item.sku, units: quantity, sellingPrice: item.price, discount: 0, tax: 0 })),
       paymentMode: 'prepaid',
       subtotal: loadedItems.reduce((sum, { item, quantity }) => sum + item.price * quantity, 0),
@@ -179,7 +184,14 @@ const ensureReverseShipment = async (request: {
     return shipment;
   } catch (error) {
     shipment.shipmentStatus = 'error';
-    shipment.lastProviderError = { code: 'provider_error', message: error instanceof Error ? error.message : 'Return pickup failed', retryable: true, occurredAt: new Date() };
+    const providerError = error instanceof LogisticsProviderError ? error : undefined;
+    shipment.lastProviderError = {
+      code: providerError?.code ?? 'provider_error',
+      message: error instanceof Error ? error.message : 'Return pickup failed',
+      retryable: providerError?.retryable ?? false,
+      correlationId: providerError?.providerReference,
+      occurredAt: new Date()
+    };
     await shipment.save();
     throw error;
   }

@@ -173,6 +173,9 @@ describe('Shiprocket HTTP client contract without network access', () => {
       message: 'Logistics provider rejected the shipment details'
     });
     expect(axiosRequest).toHaveBeenCalledTimes(1);
+    expect(loggerWarn).toHaveBeenCalledWith('Logistics provider request failed', expect.objectContaining({
+      validationSummary: 'postcode: invalid'
+    }));
   });
 
   it('rejects malformed successful responses as permanent provider failures', async () => {

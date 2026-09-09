@@ -42,6 +42,18 @@ const providerMessage = (data: unknown): string => {
   if (record.errors && typeof record.errors === 'object') return 'Provider validation rejected the request';
   return '';
 };
+const providerValidationSummary = (data: unknown): string | undefined => {
+  if (!data || typeof data !== 'object') return undefined;
+  const errors = (data as Record<string, unknown>).errors;
+  if (!errors || typeof errors !== 'object' || Array.isArray(errors)) return undefined;
+  const summary = Object.entries(errors as Record<string, unknown>).slice(0, 8).map(([field, value]) => {
+    const safeField = field.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80);
+    const message = Array.isArray(value) ? value.find((item) => typeof item === 'string') : typeof value === 'string' ? value : undefined;
+    const safeMessage = message?.replace(/(token|password|secret|authorization)\s*[:=]\s*\S+/gi, '$1=[redacted]').slice(0, 160) ?? 'invalid';
+    return `${safeField}: ${safeMessage}`;
+  }).join('; ');
+  return summary || undefined;
+};
 
 const normalizeError = (error: unknown, correlationId: string): LogisticsProviderError => {
   if (error instanceof LogisticsProviderError) return error;
@@ -163,6 +175,7 @@ export class ShiprocketClient {
           path: options.path,
           statusCode: axiosError?.response?.status,
           errorCode: lastError.code,
+          validationSummary: providerValidationSummary(axiosError?.response?.data),
           attempt
         });
         if (!lastError.retryable || attempt === MAX_ATTEMPTS) throw lastError;

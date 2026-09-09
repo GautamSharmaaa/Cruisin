@@ -34,6 +34,10 @@ const orderInput = (sourceOrderId: string): CreateLogisticsOrderInput => ({
     warnings: []
   }
 });
+const returnAddress = {
+  name: 'QA Returns', phone: '+919000000002', email: 'returns@example.test', address: '2 Warehouse Road',
+  city: 'Bengaluru', state: 'Karnataka', country: 'India', postcode: '560001'
+};
 
 describe('complete mock logistics provider contract', () => {
   let provider: MockLogisticsProvider;
@@ -140,10 +144,10 @@ describe('complete mock logistics provider contract', () => {
   });
 
   it('creates distinct return and exchange-replacement shipments without duplication', async () => {
-    const returned = await provider.createReturn({ ...orderInput('CR-QA-RETURN'), returnReason: 'QA return' });
+    const returned = await provider.createReturn({ ...orderInput('CR-QA-RETURN'), returnAddress, returnReason: 'QA return' });
     const replacement = await provider.createOrder({ ...orderInput('CR-QA-EXCHANGE'), sourceOrderId: 'EXCHANGE-CR-QA-EXCHANGE' });
     expect(returned.awb).toMatch(/^MOCKRETURN/);
     expect(returned.providerShipmentId).not.toBe(replacement.providerShipmentId);
-    await expect(provider.createReturn({ ...orderInput('CR-QA-RETURN'), returnReason: 'QA return' })).rejects.toMatchObject({ code: 'duplicate' });
+    await expect(provider.createReturn({ ...orderInput('CR-QA-RETURN'), returnAddress, returnReason: 'QA return' })).rejects.toMatchObject({ code: 'duplicate' });
   });
 });

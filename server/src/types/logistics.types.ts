@@ -224,6 +224,7 @@ export interface CancelShipmentResult {
 }
 
 export interface CreateReturnInput extends CreateLogisticsOrderInput {
+  returnAddress: LogisticsAddress & { email: string };
   originalAwb?: string;
   returnReason: string;
 }

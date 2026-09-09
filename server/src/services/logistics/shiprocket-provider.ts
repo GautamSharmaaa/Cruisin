@@ -61,6 +61,17 @@ const createOrderSchema = z.object({
   status: z.string().optional().default('NEW')
 }).passthrough();
 
+const createReturnSchema = z.object({
+  status: z.union([z.string(), z.number()]),
+  payload: z.object({
+    order_id: z.union([z.string(), z.number()]),
+    shipment_id: z.union([z.string(), z.number()]),
+    awb_code: z.union([z.string(), z.number()]).optional(),
+    courier_name: z.string().optional(),
+    pickup_generated: z.coerce.number().optional()
+  }).passthrough()
+}).passthrough();
+
 const awbSchema = z.object({
   response: z.object({
     data: z.object({
@@ -189,6 +200,16 @@ const statementChargesForAwb = (response: UnknownRecord, awb: string): Pick<Reco
 const numberValue = (value: string | number | undefined): number | undefined => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const shiprocketPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
+
+const shiprocketCustomerEmail = (customerEmail: string | undefined, fallbackEmail: string): string => {
+  if (!customerEmail || /@(phone\.)?cruisin\.local$/i.test(customerEmail)) return fallbackEmail;
+  return customerEmail;
 };
 
 const courierRate = (courier: z.infer<typeof serviceabilitySchema>['data']['available_courier_companies'][number]): CourierRate => {
@@ -498,17 +519,50 @@ export class ShiprocketProvider implements LogisticsProvider {
 
   public async createReturn(input: CreateReturnInput): Promise<CreateReturnResult> {
     const response = await this.client.post('/shipments/create/return-shipment', {
-      ...orderBody(input),
+      order_id: input.sourceOrderId.slice(0, 50),
+      order_date: input.orderDate.toISOString().replace('T', ' ').slice(0, 16),
       pickup_customer_name: input.address.name,
+      pickup_last_name: '',
       pickup_address: input.address.address,
       pickup_address_2: input.address.address2 ?? '',
       pickup_city: input.address.city,
       pickup_state: input.address.state,
       pickup_country: input.address.country,
       pickup_pincode: Number(input.address.postcode),
-      pickup_phone: input.address.phone,
-      return_reason: input.returnReason
-    }, createOrderSchema);
-    return { providerOrderId: String(response.order_id), providerShipmentId: String(response.shipment_id), status: response.status ?? 'NEW' };
+      pickup_email: shiprocketCustomerEmail(input.address.email, input.returnAddress.email),
+      pickup_phone: shiprocketPhone(input.address.phone),
+      shipping_customer_name: input.returnAddress.name,
+      shipping_last_name: '',
+      shipping_address: input.returnAddress.address,
+      shipping_address_2: input.returnAddress.address2 ?? '',
+      shipping_city: input.returnAddress.city,
+      shipping_state: input.returnAddress.state,
+      shipping_country: input.returnAddress.country,
+      shipping_pincode: Number(input.returnAddress.postcode),
+      shipping_email: input.returnAddress.email,
+      shipping_phone: shiprocketPhone(input.returnAddress.phone),
+      order_items: input.items.map((item) => ({
+        name: item.name,
+        sku: item.sku,
+        units: item.units,
+        selling_price: item.sellingPrice,
+        discount: item.discount,
+        hsn: item.hsn ?? ''
+      })),
+      payment_method: input.paymentMode === 'cod' ? 'COD' : 'PREPAID',
+      total_discount: input.totalDiscount,
+      sub_total: input.subtotal,
+      length: input.package.lengthCm,
+      breadth: input.package.breadthCm,
+      height: input.package.heightCm,
+      weight: input.package.deadWeightKg,
+      request_pickup: true
+    }, createReturnSchema);
+    return {
+      providerOrderId: String(response.payload.order_id),
+      providerShipmentId: String(response.payload.shipment_id),
+      awb: response.payload.awb_code ? String(response.payload.awb_code) : undefined,
+      status: response.payload.pickup_generated === 1 ? 'PICKUP GENERATED' : String(response.status)
+    };
   }
 }

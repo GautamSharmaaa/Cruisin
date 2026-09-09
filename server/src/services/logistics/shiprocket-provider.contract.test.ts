@@ -10,6 +10,7 @@ const mutationOrderInput = {
   address: {
     name: 'Contract Customer',
     phone: '9000000000',
+    email: 'customer@example.test',
     address: '1 Contract Road',
     city: 'Bengaluru',
     state: 'Karnataka',
@@ -33,6 +34,17 @@ const mutationOrderInput = {
     measurementConfirmed: true,
     warnings: []
   }
+};
+
+const returnAddress = {
+  name: 'Cruisin Returns',
+  phone: '+919000000002',
+  email: 'returns@example.test',
+  address: '2 Warehouse Road',
+  city: 'Bengaluru',
+  state: 'Karnataka',
+  country: 'India',
+  postcode: '560001'
 };
 
 describe('ShiprocketProvider live response compatibility', () => {
@@ -151,7 +163,7 @@ describe('ShiprocketProvider live response compatibility', () => {
       if (path === '/courier/generate/pickup') return { pickup_status: 1, response: { pickup_scheduled_date: '2026-08-11T12:00:00.000Z', status: 'Pickup Scheduled' } };
       if (path === '/manifests/generate') return { manifest_url: 'https://documents.example.test/manifest.pdf' };
       if (path === '/orders/cancel/shipment/awbs') return { message: 'Shipment cancelled' };
-      if (path === '/shipments/create/return-shipment') return { order_id: 777, shipment_id: 888, status: 'NEW' };
+      if (path === '/shipments/create/return-shipment') return { status: 1, payload: { order_id: 777, shipment_id: 888, awb_code: 'RETURN-AWB', courier_name: 'Reverse Courier', pickup_generated: 1 } };
       throw new Error(`Unexpected mutation path: ${path}`);
     });
     const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
@@ -161,7 +173,18 @@ describe('ShiprocketProvider live response compatibility', () => {
     await expect(provider.schedulePickup({ providerShipmentId: '555' })).resolves.toMatchObject({ pickupScheduled: true, status: 'Pickup Scheduled' });
     await expect(provider.generateManifest({ providerShipmentId: '555' })).resolves.toMatchObject({ url: 'https://documents.example.test/manifest.pdf' });
     await expect(provider.cancelShipment({ awb: 'AWB-CONTRACT' })).resolves.toMatchObject({ cancelled: true });
-    await expect(provider.createReturn({ ...mutationOrderInput, sourceOrderId: 'CR-CONTRACT-RETURN', returnReason: 'Contract return' })).resolves.toMatchObject({ providerOrderId: '777', providerShipmentId: '888' });
+    await expect(provider.createReturn({
+      ...mutationOrderInput,
+      sourceOrderId: 'CR-CONTRACT-RETURN',
+      returnAddress,
+      items: [
+        mutationOrderInput.items[0],
+        { name: 'Contract Joggers', sku: 'CONTRACT-JOGGERS-L', units: 1, sellingPrice: 500, discount: 0, tax: 0 }
+      ],
+      subtotal: 1_500,
+      total: 1_542,
+      returnReason: 'Contract return'
+    })).resolves.toMatchObject({ providerOrderId: '777', providerShipmentId: '888', awb: 'RETURN-AWB', status: 'PICKUP GENERATED' });
 
     expect(post.mock.calls.map(([path, body, , operation]) => ({ path, body, operation }))).toEqual([
       expect.objectContaining({ path: '/orders/create/adhoc', body: expect.objectContaining({ order_id: 'CR-CONTRACT-MUTATION', pickup_location: 'Contract Warehouse', payment_method: 'Prepaid', sub_total: 1_000, weight: 0.5 }), operation: undefined }),
@@ -169,8 +192,52 @@ describe('ShiprocketProvider live response compatibility', () => {
       { path: '/courier/generate/pickup', body: { shipment_id: [555] }, operation: undefined },
       { path: '/manifests/generate', body: { shipment_id: [555] }, operation: undefined },
       { path: '/orders/cancel/shipment/awbs', body: { awbs: ['AWB-CONTRACT'] }, operation: undefined },
-      expect.objectContaining({ path: '/shipments/create/return-shipment', body: expect.objectContaining({ order_id: 'CR-CONTRACT-RETURN', return_reason: 'Contract return', pickup_pincode: 560001 }), operation: undefined })
+      expect.objectContaining({
+        path: '/shipments/create/return-shipment',
+        body: expect.objectContaining({
+          order_id: 'CR-CONTRACT-RETURN',
+          pickup_customer_name: 'Contract Customer',
+          pickup_pincode: 560001,
+          pickup_phone: '9000000000',
+          pickup_email: 'customer@example.test',
+          shipping_customer_name: 'Cruisin Returns',
+          shipping_address: '2 Warehouse Road',
+          shipping_pincode: 560001,
+          shipping_phone: '9000000002',
+          shipping_email: 'returns@example.test',
+          payment_method: 'PREPAID',
+          request_pickup: true,
+          order_items: [
+            expect.objectContaining({ sku: 'CONTRACT-TEE-M', units: 1 }),
+            expect.objectContaining({ sku: 'CONTRACT-JOGGERS-L', units: 1 })
+          ]
+        }),
+        operation: undefined
+      })
     ]);
+  });
+
+  it('uses a valid warehouse email when a phone-only customer has an internal placeholder email', async () => {
+    const post = vi.fn().mockResolvedValue({
+      status: 1,
+      payload: { order_id: 777, shipment_id: 888, awb_code: 'RETURN-AWB', pickup_generated: 1 }
+    });
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await provider.createReturn({
+      ...mutationOrderInput,
+      address: { ...mutationOrderInput.address, email: 'phone-customer@phone.cruisin.local' },
+      returnAddress,
+      returnReason: 'Exchange'
+    });
+
+    const body = post.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(body.pickup_email).toBe('returns@example.test');
+    expect(body.order_items).toHaveLength(1);
+    expect(body).not.toHaveProperty('billing_address');
+    expect(body).not.toHaveProperty('shipping_is_billing');
+    expect(body).not.toHaveProperty('pickup_location');
+    expect(body).not.toHaveProperty('return_reason');
   });
 
   it('represents the Cruisin COD handling fee without changing item prices', async () => {

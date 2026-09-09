@@ -89,6 +89,15 @@ const envSchema = z.object({
   SHIPROCKET_API_PASSWORD: optionalSecret,
   SHIPROCKET_PICKUP_LOCATION: optionalString,
   SHIPROCKET_PICKUP_POSTCODE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[1-9]\d{5}$/).optional()),
+  SHIPROCKET_RETURN_NAME: optionalString,
+  SHIPROCKET_RETURN_PHONE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^\+?[0-9]{10,15}$/).optional()),
+  SHIPROCKET_RETURN_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
+  SHIPROCKET_RETURN_ADDRESS: optionalString,
+  SHIPROCKET_RETURN_ADDRESS_2: optionalString,
+  SHIPROCKET_RETURN_CITY: optionalString,
+  SHIPROCKET_RETURN_STATE: optionalString,
+  SHIPROCKET_RETURN_COUNTRY: optionalString,
+  SHIPROCKET_RETURN_POSTCODE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[1-9]\d{5}$/).optional()),
   SHIPROCKET_WEBHOOK_SECRET: optionalSecret,
   SHIPROCKET_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(12_000),
   SHIPROCKET_TOKEN_REFRESH_BUFFER_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3_600),
@@ -142,6 +151,11 @@ const envSchema = z.object({
     if (!value.SHIPROCKET_API_PASSWORD) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_API_PASSWORD'], message: 'Shiprocket API password is required outside mock mode' });
     if (!value.SHIPROCKET_PICKUP_LOCATION) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_LOCATION'], message: 'Shiprocket pickup location is required outside mock mode' });
     if (!value.SHIPROCKET_PICKUP_POSTCODE) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_POSTCODE'], message: 'Shiprocket pickup postcode is required outside mock mode' });
+    if (value.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
+      for (const key of ['SHIPROCKET_RETURN_NAME', 'SHIPROCKET_RETURN_PHONE', 'SHIPROCKET_RETURN_EMAIL', 'SHIPROCKET_RETURN_ADDRESS', 'SHIPROCKET_RETURN_CITY', 'SHIPROCKET_RETURN_STATE', 'SHIPROCKET_RETURN_COUNTRY', 'SHIPROCKET_RETURN_POSTCODE'] as const) {
+        if (!value[key]) context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required for live Shiprocket return pickups` });
+      }
+    }
   }
   if (value.SHIPROCKET_ENABLED && value.APP_ENV !== 'development' && !value.SHIPROCKET_WEBHOOK_SECRET) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_WEBHOOK_SECRET'], message: 'Shiprocket webhook secret is required outside development' });

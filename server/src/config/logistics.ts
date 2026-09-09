@@ -1,8 +1,17 @@
 // Governed by .rules v1.0
 import { env } from './env.js';
 import { ApiError } from '../utils/api-error.js';
+import type { LogisticsAddress } from '../types/logistics.types.js';
 
 export type ShiprocketMode = 'mock' | 'live-readonly' | 'live';
+
+const configuredReturnAddress = (): (LogisticsAddress & { email: string }) | undefined => {
+  const { SHIPROCKET_RETURN_NAME: name, SHIPROCKET_RETURN_PHONE: phone, SHIPROCKET_RETURN_EMAIL: email,
+    SHIPROCKET_RETURN_ADDRESS: address, SHIPROCKET_RETURN_ADDRESS_2: address2, SHIPROCKET_RETURN_CITY: city,
+    SHIPROCKET_RETURN_STATE: state, SHIPROCKET_RETURN_COUNTRY: country, SHIPROCKET_RETURN_POSTCODE: postcode } = env;
+  if (!name || !phone || !email || !address || !city || !state || !country || !postcode) return undefined;
+  return { name, phone, email, address, address2, city, state, country, postcode };
+};
 
 export const logisticsConfig = {
   provider: env.LOGISTICS_PROVIDER,
@@ -14,6 +23,7 @@ export const logisticsConfig = {
   apiPassword: env.SHIPROCKET_API_PASSWORD,
   pickupLocation: env.SHIPROCKET_PICKUP_LOCATION,
   pickupPostcode: env.SHIPROCKET_PICKUP_POSTCODE,
+  returnAddress: configuredReturnAddress(),
   webhookSecret: env.SHIPROCKET_WEBHOOK_SECRET,
   requestTimeoutMs: env.SHIPROCKET_REQUEST_TIMEOUT_MS,
   tokenRefreshBufferSeconds: env.SHIPROCKET_TOKEN_REFRESH_BUFFER_SECONDS,
