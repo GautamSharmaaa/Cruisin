@@ -26,7 +26,7 @@ describe('AddressBookService', () => {
       fullName: '  Test   Customer ', phone: '+91 98765 43210', line1: ' 1  Test Street ', city: ' Delhi ', state: ' Delhi ', postalCode: '110001', country: 'IN'
     });
 
-    expect(addressModel.create).toHaveBeenCalledWith(expect.objectContaining({ fullName: 'Test Customer', phone: '+919876543210', street: '1 Test Street', country: 'India', isDefault: true }));
+    expect(addressModel.create).toHaveBeenCalledWith(expect.objectContaining({ fullName: 'Test Customer', phone: '+919876543210', street: '1 Test Street', country: 'India', isDefault: true, lastUsedAt: expect.any(Date) }));
   });
 
   it('updates an equivalent checkout address instead of creating a duplicate', async () => {
@@ -39,6 +39,7 @@ describe('AddressBookService', () => {
     });
 
     expect(addressModel.findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({ _id: 'address-1' }), expect.any(Object), expect.any(Object));
+    expect(addressModel.findOneAndUpdate.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ $set: expect.objectContaining({ lastUsedAt: expect.any(Date) }) }));
     expect(addressModel.create).not.toHaveBeenCalled();
   });
 

@@ -213,7 +213,7 @@ test.describe('full admin dashboard browser QA', () => {
     await page.getByLabel('Category Name').fill(categoryName);
     await page.getByLabel('Category Slug').fill(slug);
     await page.getByLabel('Category Description').fill('Browser-created category for full admin QA.');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText('Category created')).toBeVisible();
     await expect(page.locator('tbody tr').filter({ hasText: categoryName })).toHaveCount(1);
     await expect.poll(async () => {
@@ -294,9 +294,9 @@ test.describe('full admin dashboard browser QA', () => {
     await page.getByLabel('Usage per customer').fill('5');
     await page.getByLabel('Valid From').fill('2026-01-01');
     await page.getByLabel('Valid Until').fill('2026-12-31');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText('Coupon created')).toBeVisible();
-    await expect(page.getByText(couponCode)).toBeVisible();
+    await expect(page.getByText(couponCode, { exact: true })).toBeVisible();
     await expect.poll(async () => {
       const coupon = await adminCouponByCode(request, token, couponCode);
       records!.couponId = coupon?._id;
@@ -313,7 +313,8 @@ test.describe('full admin dashboard browser QA', () => {
     await expect(storefrontPage.getByRole('dialog').getByText(productTitle)).toBeVisible();
     await storefrontPage.getByLabel('Coupon code').fill(couponCode);
     await storefrontPage.getByRole('button', { name: 'Apply' }).click();
-    await expect(storefrontPage.getByText(couponCode + ' applied')).toBeVisible();
+    await expect(storefrontPage.getByText(couponCode, { exact: true })).toBeVisible();
+    await expect(storefrontPage.getByText(`Coupon (${couponCode})`, { exact: false })).toBeVisible();
 
     expectNoImportantBrowserFailures(diagnostics);
     expectNoImportantBrowserFailures(storefrontDiagnostics);

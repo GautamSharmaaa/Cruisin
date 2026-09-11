@@ -10,6 +10,8 @@ import { CategoryModel } from './category.model.js';
 import { CMSMediaModel, CMSPageModel, CMSSectionModel, CMSVersionModel } from './cms.model.js';
 import { CollectionModel } from './collection.model.js';
 import { CouponModel } from './coupon.model.js';
+import { CouponRedemptionModel } from './coupon-redemption.model.js';
+import { CouponUsageCounterModel } from './coupon-usage-counter.model.js';
 import { InventoryModel } from './inventory.model.js';
 import { ExchangeRequestModel } from './exchange-request.model.js';
 import { LogisticsAuditModel } from './logistics-audit.model.js';
@@ -27,6 +29,7 @@ import {
 import { NewsletterSubscriberModel } from './newsletter-subscriber.model.js';
 import { NotificationModel } from './notification.model.js';
 import { OrderModel } from './order.model.js';
+import { OrderDeleteTombstoneModel } from './order-delete-tombstone.model.js';
 import { OtpModel } from './otp.model.js';
 import { PageSettingsModel } from './page-settings.model.js';
 import { PaymentWebhookEventModel } from './payment-webhook-event.model.js';
@@ -42,6 +45,7 @@ import { UserPreferenceModel } from './user-preference.model.js';
 import { UserSessionModel } from './user-session.model.js';
 import { UserModel } from './user.model.js';
 import { WishlistModel } from './wishlist.model.js';
+import { WalletModel } from './wallet.model.js';
 
 export const applicationModels = [
   AddressModel,
@@ -58,6 +62,8 @@ export const applicationModels = [
   CMSVersionModel,
   CollectionModel,
   CouponModel,
+  CouponRedemptionModel,
+  CouponUsageCounterModel,
   ExchangeRequestModel,
   InventoryModel,
   LogisticsAuditModel,
@@ -73,6 +79,7 @@ export const applicationModels = [
   NewsletterSubscriberModel,
   NotificationModel,
   OrderModel,
+  OrderDeleteTombstoneModel,
   OtpModel,
   PackagePresetModel,
   PageSettingsModel,
@@ -87,5 +94,6 @@ export const applicationModels = [
   UserPreferenceModel,
   UserSessionModel,
   UserModel,
+  WalletModel,
   WishlistModel
 ] as const;

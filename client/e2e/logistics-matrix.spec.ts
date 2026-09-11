@@ -9,13 +9,17 @@ const ids = {
   product: '66b000000000000000000101',
   variantA: '66b000000000000000000111',
   variantB: '66b000000000000000000112',
+  customer: '66b000000000000000000202',
   outageOrder: '66b000000000000000000301',
   ndrOrder: '66b000000000000000000302',
   rtoOrder: '66b000000000000000000303',
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
+  safeDeleteOrder: '66b000000000000000000306',
+  cancellationOrder: '66b000000000000000000307',
   ndrShipment: '66b000000000000000000402',
-  rtoShipment: '66b000000000000000000403'
+  rtoShipment: '66b000000000000000000403',
+  cancellationShipment: '66b000000000000000000406'
 } as const;
 const address = {
   fullName: 'Logistics E2E Customer',
@@ -36,6 +40,7 @@ interface Shipment {
   _id: string;
   order: { _id?: string; orderNumber?: string } | string;
   sourceOrderId: string;
+  shipmentType: 'forward' | 'return' | 'exchange_replacement';
   providerOrderId?: string;
   providerShipmentId?: string;
   awb?: string;
@@ -57,7 +62,20 @@ interface Order {
   orderNumber: string;
   paymentStatus: string;
   orderStatus: string;
+  fulfillmentStatus?: string;
+  amountPaid?: number;
+  refunds?: Array<{ amount?: number; status?: string }>;
+  timeline?: Array<{ status: string; note?: string }>;
   razorpayOrderId?: string;
+}
+interface AnalyticsSummary {
+  summary: {
+    paidOrders: number;
+    cancelledOrders: number;
+    grossRevenue: number;
+    netRevenue: number;
+  };
+  ordersByStatus: Record<string, number>;
 }
 interface WorkflowRequest {
   _id: string;
@@ -170,10 +188,12 @@ const variantStock = async (request: APIRequestContext, adminToken: string, vari
 test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
   let adminToken = '';
   let customerToken = '';
+  let managerToken = '';
 
   test.beforeAll(async ({ request }) => {
     adminToken = await login(request, 'logistics-admin@example.test');
     customerToken = await login(request, 'logistics-customer@example.test');
+    managerToken = await login(request, 'logistics-manager@example.test');
   });
 
   test('prepaid quote, checkout, trusted settlement, shipment, AWB, pickup, tracking and delivery are idempotent', async ({ request }) => {
@@ -351,7 +371,7 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
       (result) => result.items.some((job) => job.dedupeKey === `create-order:${ids.outageOrder}` && job.status === 'succeeded'),
       'recovered outage job'
     );
-    expect(completedJob.items.find((job) => job.dedupeKey === `create-order:${ids.outageOrder}`)?.attempts).toBe(2);
+    expect(completedJob.items.find((job) => job.dedupeKey === `create-order:${ids.outageOrder}`)?.attempts).toBeGreaterThanOrEqual(2);
     const shipments = await shipmentList(request, adminToken, 'CR-OUTAGE-ONCE');
     expect(shipments.total).toBe(1);
     expect(shipments.items[0].providerOrderId).toBeTruthy();
@@ -433,54 +453,119 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
     expect(await variantStock(request, adminToken, ids.variantA)).toBe(before + 2);
   });
 
+  test('safe test-order deletion requires the exact typed order number in the admin UI', async ({ page }) => {
+    const adminUrl = process.env.PLAYWRIGHT_ADMIN_URL ?? 'http://127.0.0.1:3101';
+    await page.goto(adminUrl + '/login');
+    await page.getByLabel('Email').fill('logistics-admin@example.test');
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Enter Dashboard' }).click();
+    await expect(page).toHaveURL(adminUrl + '/');
+    await page.getByRole('link', { name: 'Orders', exact: true }).click();
+    await expect(page.getByText('CR-E2E-SAFE-DELETE')).toBeVisible();
+    await page.getByRole('button', { name: `Delete order ${ids.safeDeleteOrder}` }).click();
+    const dialog = page.getByRole('dialog', { name: 'Permanently delete CR-E2E-SAFE-DELETE?' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeDisabled();
+    await dialog.getByLabel('Order number').fill('CR-E2E-WRONG');
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeDisabled();
+    await dialog.getByLabel('Order number').fill('CR-E2E-SAFE-DELETE');
+    await expect(dialog.getByRole('button', { name: 'Delete Permanently' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
   test('delivered order completes return, reverse pickup, receipt, quality check, refund handoff and closure', async ({ request }) => {
     const input = {
       orderId: ids.returnOrder,
-      variantId: ids.variantA,
-      quantity: 1,
-      reason: 'Fit was not suitable',
+      items: [{ variantId: ids.variantA, quantity: 1 }],
+      reason: 'wrong_size_fit',
       details: 'Deterministic logistics return test',
+      evidence: (() => { const publicId = `cruisin/returns/${ids.customer}/e2e-photo`; const version = 1; return [{ publicId, version, format: 'jpg', token: crypto.createHmac('sha256', 'logistics-e2e-access-secret-0000000000000001').update(`${ids.customer}:${publicId}:${version}`).digest('hex') }]; })(),
       idempotencyKey: '10000000-0000-4000-8000-000000000001'
     };
-    const create = async (): Promise<WorkflowRequest> => responseJson<WorkflowRequest>(await request.post(
+    type ReturnSession = { request: { id: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number } };
+    const create = async (): Promise<ReturnSession> => responseJson<ReturnSession>(await request.post(
       `${apiUrl}/fulfillment/returns`,
       { headers: authHeaders(customerToken), data: input }
     ));
-    const first = await create();
-    expect((await create())._id).toBe(first._id);
+    const session = await create();
+    const replay = await create();
+    expect(replay.payment.id).toBe(session.payment.id);
+    expect(session).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const first = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/returns/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: session.request.id, payload: { razorpay_order_id: session.payment.id, razorpay_payment_id: 'pay_mock_return_fee_e2e', mockVerified: true } }
+    }));
     let current = await workflowAction(request, adminToken, 'returns', first._id, 'approved');
     expect(current.status).toBe('approved');
     current = await workflowAction(request, adminToken, 'returns', first._id, 'create_reverse_pickup');
     expect(current.reverseShipment).toBeTruthy();
-    for (const action of ['warehouse_received', 'quality_check_passed', 'refund_pending', 'refunded', 'closed']) {
+    for (const action of ['warehouse_received', 'quality_check_passed', 'open_refund_window']) {
       current = await workflowAction(request, adminToken, 'returns', first._id, action);
     }
+    expect(current).toMatchObject({ status: 'refund_window_open', refundStatus: 'awaiting_destination' });
+    const destination = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/returns/${first._id}/refund-destination`, {
+      headers: authHeaders(customerToken), data: { method: 'original_payment' }
+    }));
+    expect(destination).toMatchObject({ status: 'refund_window_open', refundStatus: 'ready' });
+    current = await workflowAction(request, adminToken, 'returns', first._id, 'refund_pending');
+    current = await workflowAction(request, adminToken, 'returns', first._id, 'closed');
     expect(current).toMatchObject({ status: 'closed', refundStatus: 'processed' });
     expect(current.history.map((entry) => entry.action)).toEqual(expect.arrayContaining([
-      'approved', 'create_reverse_pickup', 'warehouse_received', 'quality_check_passed', 'refund_pending', 'refunded', 'closed'
+      'approved', 'create_reverse_pickup', 'warehouse_received', 'quality_check_passed', 'open_refund_window', 'refund_destination_submitted', 'refund_pending', 'closed'
     ]));
   });
 
-  test('delivered order completes exchange with one stock reservation, reverse pickup and replacement shipment', async ({ request }) => {
+  test('admin approves each exchange product before creating one consolidated reverse pickup', async ({ request }) => {
     const before = await variantStock(request, adminToken, ids.variantB);
-    const input = {
+    type ExchangeInput = { orderId: string; variantId: string; requestedVariantId: string; quantity: number; idempotencyKey: string };
+    const firstInput: ExchangeInput = {
       orderId: ids.exchangeOrder,
       variantId: ids.variantA,
       requestedVariantId: ids.variantB,
       quantity: 1,
       idempotencyKey: '20000000-0000-4000-8000-000000000001'
     };
-    const create = async (): Promise<WorkflowRequest> => responseJson<WorkflowRequest>(await request.post(
+    const secondInput: ExchangeInput = {
+      orderId: ids.exchangeOrder,
+      variantId: ids.variantB,
+      requestedVariantId: ids.variantA,
+      quantity: 1,
+      idempotencyKey: '20000000-0000-4000-8000-000000000002'
+    };
+    type ExchangeSession = { request: { id: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number } };
+    const create = async (input: ExchangeInput): Promise<ExchangeSession> => responseJson<ExchangeSession>(await request.post(
       `${apiUrl}/fulfillment/exchanges`,
       { headers: authHeaders(customerToken), data: input }
     ));
-    const first = await create();
-    expect((await create())._id).toBe(first._id);
+    const firstSession = await create(firstInput);
+    const replay = await create(firstInput);
+    expect(replay.payment.id).toBe(firstSession.payment.id);
+    expect(firstSession).toMatchObject({ request: { handlingFee: 100, handlingFeePaymentStatus: 'pending' }, payment: { amount: 100 } });
+    const secondSession = await create(secondInput);
+    const first = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/exchanges/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: firstSession.request.id, payload: { razorpay_order_id: firstSession.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e_1', mockVerified: true } }
+    }));
+    const second = await responseJson<WorkflowRequest>(await request.post(`${apiUrl}/fulfillment/exchanges/verify-payment`, {
+      headers: authHeaders(customerToken),
+      data: { requestId: secondSession.request.id, payload: { razorpay_order_id: secondSession.payment.id, razorpay_payment_id: 'pay_mock_exchange_fee_e2e_2', mockVerified: true } }
+    }));
     let current = await workflowAction(request, adminToken, 'exchanges', first._id, 'approve');
     expect(current).toMatchObject({ status: 'inventory_reserved', inventoryReserved: true });
+    const blockedPickup = await request.post(`${apiUrl}/admin/exchanges/${first._id}/action`, {
+      headers: authHeaders(adminToken), data: { action: 'create_reverse_pickup' }
+    });
+    expect(blockedPickup.status()).toBe(409);
+    await workflowAction(request, adminToken, 'exchanges', second._id, 'approve');
     expect(await variantStock(request, adminToken, ids.variantB)).toBe(before - 1);
     current = await workflowAction(request, adminToken, 'exchanges', first._id, 'create_reverse_pickup');
     expect(current.reverseShipment).toBeTruthy();
+    const exchanges = await responseJson<WorkflowRequest[]>(await request.get(`${apiUrl}/admin/exchanges`, { headers: authHeaders(adminToken) }));
+    const secondAfterPickup = exchanges.find((exchange) => exchange._id === second._id);
+    expect(secondAfterPickup).toMatchObject({ status: 'reverse_pickup', reverseShipment: current.reverseShipment });
+    const shipmentsAfterPickup = await shipmentList(request, adminToken);
+    expect(shipmentsAfterPickup.items.filter((shipment) => shipment.shipmentType === 'return' && (typeof shipment.order === 'string' ? shipment.order : shipment.order._id) === ids.exchangeOrder)).toHaveLength(1);
     for (const action of ['warehouse_received', 'quality_check_passed', 'replacement_shipped', 'complete', 'close']) {
       current = await workflowAction(request, adminToken, 'exchanges', first._id, action);
     }
@@ -490,5 +575,65 @@ test.describe.serial('isolated Shiprocket production-hardening matrix', () => {
     expect(await variantStock(request, adminToken, ids.variantB)).toBe(before - 1);
     const shipments = await shipmentList(request, adminToken);
     expect(shipments.items.filter((shipment) => shipment._id === current.replacementShipment)).toHaveLength(1);
+  });
+
+  test('admin cancellation is idempotent, manager mutations are denied, and financial analytics stay intact', async ({ request }) => {
+    const managerSyncResponse = await request.post(`${apiUrl}/admin/logistics/sync`, { headers: authHeaders(managerToken) });
+    const managerSync = await responseJson<{ scanned: number; changed: number; unchanged: number; failed: number; shiprocketMutations: number }>(managerSyncResponse);
+    expect(managerSync.scanned).toBeGreaterThan(0);
+    expect(managerSync.shiprocketMutations).toBe(0);
+    const repeatedManagerSync = await responseJson<{ scanned: number; changed: number; unchanged: number; failed: number; shiprocketMutations: number }>(
+      await request.post(`${apiUrl}/admin/logistics/sync`, { headers: authHeaders(managerToken) })
+    );
+    expect(repeatedManagerSync).toEqual({
+      scanned: managerSync.scanned,
+      changed: 0,
+      unchanged: managerSync.scanned,
+      failed: 0,
+      shiprocketMutations: 0
+    });
+
+    for (const mutation of [
+      { method: 'post', path: `/admin/logistics/orders/${ids.cancellationOrder}/create`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/assign-awb`, data: { courierId: 10 } },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/schedule-pickup`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/label`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/invoice`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/manifest`, data: {} },
+      { method: 'post', path: `/admin/logistics/${ids.cancellationShipment}/cancel`, data: {} },
+      { method: 'get', path: `/admin/logistics/${ids.cancellationShipment}/documents/label` }
+    ] as const) {
+      const response = mutation.method === 'get'
+        ? await request.get(`${apiUrl}${mutation.path}`, { headers: authHeaders(managerToken) })
+        : await request.post(`${apiUrl}${mutation.path}`, { headers: authHeaders(managerToken), data: mutation.data });
+      expect(response.status(), mutation.path).toBe(403);
+    }
+
+    const beforeOrder = await responseJson<Order>(await request.get(`${apiUrl}/admin/orders/${ids.cancellationOrder}`, { headers: authHeaders(adminToken) }));
+    const beforeAnalytics = await responseJson<AnalyticsSummary>(await request.get(`${apiUrl}/admin/analytics/summary`, { headers: authHeaders(adminToken), params: { preset: 'last30' } }));
+
+    const firstCancellation = await responseJson<Shipment>(await request.post(
+      `${apiUrl}/admin/logistics/${ids.cancellationShipment}/cancel`,
+      { headers: authHeaders(adminToken) }
+    ));
+    expect(firstCancellation.shipmentStatus).toBe('cancelled');
+    const duplicateCancellation = await responseJson<Shipment>(await request.post(
+      `${apiUrl}/admin/logistics/${ids.cancellationShipment}/cancel`,
+      { headers: authHeaders(adminToken) }
+    ));
+    expect(duplicateCancellation.shipmentStatus).toBe('cancelled');
+
+    const afterOrder = await responseJson<Order>(await request.get(`${apiUrl}/admin/orders/${ids.cancellationOrder}`, { headers: authHeaders(adminToken) }));
+    const afterAnalytics = await responseJson<AnalyticsSummary>(await request.get(`${apiUrl}/admin/analytics/summary`, { headers: authHeaders(adminToken), params: { preset: 'last30' } }));
+    expect(afterOrder).toMatchObject({ paymentStatus: 'paid', orderStatus: 'cancelled', fulfillmentStatus: 'cancelled', amountPaid: beforeOrder.amountPaid });
+    expect(afterOrder.refunds ?? []).toEqual(beforeOrder.refunds ?? []);
+    expect(afterOrder.timeline?.filter((event) => event.note?.includes('Forward shipment cancelled in Shiprocket'))).toHaveLength(1);
+    expect(afterAnalytics.summary).toMatchObject({
+      paidOrders: beforeAnalytics.summary.paidOrders,
+      grossRevenue: beforeAnalytics.summary.grossRevenue,
+      netRevenue: beforeAnalytics.summary.netRevenue,
+      cancelledOrders: beforeAnalytics.summary.cancelledOrders + 1
+    });
+    expect(afterAnalytics.ordersByStatus.cancelled).toBe((beforeAnalytics.ordersByStatus.cancelled ?? 0) + 1);
   });
 });

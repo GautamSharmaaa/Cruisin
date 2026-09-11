@@ -86,6 +86,6 @@ test('guest checkout hides protected content until authentication resolves', asy
     releaseRefresh();
   }
 
-  await expect(page.getByRole('heading', { name: 'Sign in to place your order' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?redirect=%2Fcheckout');
+  await expect(page.getByRole('heading', { name: 'Continue securely' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue with WhatsApp' })).toHaveAttribute('href', '/login?redirect=%2Fcheckout');
 });

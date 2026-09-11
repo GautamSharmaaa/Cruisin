@@ -5,10 +5,11 @@ import { requireAdmin, requireRole } from '../../middleware/admin.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema, slugParamSchema } from '../../validators/common.validator.js';
-import { adminProductQuerySchema, productBodySchema, productQuerySchema, productUpdateSchema } from '../../validators/product.validator.js';
+import { adminProductQuerySchema, cartRecommendationsQuerySchema, productBodySchema, productQuerySchema, productUpdateSchema } from '../../validators/product.validator.js';
 
 export const productRouter = Router();
 productRouter.get('/', validate({ query: productQuerySchema }), ProductController.list);
+productRouter.get('/cart-recommendations', validate({ query: cartRecommendationsQuerySchema }), ProductController.cartRecommendations);
 productRouter.get('/admin/catalogue', requireAuth, requireAdmin, validate({ query: adminProductQuerySchema }), ProductController.adminList);
 productRouter.get('/admin/:id', requireAuth, requireAdmin, validate({ params: idParamSchema }), ProductController.adminById);
 productRouter.get('/:slug', validate({ params: slugParamSchema }), ProductController.bySlug);

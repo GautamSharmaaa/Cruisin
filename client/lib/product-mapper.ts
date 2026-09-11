@@ -64,6 +64,15 @@ export interface ApiProduct {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isLatestDrop?: boolean;
+  recommendedProducts?: Array<string | { _id?: string; id?: string }>;
+  completeTheFit?: {
+    enabled?: boolean;
+    strategy?: 'manual' | 'frequently_bought_together' | 'best_sellers';
+    title?: string;
+    eyebrow?: string;
+    description?: string;
+    bundleDiscount?: { enabled?: boolean; twoItemDiscount?: number; threeItemDiscount?: number };
+  };
   materialCare?: string;
   fitDetails?: string;
   shippingReturns?: string;
@@ -134,6 +143,8 @@ export const mapProduct = (product: ApiProduct): Product => ({
   isBestseller: product.isBestseller,
   isNewArrival: product.isNewArrival,
   isLatestDrop: product.isLatestDrop,
+  recommendedProductIds: (product.recommendedProducts ?? []).map((item) => typeof item === 'string' ? item : item.id ?? item._id ?? '').filter(Boolean),
+  completeTheFit: product.completeTheFit,
   materialCare: product.materialCare,
   fitDetails: product.fitDetails,
   shippingReturns: product.shippingReturns,

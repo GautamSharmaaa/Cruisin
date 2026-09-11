@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkoutSchema, customerCancellationSchema, orderStatusSchema } from './order.validator.js';
+import { adminShippingAddressSchema, checkoutSchema, customerCancellationSchema, orderStatusSchema } from './order.validator.js';
 
 const checkout = {
   shippingAddress: { fullName: 'Test Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' },
@@ -19,6 +19,25 @@ describe('checkoutSchema Meta event ID', () => {
   it('rejects malformed or oversized event IDs', () => {
     expect(checkoutSchema.safeParse({ ...checkout, metaEventId: 'customer@example.com' }).success).toBe(false);
     expect(checkoutSchema.safeParse({ ...checkout, metaEventId: `checkout:${'x'.repeat(200)}` }).success).toBe(false);
+  });
+});
+
+describe('checkoutSchema Indian delivery country', () => {
+  it.each(['IN', 'IND', 'India', ' india '])('normalizes %s to the Shiprocket domestic country value', (country) => {
+    const result = checkoutSchema.parse({
+      ...checkout,
+      shippingAddress: { ...checkout.shippingAddress, country },
+      billingAddress: { ...checkout.billingAddress, country }
+    });
+    expect(result.shippingAddress.country).toBe('India');
+    expect(result.billingAddress.country).toBe('India');
+  });
+
+  it('rejects opaque country identifiers that Shiprocket can classify as international', () => {
+    expect(checkoutSchema.safeParse({
+      ...checkout,
+      shippingAddress: { ...checkout.shippingAddress, country: '101' }
+    }).success).toBe(false);
   });
 });
 
@@ -44,5 +63,17 @@ describe('orderStatusSchema', () => {
     expect(orderStatusSchema.safeParse({ status: 'cancelled' }).success).toBe(false);
     expect(orderStatusSchema.safeParse({ status: 'cancelled', note: 'Customer requested cancellation by phone.' }).success).toBe(true);
     expect(orderStatusSchema.safeParse({ status: 'processing' }).success).toBe(true);
+  });
+});
+
+describe('adminShippingAddressSchema', () => {
+  const address = { fullName: 'Deepak Phalle', phone: '+919876543210', line1: 'Flat 2, Panchwati Colony', city: 'Pune', state: 'Maharashtra', postalCode: '410506', country: 'India' };
+
+  it('accepts a Shiprocket-compatible Indian shipping address', () => {
+    expect(adminShippingAddressSchema.safeParse({ shippingAddress: address }).success).toBe(true);
+  });
+
+  it('rejects invalid Shiprocket phone numbers', () => {
+    expect(adminShippingAddressSchema.safeParse({ shippingAddress: { ...address, phone: '099-756-21212' } }).success).toBe(false);
   });
 });

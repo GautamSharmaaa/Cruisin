@@ -17,9 +17,10 @@ import { SelectField } from "@/components/ui/select-field";
 import { COPY } from "@/constants/copy";
 import {
   useOrderPaymentAction,
+  useUpdateOrderShippingAddress,
   useUpdateOrderStatus,
 } from "@/hooks/useAdminMutations";
-import { useAdminOrder } from "@/hooks/useAdminResources";
+import { useAdminMe, useAdminOrder } from "@/hooks/useAdminResources";
 import { formatPrecisePrice, formatPrice } from "@/lib/utils";
 import type { OrderDto } from "@/types/dto.types";
 import { OrderShippingPanel } from "@/components/logistics/order-shipping-panel";
@@ -132,7 +133,9 @@ function CancellationReview({ order }: { order: OrderDto }): ReactNode {
 
 export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
   const order = useAdminOrder(id);
+  const me = useAdminMe();
   const updateStatus = useUpdateOrderStatus();
+  const updateShippingAddress = useUpdateOrderShippingAddress();
   const paymentAction = useOrderPaymentAction();
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [note, setNote] = useState("");
@@ -140,6 +143,8 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [operationNotice, setOperationNotice] = useState("");
+  const [editingShipping, setEditingShipping] = useState(false);
+  const [shippingForm, setShippingForm] = useState({ fullName: "", phone: "", line1: "", line2: "", city: "", state: "", postalCode: "", country: "India" });
   const refundAttempt = useRef<{ fingerprint: string; key: string } | null>(
     null,
   );
@@ -152,6 +157,18 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
   const current = order.data;
   const displayId = current.id ?? current._id ?? id;
   const currentStatus = current.orderStatus as OrderStatus;
+  const canEditShippingAddress = ["admin", "superadmin"].includes(String(me.data?.role));
+  const startShippingEdit = (): void => {
+    const address = current.shippingAddress;
+    setShippingForm({ fullName: address?.fullName ?? "", phone: address?.phone ?? "", line1: address?.line1 ?? "", line2: address?.line2 ?? "", city: address?.city ?? "", state: address?.state ?? "", postalCode: address?.postalCode ?? "", country: address?.country ?? "India" });
+    setEditingShipping(true);
+  };
+  const saveShippingAddress = (): void => {
+    updateShippingAddress.mutate({ id: displayId, shippingAddress: { ...shippingForm, line2: shippingForm.line2.trim() || undefined } }, {
+      onSuccess: () => { setEditingShipping(false); setOperationNotice("Shipping address updated. You can now retry Shiprocket."); },
+      onError: (error) => setOperationNotice(error instanceof Error ? error.message : "Could not update the shipping address.")
+    });
+  };
   const selectedStatus = (status || currentStatus) as OrderStatus;
   const canRecordCollection = currentStatus !== "cancelled";
   const committedRefundTotal = (current.refunds ?? [])
@@ -387,10 +404,24 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
         </article>
 
         <article className="border border-border bg-background-elevated p-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
             <MapPin className="h-5 w-5 text-accent-gold" aria-hidden="true" />
             <h2 className="font-display text-xl">{COPY.orders.shipping}</h2>
+            </div>
+            {!editingShipping && canEditShippingAddress ? <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={startShippingEdit}>Edit address</Button> : null}
           </div>
+          {editingShipping ? <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Input label="Full name" value={shippingForm.fullName} onChange={(event) => setShippingForm((value) => ({ ...value, fullName: event.target.value }))} />
+            <Input label="Mobile number" placeholder="+919876543210" value={shippingForm.phone} onChange={(event) => setShippingForm((value) => ({ ...value, phone: event.target.value }))} />
+            <div className="sm:col-span-2"><Input label="Address line 1" value={shippingForm.line1} onChange={(event) => setShippingForm((value) => ({ ...value, line1: event.target.value }))} /></div>
+            <div className="sm:col-span-2"><Input label="Address line 2 (optional)" value={shippingForm.line2} onChange={(event) => setShippingForm((value) => ({ ...value, line2: event.target.value }))} /></div>
+            <Input label="City" value={shippingForm.city} onChange={(event) => setShippingForm((value) => ({ ...value, city: event.target.value }))} />
+            <Input label="State" value={shippingForm.state} onChange={(event) => setShippingForm((value) => ({ ...value, state: event.target.value }))} />
+            <Input label="Pincode" inputMode="numeric" value={shippingForm.postalCode} onChange={(event) => setShippingForm((value) => ({ ...value, postalCode: event.target.value }))} />
+            <Input label="Country" value={shippingForm.country} disabled />
+            <div className="flex gap-3 sm:col-span-2"><Button onClick={saveShippingAddress} disabled={updateShippingAddress.isPending}>{updateShippingAddress.isPending ? "Saving…" : "Save shipping address"}</Button><Button variant="secondary" onClick={() => setEditingShipping(false)} disabled={updateShippingAddress.isPending}>Cancel</Button></div>
+          </div> : <>
           <p className="mt-4 text-sm font-medium text-text-primary">
             {current.shippingAddress?.fullName ?? COPY.common.none}
           </p>
@@ -410,6 +441,7 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
           <p className="mt-4 text-xs uppercase tracking-[0.12em] text-text-muted">
             {statusLabel(current.shippingMethod ?? "standard")} delivery
           </p>
+          </>}
         </article>
 
         <article className="border border-border bg-background-elevated p-6">

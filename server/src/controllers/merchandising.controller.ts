@@ -175,6 +175,11 @@ export const MerchandisingController = {
     res.json(new ApiResponse(settings, 'Site settings updated'));
   }),
 
+  updatePaymentSettings: asyncHandler(async (req: Request<Record<string, string>, unknown, { codCheckoutEnabled: boolean; codFee: number }>, res: Response): Promise<void> => {
+    const settings = await MerchandisingService.updateSiteSettings(req.body);
+    res.json(new ApiResponse(settings, 'COD payment settings updated'));
+  }),
+
   tags: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     const tags = await MerchandisingService.tags(false);
     res.json(new ApiResponse(tags, 'Tags loaded'));

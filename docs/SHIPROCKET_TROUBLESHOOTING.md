@@ -15,6 +15,7 @@ Live modes reject missing/zero product or variant weight/dimensions. Add measure
 ## Live operations are disabled
 
 - Reads require `live-readonly` or `live` plus `SHIPROCKET_ALLOW_LIVE_READS=true`.
+- Label/invoice documents require live reads plus `SHIPROCKET_ALLOW_LIVE_DOCUMENTS=true`, or the broader live-mutation permission.
 - Mutations require `live` plus `SHIPROCKET_ALLOW_LIVE_MUTATIONS=true`.
 - Automatic AWB can follow either manual or automatic provider-order success, but still requires confirmed measurements and a selected courier. Automatic pickup can follow either manual or automatic AWB success.
 

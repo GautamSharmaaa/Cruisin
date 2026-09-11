@@ -5,7 +5,7 @@ process.env.NODE_ENV = 'test';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-logistics-notification-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -37,7 +37,7 @@ beforeAll(async () => {
 
 describe('logistics notification event contract', () => {
   it('has deterministic templates for every required event type', () => {
-    expect(eventTypes).toHaveLength(18);
+    expect(eventTypes).toHaveLength(23);
     for (const eventType of eventTypes) {
       const output = render(eventType, 'CR-TEST-001');
       expect(output.title.length).toBeGreaterThan(3);

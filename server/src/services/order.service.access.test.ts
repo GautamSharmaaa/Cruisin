@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 process.env.NODE_ENV = 'test';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -16,11 +16,21 @@ process.env.STRIPE_SECRET_KEY = 'test';
 process.env.STRIPE_WEBHOOK_SECRET = 'test';
 process.env.SENDGRID_API_KEY = 'test';
 
-const { orderModel } = vi.hoisted(() => ({ orderModel: { findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() } }));
+const { couponRedemptionService, mongoTransaction, orderModel } = vi.hoisted(() => ({
+  couponRedemptionService: { releaseCouponRedemption: vi.fn() },
+  mongoTransaction: { withMongoTransaction: vi.fn() },
+  orderModel: { findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() }
+}));
 vi.mock('../models/order.model.js', () => ({ OrderModel: orderModel }));
+vi.mock('./coupon-redemption.service.js', () => couponRedemptionService);
+vi.mock('../utils/mongo-transaction.js', () => mongoTransaction);
 
 describe('OrderService customer access', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    couponRedemptionService.releaseCouponRedemption.mockResolvedValue(false);
+    mongoTransaction.withMongoTransaction.mockImplementation(async (work: (session?: undefined) => unknown) => await work(undefined));
+  });
 
   it('rejects another customer and staff from the customer order endpoint', async () => {
     const { OrderService } = await import('./order.service.js');

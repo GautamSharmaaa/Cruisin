@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { logisticsConfig } from '../../config/logistics.js';
 import { CartModel } from '../../models/cart.model.js';
 import { LogisticsQuoteModel } from '../../models/logistics-quote.model.js';
@@ -10,7 +10,7 @@ import { ApiError } from '../../utils/api-error.js';
 import { getLogisticsProvider } from './provider-factory.js';
 import { calculatePackage, type PackageLine } from './package-calculator.js';
 
-interface PricedCartLine {
+export interface PricedCartLine {
   productId: string;
   variantId: string;
   quantity: number;
@@ -37,13 +37,15 @@ export interface ValidatedQuote {
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : String(value ?? '');
 
-const loadCartLines = async (userId: string): Promise<PricedCartLine[]> => {
+const loadCartLines = async (userId: string, expectedCartVersion?: number): Promise<{ lines: PricedCartLine[]; version: number }> => {
   const cart = await CartModel.findOne({ user: userId }).lean();
   if (!cart?.items.length) throw new ApiError(400, 'Cart is empty');
+  const version = cart.version ?? 0;
+  if (expectedCartVersion !== undefined && version !== expectedCartVersion) throw new ApiError(409, 'Your bag changed; refresh delivery options');
   const productIds = [...new Set(cart.items.map((item) => idString(item.product)))];
   const products = await ProductModel.find({ _id: { $in: productIds } }).lean();
   const byId = new Map(products.map((product) => [String(product._id), product]));
-  return cart.items.map((item) => {
+  const lines = cart.items.map((item) => {
     const productId = idString(item.product);
     const variantId = idString(item.variant);
     const product = byId.get(productId);
@@ -60,6 +62,7 @@ const loadCartLines = async (userId: string): Promise<PricedCartLine[]> => {
       packageLine: { product, variant, quantity: item.quantity }
     };
   });
+  return { lines, version };
 };
 
 export const cartFingerprint = (lines: Array<{
@@ -115,9 +118,9 @@ const customerOptions = (couriers: CourierRate[], freeShipping: boolean): QuoteO
 };
 
 export const LogisticsQuoteService = {
-  async create(userId: string, input: { deliveryPostcode: string; paymentMode: 'prepaid' | 'cod'; freeShipping?: boolean }): Promise<unknown> {
+  async create(userId: string, input: { deliveryPostcode: string; paymentMode: 'prepaid' | 'cod'; freeShipping?: boolean; expectedCartVersion?: number }): Promise<unknown> {
     if (!logisticsConfig.enabled) throw new ApiError(404, 'Live courier quotes are not enabled');
-    const lines = await loadCartLines(userId);
+    const { lines, version } = await loadCartLines(userId, input.expectedCartVersion);
     const packageMeasurement = await calculatePackage(lines.map((line) => line.packageLine));
     const subtotal = money(lines.reduce((sum, line) => sum + line.price * line.quantity, 0));
     const rates = await getLogisticsProvider().getRates({
@@ -139,6 +142,7 @@ export const LogisticsQuoteService = {
       quoteId,
       user: userId,
       cartFingerprint: cartFingerprint(lines),
+      cartVersion: version,
       deliveryPostcode: input.deliveryPostcode,
       pickupPostcode: logisticsConfig.pickupPostcode ?? '560001',
       paymentMode: input.paymentMode,
@@ -151,7 +155,7 @@ export const LogisticsQuoteService = {
     return quote.toObject();
   },
 
-  async validate(userId: string, input: { quoteId?: string; shippingMethod: 'standard' | 'express'; paymentMode: 'prepaid' | 'cod'; deliveryPostcode: string; freeShipping?: boolean }): Promise<ValidatedQuote> {
+  async validate(userId: string, input: { quoteId?: string; shippingMethod: 'standard' | 'express'; paymentMode: 'prepaid' | 'cod'; deliveryPostcode: string; freeShipping?: boolean; authoritativeCart?: { version: number; lines: PricedCartLine[] } }): Promise<ValidatedQuote> {
     if (!logisticsConfig.enabled) throw new ApiError(500, 'Quote validation is unavailable while logistics is disabled');
     if (!input.quoteId) throw new ApiError(400, 'Refresh delivery options before placing this order');
     const quote = await LogisticsQuoteModel.findOne({ quoteId: input.quoteId, user: userId });
@@ -159,7 +163,10 @@ export const LogisticsQuoteService = {
     if (quote.expiresAt.getTime() <= Date.now()) throw new ApiError(409, 'Delivery quote expired; refresh delivery options');
     if (quote.consumedAt) throw new ApiError(409, 'Delivery quote was already used');
     if (quote.paymentMode !== input.paymentMode || quote.deliveryPostcode !== input.deliveryPostcode) throw new ApiError(409, 'Delivery details changed; refresh delivery options');
-    const lines = await loadCartLines(userId);
+    const { lines, version } = input.authoritativeCart ?? await loadCartLines(userId);
+    // Quotes created before cart versioning remain safe because the full
+    // authoritative cart/package fingerprint is still checked below.
+    if (typeof quote.cartVersion === 'number' && quote.cartVersion !== version) throw new ApiError(409, 'Your bag changed; refresh delivery options');
     if (quote.cartFingerprint !== cartFingerprint(lines)) throw new ApiError(409, 'Your bag changed; refresh delivery options');
     const option = quote.options.find((candidate) => candidate.code === input.shippingMethod);
     if (!option || (input.paymentMode === 'cod' && !option.codAvailable)) throw new ApiError(409, 'Selected delivery option is no longer available');
@@ -181,7 +188,12 @@ export const LogisticsQuoteService = {
     };
   },
 
-  async consume(quoteId: string): Promise<void> {
-    await LogisticsQuoteModel.updateOne({ quoteId, consumedAt: { $exists: false } }, { $set: { consumedAt: new Date() } });
+  async consume(quoteId: string, session?: ClientSession): Promise<void> {
+    const result = await LogisticsQuoteModel.updateOne({ quoteId, consumedAt: { $exists: false } }, { $set: { consumedAt: new Date() } }, session ? { session } : {});
+    if (result.modifiedCount !== 1) throw new ApiError(409, 'Delivery quote was already used');
+  },
+
+  async release(quoteId: string, session?: ClientSession): Promise<void> {
+    await LogisticsQuoteModel.updateOne({ quoteId, expiresAt: { $gt: new Date() } }, { $unset: { consumedAt: 1 } }, session ? { session } : {});
   }
 };

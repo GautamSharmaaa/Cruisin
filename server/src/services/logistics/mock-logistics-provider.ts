@@ -12,6 +12,8 @@ import type {
   CourierRate,
   DocumentInput,
   DocumentResult,
+  ReconcileShipmentInput,
+  ReconcileShipmentResult,
   SchedulePickupInput,
   SchedulePickupResult,
   ServiceabilityInput,
@@ -136,17 +138,29 @@ export class MockLogisticsProvider implements LogisticsProvider {
         : scenario.includes('NDR') || scenario.includes('FAILED') ? 'ndr'
           : scenario.includes('DELIVERED') ? 'delivered'
             : 'in_transit';
-    const now = new Date();
+    const fixtureNow = new Date('2026-08-11T10:00:00.000Z');
     return {
       awb,
       courierName: 'Mock Surface',
       status,
       rawStatus,
-      estimatedDelivery: new Date(now.getTime() + 3 * 86_400_000).toISOString(),
+      estimatedDelivery: new Date(fixtureNow.getTime() + 3 * 86_400_000).toISOString(),
       scans: [
-        { status: 'picked_up', rawStatus: 'Picked Up', message: 'Shipment picked up', location: 'Bengaluru', timestamp: new Date(now.getTime() - 48 * 3_600_000).toISOString() },
-        { status, rawStatus, message: rawStatus === 'NDR' ? 'Customer unavailable; reattempt available' : rawStatus, location: 'Destination hub', timestamp: now.toISOString() }
+        { status: 'picked_up', rawStatus: 'Picked Up', message: 'Shipment picked up', location: 'Bengaluru', timestamp: new Date(fixtureNow.getTime() - 48 * 3_600_000).toISOString() },
+        { status, rawStatus, message: rawStatus === 'NDR' ? 'Customer unavailable; reattempt available' : rawStatus, location: 'Destination hub', timestamp: fixtureNow.toISOString() }
       ]
+    };
+  }
+
+  public async reconcileShipment(input: ReconcileShipmentInput): Promise<ReconcileShipmentResult> {
+    const tracked = await this.trackShipment(input);
+    return {
+      ...tracked,
+      providerOrderId: input.providerOrderId,
+      providerShipmentId: input.providerShipmentId,
+      courierId: 10,
+      pickupStatus: 'Pickup Scheduled',
+      pickupDate: '2026-08-11T09:00:00.000Z'
     };
   }
 

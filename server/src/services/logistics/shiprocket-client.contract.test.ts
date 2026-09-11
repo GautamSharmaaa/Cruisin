@@ -25,7 +25,7 @@ process.env.NODE_ENV = 'test';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-logistics-client-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379/14';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -38,6 +38,7 @@ process.env.SENDGRID_API_KEY = 'SG.test';
 process.env.SHIPROCKET_ENABLED = 'true';
 process.env.SHIPROCKET_MODE = 'live-readonly';
 process.env.SHIPROCKET_ALLOW_LIVE_READS = 'true';
+process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS = 'true';
 process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS = 'false';
 process.env.SHIPROCKET_API_EMAIL = 'shiprocket-qa@example.test';
 process.env.SHIPROCKET_API_PASSWORD = 'test-only-password';
@@ -172,6 +173,9 @@ describe('Shiprocket HTTP client contract without network access', () => {
       message: 'Logistics provider rejected the shipment details'
     });
     expect(axiosRequest).toHaveBeenCalledTimes(1);
+    expect(loggerWarn).toHaveBeenCalledWith('Logistics provider request failed', expect.objectContaining({
+      validationSummary: 'postcode: invalid'
+    }));
   });
 
   it('rejects malformed successful responses as permanent provider failures', async () => {
@@ -193,5 +197,12 @@ describe('Shiprocket HTTP client contract without network access', () => {
   it('refuses mutations in live-readonly mode before authentication', async () => {
     await expect(new ShiprocketClient().post('/orders/create/adhoc', {}, okSchema)).rejects.toThrow('Live logistics mutations are disabled');
     expect(axiosRequest).not.toHaveBeenCalled();
+  });
+
+  it('permits explicitly enabled label/invoice document operations without enabling shipment mutations', async () => {
+    axiosRequest.mockResolvedValueOnce({ data: { token } }).mockResolvedValueOnce({ data: { ok: true } });
+    const result = await new ShiprocketClient().post('/orders/print/invoice', { ids: [444] }, okSchema, 'document');
+    expect(result).toEqual({ ok: true });
+    expect(axiosRequest.mock.calls[1]?.[0]).toMatchObject({ method: 'POST', url: '/orders/print/invoice', data: { ids: [444] } });
   });
 });

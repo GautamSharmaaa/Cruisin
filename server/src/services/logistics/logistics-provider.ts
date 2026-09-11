@@ -10,6 +10,8 @@ import type {
   CreateReturnResult,
   DocumentInput,
   DocumentResult,
+  ReconcileShipmentInput,
+  ReconcileShipmentResult,
   SchedulePickupInput,
   SchedulePickupResult,
   ServiceabilityInput,
@@ -32,6 +34,7 @@ export interface LogisticsProvider {
   generateInvoice(input: DocumentInput): Promise<DocumentResult>;
   generateManifest(input: DocumentInput): Promise<DocumentResult>;
   trackShipment(input: TrackingInput): Promise<TrackingResult>;
+  reconcileShipment(input: ReconcileShipmentInput): Promise<ReconcileShipmentResult>;
   cancelShipment(input: CancelShipmentInput): Promise<CancelShipmentResult>;
   createReturn(input: CreateReturnInput): Promise<CreateReturnResult>;
 }

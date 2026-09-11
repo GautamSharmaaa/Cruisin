@@ -24,7 +24,7 @@
     "test": "npm --workspace server run test && npm --workspace client run test && npm --workspace admin run test",
     "test:e2e": "npm --workspace client run test:e2e",
     "test:e2e:logistics": "npm --workspace client run test:e2e:logistics",
-    "verify:logistics": "SHIPROCKET_ENABLED=false SHIPROCKET_MODE=mock SHIPROCKET_ALLOW_LIVE_READS=false SHIPROCKET_ALLOW_LIVE_MUTATIONS=false npm-run-all --sequential lint typecheck test build verify:logistics:focused verify:logistics:secrets",
+    "verify:logistics": "SHIPROCKET_ENABLED=false SHIPROCKET_MODE=mock SHIPROCKET_ALLOW_LIVE_READS=false SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false SHIPROCKET_ALLOW_LIVE_MUTATIONS=false npm-run-all --sequential lint typecheck test build verify:logistics:focused verify:logistics:secrets",
     "verify:logistics:focused": "npm --workspace server run verify:logistics",
     "verify:logistics:secrets": "node scripts/verify-logistics-secrets.mjs"
   },

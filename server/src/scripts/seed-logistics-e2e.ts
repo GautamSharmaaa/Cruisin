@@ -9,9 +9,10 @@ import { applicationModels } from '../models/model-registry.js';
 import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
+import { SiteSettingsModel } from '../models/site-settings.model.js';
 import { UserModel } from '../models/user.model.js';
 
-const expectedDatabase = 'cruisin-logistics-e2e';
+const expectedDatabase = 'cruisin-sync-order-analytics-tests';
 const fixtureIds = {
   category: '66b000000000000000000001',
   product: '66b000000000000000000101',
@@ -19,22 +20,26 @@ const fixtureIds = {
   variantB: '66b000000000000000000112',
   admin: '66b000000000000000000201',
   customer: '66b000000000000000000202',
+  manager: '66b000000000000000000203',
   outageOrder: '66b000000000000000000301',
   ndrOrder: '66b000000000000000000302',
   rtoOrder: '66b000000000000000000303',
   returnOrder: '66b000000000000000000304',
   exchangeOrder: '66b000000000000000000305',
+  safeDeleteOrder: '66b000000000000000000306',
+  cancellationOrder: '66b000000000000000000307',
   ndrShipment: '66b000000000000000000402',
   rtoShipment: '66b000000000000000000403',
   returnShipment: '66b000000000000000000404',
-  exchangeShipment: '66b000000000000000000405'
+  exchangeShipment: '66b000000000000000000405',
+  cancellationShipment: '66b000000000000000000406'
 } as const;
 
 const objectId = (value: string): Types.ObjectId => new Types.ObjectId(value);
 const assertIsolatedTarget = (): void => {
   if (process.env.LOGISTICS_E2E_SEED !== 'true') throw new Error('Set LOGISTICS_E2E_SEED=true to seed the isolated logistics E2E database');
   if (process.env.SHIPROCKET_MODE !== 'mock') throw new Error('Logistics E2E seeding requires SHIPROCKET_MODE=mock');
-  if (process.env.SHIPROCKET_ALLOW_LIVE_READS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS === 'true') {
+  if (process.env.SHIPROCKET_ALLOW_LIVE_READS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS === 'true' || process.env.SHIPROCKET_ALLOW_LIVE_MUTATIONS === 'true') {
     throw new Error('Logistics E2E seeding refuses live Shiprocket access');
   }
   const uri = process.env.MONGODB_URI ?? '';
@@ -176,8 +181,27 @@ const seed = async (): Promise<void> => {
         phoneVerifiedAt: new Date(),
         whatsappVerifiedAt: new Date(),
         isActive: true
+      },
+      {
+        _id: objectId(fixtureIds.manager),
+        name: 'Logistics E2E Manager',
+        email: 'logistics-manager@example.test',
+        passwordHash,
+        role: 'manager',
+        status: 'active',
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        isActive: true
       }
     ]);
+    await SiteSettingsModel.create({
+      singletonKey: 'global',
+      codCheckoutEnabled: true,
+      codFee: 49,
+      standardShippingRate: 92,
+      expressShippingRate: 150,
+      freeStandardShippingThreshold: 5_000
+    });
     await CategoryModel.create({
       _id: objectId(fixtureIds.category),
       name: 'Logistics E2E',
@@ -247,13 +271,49 @@ const seed = async (): Promise<void> => {
       paidOrder(fixtureIds.ndrOrder, 'CR-E2E-NDR'),
       { ...paidOrder(fixtureIds.rtoOrder, 'CR-E2E-RTO', 'a', 2), stockReserved: true },
       { ...paidOrder(fixtureIds.returnOrder, 'CR-E2E-RETURN'), orderStatus: 'delivered' },
-      { ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'), orderStatus: 'delivered' }
+      {
+        ...paidOrder(fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE'),
+        items: [item('a'), item('b')],
+        orderStatus: 'delivered',
+        subtotal: 2_500,
+        total: 2_592,
+        amountPaid: 2_592
+      },
+      { ...paidOrder(fixtureIds.cancellationOrder, 'CR-E2E-CANCEL'), orderStatus: 'confirmed', fulfillmentStatus: 'ready_to_ship' },
+      {
+        _id: objectId(fixtureIds.safeDeleteOrder),
+        user: objectId(fixtureIds.customer),
+        items: [item('b')],
+        shippingAddress: address,
+        billingAddress: address,
+        orderNumber: 'CR-E2E-SAFE-DELETE',
+        isTestOrder: true,
+        paymentMethod: 'razorpay',
+        paymentMode: 'online',
+        paymentProvider: 'manual',
+        paymentStatus: 'failed',
+        orderStatus: 'cancelled',
+        fulfillmentStatus: 'cancelled',
+        subtotal: 1_300,
+        tax: 0,
+        shipping: 0,
+        discount: 0,
+        codFee: 0,
+        total: 1_300,
+        amountPaid: 0,
+        amountDue: 1_300,
+        stockReserved: false,
+        paymentAttempts: [],
+        refunds: [],
+        timeline: [{ status: 'cancelled', timestamp: new Date(), note: 'Explicit isolated test-order deletion fixture' }]
+      }
     ]);
     await ShipmentModel.create([
       forwardShipment(fixtureIds.ndrShipment, fixtureIds.ndrOrder, 'CR-E2E-NDR', 'MOCKAWBNDR001', 'awb_assigned'),
       forwardShipment(fixtureIds.rtoShipment, fixtureIds.rtoOrder, 'CR-E2E-RTO', 'MOCKAWBNDR002', 'awb_assigned'),
       forwardShipment(fixtureIds.returnShipment, fixtureIds.returnOrder, 'CR-E2E-RETURN', 'MOCKAWBDELIVERED004', 'delivered'),
-      forwardShipment(fixtureIds.exchangeShipment, fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE', 'MOCKAWBDELIVERED005', 'delivered')
+      forwardShipment(fixtureIds.exchangeShipment, fixtureIds.exchangeOrder, 'CR-E2E-EXCHANGE', 'MOCKAWBDELIVERED005', 'delivered'),
+      forwardShipment(fixtureIds.cancellationShipment, fixtureIds.cancellationOrder, 'CR-E2E-CANCEL', 'MOCKAWBCANCEL006', 'awb_assigned')
     ]);
     console.info(JSON.stringify({
       database: mongoose.connection.name,
@@ -261,6 +321,7 @@ const seed = async (): Promise<void> => {
       fixtureIds,
       users: {
         admin: 'logistics-admin@example.test',
+        manager: 'logistics-manager@example.test',
         customer: 'logistics-customer@example.test'
       }
     }));

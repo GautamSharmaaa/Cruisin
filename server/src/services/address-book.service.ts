@@ -2,6 +2,7 @@
 import { AddressModel } from '../models/address.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { UserModel } from '../models/user.model.js';
+import { normalizeIndiaCountry } from '../utils/india-address.js';
 
 export interface CheckoutAddressInput {
   fullName?: unknown;
@@ -35,7 +36,7 @@ const canonicalPhone = (value: unknown): string => {
 };
 const canonicalCountry = (value: unknown): string => {
   const country = clean(value);
-  return /^(in|india)$/i.test(country) ? 'India' : country;
+  return normalizeIndiaCountry(country);
 };
 
 export const checkoutAddressToBookValue = (address: CheckoutAddressInput): AddressBookValue | null => {
@@ -67,7 +68,7 @@ export const AddressBookService = {
   async saveCheckoutAddress(userId: string, address: CheckoutAddressInput): Promise<unknown | null> {
     const value = checkoutAddressToBookValue(address);
     if (!value) return null;
-    const addresses = await AddressModel.find({ user: userId }).sort({ isDefault: -1, updatedAt: -1 }).lean();
+    const addresses = await AddressModel.find({ user: userId }).sort({ isDefault: -1, lastUsedAt: -1, updatedAt: -1 }).lean();
     const identity = addressIdentity(value);
     const existing = addresses.find((candidate) => addressIdentity({
       phone: candidate.phone,
@@ -82,11 +83,11 @@ export const AddressBookService = {
     if (existing) {
       return AddressModel.findOneAndUpdate(
         { _id: existing._id, user: userId },
-        { $set: { ...value, fullName: value.fullName, isDefault } },
+        { $set: { ...value, fullName: value.fullName, isDefault, lastUsedAt: new Date() } },
         { new: true, runValidators: true }
       );
     }
-    return AddressModel.create({ ...value, user: userId, isDefault });
+    return AddressModel.create({ ...value, user: userId, isDefault, lastUsedAt: new Date() });
   },
 
   async backfillCheckoutAddresses(userId: string): Promise<void> {

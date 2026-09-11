@@ -17,13 +17,15 @@ const addressSchema = new Schema(
     landmark: { type: String, trim: true },
     latitude: { type: Number },
     longitude: { type: Number },
-    isDefault: { type: Boolean, default: false, index: true }
+    isDefault: { type: Boolean, default: false, index: true },
+    lastUsedAt: { type: Date, index: true }
   },
   { timestamps: true }
 );
 
 addressSchema.index({ user: 1, isDefault: 1 });
 addressSchema.index({ user: 1, updatedAt: -1 });
+addressSchema.index({ user: 1, isDefault: -1, lastUsedAt: -1 });
 
 export type AddressDocument = InferSchemaType<typeof addressSchema>;
 export const AddressModel = model('Address', addressSchema);

@@ -16,6 +16,7 @@ export interface UserDto {
   totalSpend?: number;
   lastOrderAt?: string;
   lastOrderId?: string;
+  lastOrderNumber?: string;
   lastOrderStatus?: string;
   lastPaymentStatus?: string;
   lastOrderTotal?: number;
@@ -62,6 +63,15 @@ export interface ProductDto {
   isBestseller?: boolean;
   isNewArrival?: boolean;
   isLatestDrop?: boolean;
+  recommendedProducts?: Array<string | ProductDto>;
+  completeTheFit?: {
+    enabled?: boolean;
+    strategy?: 'manual' | 'frequently_bought_together' | 'best_sellers';
+    title?: string;
+    eyebrow?: string;
+    description?: string;
+    bundleDiscount?: { enabled?: boolean; twoItemDiscount?: number; threeItemDiscount?: number };
+  };
   materialCare?: string;
   fitDetails?: string;
   shippingReturns?: string;
@@ -298,6 +308,8 @@ export interface SiteSettingsDto {
   expressShippingRate: number;
   freeStandardShippingThreshold: number;
   standardShippingCompareAt: number;
+  codCheckoutEnabled?: boolean;
+  codFee?: number;
   globalFilterSettings?: Record<string, unknown>;
 }
 
@@ -317,6 +329,60 @@ export interface CouponDto {
   validFrom?: string;
   validUntil?: string;
   isActive: boolean;
+}
+
+export type PromotionPopupFrequency = 'once_per_session' | 'once_per_24_hours' | 'always';
+export type PromotionExperienceStatus = 'live' | 'scheduled' | 'disabled' | 'expired' | 'linked_offer_inactive';
+
+export interface PromotionExperienceConfigDto {
+  enabled: boolean;
+  promotionId?: string | null;
+  campaignName: string;
+  campaignKey: string;
+  popupEnabled: boolean;
+  bagMarqueeEnabled: boolean;
+  checkoutStripEnabled: boolean;
+  popupEyebrow: string;
+  popupHeadline: string;
+  popupDescription: string;
+  popupPrimaryCta: string;
+  popupSecondaryCta: string;
+  marqueeAvailableText: string;
+  marqueeAppliedText: string;
+  checkoutAvailableText: string;
+  checkoutAppliedText: string;
+  popupDelayMs: number;
+  popupFrequency: PromotionPopupFrequency;
+  startsAt?: string | null;
+  endsAt?: string | null;
+}
+
+export interface LinkedPromotionDto {
+  id: string;
+  code: string;
+  type: CouponDto['type'];
+  value: number;
+  displayValue: string;
+  discountLabel: string;
+  isActive: boolean;
+  validFrom: string;
+  validUntil: string;
+  usageLimit?: number | null;
+  usedCount: number;
+  userUsageLimit?: number | null;
+  minOrderValue: number;
+  maxDiscount?: number | null;
+  applicableProductCount: number;
+  applicableCategoryCount: number;
+}
+
+export interface AdminPromotionExperienceDto {
+  config: PromotionExperienceConfigDto;
+  linkedPromotion: LinkedPromotionDto | null;
+  status: PromotionExperienceStatus;
+  reason?: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
 }
 
 export interface OrderDto {
@@ -340,6 +406,9 @@ export interface OrderDto {
   tax?: number;
   shipping?: number;
   discount?: number;
+  couponDiscount?: number;
+  bundleDiscount?: number;
+  bundleDiscountLabel?: string;
   couponCode?: string;
   total: number;
   codFee?: number;
@@ -362,6 +431,11 @@ export interface OrderDto {
   createdAt?: string;
   trackingNumber?: string;
   timeline?: Array<{ status: string; timestamp: string; note?: string }>;
+  isTestOrder?: boolean;
+  isAnalyticsTestData?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }
 
 export interface CmsSectionDto {
@@ -444,7 +518,11 @@ export interface AdminOverviewDto {
 export interface AdminAnalyticsPointDto {
   day: string;
   revenue: number;
+  totalRevenue: number;
   orders: number;
+  pendingCod: number;
+  codOrders: number;
+  prepaidOrders: number;
 }
 
 export interface AdminAnalyticsSummaryDto {
@@ -454,12 +532,21 @@ export interface AdminAnalyticsSummaryDto {
     timezone: 'Asia/Kolkata';
     preset: string;
     analyticsTestBatchId?: string;
+    includeTestOrders?: boolean;
   };
   generatedAt: string;
   summary: {
     totalOrders: number;
     paidOrders: number;
+    todayOrders: number;
+    codOrders: number;
+    prepaidOrders: number;
     pendingOrders: number;
+    processingOrders: number;
+    shippedOrders: number;
+    deliveredOrders: number;
+    returnedOrders: number;
+    rtoOrders: number;
     cancelledOrders: number;
     failedPaymentOrders: number;
     refundedOrders: number;
@@ -478,10 +565,10 @@ export interface AdminAnalyticsSummaryDto {
   comparison: {
     range: AdminAnalyticsSummaryDto['range'];
     summary: AdminAnalyticsSummaryDto['summary'];
-    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+    revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
     outstanding: { cod: number; partial: number; total: number };
   };
-  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number }>;
+  revenueByDay: Array<{ day: string; grossRevenue: number; netRevenue: number; totalRevenue: number; discounts: number; refunds: number; orders: number; paidOrders: number; pendingCod: number; codOrders: number; prepaidOrders: number }>;
   topProducts: Array<{ productId: string; title: string; slug: string; image?: string; sku: string; quantity: number; revenue: number; orders: number }>;
   topCategories: Array<{ categoryId: string; name: string; quantity: number; revenue: number; orders: number }>;
   topCollections: Array<{ collectionId: string; title: string; quantity: number; revenue: number; orders: number }>;
@@ -497,4 +584,20 @@ export interface AdminAnalyticsSummaryDto {
     products: Array<{ productId: string; title: string; slug: string; productCode: string; stock: number; threshold: number; status: 'low_stock' | 'out_of_stock' }>;
   };
   recentOrders: Array<{ orderId: string; orderNumber: string; customer: string; date: string; total: number; paymentMode: string; paymentStatus: string; orderStatus: string }>;
+}
+
+export interface ProfitabilityRowDto {
+  orderId: string; orderNumber: string; date: string; productId: string; sku: string; product: string; size: string; color: string; quantity: number;
+  sellingValue: number; paymentMode: string; paymentStatus: string; orderStatus: string; codState: 'not_cod' | 'pending' | 'collected';
+  collectedRevenue: number; codFee: number; returnFee: number; exchangeFee: number; refund: number;
+  manufacturingCost: number; packagingCost: number; marketingCost: number; handlingCost: number; otherCost: number; productCost: number;
+  forwardFreight: number; reverseFreight: number; freightSource: 'billed' | 'estimated' | 'missing'; totalIncome: number; totalCost: number; netProfit: number; margin: number;
+  missingCosts: boolean; hasReturn: boolean; hasExchange: boolean;
+}
+
+export interface ProfitabilityAnalyticsDto {
+  range: { startDate: string; endDate: string; preset: string; timezone: 'Asia/Kolkata' };
+  generatedAt: string; filenameLabel: string;
+  summary: { orders: number; lines: number; collectedRevenue: number; pendingCod: number; codFees: number; returnFees: number; exchangeFees: number; productCosts: number; logisticsCosts: number; refunds: number; netProfit: number; missingCostLines: number };
+  rows: ProfitabilityRowDto[];
 }

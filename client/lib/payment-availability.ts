@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-export interface PaymentConfiguration { paymentMode: 'test' | 'live'; codEnabled: boolean; partialPaymentEnabled: boolean; partialPaymentPercentage: number | null; partialPaymentFixedAmount: number | null; minPartialPaymentOrderValue: number; maxCodOrderValue: number; }
+export interface PaymentConfiguration { paymentMode: 'test' | 'live'; codEnabled: boolean; codFee: number; partialPaymentEnabled: boolean; partialPaymentPercentage: number | null; partialPaymentFixedAmount: number | null; minPartialPaymentOrderValue: number; maxCodOrderValue: number; returnHandlingFee?: number; }
 export interface PaymentMethodAvailability { cod: { enabled: boolean; reason: string }; partial: { enabled: boolean; reason: string }; }
 
 export const partialPaymentAmount = (config: PaymentConfiguration | undefined, orderTotal: number): number => {

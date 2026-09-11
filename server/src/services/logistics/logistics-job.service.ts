@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
+import type { ClientSession } from 'mongoose';
 import { env } from '../../config/env.js';
 import { redis } from '../../config/redis.js';
 import { LogisticsJobModel, logisticsJobTypes } from '../../models/logistics-job.model.js';
@@ -51,6 +52,16 @@ const execute = async (type: LogisticsJobType, payload: Record<string, unknown>)
     case 'create_return':
     case 'create_exchange':
       throw new LogisticsProviderError('configuration', `${type} requires an approved request workflow`, false, 409);
+    case 'order_created': {
+      const { OrderService } = await import('../order.service.js');
+      await OrderService.processOrderCreatedOutbox(payloadString(payload, 'orderId'));
+      return;
+    }
+    case 'release_payment_reservation': {
+      const { OrderService } = await import('../order.service.js');
+      await OrderService.releaseExpiredReservation(payloadString(payload, 'orderId'));
+      return;
+    }
   }
 };
 
@@ -61,9 +72,12 @@ const retryDelayMs = (attempt: number): number => {
 };
 
 export const LogisticsJobService = {
-  async enqueue(type: LogisticsJobType, payload: Record<string, unknown>, dedupeKey: string, maxAttempts = 5): Promise<unknown> {
+  async enqueue(type: LogisticsJobType, payload: Record<string, unknown>, dedupeKey: string, maxAttempts = 5, writeOptions?: { session?: ClientSession; runAt?: Date }): Promise<unknown> {
     try {
-      return await LogisticsJobModel.create({ type, payload, dedupeKey, maxAttempts });
+      const data = { type, payload, dedupeKey, maxAttempts, runAt: writeOptions?.runAt };
+      return writeOptions?.session
+        ? (await LogisticsJobModel.create([data], { session: writeOptions.session }))[0]
+        : await LogisticsJobModel.create(data);
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: number }).code === 11000) {
         const existing = await LogisticsJobModel.findOne({ dedupeKey });
@@ -105,7 +119,7 @@ export const LogisticsJobService = {
       });
     } catch (error) {
       const providerError = error instanceof LogisticsProviderError ? error : undefined;
-      const retryable = providerError?.retryable ?? false;
+      const retryable = providerError?.retryable ?? ['order_created', 'release_payment_reservation'].includes(job.type);
       const dead = !retryable || job.attempts >= job.maxAttempts;
       await LogisticsJobModel.updateOne({ _id: job._id, leaseId: claimId }, {
         $set: {

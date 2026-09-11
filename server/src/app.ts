@@ -12,6 +12,7 @@ import { redis } from './config/redis.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import { mongoSanitizeMiddleware } from './middleware/mongo-sanitize.middleware.js';
 import { generalLimiter } from './middleware/rate-limit.middleware.js';
+import { requestPerformanceMiddleware } from './middleware/request-performance.middleware.js';
 import { v1Router } from './routes/v1/index.js';
 import { ApiError } from './utils/api-error.js';
 import { ApiResponse } from './utils/api-response.js';
@@ -30,6 +31,7 @@ export const createApp = (): Express => {
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use(cookieParser());
   app.use(mongoSanitizeMiddleware);
+  app.use(requestPerformanceMiddleware);
   app.use(morgan(env.NODE_ENV === 'production' ? ':remote-addr :method :safe-path :status :res[content-length] - :response-time ms' : 'dev'));
   app.get('/health', (_req, res) => { res.json(new ApiResponse({ status: 'ok' }, 'API healthy')); });
   app.get('/ready', async (_req, res) => {

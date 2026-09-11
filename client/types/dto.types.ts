@@ -223,6 +223,8 @@ export interface SiteSettingsDto {
   expressShippingRate: number;
   freeStandardShippingThreshold: number;
   standardShippingCompareAt: number;
+  codCheckoutEnabled?: boolean;
+  codFee?: number;
   globalFilterSettings?: Record<string, unknown>;
 }
 

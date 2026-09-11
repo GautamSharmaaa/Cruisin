@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { SHIPROCKET_BULK_SYNC_TIMEOUT_MS } from "@/constants/config";
 
 interface ApiEnvelope<TData> {
   data: TData;
@@ -23,9 +24,37 @@ export interface Shipment {
   awb?: string;
   providerOrderId?: string;
   providerShipmentId?: string;
+  pickupStatus?: string;
+  pickupDate?: string;
+  estimatedDelivery?: string;
+  lastTrackingUpdate?: string;
+  lastWebhookAt?: string;
+  lastSuccessfulSyncAt?: string;
+  lastSyncAttemptAt?: string;
+  lastSyncSource?: "webhook" | "manual_sync" | "scheduled_reconciliation";
+  syncErrorCode?: string;
+  trackingScans: Array<{
+    fingerprint: string;
+    status: string;
+    rawStatus: string;
+    providerStatusId?: number;
+    message: string;
+    location?: string;
+    timestamp: string;
+  }>;
   shippingChargeCollected?: number;
   providerShippingCost?: number;
   codCharge?: number;
+  otherProviderCharges?: number;
+  rtoCost?: number;
+  providerBilledFreightCost?: number;
+  providerBilledCodCharge?: number;
+  providerBilledOtherCharges?: number;
+  providerBilledRtoCost?: number;
+  providerBilledTotal?: number;
+  providerBillingStatus?: "unavailable" | "current";
+  providerBillingSource?: "statement";
+  providerBillingSyncedAt?: string;
   package?: {
     deadWeightKg: number;
     lengthCm: number;
@@ -77,6 +106,7 @@ export interface Shipment {
     inspectedAt?: string;
   };
   updatedAt: string;
+  createdAt?: string;
 }
 export interface ShipmentPage {
   items: Shipment[];
@@ -94,9 +124,25 @@ export interface LogisticsKpis {
   rto: number;
   errors: number;
   logisticsCost: number;
+  billedLogisticsCost: number;
+  estimatedLogisticsCost: number;
+  shipmentsAwaitingBilling: number;
   deliveryRate: number;
   ndrRate: number;
   rtoRate: number;
+}
+export interface LogisticsSyncHealth {
+  activeShipments: number;
+  lastWebhookAt?: string;
+  lastReconciliationAt?: string;
+  syncFailures: number;
+}
+export interface ShiprocketBulkSyncSummary {
+  scanned: number;
+  changed: number;
+  unchanged: number;
+  failed: number;
+  shiprocketMutations: 0;
 }
 export interface CourierRate {
   courierId: number;
@@ -117,13 +163,15 @@ export interface CourierComparison {
 }
 export interface LogisticsAnalytics {
   days: number;
-  daily: Array<{ _id: string; shipments: number; cost: number }>;
+  daily: Array<{ _id: string; shipments: number; cost: number; billedShipments: number; estimatedShipments: number }>;
   couriers: Array<{
     _id: string;
     shipments: number;
     delivered: number;
     ndr: number;
     cost: number;
+    billedShipments: number;
+    estimatedShipments: number;
   }>;
   statuses: Array<{ _id: string; count: number }>;
 }
@@ -132,10 +180,32 @@ export interface WorkflowRequest {
   requestNumber: string;
   status: string;
   reason?: string;
+  details?: string;
+  evidence?: Array<{ url: string; format: string }>;
+  items?: Array<{ sku: string; title: string; size?: string; color?: string; quantity: number }>;
+  handlingFee?: number;
+  handlingFeePaymentStatus?: string;
+  handlingFeePaidAt?: string;
+  handlingFeePaymentReference?: string;
   requestedSku?: string;
+  requestedVariant?: string;
+  originalItem?: { product?: string; variant?: string; sku?: string; quantity?: number };
   refundStatus?: string;
+  productRefundAmount?: number;
+  productRefundReference?: string;
+  refundWindowOpenedAt?: string;
+  refundDestination?: { method?: "original_payment" | "wallet" | "upi" | "bank"; verificationStatus?: "not_submitted" | "pending" | "verified" | "failed"; maskedDetails?: string; registeredName?: string; manualUpiId?: string; submittedByRole?: "customer" | "admin" | "superadmin"; submittedAt?: string; verifiedAt?: string };
+  manualTransferReference?: string;
+  manualTransferredAt?: string;
   createdAt: string;
-  order?: { orderNumber?: string };
+  order?: {
+    _id?: string;
+    orderNumber?: string;
+    items?: Array<{ product?: string; variant?: string; title?: string; sku?: string; size?: string; color?: string; quantity?: number; image?: string }>;
+    shippingAddress?: { fullName?: string; phone?: string; city?: string; state?: string; postalCode?: string };
+  };
+  customer?: { name?: string; email?: string; phone?: string };
+  reverseShipment?: { shipmentStatus?: string; returnStatus?: string; courierName?: string; awb?: string; pickupStatus?: string; lastTrackingUpdate?: string };
 }
 export interface LogisticsDocumentAccess {
   shipmentId: string;
@@ -181,6 +251,8 @@ export const useShipments = (
 ) =>
   useQuery({
     queryKey: ["admin", "logistics", filters],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<ShipmentPage> =>
       (
         await api.get<ApiEnvelope<ShipmentPage>>("/admin/logistics", {
@@ -188,16 +260,28 @@ export const useShipments = (
         })
       ).data.data,
   });
-export const useLogisticsKpis = () =>
+export const useLogisticsKpis = (startDate?: string) =>
   useQuery({
-    queryKey: ["admin", "logistics", "kpis"],
+    queryKey: ["admin", "logistics", "kpis", startDate],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<LogisticsKpis> =>
-      (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis")).data
+      (await api.get<ApiEnvelope<LogisticsKpis>>("/admin/logistics/kpis", { params: startDate ? { startDate } : undefined })).data
         .data,
+  });
+export const useLogisticsSyncHealth = () =>
+  useQuery({
+    queryKey: ["admin", "logistics", "sync-health"],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<LogisticsSyncHealth> =>
+      (await api.get<ApiEnvelope<LogisticsSyncHealth>>("/admin/logistics/sync-health")).data.data,
   });
 export const useLogisticsAnalytics = (days: number) =>
   useQuery({
     queryKey: ["admin", "logistics", "analytics", days],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<LogisticsAnalytics> =>
       (
         await api.get<ApiEnvelope<LogisticsAnalytics>>(
@@ -252,6 +336,42 @@ export const compareLogisticsCouriers = async (
     )
   ).data.data;
 
+export const useGenerateLogisticsDocument = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      shipmentId: string;
+      kind: "label" | "invoice";
+    }): Promise<LogisticsDocumentAccess> => {
+      await api.post(`/admin/logistics/${input.shipmentId}/${input.kind}`, {});
+      return getLogisticsDocumentAccess(input.shipmentId, input.kind);
+    },
+    onSuccess: async (): Promise<void> => {
+      await client.invalidateQueries({ queryKey: ["admin", "logistics"] });
+    },
+  });
+};
+
+export const useShiprocketBulkSync = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ShiprocketBulkSyncSummary> =>
+      (await api.post<ApiEnvelope<ShiprocketBulkSyncSummary>>(
+        "/admin/logistics/sync",
+        {},
+        { timeout: SHIPROCKET_BULK_SYNC_TIMEOUT_MS },
+      )).data.data,
+    onSuccess: async (): Promise<void> => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["admin", "logistics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "orders"] }),
+        client.invalidateQueries({ queryKey: ["admin", "analytics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "overview"] }),
+      ]);
+    },
+  });
+};
+
 export const useLogisticsAction = () => {
   const client = useQueryClient();
   return useMutation({
@@ -262,11 +382,13 @@ export const useLogisticsAction = () => {
       (await api.post<ApiEnvelope<unknown>>(input.path, input.body ?? {})).data
         .data,
     onSuccess: async (): Promise<void> => {
-      await client.invalidateQueries({ queryKey: ["admin", "logistics"] });
-      await client.invalidateQueries({ queryKey: ["admin", "orders"] });
-      await client.invalidateQueries({
-        queryKey: ["admin", "logistics", "notifications"],
-      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["admin", "logistics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "orders"] }),
+        client.invalidateQueries({ queryKey: ["admin", "logistics", "notifications"] }),
+        client.invalidateQueries({ queryKey: ["admin", "analytics"] }),
+        client.invalidateQueries({ queryKey: ["admin", "overview"] }),
+      ]);
     },
   });
 };
@@ -278,14 +400,26 @@ export const useWorkflowAction = (kind: "returns" | "exchanges") => {
       id: string;
       action: string;
       note?: string;
+      upiId?: string;
+      transactionReference?: string;
+      transferredAt?: string;
     }): Promise<unknown> =>
       (
         await api.post<ApiEnvelope<unknown>>(
           `/admin/${kind}/${input.id}/action`,
-          { action: input.action, note: input.note },
+          { action: input.action, note: input.note, ...(input.upiId ? { upiId: input.upiId } : {}), ...(input.transactionReference ? { transactionReference: input.transactionReference } : {}), ...(input.transferredAt ? { transferredAt: input.transferredAt } : {}) },
         )
       ).data.data,
     onSuccess: async (): Promise<void> =>
       client.invalidateQueries({ queryKey: ["admin", kind] }),
+  });
+};
+
+export const useAdminSetRefundDestination = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; destination: { method: "wallet" } | { method: "upi"; upiId: string } }): Promise<unknown> =>
+      (await api.post<ApiEnvelope<unknown>>(`/admin/returns/${input.id}/refund-destination`, input.destination)).data.data,
+    onSuccess: async (): Promise<void> => client.invalidateQueries({ queryKey: ["admin", "returns"] }),
   });
 };

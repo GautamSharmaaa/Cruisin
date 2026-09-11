@@ -48,6 +48,7 @@ const assertReadOnlyInvocation = (): string => {
   if (!logisticsConfig.enabled) throw new Error('Read-only smoke requires SHIPROCKET_ENABLED=true');
   if (logisticsConfig.mode !== 'live-readonly') throw new Error('Read-only smoke requires SHIPROCKET_MODE=live-readonly');
   if (!env.SHIPROCKET_ALLOW_LIVE_READS) throw new Error('Read-only smoke requires SHIPROCKET_ALLOW_LIVE_READS=true');
+  if (env.SHIPROCKET_ALLOW_LIVE_DOCUMENTS) throw new Error('Read-only smoke refuses SHIPROCKET_ALLOW_LIVE_DOCUMENTS=true');
   if (env.SHIPROCKET_ALLOW_LIVE_MUTATIONS) throw new Error('Read-only smoke refuses SHIPROCKET_ALLOW_LIVE_MUTATIONS=true');
   if (logisticsConfig.autoCreateOrder || logisticsConfig.autoCreateCodOrder || logisticsConfig.autoAssignAwb || logisticsConfig.autoSchedulePickup || logisticsConfig.workerEnabled) {
     throw new Error('Disable every logistics automation and worker flag before the read-only smoke test');

@@ -1,8 +1,23 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
+import { normalizeIndiaCountry } from '../utils/india-address.js';
 
-const addressSchema = z.object({ fullName: z.string().min(2), phone: z.string().min(7), line1: z.string().min(2), line2: z.string().optional(), city: z.string().min(2), state: z.string().min(2), postalCode: z.string().min(3), country: z.string().min(2) });
-export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe','cod']), paymentMode: z.enum(['online', 'cod', 'partial']).optional(), shippingMethod: z.enum(['standard', 'express']).default('standard'), logisticsQuoteId: z.string().uuid().optional(), couponCode: z.string().optional(), idempotencyKey: z.string().uuid(), metaEventId: z.string().trim().regex(/^checkout:[a-zA-Z0-9:-]+$/).max(160).optional() });
+const indiaCountrySchema = z.string().trim().transform(normalizeIndiaCountry).refine((value): boolean => value === 'India', 'Cruisin currently delivers only within India');
+const addressSchema = z.object({ fullName: z.string().min(2), phone: z.string().min(7), line1: z.string().min(2), line2: z.string().optional(), city: z.string().min(2), state: z.string().min(2), postalCode: z.string().min(3), country: indiaCountrySchema });
+const shiprocketPhoneSchema = z.string().trim().regex(/^(?:\+91|91)?[6-9]\d{9}$/, 'Use a valid Indian mobile number, for example +919876543210');
+export const adminShippingAddressSchema = z.object({
+  shippingAddress: z.object({
+    fullName: z.string().trim().min(2).max(120),
+    phone: shiprocketPhoneSchema,
+    line1: z.string().trim().min(2).max(250),
+    line2: z.string().trim().max(250).optional(),
+    city: z.string().trim().min(2).max(100),
+    state: z.string().trim().min(2).max(100),
+    postalCode: z.string().trim().regex(/^\d{6}$/, 'Use a valid 6-digit Indian pincode'),
+    country: indiaCountrySchema
+  }).strict()
+}).strict();
+export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe','cod']), paymentMode: z.enum(['online', 'cod', 'partial']).optional(), shippingMethod: z.enum(['standard', 'express']).default('standard'), logisticsQuoteId: z.string().uuid().optional(), couponCode: z.string().optional(), expectedCartVersion: z.number().int().min(0).optional(), idempotencyKey: z.string().uuid(), metaEventId: z.string().trim().regex(/^checkout:[a-zA-Z0-9:-]+$/).max(160).optional() });
 export const paymentVerifySchema = z.object({ method: z.enum(['razorpay','stripe']), payload: z.record(z.unknown()) });
 export const paymentFailureSchema = z.object({ orderId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid order ID'), providerOrderId: z.string().trim().min(8).max(160) });
 export const paymentCancellationSchema = paymentFailureSchema;
@@ -18,3 +33,5 @@ export const customerCancellationSchema = z.object({
   }
 });
 export const refundSchema = z.object({ amount: z.number().positive(), reason: z.string().max(500).optional(), idempotencyKey: z.string().uuid() });
+export const orderArchiveSchema = z.object({ reason: z.string().trim().max(500).optional() }).strict();
+export const orderPermanentDeleteSchema = z.object({ orderNumber: z.string().trim().min(1).max(120), reason: z.string().trim().min(3).max(500) }).strict();

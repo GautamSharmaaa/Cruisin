@@ -19,6 +19,7 @@ const logisticsQuoteSchema = new Schema({
   quoteId: { type: String, required: true, unique: true, index: true },
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   cartFingerprint: { type: String, required: true, index: true },
+  cartVersion: { type: Number, required: true, min: 0 },
   deliveryPostcode: { type: String, required: true },
   pickupPostcode: { type: String, required: true },
   paymentMode: { type: String, enum: ['prepaid', 'cod'], required: true },

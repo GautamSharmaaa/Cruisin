@@ -169,6 +169,11 @@ export const siteSettingsBodySchema = z.object({
   globalFilterSettings: z.record(z.unknown()).default({})
 });
 
+export const paymentSettingsBodySchema = z.object({
+  codCheckoutEnabled: z.boolean(),
+  codFee: z.number().min(0).max(10_000)
+});
+
 export const tagBodySchema = z.object({
   name: z.string().min(2).max(80),
   slug: z.string().min(2).max(100),

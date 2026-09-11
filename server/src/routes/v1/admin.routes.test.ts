@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 process.env.NODE_ENV = 'test';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/cruisin-test';
+process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
@@ -108,5 +108,20 @@ describe('admin analytics route auth', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.summary.netRevenue).toBe(123);
     expect(adminService.analyticsSummary).toHaveBeenCalledWith(expect.objectContaining({ preset: 'last7' }));
+  });
+
+  it.each(['manager', 'admin'] as const)('blocks %s from permanent order deletion', async (role) => {
+    const response = await request(app)
+      .delete('/admin/orders/000000000000000000000000')
+      .set('Authorization', 'Bearer ' + tokenFor(role))
+      .send({ orderNumber: 'CR-TEST-1', reason: 'Test cleanup' });
+    expect(response.status).toBe(403);
+  });
+
+  it('blocks customers from delete eligibility inspection', async () => {
+    const response = await request(app)
+      .get('/admin/orders/000000000000000000000000/delete-eligibility')
+      .set('Authorization', 'Bearer ' + tokenFor('customer'));
+    expect(response.status).toBe(403);
   });
 });

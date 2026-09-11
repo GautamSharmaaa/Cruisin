@@ -121,7 +121,7 @@ test('closes a stale mobile auth sheet when the saved session finishes restoring
 test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route('**/api/v1/payments/config', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { paymentMode: 'live', codEnabled: false, partialPaymentEnabled: false, minPartialPaymentOrderValue: 0, maxCodOrderValue: 50000 }, message: 'Payment configuration loaded' }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { paymentMode: 'live', codEnabled: false, codFee: 49, partialPaymentEnabled: false, minPartialPaymentOrderValue: 0, maxCodOrderValue: 50000 }, message: 'Payment configuration loaded' }) });
   });
 
   await page.goto('/checkout');

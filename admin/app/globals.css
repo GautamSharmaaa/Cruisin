@@ -9,3 +9,17 @@ img, video, canvas, svg { max-width:100%; }
 button, input, textarea, select { font:inherit; min-width:0; }
 a { color:inherit; text-decoration:none; }
 :focus-visible { outline:1px solid var(--accent-gold); outline-offset:2px; }
+
+@keyframes kpi-status-breathe {
+  0%, 100% { opacity:0.58; transform:scale(0.96); box-shadow:0 0 2px rgba(200,169,126,0.16); }
+  50% { opacity:0.82; transform:scale(1.05); box-shadow:0 0 6px rgba(200,169,126,0.58), 0 0 11px rgba(200,169,126,0.2); }
+}
+
+.kpi-status-glow {
+  animation:kpi-status-breathe 2.2s ease-in-out infinite;
+  transform-origin:center;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .kpi-status-glow { animation:none; opacity:0.7; box-shadow:0 0 5px rgba(200,169,126,0.35); }
+}

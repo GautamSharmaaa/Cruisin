@@ -316,6 +316,8 @@ const siteSettingsDefaults = {
   expressShippingRate: 1800,
   freeStandardShippingThreshold: 25_000,
   standardShippingCompareAt: 0,
+  codCheckoutEnabled: false,
+  codFee: 49,
   globalFilterSettings: {}
 } as const;
 
@@ -606,7 +608,7 @@ export const MerchandisingService = {
   },
 
   async siteSettings(): Promise<unknown> {
-    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).lean();
+    const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('-promotionExperience').lean();
     return settings ? { ...siteSettingsDefaults, ...settings } : { singletonKey: 'global', ...siteSettingsDefaults };
   },
 

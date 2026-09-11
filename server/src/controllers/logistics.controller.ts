@@ -14,7 +14,7 @@ export const LogisticsController = {
       req: Request<
         Record<string, string>,
         unknown,
-        { deliveryPostcode: string; paymentMode: "prepaid" | "cod" }
+        { deliveryPostcode: string; paymentMode: "prepaid" | "cod"; expectedCartVersion?: number }
       >,
       res: Response,
     ): Promise<void> => {
@@ -81,10 +81,13 @@ export const LogisticsController = {
       ),
     );
   }),
-  kpis: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  kpis: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(
-      new ApiResponse(await LogisticsService.kpis(), "Logistics KPIs loaded"),
+      new ApiResponse(await LogisticsService.kpis(typeof req.query.startDate === "string" ? req.query.startDate : undefined), "Logistics KPIs loaded"),
     );
+  }),
+  syncHealth: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    res.json(new ApiResponse(await LogisticsService.syncHealth(), "Shiprocket sync health loaded"));
   }),
   analytics: asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
@@ -231,6 +234,29 @@ export const LogisticsController = {
           req.user?.userId,
         ),
         "Tracking refreshed",
+      ),
+    );
+  }),
+  sync: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res.json(
+      new ApiResponse(
+        await LogisticsService.reconcileShiprocketShipment(
+          String(req.params.shipmentId ?? ""),
+          "manual_sync",
+          req.user?.userId,
+        ),
+        "Shiprocket shipment synchronized",
+      ),
+    );
+  }),
+  bulkSync: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res.json(
+      new ApiResponse(
+        await LogisticsService.reconcileActiveShiprocketShipments({
+          source: "manual_sync",
+          adminId: req.user?.userId,
+        }),
+        "Active Shiprocket shipments synchronized",
       ),
     );
   }),

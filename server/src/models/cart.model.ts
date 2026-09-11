@@ -13,9 +13,14 @@ const cartItemSchema = new Schema(
 
 const cartSchema = new Schema(
   {
-    user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
-    sessionId: { type: String, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User' },
+    sessionId: { type: String },
     items: { type: [cartItemSchema], default: [] },
+    couponCode: { type: String, uppercase: true, trim: true },
+    couponDiscount: { type: Number, default: 0, min: 0 },
+    couponFreeShipping: { type: Boolean, default: false },
+    couponEligibleSubtotal: { type: Number, default: 0, min: 0 },
+    version: { type: Number, default: 0, min: 0 },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     analyticsTestBatchId: { type: String, trim: true, index: true },
     isAnalyticsTestData: { type: Boolean, default: false, index: true }
@@ -23,7 +28,14 @@ const cartSchema = new Schema(
   { timestamps: true }
 );
 
-cartSchema.index({ user: 1, sessionId: 1 });
+cartSchema.index(
+  { user: 1 },
+  { name: 'cruisin_cart_user_unique', unique: true, partialFilterExpression: { user: { $type: 'objectId' } } }
+);
+cartSchema.index(
+  { sessionId: 1 },
+  { name: 'cruisin_cart_session_unique', unique: true, partialFilterExpression: { sessionId: { $type: 'string' } } }
+);
 
 export type CartDocument = InferSchemaType<typeof cartSchema>;
 export const CartModel = model('Cart', cartSchema);

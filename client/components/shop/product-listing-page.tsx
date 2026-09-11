@@ -272,7 +272,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   if (!hydrated && initialCategory) {
     const initialTitle = initialCategory.heroTitle || initialCategory.name || titleFromSlug(pageSlug);
     const initialSubtitle = editorialSubtitle(initialCategory.heroSubtitle || initialCategory.description || '', initialTitle);
-    return <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20 lg:pt-14">
+    return <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20">
       <section className="pb-10">
         <ListingEditorialHeader eyebrow={eyebrow} title={initialTitle} subtitle={initialSubtitle} />
       </section>
@@ -283,7 +283,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   }
 
   return (
-    <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20 lg:pt-14">
+    <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20">
       <section className="relative overflow-hidden border-b border-border-subtle pb-10">
         {heroMediaVisible && (heroVideo || heroImage) ? <div data-testid="listing-hero-media" className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-20">
           {heroVideo ? <video poster={videoPoster} className="h-full w-full object-cover" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} preload="metadata" playsInline><source media="(max-width: 639px)" src={mobileHeroVideo || heroVideo} /><source src={heroVideo} /></video> : <>
@@ -292,7 +292,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
           </>}
           <div className="absolute inset-0 bg-gradient-to-b from-background-primary/20 to-background-primary" />
         </div> : null}
-        {showCollectionCarousel && (siteSettings.data?.isCollectionCarouselEnabled ?? true) ? <div className="mb-10"><CollectionCarousel collections={collections.data ?? []} activeSlug={collectionSlug} /></div> : null}
+        {showCollectionCarousel && (siteSettings.data?.isCollectionCarouselEnabled ?? true) && (collections.data?.length ?? 0) > 0 ? <div className="mb-10"><CollectionCarousel collections={collections.data ?? []} activeSlug={collectionSlug} /></div> : null}
         <ListingEditorialHeader eyebrow={eyebrow} title={pageTitle} subtitle={pageSubtitle} />
         <div data-testid="listing-toolbar" className="mt-5 flex flex-col gap-4 border-b border-border-subtle pb-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3 font-accent text-[10px] uppercase tracking-[0.2em] text-text-muted"><span aria-hidden="true" className="h-px w-8 bg-accent-gold" />Refine the edit</div>

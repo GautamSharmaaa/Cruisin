@@ -48,7 +48,9 @@ const Receipt = ({ order }: { order: Order }): ReactNode => {
     <div className="flex items-center gap-3"><ReceiptText className="h-5 w-5 text-accent-gold" aria-hidden="true" /><h2 id="confirmation-summary-heading" className="font-display text-2xl text-text-primary">{COPY.checkout.confirmation.orderSummary}</h2></div>
     <div className="mt-5 grid gap-3 text-sm text-text-secondary">
       {row(COPY.checkout.confirmation.merchandise, subtotal)}
-      {discount > 0 ? row(COPY.checkout.confirmation.discount, -discount, 'text-success') : null}
+      {(order.couponDiscount ?? 0) > 0 ? row(order.couponCode ? `Coupon (${order.couponCode})` : 'Coupon discount', -(order.couponDiscount ?? 0), 'text-success') : null}
+      {(order.bundleDiscount ?? 0) > 0 ? row(order.bundleDiscountLabel || 'Complete the Fit saving', -(order.bundleDiscount ?? 0), 'text-success') : null}
+      {discount > 0 && !order.couponDiscount && !order.bundleDiscount ? row(COPY.checkout.confirmation.discount, -discount, 'text-success') : null}
       {row(order.shippingMethod === 'express' ? COPY.checkout.confirmation.expressDelivery : COPY.checkout.confirmation.standardDelivery, shipping)}
       {tax > 0 ? row(COPY.checkout.confirmation.tax, tax) : null}
       {codFee > 0 ? row(COPY.checkout.confirmation.codFee, codFee) : null}

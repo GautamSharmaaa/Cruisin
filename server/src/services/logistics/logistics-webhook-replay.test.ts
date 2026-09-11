@@ -15,7 +15,8 @@ vi.mock('../../models/logistics-webhook-event.model.js', () => ({
       if (mocks.fingerprints.has(input.fingerprint)) throw { code: 11000 };
       mocks.fingerprints.add(input.fingerprint);
       return { shipment: undefined, status: 'received', processedAt: undefined, save: mocks.eventSave };
-    })
+    }),
+    findOne: vi.fn(() => ({ select: vi.fn(() => ({ lean: vi.fn(async () => ({ status: 'processed' })) })) }))
   }
 }));
 vi.mock('../../models/shipment.model.js', () => ({

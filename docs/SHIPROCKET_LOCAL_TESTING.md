@@ -17,6 +17,7 @@ REDIS_URL=redis://127.0.0.1:6379
 SHIPROCKET_ENABLED=true
 SHIPROCKET_MODE=mock
 SHIPROCKET_ALLOW_LIVE_READS=false
+SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false
 SHIPROCKET_ALLOW_LIVE_MUTATIONS=false
 SHIPROCKET_PICKUP_LOCATION=Mock Warehouse
 SHIPROCKET_PICKUP_POSTCODE=560001
@@ -52,7 +53,7 @@ npm test
 npm run build
 ```
 
-`verify:logistics` disables the feature for the legacy full suite, pins the provider mode to mock, and runs all workspace lint/type-check/tests/builds before a focused enabled-mock logistics suite and a post-build frontend bundle secret scan. It never enables live reads or mutations.
+`verify:logistics` disables the feature for the legacy full suite, pins the provider mode to mock, and runs all workspace lint/type-check/tests/builds before a focused enabled-mock logistics suite and a post-build frontend bundle secret scan. It never enables live reads, documents, or mutations.
 
 ## Manual happy path
 

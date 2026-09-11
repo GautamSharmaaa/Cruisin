@@ -59,16 +59,35 @@ describe('webhook lookup, ordering and terminal-state contract', () => {
     mocks.notify.mockResolvedValue({});
   });
 
-  it('looks up by AWB, provider order ID and provider shipment ID without trusting one identifier', async () => {
+  it('looks up by AWB, provider shipment ID, then provider order ID in strict priority', async () => {
+    mocks.shipmentFind.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     await LogisticsWebhookService.process({
       awb: 'AWB-QA',
       order_id: 'ORDER-QA',
       shipment_id: 'SHIPMENT-QA',
       current_status: 'In Transit'
     });
-    expect(mocks.shipmentFind).toHaveBeenCalledWith({
-      $or: [{ awb: 'AWB-QA' }, { providerShipmentId: 'SHIPMENT-QA' }, { providerOrderId: 'ORDER-QA' }]
+    expect(mocks.shipmentFind).toHaveBeenNthCalledWith(1, { awb: 'AWB-QA' });
+    expect(mocks.shipmentFind).toHaveBeenNthCalledWith(2, { providerShipmentId: 'SHIPMENT-QA' });
+    expect(mocks.shipmentFind).toHaveBeenNthCalledWith(3, { providerOrderId: 'ORDER-QA' });
+  });
+
+  it('does not reuse a provider order ID as an untrusted local source-order fallback', async () => {
+    mocks.shipmentFind.mockResolvedValueOnce(null);
+    await LogisticsWebhookService.process({ order_id: 'PROVIDER-ORDER-QA', current_status: 'In Transit' });
+    expect(mocks.shipmentFind).toHaveBeenCalledTimes(1);
+    expect(mocks.shipmentFind).toHaveBeenCalledWith({ providerOrderId: 'PROVIDER-ORDER-QA' });
+  });
+
+  it('uses an explicit channel order ID only after provider identifiers miss', async () => {
+    mocks.shipmentFind.mockResolvedValueOnce(null).mockResolvedValueOnce(mocks.shipment);
+    await LogisticsWebhookService.process({
+      order_id: 'PROVIDER-ORDER-QA',
+      channel_order_id: 'CR-TRUSTED-QA',
+      current_status: 'In Transit'
     });
+    expect(mocks.shipmentFind).toHaveBeenNthCalledWith(1, { providerOrderId: 'PROVIDER-ORDER-QA' });
+    expect(mocks.shipmentFind).toHaveBeenNthCalledWith(2, { sourceOrderId: 'CR-TRUSTED-QA' });
   });
 
   it('accepts but ignores an unmatched provider event safely', async () => {

@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
-import { objectIdSchema } from './common.validator.js';
+import { objectIdSchema, queryBooleanSchema } from './common.validator.js';
 
 const imageSchema = z.object({ url: z.string().url(), alt: z.string().min(2), width: z.number().int().positive(), height: z.number().int().positive(), publicId: z.string().optional() });
 const orderedImagesSchema = z.array(imageSchema).max(24).superRefine((images, context) => {
@@ -69,6 +69,25 @@ const productFieldsSchema = z.object({
   sortOrder: z.number().int().default(0),
   relatedProducts: z.array(objectIdSchema).default([]),
   recommendedProducts: z.array(objectIdSchema).default([]),
+  completeTheFit: z.object({
+    enabled: z.boolean().default(true),
+    strategy: z.enum(['manual', 'frequently_bought_together', 'best_sellers']).default('frequently_bought_together'),
+    title: z.string().trim().min(2).max(80).default('Suggested'),
+    eyebrow: z.string().trim().min(2).max(80).default('Your kit is building'),
+    description: z.string().trim().min(2).max(160).default('Explore one more piece.'),
+    bundleDiscount: z.object({
+      enabled: z.boolean().default(true),
+      twoItemDiscount: z.number().min(0).max(100).default(100),
+      threeItemDiscount: z.number().min(0).max(300).default(300)
+    }).default({ enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 })
+  }).default({
+    enabled: true,
+    strategy: 'frequently_bought_together',
+    title: 'Suggested',
+    eyebrow: 'Your kit is building',
+    description: 'Explore one more piece.',
+    bundleDiscount: { enabled: true, twoItemDiscount: 100, threeItemDiscount: 300 }
+  }),
   weight: z.number().positive().max(100).optional(),
   dimensions: packageDimensionsSchema.optional(),
   packagingWeight: z.number().min(0).max(25).optional(),
@@ -76,9 +95,13 @@ const productFieldsSchema = z.object({
   maximumQuantityPerPackage: z.number().int().min(1).max(1_000).default(10),
   seo: z.object({ metaTitle: z.string().optional(), metaDesc: z.string().optional(), ogImage: z.string().url().optional() }).default({})
 });
-const validatePriceRelationship = (product: { basePrice?: number; comparePrice?: number }, context: z.RefinementCtx): void => {
+const validatePriceRelationship = (product: { basePrice?: number; comparePrice?: number; completeTheFit?: { bundleDiscount?: { enabled?: boolean; twoItemDiscount?: number; threeItemDiscount?: number } } }, context: z.RefinementCtx): void => {
   if (product.basePrice !== undefined && product.comparePrice !== undefined && product.comparePrice > 0 && product.comparePrice <= product.basePrice) {
     context.addIssue({ code: 'custom', path: ['comparePrice'], message: 'MRP must be greater than the selling price' });
+  }
+  const bundle = product.completeTheFit?.bundleDiscount;
+  if (bundle?.enabled && (bundle.threeItemDiscount ?? 0) > 0 && (bundle.threeItemDiscount ?? 0) < (bundle.twoItemDiscount ?? 0)) {
+    context.addIssue({ code: 'custom', path: ['completeTheFit', 'bundleDiscount', 'threeItemDiscount'], message: 'The 3-item saving must be at least the 2-item saving' });
   }
 };
 export const productBodySchema = productFieldsSchema.superRefine(validatePriceRelationship);
@@ -90,10 +113,10 @@ export const productQuerySchema = z.object({
   collection: z.string().optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   gender: z.enum(['men', 'women', 'unisex']).optional(),
-  sale: z.coerce.boolean().optional(),
-  featured: z.coerce.boolean().optional(),
-  bestseller: z.coerce.boolean().optional(),
-  latestDrop: z.coerce.boolean().optional(),
+  sale: queryBooleanSchema.optional(),
+  featured: queryBooleanSchema.optional(),
+  bestseller: queryBooleanSchema.optional(),
+  latestDrop: queryBooleanSchema.optional(),
   size: z.string().optional(),
   color: z.string().optional(),
   minPrice: z.coerce.number().optional(),
@@ -104,6 +127,10 @@ export const productQuerySchema = z.object({
   sort: z.enum(['newest','price-asc','price-desc','best-selling','top-rated']).default('newest'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(24)
+}).strict();
+export const cartRecommendationsQuerySchema = z.object({
+  productIds: z.string().trim().min(24).max(520).refine((value) => value.split(',').every((id) => /^[a-f\d]{24}$/i.test(id.trim())), 'Invalid product IDs'),
+  limit: z.coerce.number().int().min(1).max(12).default(8)
 }).strict();
 export const adminProductQuerySchema = productQuerySchema.extend({
   status: z.enum(['all', 'visible', 'hidden', 'draft', 'archived']).default('all'),

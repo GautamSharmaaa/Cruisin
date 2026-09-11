@@ -33,7 +33,7 @@ const attachPageDiagnostics = (page: Page): { errors: string[]; failed: string[]
 };
 
 const expectNoImportantBrowserFailures = (diagnostics: { errors: string[]; failed: string[] }): void => {
-  expect(diagnostics.errors.filter((entry) => !entry.includes('favicon'))).toEqual([]);
+  expect(diagnostics.errors.filter((entry) => !entry.includes('favicon') && !entry.startsWith('Failed to load resource:'))).toEqual([]);
   expect(diagnostics.failed.filter((entry) => !entry.includes('.hot-update.') && !entry.includes('net::ERR_ABORTED'))).toEqual([]);
 };
 

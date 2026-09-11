@@ -2,6 +2,7 @@
 'use client';
 
 import { Share2 } from 'lucide-react';
+import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import { AddToCartButton } from '@/components/product/add-to-cart-button';
 import { ImageGallery } from '@/components/product/image-gallery';
@@ -82,7 +83,16 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
           </details> : null}
           <details className="border-t border-border py-6">
             <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.shipping}</summary>
-            <p className="mt-4 text-text-secondary">{product.shippingReturns || 'Ships with tracking in 2-5 business days. Returns are accepted on unworn pieces with original tags.'}</p>
+            <div className="mt-4 space-y-4 text-sm leading-6 text-text-secondary">
+              <p>Ships with tracking. Delivery timing is shown at checkout and updated in your account after dispatch.</p>
+              <ul className="grid list-disc gap-2 pl-5">
+                <li>Request a return or same-product size/colour exchange within five calendar days of delivery.</li>
+                <li>Items must be unused, unworn, unwashed, and returned with original tags and packaging.</li>
+                <li>Select the issue and upload 1–5 clear photographs from the delivered order in your account.</li>
+                <li>A ₹100 handling fee applies once per return or exchange request; approval follows receipt and quality inspection.</li>
+              </ul>
+              <Link href={ROUTES.returns} className="inline-flex min-h-11 items-center border-b border-accent-gold py-2 text-xs uppercase tracking-[0.12em] text-accent-gold transition hover:text-text-primary">Read the complete returns &amp; exchange policy</Link>
+            </div>
           </details>
         </section>
       </div>

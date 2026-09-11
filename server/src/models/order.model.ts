@@ -21,6 +21,7 @@ const itemSchema = new Schema(
     variant: { type: Schema.Types.ObjectId, required: true },
     title: { type: String, required: true, trim: true },
     sku: { type: String, required: true, trim: true },
+    hsn: { type: String, trim: true, default: '' },
     size: { type: String, trim: true },
     color: { type: String, trim: true },
     quantity: { type: Number, required: true, min: 1 },
@@ -68,7 +69,9 @@ const orderSchema = new Schema(
     shippingAddress: { type: addressSchema, required: true },
     billingAddress: { type: addressSchema, required: true },
     orderNumber: { type: String, unique: true, sparse: true, index: true },
-    checkoutIdempotencyKey: { type: String, unique: true, sparse: true, index: true },
+    checkoutIdempotencyKey: { type: String, trim: true },
+    checkoutRequestHash: { type: String, trim: true },
+    checkoutCartVersion: { type: Number, min: 0 },
     metaCheckoutEventId: { type: String, trim: true, sparse: true, index: true },
     paymentMethod: { type: String, enum: ['razorpay', 'stripe', 'cod'], required: true },
     paymentMode: { type: String, enum: ['online', 'cod', 'partial'], default: 'online', index: true },
@@ -82,11 +85,16 @@ const orderSchema = new Schema(
     tax: { type: Number, required: true, min: 0 },
     shipping: { type: Number, required: true, min: 0 },
     discount: { type: Number, required: true, min: 0, default: 0 },
+    couponDiscount: { type: Number, min: 0, default: 0 },
+    bundleDiscount: { type: Number, min: 0, default: 0 },
+    bundleDiscountLabel: { type: String, trim: true, default: '' },
     codFee: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0 },
     amountPaid: { type: Number, required: true, min: 0, default: 0 },
     amountDue: { type: Number, required: true, min: 0, default: 0 },
     stockReserved: { type: Boolean, default: false },
+    stockReservationExpiresAt: { type: Date, index: true },
+    stockReservationReleasedAt: { type: Date },
     paymentSettlementStartedAt: { type: Date },
     couponCode: { type: String, uppercase: true, trim: true, index: true },
     refundAmount: { type: Number, min: 0, default: 0 },
@@ -101,7 +109,14 @@ const orderSchema = new Schema(
     cancellation: { type: cancellationSchema },
     timeline: { type: [timelineSchema], default: [] },
     analyticsTestBatchId: { type: String, trim: true, index: true },
-    isAnalyticsTestData: { type: Boolean, default: false, index: true }
+    isAnalyticsTestData: { type: Boolean, default: false, index: true },
+    isTestOrder: { type: Boolean, default: false },
+    archivedAt: { type: Date },
+    archivedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    archiveReason: { type: String, trim: true, maxlength: 500 },
+    confirmationEmailSentAt: { type: Date },
+    fulfillmentPreparedAt: { type: Date },
+    customerSnapshotSynchronizedAt: { type: Date }
   },
   { timestamps: true }
 );
@@ -110,6 +125,11 @@ orderSchema.index({ createdAt: -1, orderStatus: 1 });
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ createdAt: -1, paymentStatus: 1, orderStatus: 1 });
 orderSchema.index({ fulfillmentStatus: 1, createdAt: -1 });
+orderSchema.index(
+  { user: 1, checkoutIdempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { checkoutIdempotencyKey: { $type: 'string' } } }
+);
+orderSchema.index({ stockReserved: 1, stockReservationExpiresAt: 1, paymentStatus: 1 });
 
 export type OrderDocument = InferSchemaType<typeof orderSchema>;
 export const OrderModel = model('Order', orderSchema);

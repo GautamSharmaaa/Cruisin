@@ -6,6 +6,7 @@ export const logisticsQuoteSchema = z
   .object({
     deliveryPostcode: z.string().regex(/^[1-9]\d{5}$/),
     paymentMode: z.enum(["prepaid", "cod"]),
+    expectedCartVersion: z.number().int().min(0).optional(),
   })
   .strict();
 
@@ -94,10 +95,20 @@ export const logisticsWebhookSchema = z
     awb: z.union([z.string(), z.number()]).optional(),
     awb_code: z.union([z.string(), z.number()]).optional(),
     order_id: z.union([z.string(), z.number()]).optional(),
+    sr_order_id: z.union([z.string(), z.number()]).optional(),
+    channel_order_id: z.union([z.string(), z.number()]).optional(),
+    source_order_id: z.union([z.string(), z.number()]).optional(),
     shipment_id: z.union([z.string(), z.number()]).optional(),
     current_status: z.string().trim().min(1).max(120).optional(),
+    shipment_status: z.string().trim().min(1).max(120).optional(),
     status: z.string().trim().min(1).max(120).optional(),
     status_id: z.coerce.number().optional(),
+    current_status_id: z.coerce.number().optional(),
+    shipment_status_id: z.coerce.number().optional(),
+    courier_name: z.string().trim().max(160).optional(),
+    courier_id: z.coerce.number().optional(),
+    pickup_status: z.string().trim().max(120).optional(),
+    pickup_scheduled_date: providerTimestampSchema.optional(),
     etd: providerTimestampSchema.optional(),
     scans: z
       .array(
@@ -107,6 +118,8 @@ export const logisticsWebhookSchema = z
             status: z.string().trim().min(1).max(120),
             activity: z.string().trim().max(500).optional(),
             location: z.string().trim().max(200).optional(),
+            status_id: z.coerce.number().optional(),
+            'sr-status': z.coerce.number().optional(),
           })
           .passthrough(),
       )
@@ -119,6 +132,9 @@ export const logisticsWebhookSchema = z
       !value.awb &&
       !value.awb_code &&
       !value.order_id &&
+      !value.sr_order_id &&
+      !value.channel_order_id &&
+      !value.source_order_id &&
       !value.shipment_id
     ) {
       context.addIssue({
@@ -126,7 +142,7 @@ export const logisticsWebhookSchema = z
         message: "Webhook requires a shipment identifier",
       });
     }
-    if (!value.current_status && !value.status) {
+    if (!value.current_status && !value.shipment_status && !value.status) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Webhook requires a shipment status",
@@ -137,13 +153,43 @@ export const logisticsWebhookSchema = z
 export const returnRequestSchema = z
   .object({
     orderId: objectIdSchema,
-    variantId: objectIdSchema,
-    quantity: z.number().int().positive().max(100),
-    reason: z.string().trim().min(3).max(200),
-    details: z.string().trim().max(1_000).optional(),
+    items: z.array(z.object({ variantId: objectIdSchema, quantity: z.number().int().positive().max(100) }).strict()).min(1).max(20),
+    reason: z.enum(['wrong_size_fit', 'damaged_product', 'defective_product', 'wrong_item_received', 'different_from_expectation', 'quality_issue', 'missing_item_part', 'other']),
+    details: z.string().trim().max(1_000).optional().default(''),
+    evidence: z.array(z.object({
+      publicId: z.string().trim().min(10).max(500),
+      version: z.number().int().positive(),
+      format: z.enum(['jpg', 'jpeg', 'png', 'webp']),
+      token: z.string().regex(/^[a-f0-9]{64}$/)
+    }).strict()).min(1, 'Upload at least one photo').max(5),
     idempotencyKey: z.string().uuid(),
   })
   .strict();
+
+export const returnPaymentVerifySchema = z.object({
+  requestId: objectIdSchema,
+  payload: z.record(z.unknown())
+}).strict();
+
+export const refundDestinationSchema = z.discriminatedUnion('method', [
+  z.object({ method: z.literal('original_payment') }).strict(),
+  z.object({ method: z.literal('wallet') }).strict(),
+  z.object({ method: z.literal('upi'), upiId: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{1,254}@[a-z][a-z0-9.-]{1,63}$/i, 'Enter a valid UPI ID') }).strict(),
+  z.object({
+    method: z.literal('bank'),
+    accountHolderName: z.string().trim().min(2).max(100),
+    accountNumber: z.string().trim().regex(/^\d{6,18}$/, 'Enter a valid bank account number'),
+    confirmAccountNumber: z.string().trim().regex(/^\d{6,18}$/),
+    ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Enter a valid IFSC')
+  }).strict()
+]).superRefine((value, context) => {
+  if (value.method === 'bank' && value.accountNumber !== value.confirmAccountNumber) context.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmAccountNumber'], message: 'Bank account numbers do not match' });
+});
+
+export const adminRefundDestinationSchema = z.discriminatedUnion('method', [
+  z.object({ method: z.literal('wallet') }).strict(),
+  z.object({ method: z.literal('upi'), upiId: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{1,254}@[a-z][a-z0-9.-]{1,63}$/i, 'Enter a valid UPI ID') }).strict()
+]);
 
 export const exchangeRequestSchema = z
   .object({
@@ -159,5 +205,14 @@ export const workflowActionSchema = z
   .object({
     action: z.string().trim().min(2).max(80),
     note: z.string().trim().max(1_000).optional(),
+    upiId: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{1,254}@[a-z][a-z0-9.-]{1,63}$/i).optional(),
+    transactionReference: z.string().trim().regex(/^[A-Za-z0-9._\/-]{4,80}$/).optional(),
+    transferredAt: z.string().datetime().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.action === 'record_manual_upi_refund') {
+      if (!value.upiId) context.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId'], message: 'UPI ID is required' });
+      if (!value.transactionReference) context.addIssue({ code: z.ZodIssueCode.custom, path: ['transactionReference'], message: 'UPI transaction reference is required' });
+    }
+  });

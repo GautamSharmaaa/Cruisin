@@ -7,14 +7,19 @@ export const csvCell = (value: string | number | boolean | null | undefined): st
   return '"' + spreadsheetSafe.replaceAll('"', '""') + '"';
 };
 
-export const exportToCsv = (filename: string, rows: CsvRow[]): void => {
-  if (typeof window === 'undefined') return;
-  if (rows.length === 0) return;
+export const rowsToCsv = (rows: CsvRow[]): string => {
+  if (rows.length === 0) return '';
   const first = rows[0];
   const normalized = Array.isArray(first)
     ? rows.map((row) => Array.isArray(row) ? row : Object.values(row))
     : [Object.keys(first), ...rows.map((row) => Array.isArray(row) ? row : Object.values(row))];
-  const csv = normalized.map((row) => row.map(csvCell).join(',')).join('\n');
+  return normalized.map((row) => row.map(csvCell).join(',')).join('\n');
+};
+
+export const exportToCsv = (filename: string, rows: CsvRow[]): void => {
+  if (typeof window === 'undefined') return;
+  if (rows.length === 0) return;
+  const csv = rowsToCsv(rows);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;

@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import { flushCartMutations } from '@/lib/server-cart';
 import { useCartStore } from '@/store/cartStore';
 import type { ApiEnvelope } from '@/types/api.types';
 
@@ -21,6 +22,7 @@ export interface LogisticsQuoteOption {
 
 export interface LogisticsQuote {
   quoteId: string;
+  cartVersion: number;
   deliveryPostcode: string;
   paymentMode: 'prepaid' | 'cod';
   options: LogisticsQuoteOption[];
@@ -28,10 +30,18 @@ export interface LogisticsQuote {
   package: { measurementConfirmed: boolean; warnings: string[] };
 }
 
+export const logisticsQuoteQueryKey = (
+  deliveryPostcode: string,
+  paymentMode: 'prepaid' | 'cod',
+  cartVersion: number
+) => ['logistics-quote', deliveryPostcode, paymentMode, cartVersion] as const;
+
 export interface ShipmentTracking {
   orderId: string;
   orderNumber?: string;
+  orderStatus: string;
   fulfillmentStatus: string;
+  returnWindow?: { deliveredAt: string; endsAt: string; eligible: boolean; daysRemaining: number };
   shipments: Array<{
     id: string;
     type: 'forward' | 'return' | 'exchange_replacement';
@@ -39,23 +49,33 @@ export interface ShipmentTracking {
     courierName?: string;
     awb?: string;
     estimatedDelivery?: string;
-    scans: Array<{ status: string; rawStatus: string; message: string; location?: string; timestamp: string }>;
+    latestUpdate?: string;
+    latestLocation?: string;
+    currentMilestone: string;
+    latestMessage: string;
+    milestones: Array<{ key: string; label: string; message: string; reachedAt?: string; current: boolean; completed: boolean; exception: boolean; scans: Array<{ message: string; location?: string; timestamp: string }> }>;
+    scans: Array<{ status: string; message: string; location?: string; timestamp: string }>;
   }>;
 }
 
-export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepaid' | 'cod') => useQuery({
-  queryKey: ['logistics-quote', deliveryPostcode, paymentMode],
-  enabled: /^[1-9]\d{5}$/.test(deliveryPostcode),
-  retry: false,
-  staleTime: 10 * 60_000,
-  queryFn: async (): Promise<LogisticsQuote> => {
-    const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
-    if (items.length === 0) throw new Error('Add an item before checking delivery');
-    await api.put('/cart/sync', { items: items.map((item) => ({ product: item.product.id, variant: item.variantId, quantity: item.quantity })) });
-    const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode });
-    return response.data.data;
-  }
-});
+export const useLogisticsQuote = (deliveryPostcode: string, paymentMode: 'prepaid' | 'cod') => {
+  const cartVersion = useCartStore((state) => state.version);
+  const cartSyncStatus = useCartStore((state) => state.syncStatus);
+  return useQuery({
+    queryKey: logisticsQuoteQueryKey(deliveryPostcode, paymentMode, cartVersion),
+    enabled: /^[1-9]\d{5}$/.test(deliveryPostcode) && cartSyncStatus !== 'syncing',
+    retry: false,
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<LogisticsQuote> => {
+      const items = useCartStore.getState().items.filter((item) => isCustomerVisibleProduct(item.product));
+      if (items.length === 0) throw new Error('Add an item before checking delivery');
+      await flushCartMutations();
+      const expectedCartVersion = useCartStore.getState().version;
+      const response = await api.post<ApiEnvelope<LogisticsQuote>>('/logistics/quotes', { deliveryPostcode, paymentMode, expectedCartVersion });
+      return response.data.data;
+    }
+  });
+};
 
 export const useOrderTracking = (orderId: string | undefined) => useQuery({
   queryKey: ['order-tracking', orderId],

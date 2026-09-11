@@ -9,7 +9,11 @@ const optionalString = z.preprocess((value) => value === '' ? undefined : value,
 const envBoolean = (defaultValue: boolean) => z.preprocess((value) => {
   if (value === undefined || value === '') return defaultValue;
   if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
   return value;
 }, z.boolean());
 
@@ -47,14 +51,19 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1, 'RAZORPAY_KEY_ID is required'),
   RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET is required'),
   RAZORPAY_WEBHOOK_SECRET: optionalSecret,
+  RAZORPAYX_ENABLED: envBoolean(false),
+  RAZORPAYX_ACCOUNT_NUMBER: optionalSecret,
+  MANUAL_REFUND_UPI_ENABLED: envBoolean(true),
+  REFUND_DESTINATION_ENCRYPTION_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(32).optional()),
   PAYMENT_MODE: z.enum(['test', 'live']).default('test'),
   COD_ENABLED: envBoolean(false),
   COD_CHECKOUT_ENABLED: envBoolean(false),
   COD_FEE: z.coerce.number().min(0).default(0),
-  PARTIAL_PAYMENT_ENABLED: z.coerce.boolean().default(false),
+  PARTIAL_PAYMENT_ENABLED: envBoolean(false),
   PARTIAL_PAYMENT_PERCENTAGE: z.coerce.number().positive().max(100).optional(),
   PARTIAL_PAYMENT_FIXED_AMOUNT: z.coerce.number().positive().optional(),
   MAX_COD_ORDER_VALUE: z.coerce.number().positive().default(50000),
+  RETURN_HANDLING_FEE: z.coerce.number().min(1).max(10_000).default(100),
   MIN_PARTIAL_PAYMENT_ORDER_VALUE: z.coerce.number().min(0).default(0),
   STRIPE_SECRET_KEY: optionalSecret,
   STRIPE_WEBHOOK_SECRET: optionalSecret,
@@ -73,12 +82,22 @@ const envSchema = z.object({
   SHIPROCKET_ENABLED: envBoolean(false),
   SHIPROCKET_MODE: z.enum(['mock', 'live-readonly', 'live']).default('mock'),
   SHIPROCKET_ALLOW_LIVE_READS: envBoolean(false),
+  SHIPROCKET_ALLOW_LIVE_DOCUMENTS: envBoolean(false),
   SHIPROCKET_ALLOW_LIVE_MUTATIONS: envBoolean(false),
   SHIPROCKET_BASE_URL: z.literal('https://apiv2.shiprocket.in/v1/external').default('https://apiv2.shiprocket.in/v1/external'),
   SHIPROCKET_API_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
   SHIPROCKET_API_PASSWORD: optionalSecret,
   SHIPROCKET_PICKUP_LOCATION: optionalString,
   SHIPROCKET_PICKUP_POSTCODE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[1-9]\d{5}$/).optional()),
+  SHIPROCKET_RETURN_NAME: optionalString,
+  SHIPROCKET_RETURN_PHONE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^\+?[0-9]{10,15}$/).optional()),
+  SHIPROCKET_RETURN_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
+  SHIPROCKET_RETURN_ADDRESS: optionalString,
+  SHIPROCKET_RETURN_ADDRESS_2: optionalString,
+  SHIPROCKET_RETURN_CITY: optionalString,
+  SHIPROCKET_RETURN_STATE: optionalString,
+  SHIPROCKET_RETURN_COUNTRY: optionalString,
+  SHIPROCKET_RETURN_POSTCODE: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[1-9]\d{5}$/).optional()),
   SHIPROCKET_WEBHOOK_SECRET: optionalSecret,
   SHIPROCKET_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(12_000),
   SHIPROCKET_TOKEN_REFRESH_BUFFER_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3_600),
@@ -106,14 +125,23 @@ const envSchema = z.object({
   if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_REFRESH_SECRET'], message: 'JWT access and refresh secrets must be different' });
   }
+  if (value.RAZORPAYX_ENABLED && !value.RAZORPAYX_ACCOUNT_NUMBER) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['RAZORPAYX_ACCOUNT_NUMBER'], message: 'RAZORPAYX_ACCOUNT_NUMBER is required when alternate bank or UPI refunds are enabled' });
+  }
   if (!value.REDIS_URL && (!value.UPSTASH_REDIS_REST_URL || !value.UPSTASH_REDIS_REST_TOKEN)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'Provide REDIS_URL or both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN' });
   }
   if ((value.UPSTASH_REDIS_REST_URL && !value.UPSTASH_REDIS_REST_TOKEN) || (!value.UPSTASH_REDIS_REST_URL && value.UPSTASH_REDIS_REST_TOKEN)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['UPSTASH_REDIS_REST_URL'], message: 'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be provided together' });
   }
-  if (value.SHIPROCKET_MODE === 'mock' && (value.SHIPROCKET_ALLOW_LIVE_READS || value.SHIPROCKET_ALLOW_LIVE_MUTATIONS)) {
+  if (value.SHIPROCKET_MODE === 'mock' && (value.SHIPROCKET_ALLOW_LIVE_READS || value.SHIPROCKET_ALLOW_LIVE_DOCUMENTS || value.SHIPROCKET_ALLOW_LIVE_MUTATIONS)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_MODE'], message: 'Mock Shiprocket mode cannot allow live operations' });
+  }
+  if (value.SHIPROCKET_ALLOW_LIVE_DOCUMENTS && !value.SHIPROCKET_ALLOW_LIVE_READS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_DOCUMENTS'], message: 'Live Shiprocket documents require live reads to be enabled' });
+  }
+  if (value.SHIPROCKET_ALLOW_LIVE_MUTATIONS && !value.SHIPROCKET_ALLOW_LIVE_READS) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_MUTATIONS'], message: 'Live Shiprocket mutations require live reads to be enabled' });
   }
   if (value.SHIPROCKET_MODE === 'live-readonly' && value.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_ALLOW_LIVE_MUTATIONS'], message: 'Live-readonly Shiprocket mode cannot allow mutations' });
@@ -123,6 +151,11 @@ const envSchema = z.object({
     if (!value.SHIPROCKET_API_PASSWORD) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_API_PASSWORD'], message: 'Shiprocket API password is required outside mock mode' });
     if (!value.SHIPROCKET_PICKUP_LOCATION) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_LOCATION'], message: 'Shiprocket pickup location is required outside mock mode' });
     if (!value.SHIPROCKET_PICKUP_POSTCODE) context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_PICKUP_POSTCODE'], message: 'Shiprocket pickup postcode is required outside mock mode' });
+    if (value.SHIPROCKET_ALLOW_LIVE_MUTATIONS) {
+      for (const key of ['SHIPROCKET_RETURN_NAME', 'SHIPROCKET_RETURN_PHONE', 'SHIPROCKET_RETURN_EMAIL', 'SHIPROCKET_RETURN_ADDRESS', 'SHIPROCKET_RETURN_CITY', 'SHIPROCKET_RETURN_STATE', 'SHIPROCKET_RETURN_COUNTRY', 'SHIPROCKET_RETURN_POSTCODE'] as const) {
+        if (!value[key]) context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required for live Shiprocket return pickups` });
+      }
+    }
   }
   if (value.SHIPROCKET_ENABLED && value.APP_ENV !== 'development' && !value.SHIPROCKET_WEBHOOK_SECRET) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['SHIPROCKET_WEBHOOK_SECRET'], message: 'Shiprocket webhook secret is required outside development' });

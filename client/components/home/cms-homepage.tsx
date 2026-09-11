@@ -101,8 +101,8 @@ export function CmsHomepage({ sections }: CmsHomepageProps): ReactNode {
     seen.add(key);
     return true;
   });
-  const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar');
-  return <div data-testid="cms-homepage" className="relative -mt-16 lg:-mt-20"><h1 className="sr-only">Cruisin</h1>{visible.map((section, index) => index === announcementIndex
+  const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar' || section.type === 'marquee_strip');
+  return <div data-testid="cms-homepage" className="relative"><h1 className="sr-only">Cruisin</h1>{visible.map((section, index) => index === announcementIndex
     ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40"><CmsSectionRenderer section={section} /></div>
     : <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</div>;
 }
@@ -114,7 +114,8 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
   if (type === 'announcement_bar') return <div className={visibility + ' border-b border-border px-5 py-3 text-center text-xs uppercase tracking-[0.14em] text-text-primary'} style={{ backgroundColor: asString(content, 'backgroundColor', '#0f0f0f') }}><Link href={safeHref(asString(content, 'link', '/shop'))}>{asString(content, 'text', section.title)}</Link></div>;
   if (type === 'marquee_strip') {
     const message = polishedCmsText(asString(content, 'text', section.title), 'New drop - limited stock - complimentary shipping above Rs. 999');
-    const duration = Math.min(60, Math.max(6, asNumber(content, 'speed', 18)));
+    const speed = Math.max(1, asNumber(content, 'speed', 18));
+    const duration = Math.min(60, Math.max(6, 324 / speed));
     return <section className={visibility + ' overflow-hidden border-y border-border bg-background-elevated py-4'}><div className="cms-marquee-track font-accent text-xs uppercase tracking-[0.18em] text-accent-gold" style={{ animationDuration: duration + 's' }}>{[0, 1].map((group) => <div key={group} className="flex shrink-0 gap-8 pr-8" aria-hidden={group === 1}>{Array.from({ length: 6 }).map((_, index) => <span key={index} className="shrink-0 whitespace-nowrap">{message}</span>)}</div>)}</div></section>;
   }
   if (type === 'discount_banner') return <section className={visibility + ' border-y border-border bg-background-elevated px-6 py-14 text-center lg:px-20'}><p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'eyebrow', asString(content, 'couponCode', 'Private Access'))}</p><h2 className="mt-4 font-display text-4xl text-text-primary">{asString(content, 'discountTitle', section.title)}</h2><Link className="mt-7 inline-flex h-11 items-center bg-accent-gold px-6 text-xs uppercase tracking-[0.08em] text-text-inverse" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop now')}</Link></section>;
@@ -136,7 +137,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const overlay = asNumber(content, 'overlayOpacity', 44) / 100;
   return <section className={className + ' relative min-h-dvh overflow-hidden'}>
-    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-80" /></picture>
+    <picture><source media="(max-width: 767px)" srcSet={optimizedImageUrl(mobileMediaFor(section, content), 900)} /><img src={optimizedImageUrl(mediaFor(section, content), 1920)} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full bg-background-primary object-cover opacity-80" /></picture>
     <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(0,0,0,${overlay * 0.4}), rgba(0,0,0,${overlay + 0.12}))` }} />
     <div className="relative flex min-h-dvh flex-col justify-end px-6 pb-24 lg:px-20">
       <p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'campaignLabel', section.position ?? 'Campaign')}</p>
@@ -169,10 +170,13 @@ function MobileMediaLanding({ content, className }: { content: Content; classNam
   const overlay = Number.isFinite(rawOverlay) ? Math.min(100, Math.max(0, rawOverlay)) / 100 : 0.2;
   const hasVideo = mediaType === 'video' && isPlayableVideo(videoUrl);
   if (!hasVideo && !imageUrl) return null;
-  return <section className={className + ' relative min-h-[100svh] overflow-hidden bg-background-primary'}>
+  return <section className={className + ' relative min-h-[calc(100svh-9rem)] overflow-hidden bg-background-primary'}>
     {hasVideo
       ? <LazyVideo src={videoUrl} poster={asString(content, 'posterImage')} autoplay={asBool(content, 'autoplay', true)} muted={asBool(content, 'muted', true)} loop={asBool(content, 'loop', true)} className="absolute inset-0 h-full w-full object-cover" />
-      : <img src={optimizedImageUrl(imageUrl, 900)} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
+      : <>
+        <img src={optimizedImageUrl(imageUrl, 900)} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+        <img src={optimizedImageUrl(imageUrl, 900)} alt={asString(content, 'altText')} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain" />
+      </>}
     {overlay > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: overlay }} /> : null}
     {ctaText && ctaLink ? <div className="absolute inset-x-0 bottom-10 flex justify-center px-6"><Link className="mobile-media-cta inline-flex min-h-12 items-center justify-center px-5 py-3 text-center font-accent text-sm uppercase tracking-[0.22em]" href={safeHref(ctaLink)}>{ctaText}</Link></div> : null}
   </section>;

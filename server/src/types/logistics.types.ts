@@ -9,17 +9,21 @@ export const shipmentStatuses = [
   'provider_order_created',
   'awb_assigned',
   'pickup_scheduled',
+  'out_for_pickup',
   'picked_up',
   'shipped',
   'in_transit',
   'reached_destination_hub',
   'out_for_delivery',
   'delivered',
+  'delivery_exception',
   'ndr',
   'rto_initiated',
   'rto_in_transit',
   'rto_delivered',
   'cancelled',
+  'lost',
+  'damaged',
   'return_in_transit',
   'returned',
   'error',
@@ -112,6 +116,7 @@ export interface CreateLogisticsOrderInput {
   paymentMode: 'prepaid' | 'cod';
   subtotal: number;
   shippingCharge: number;
+  codHandlingCharge?: number;
   totalDiscount: number;
   total: number;
   package: PackageMeasurement;
@@ -180,6 +185,35 @@ export interface TrackingResult {
   scans: TrackingScan[];
 }
 
+export interface ReconcileShipmentInput {
+  providerOrderId?: string;
+  providerShipmentId?: string;
+  awb?: string;
+  createdAt?: string;
+}
+
+export interface ReconcileShipmentResult extends TrackingResult {
+  providerOrderId?: string;
+  providerShipmentId?: string;
+  courierId?: number;
+  pickupStatus?: string;
+  pickupDate?: string;
+  providerStatusId?: number;
+  shippingMode?: 'surface' | 'air' | 'unknown';
+  providerShippingCost?: number;
+  codCharge?: number;
+  chargedWeightKg?: number;
+  otherProviderCharges?: number;
+  rtoCost?: number;
+  providerBilledFreightCost?: number;
+  providerBilledCodCharge?: number;
+  providerBilledOtherCharges?: number;
+  providerBilledRtoCost?: number;
+  providerBilledTotal?: number;
+  providerBillingStatus?: 'unavailable' | 'current';
+  providerBillingSource?: 'statement';
+}
+
 export interface CancelShipmentInput {
   awb: string;
 }
@@ -190,6 +224,7 @@ export interface CancelShipmentResult {
 }
 
 export interface CreateReturnInput extends CreateLogisticsOrderInput {
+  returnAddress: LogisticsAddress & { email: string };
   originalAwb?: string;
   returnReason: string;
 }

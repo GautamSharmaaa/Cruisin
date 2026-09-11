@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 'use client';
-import { BarChart3, Boxes, ChevronRight, FilePenLine, Files, LayoutDashboard, Package, Percent, RefreshCcw, Repeat2, Rows3, ShoppingBag, Truck, Users, X } from 'lucide-react';
+import { BarChart3, Boxes, Calculator, ChevronRight, FilePenLine, Files, LayoutDashboard, Package, Percent, RefreshCcw, Repeat2, Rows3, ShoppingBag, Truck, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -28,7 +28,8 @@ const links = [
   { label: COPY.nav.users, href: '/users', icon: Users },
   { label: COPY.nav.discounts, href: '/discounts', icon: Percent },
   { label: COPY.nav.cms, href: '/cms', icon: FilePenLine },
-  { label: COPY.nav.analytics, href: '/analytics', icon: BarChart3 }
+  { label: COPY.nav.analytics, href: '/analytics', icon: BarChart3 },
+  { label: 'Cost & COD analytics', href: '/analytics/costs', icon: Calculator }
 ] as const;
 
 export function Sidebar({ isOpen, onClose }: SidebarProps): ReactNode {

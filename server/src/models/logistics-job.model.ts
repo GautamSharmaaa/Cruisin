@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { Schema, model, type InferSchemaType } from 'mongoose';
 
-export const logisticsJobTypes = ['create_order', 'assign_awb', 'schedule_pickup', 'generate_label', 'generate_invoice', 'generate_manifest', 'refresh_tracking', 'cancel_shipment', 'create_return', 'create_exchange', 'reconcile_tracking'] as const;
+export const logisticsJobTypes = ['create_order', 'assign_awb', 'schedule_pickup', 'generate_label', 'generate_invoice', 'generate_manifest', 'refresh_tracking', 'cancel_shipment', 'create_return', 'create_exchange', 'reconcile_tracking', 'order_created', 'release_payment_reservation'] as const;
 
 const logisticsJobSchema = new Schema({
   type: { type: String, enum: logisticsJobTypes, required: true, index: true },
