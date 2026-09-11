@@ -115,6 +115,43 @@ const dateEnd = (value: string): Date =>
 const regexEscape = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const publicInvoiceEmail = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const email = value.trim();
+  return email.toLowerCase().endsWith("@phone.cruisin.local") ? "" : email;
+};
+
+const publicInvoicePhone = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const phone = value.trim();
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15 && !/^0+$/.test(digits)
+    ? phone
+    : "";
+};
+
+const sanitizeInvoiceContact = (
+  invoice: Record<string, unknown>,
+): Record<string, unknown> => {
+  const customer =
+    (invoice.customer as Record<string, unknown> | undefined) ?? {};
+  const sanitizeAddress = (value: unknown): unknown => {
+    if (!value || typeof value !== "object") return value;
+    const address = value as Record<string, unknown>;
+    return { ...address, phone: publicInvoicePhone(address.phone) };
+  };
+  return {
+    ...invoice,
+    customer: {
+      ...customer,
+      email: publicInvoiceEmail(customer.email),
+      phone: publicInvoicePhone(customer.phone),
+    },
+    billingAddress: sanitizeAddress(invoice.billingAddress),
+    shippingAddress: sanitizeAddress(invoice.shippingAddress),
+  };
+};
+
 const normalizeAddress = (
   address: Record<string, string | undefined>,
 ): Record<string, string> => ({
@@ -293,7 +330,7 @@ const withCurrentStatus = async (
         current?.paymentMethod ?? String(invoice.paymentMethod ?? ""),
       orderStatus: currentOrderStatus,
     });
-    return {
+    return sanitizeInvoiceContact({
       ...invoice,
       seller: {
         ...((invoice.seller as Record<string, unknown> | undefined) ?? {}),
@@ -301,7 +338,7 @@ const withCurrentStatus = async (
       },
       currentPaymentStatus,
       currentOrderStatus,
-    };
+    });
   });
 };
 
@@ -324,7 +361,7 @@ const withDownloadStatus = async (
   );
   return invoices.map((invoice) => {
     const status = statusById.get(String(invoice._id));
-    return {
+    return sanitizeInvoiceContact({
       ...invoice,
       downloadStatus:
         status && status.downloadCount > 0 ? "downloaded" : "not_downloaded",
@@ -332,7 +369,7 @@ const withDownloadStatus = async (
       lastDownloadedAt: status?.lastDownloadedAt,
       lastDownloadedBy: status?.lastDownloadedBy,
       lastDownloadKind: status?.lastDownloadKind,
-    };
+    });
   });
 };
 
@@ -583,8 +620,10 @@ export const InvoiceService = {
         seller: business,
         customer: {
           name: customerName,
-          email: customer?.email ?? "",
-          phone: customer?.phone ?? order.billingAddress.phone ?? "",
+          email: publicInvoiceEmail(customer?.email),
+          phone: publicInvoicePhone(
+            customer?.phone ?? order.billingAddress.phone,
+          ),
           gstin: "",
           state: order.billingAddress.state ?? "",
         },
@@ -639,7 +678,7 @@ export const InvoiceService = {
 
   async list(filters: InvoiceFilters): Promise<Record<string, unknown>> {
     const page = filters.page ?? 1;
-    const limit = filters.limit ?? 25;
+    const limit = filters.limit ?? 1000;
     const match = buildMatch(filters);
     const monthStart = new Date();
     monthStart.setDate(1);

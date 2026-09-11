@@ -21,7 +21,7 @@ describe('invoice API validation', () => {
         endDate: '2026-09-01',
       }).success,
     ).toBe(false);
-    expect(invoiceListQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
+    expect(invoiceListQuerySchema.safeParse({ limit: 1001 }).success).toBe(false);
     expect(invoiceListQuerySchema.safeParse({ minAmount: 500, maxAmount: 100 }).success).toBe(false);
   });
 

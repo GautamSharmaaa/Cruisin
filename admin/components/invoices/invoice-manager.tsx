@@ -182,8 +182,8 @@ export function InvoiceManager(): ReactNode {
   const [notice, setNotice] = useState("");
   const filters = useMemo<AdminInvoiceFilters>(() => {
     const value: AdminInvoiceFilters = {
-      page: Number(searchParams.get("page") ?? 1),
-      limit: Number(searchParams.get("limit") ?? 25),
+      page: 1,
+      limit: 1000,
     };
     const searchValue = searchParams.get("search");
     if (searchValue) value.search = searchValue;
@@ -881,28 +881,8 @@ export function InvoiceManager(): ReactNode {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-text-secondary">
-              Page {data?.page} of {data?.pages} · {data?.total} invoices
+              Showing all {data?.total} invoices
             </p>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                disabled={(data?.page ?? 1) <= 1}
-                onClick={() =>
-                  updateUrl({ page: String((data?.page ?? 1) - 1) })
-                }
-              >
-                Previous
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={(data?.page ?? 1) >= (data?.pages ?? 1)}
-                onClick={() =>
-                  updateUrl({ page: String((data?.page ?? 1) + 1) })
-                }
-              >
-                Next
-              </Button>
-            </div>
           </div>
         </>
       )}

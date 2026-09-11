@@ -85,6 +85,10 @@ const clean = (value: unknown): string =>
   typeof value === "string"
     ? value.replace(/[\u0000-\u001f\u007f]/g, "").trim()
     : "";
+const publicEmail = (value: unknown): string => {
+  const email = clean(value);
+  return email.toLowerCase().endsWith("@phone.cruisin.local") ? "" : email;
+};
 const addressLines = (address: InvoiceAddress): string[] =>
   [
     address.fullName,
@@ -223,7 +227,7 @@ const drawHeader = (doc: PDFKit.PDFDocument, invoice: PdfInvoice): number => {
     .text(
       [
         ...addressLines(invoice.billingAddress),
-        invoice.customer.email,
+        publicEmail(invoice.customer.email),
         invoice.customer.gstin ? `GSTIN: ${invoice.customer.gstin}` : "",
       ]
         .map(clean)
