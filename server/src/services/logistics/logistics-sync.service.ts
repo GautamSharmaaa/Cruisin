@@ -6,6 +6,8 @@ import type { ShipmentDocument } from '../../models/shipment.model.js';
 import { ShipmentModel } from '../../models/shipment.model.js';
 import type { ReconcileShipmentResult, ShipmentStatus, TrackingScan } from '../../types/logistics.types.js';
 import { LogisticsProviderError } from '../../types/logistics.types.js';
+import { logger } from '../../utils/logger.js';
+import { InvoiceService } from '../invoice.service.js';
 import { LogisticsNotificationService } from './logistics-notification.service.js';
 import { canApplyShipmentStatus } from './logistics-status.js';
 
@@ -45,7 +47,13 @@ const reconcileOrderFulfilment = async (orderId: unknown, status: ShipmentStatus
   if (status === 'delivered') {
     await OrderModel.updateOne(
       { _id: orderId, orderStatus: { $nin: ['cancelled', 'returned'] } },
-      { $set: { fulfillmentStatus: 'fulfilled', orderStatus: 'delivered' } }
+      [{ $set: {
+        fulfillmentStatus: 'fulfilled',
+        orderStatus: 'delivered',
+        paymentStatus: { $cond: [{ $and: [{ $or: [{ $eq: ['$paymentMode', 'cod'] }, { $eq: ['$paymentMethod', 'cod'] }] }, { $in: ['$paymentStatus', ['cod_pending', 'paid']] }] }, 'cod_collected', '$paymentStatus'] },
+        amountPaid: { $cond: [{ $and: [{ $or: [{ $eq: ['$paymentMode', 'cod'] }, { $eq: ['$paymentMethod', 'cod'] }] }, { $in: ['$paymentStatus', ['cod_pending', 'paid']] }] }, '$total', '$amountPaid'] },
+        amountDue: { $cond: [{ $and: [{ $or: [{ $eq: ['$paymentMode', 'cod'] }, { $eq: ['$paymentMethod', 'cod'] }] }, { $in: ['$paymentStatus', ['cod_pending', 'paid']] }] }, 0, '$amountDue'] }
+      } }]
     );
     return;
   }
@@ -174,6 +182,13 @@ export const applyShiprocketSnapshot = async (
   // when Shiprocket repeats the same terminal shipment status on a later sync.
   if (affectsForwardOrder) {
     await reconcileOrderFulfilment(shipment.order, currentStatus);
+    if (currentStatus === 'delivered') {
+      try {
+        await InvoiceService.ensureForOrder(String(shipment.order), shipment.deliveredDate ?? undefined);
+      } catch (error) {
+        logger.error('Delivered-order invoice could not be created from Shiprocket synchronization', { orderId: String(shipment.order), error });
+      }
+    }
   }
   const eventType = statusChanged ? notificationEventForStatus(currentStatus) : null;
   if (eventType) {

@@ -5,11 +5,16 @@ export interface CheckoutTotals {
   total: number;
 }
 
-export const taxInclusiveCheckoutTotals = (subtotal: number, discount: number, shipping: number): CheckoutTotals => {
+export const taxInclusiveCheckoutTotals = (
+  subtotal: number,
+  discount: number,
+  shipping: number,
+): CheckoutTotals => {
   const discountedSubtotal = Math.max(0, subtotal - discount);
   return {
     discountedSubtotal,
-    tax: 0,
-    total: discountedSubtotal + shipping
+    tax:
+      Math.round(((discountedSubtotal * 5) / 105 + Number.EPSILON) * 100) / 100,
+    total: discountedSubtotal + shipping,
   };
 };

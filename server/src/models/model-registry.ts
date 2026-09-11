@@ -13,6 +13,10 @@ import { CouponModel } from './coupon.model.js';
 import { CouponRedemptionModel } from './coupon-redemption.model.js';
 import { CouponUsageCounterModel } from './coupon-usage-counter.model.js';
 import { InventoryModel } from './inventory.model.js';
+import { InvoiceCounterModel } from './invoice-counter.model.js';
+import { InvoiceDownloadStatusModel } from './invoice-download-status.model.js';
+import { InvoiceModel } from './invoice.model.js';
+import { InvoiceSettingsModel } from './invoice-settings.model.js';
 import { ExchangeRequestModel } from './exchange-request.model.js';
 import { LogisticsAuditModel } from './logistics-audit.model.js';
 import { LogisticsJobModel } from './logistics-job.model.js';
@@ -66,6 +70,10 @@ export const applicationModels = [
   CouponUsageCounterModel,
   ExchangeRequestModel,
   InventoryModel,
+  InvoiceCounterModel,
+  InvoiceDownloadStatusModel,
+  InvoiceModel,
+  InvoiceSettingsModel,
   LogisticsAuditModel,
   LogisticsJobModel,
   LogisticsNotificationEventModel,

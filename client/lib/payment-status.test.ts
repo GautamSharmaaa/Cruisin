@@ -12,6 +12,7 @@ describe('order payment status presentation', () => {
     expect(isOrderPaymentConfirmed({ paymentMode: 'online', paymentStatus: 'paid' })).toBe(true);
     expect(isOrderPaymentConfirmed({ paymentMode: 'partial', paymentStatus: 'partially_paid' })).toBe(true);
     expect(isOrderPaymentConfirmed({ paymentMode: 'cod', paymentStatus: 'cod_pending' })).toBe(true);
+    expect(isOrderPaymentConfirmed({ paymentMode: 'cod', paymentStatus: 'cod_collected' })).toBe(true);
   });
 
   it('recognizes terminal payment failures', () => {

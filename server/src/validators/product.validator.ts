@@ -48,6 +48,8 @@ const productFieldsSchema = z.object({
   variants: z.array(variantSchema),
   tags: z.array(z.string()).default([]),
   productCode: z.string().optional(),
+  hsnCode: z.string().trim().max(16).optional().default(''),
+  gstPercent: z.literal(5).default(5),
   pickupAddress: z.string().optional(),
   lowStockThreshold: z.number().int().min(0).default(10),
   lifetimeSales: z.number().int().min(0).default(0),

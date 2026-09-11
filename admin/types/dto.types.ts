@@ -438,6 +438,105 @@ export interface OrderDto {
   archiveReason?: string;
 }
 
+export interface InvoiceAddressDto {
+  fullName?: string;
+  phone?: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface InvoiceItemDto {
+  productId: string;
+  productName: string;
+  variant?: string;
+  sku: string;
+  productCode?: string;
+  hsn?: string;
+  quantity: number;
+  unitPrice: number;
+  mrp: number;
+  discount: number;
+  taxableValue: number;
+  gstRate: number;
+  cgstRate: number;
+  cgstAmount: number;
+  sgstRate: number;
+  sgstAmount: number;
+  igstRate: number;
+  igstAmount: number;
+  totalTax: number;
+  lineTotal: number;
+}
+
+export interface InvoiceDto {
+  _id: string;
+  id?: string;
+  invoiceNumber: string;
+  orderId: string;
+  orderNumber: string;
+  invoiceDate: string;
+  orderDate: string;
+  financialYear: string;
+  seller?: { legalName: string; tradeName: string; registeredAddress?: string; gstin?: string; state?: string; stateCode?: string; phone?: string; email?: string; footer?: string; authorizedSignatory?: string };
+  customer: { name: string; email?: string; phone?: string; gstin?: string; state?: string };
+  billingAddress?: InvoiceAddressDto;
+  shippingAddress?: InvoiceAddressDto;
+  placeOfSupply?: { state?: string; stateCode?: string };
+  items?: InvoiceItemDto[];
+  subtotal: number;
+  productDiscount: number;
+  couponDiscount: number;
+  promotionDiscount: number;
+  shippingCharge: number;
+  codFee?: number;
+  taxableValue: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  totalTax: number;
+  grandTotal: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderStatus: string;
+  currentPaymentStatus: string;
+  currentOrderStatus: string;
+  invoiceStatus: 'generated' | 'void';
+  downloadStatus?: 'downloaded' | 'not_downloaded';
+  downloadCount?: number;
+  lastDownloadedAt?: string;
+  lastDownloadedBy?: string;
+  lastDownloadKind?: 'single' | 'bulk';
+}
+
+export interface InvoiceSettingsDto {
+  legalName: string;
+  tradeName: string;
+  invoicePrefix: string;
+  registeredAddress: string;
+  gstin: string;
+  state: string;
+  stateCode: string;
+  phone: string;
+  email: string;
+  footer: string;
+  authorizedSignatory: string;
+  signatureAssetUrl: string;
+  bulkPdfLimit: number;
+}
+
+export interface InvoiceListDto {
+  items: InvoiceDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  summary: { totalInvoices: number; invoicesThisMonth: number; totalInvoicedValue: number; gstCollected: number };
+}
+
 export interface CmsSectionDto {
   id: string;
   _id?: string;
@@ -550,6 +649,10 @@ export interface AdminAnalyticsSummaryDto {
     cancelledOrders: number;
     failedPaymentOrders: number;
     refundedOrders: number;
+    codCollectedOrders: number;
+    codPendingOrders: number;
+    codCollectedRevenue: number;
+    codPendingAmount: number;
     grossRevenue: number;
     netRevenue: number;
     discounts: number;

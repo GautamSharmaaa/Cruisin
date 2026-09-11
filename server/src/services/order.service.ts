@@ -17,6 +17,7 @@ import { calculateBundleDiscount, type BundleDiscountProduct } from '../utils/bu
 import { sendEmail } from '../utils/send-email.js';
 import { logger } from '../utils/logger.js';
 import { withMongoTransaction } from '../utils/mongo-transaction.js';
+import { includedGstAmount, PRODUCT_GST_RATE } from './tax-rules.js';
 import { recordPerformanceStage } from '../utils/request-performance.js';
 import { calculateShippingRate, type ShippingMethod } from '../utils/shipping-rate.js';
 import { PaymentService } from './payment.service.js';
@@ -218,7 +219,8 @@ const createPricedItems = (cartItems: Array<{ product: unknown; variant: unknown
       other: money(product.costBreakdown?.other ?? 0)
     };
     const unitCostTotal = money(Object.values(unitCostBreakdown).reduce((sum, value) => sum + value, 0));
-    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, hsn: product.hsnCode ?? '', size: variant.size, color: variant.color, quantity: cartItem.quantity, price: money(variant.priceOverride ?? variant.price), unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
+    const price = money(variant.priceOverride ?? variant.price);
+    return { product: new Types.ObjectId(productId), variant: new Types.ObjectId(variantId), title: product.title, sku: variant.sku, productCode: product.productCode ?? '', hsn: product.hsnCode ?? '', hsnCode: product.hsnCode ?? '', gstPercent: PRODUCT_GST_RATE, mrp: price, size: variant.size, color: variant.color, quantity: cartItem.quantity, price, unitCostBreakdown, unitCostTotal, image: variant.images[0]?.url ?? product.images[0]?.url ?? '/product.webp' };
   });
   const bundleProducts: BundleDiscountProduct[] = products.map((product) => ({
     id: String(product._id),
@@ -682,8 +684,8 @@ export const OrderService = {
     if (mode === 'partial' && (!env.PARTIAL_PAYMENT_ENABLED || input.paymentMethod !== 'razorpay')) throw new ApiError(400, 'Partial payment is unavailable');
     const prepared = await prepareCheckout(userId, input, 'prepaid');
     const { cart, items, coupon, subtotal, couponDiscount, bundleSaving, bundleDiscount, discount, logisticsQuote, shippingMethod, shipping } = prepared;
-    const tax = 0;
-    const total = money(subtotal - discount + shipping + tax);
+    const tax = includedGstAmount(subtotal - discount);
+    const total = money(subtotal - discount + shipping);
     if (mode === 'partial' && total < env.MIN_PARTIAL_PAYMENT_ORDER_VALUE) throw new ApiError(400, 'Order value is below the partial-payment minimum');
     const advance = mode === 'partial' ? money(Math.min(total, env.PARTIAL_PAYMENT_FIXED_AMOUNT ?? total * ((env.PARTIAL_PAYMENT_PERCENTAGE ?? 0) / 100))) : total;
     if (advance <= 0) throw new ApiError(400, 'Invalid partial-payment configuration');
@@ -738,9 +740,9 @@ export const OrderService = {
     const prepared = await prepareCheckout(userId, input, 'cod');
     const { cart, items, coupon, settings, subtotal, couponDiscount, bundleSaving, bundleDiscount, discount, logisticsQuote, shippingMethod, shipping } = prepared;
     if (settings.codCheckoutEnabled !== true) throw new ApiError(400, 'Cash on delivery is unavailable');
-    const tax = 0;
+    const tax = includedGstAmount(subtotal - discount);
     const codFee = money(settings.codFee ?? 49);
-    const total = money(subtotal - discount + shipping + tax + codFee);
+    const total = money(subtotal - discount + shipping + codFee);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     const orderId = new Types.ObjectId();
     let order;
@@ -911,12 +913,12 @@ export const OrderService = {
     if (!order) throw new ApiError(404, 'Order not found');
     if (partial ? order.paymentMode !== 'partial' : order.paymentMode !== 'cod') throw new ApiError(400, 'Payment mode does not match this action');
     if (order.orderStatus === 'cancelled') throw new ApiError(409, 'Payment collection cannot be recorded for a cancelled order');
-    if (order.paymentStatus === 'paid' && order.amountDue === 0) return order;
+    if (['paid', 'cod_collected'].includes(order.paymentStatus) && order.amountDue === 0) return order;
     order.amountPaid = order.total;
     order.amountDue = 0;
-    order.paymentStatus = 'paid';
+    order.paymentStatus = partial ? 'paid' : 'cod_collected';
     order.paymentProvider = partial ? 'manual' : 'cod';
-    order.timeline.push({ status: 'paid', timestamp: new Date(), note: partial ? `Remaining amount collected by admin ${adminId}` : `COD collected by admin ${adminId}` });
+    order.timeline.push({ status: partial ? 'paid' : 'cod_collected', timestamp: new Date(), note: partial ? `Remaining amount collected by admin ${adminId}` : `COD collected by admin ${adminId}` });
     await order.save();
     return order;
   },

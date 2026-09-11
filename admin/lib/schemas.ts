@@ -1,15 +1,59 @@
 // Governed by .rules v1.0
-import { z } from 'zod';
-import { MAX_VARIANT_IMAGES } from './variant-media';
+import { z } from "zod";
 
-const optionalNumber = (schema: z.ZodNumber) => z.preprocess((value) => value === '' || value === null || value === undefined ? undefined : value, schema.optional());
-const orderedVariantImagesSchema = z.array(z.string().url()).min(1, 'Add at least one variant photo.').max(MAX_VARIANT_IMAGES, `Use no more than ${MAX_VARIANT_IMAGES} photos per color.`).superRefine((images, context) => {
-  const seen = new Set<string>();
-  images.forEach((image, index) => {
-    if (seen.has(image)) context.addIssue({ code: 'custom', path: [index], message: 'Remove the duplicate photo URL.' });
-    seen.add(image);
-  });
+export const invoiceSettingsSchema = z.object({
+  legalName: z.string().trim().min(2).max(160),
+  tradeName: z.string().trim().min(2).max(80),
+  invoicePrefix: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9-]{1,12}$/),
+  registeredAddress: z.string().trim().max(500),
+  gstin: z
+    .string()
+    .trim()
+    .regex(/^$|^[0-9]{2}[A-Za-z0-9]{13}$/),
+  state: z.string().trim().max(80),
+  stateCode: z
+    .string()
+    .trim()
+    .regex(/^$|^[0-9]{2}$/),
+  phone: z.string().trim().max(20),
+  email: z.string().trim().email().or(z.literal("")),
+  footer: z.string().trim().max(300),
+  authorizedSignatory: z.string().trim().max(120),
+  signatureAssetUrl: z.string().trim().url().or(z.literal("")),
+  bulkPdfLimit: z.coerce.number().int().min(1).max(250),
 });
+
+export type InvoiceSettingsFormValue = z.infer<typeof invoiceSettingsSchema>;
+import { MAX_VARIANT_IMAGES } from "./variant-media";
+
+const optionalNumber = (schema: z.ZodNumber) =>
+  z.preprocess(
+    (value) =>
+      value === "" || value === null || value === undefined ? undefined : value,
+    schema.optional(),
+  );
+const orderedVariantImagesSchema = z
+  .array(z.string().url())
+  .min(1, "Add at least one variant photo.")
+  .max(
+    MAX_VARIANT_IMAGES,
+    `Use no more than ${MAX_VARIANT_IMAGES} photos per color.`,
+  )
+  .superRefine((images, context) => {
+    const seen = new Set<string>();
+    images.forEach((image, index) => {
+      if (seen.has(image))
+        context.addIssue({
+          code: "custom",
+          path: [index],
+          message: "Remove the duplicate photo URL.",
+        });
+      seen.add(image);
+    });
+  });
 
 export const adminProductVariantSchema = z.object({
   _id: z.string().optional(),
@@ -21,104 +65,128 @@ export const adminProductVariantSchema = z.object({
   priceOverride: optionalNumber(z.coerce.number().min(0)),
   lowStockThreshold: optionalNumber(z.coerce.number().int().min(0)),
   enabled: z.boolean().default(true),
-  images: orderedVariantImagesSchema
+  images: orderedVariantImagesSchema,
 });
 
-export const adminProductSchema = z.object({
-  title: z.string().min(2),
-  slug: z.string().optional().default(''),
-  description: z.string().min(10),
-  shortDescription: z.string().optional().default(''),
-  richDescription: z.string().min(10),
-  category: z.string().regex(/^[a-f\d]{24}$/i),
-  categoryIds: z.string().optional().default(''),
-  collections: z.string().optional().default(''),
-  tags: z.string().optional().default(''),
-  gender: z.enum(['men', 'women', 'unisex']).default('unisex'),
-  status: z.enum(['draft', 'published', 'archived']).default('published'),
-  visibility: z.enum(['visible', 'hidden']).default('visible'),
-  isSale: z.boolean().default(false),
-  isFeatured: z.boolean().default(false),
-  isBestseller: z.boolean().default(false),
-  isNewArrival: z.boolean().default(false),
-  isLatestDrop: z.boolean().default(false),
-  completeTheFitEnabled: z.boolean().default(true),
-  completeTheFitStrategy: z.enum(['manual', 'frequently_bought_together', 'best_sellers']).default('frequently_bought_together'),
-  completeTheFitTitle: z.string().trim().min(2).max(80).default('Suggested'),
-  completeTheFitEyebrow: z.string().trim().min(2).max(80).default('Your kit is building'),
-  completeTheFitDescription: z.string().trim().min(2).max(160).default('Explore one more piece.'),
-  recommendedProducts: z.string().optional().default(''),
-  bundleDiscountEnabled: z.boolean().default(false),
-  bundleTwoItemDiscount: z.coerce.number().min(0).max(100, 'The 2-item saving is capped at ₹100').default(100),
-  bundleThreeItemDiscount: z.coerce.number().min(0).max(300, 'The total bundle saving is capped at ₹300').default(300),
-  materialCare: z.string().optional().default(''),
-  fitDetails: z.string().optional().default(''),
-  shippingReturns: z.string().optional().default(''),
-  sizeGuide: z.string().optional().default(''),
-  productHighlights: z.string().optional().default(''),
-  pickupAddress: z.string().optional().default(''),
-  lowStockThreshold: z.coerce.number().int().min(0).default(10),
-  weight: z.coerce.number().min(0).optional(),
-  length: z.coerce.number().min(0).optional(),
-  width: z.coerce.number().min(0).optional(),
-  height: z.coerce.number().min(0).optional(),
-  packagingWeight: z.coerce.number().min(0).max(25).optional(),
-  defaultPackagePreset: z.string().max(80).optional().default(''),
-  maximumQuantityPerPackage: z.coerce.number().int().min(1).max(1_000).default(10),
-  seoTitle: z.string().optional().default(''),
-  seoDescription: z.string().optional().default(''),
-  ogImage: z.string().optional().default(''),
-  basePrice: z.coerce.number().min(0),
-  comparePrice: z.coerce.number().min(0).optional(),
-  costPrice: z.coerce.number().min(0).optional(),
-  manufacturingCost: z.coerce.number().min(0).default(0),
-  packagingCost: z.coerce.number().min(0).default(0),
-  marketingCost: z.coerce.number().min(0).default(0),
-  handlingCost: z.coerce.number().min(0).default(0),
-  otherCost: z.coerce.number().min(0).default(0),
-  gstPercent: z.coerce.number().min(0).max(100).optional(),
-  hsnCode: z.string().optional().default(''),
-  productCode: z.string().optional().default(''),
-  variants: z.array(adminProductVariantSchema).min(1),
-  image: z.string().url(),
-  hoverImage: z.string().optional().default(''),
-  videoUrl: z.string().optional().default(''),
-  mobileVideoUrl: z.string().optional().default(''),
-  videoPosterImage: z.string().optional().default(''),
-  imageAltText: z.string().optional().default('')
-}).superRefine((product, context) => {
-  if (product.comparePrice !== undefined && product.comparePrice > 0 && product.comparePrice <= product.basePrice) {
-    context.addIssue({ code: 'custom', path: ['comparePrice'], message: 'MRP must be greater than the selling price.' });
-  }
-  if (product.bundleDiscountEnabled && product.bundleThreeItemDiscount > 0 && product.bundleThreeItemDiscount < product.bundleTwoItemDiscount) {
-    context.addIssue({ code: 'custom', path: ['bundleThreeItemDiscount'], message: 'The 3-item saving must be at least the 2-item saving.' });
-  }
-  const skus = new Map<string, number>();
-  const combinations = new Map<string, number>();
-  product.variants.forEach((variant, index) => {
-    const sku = variant.sku.trim().toUpperCase();
-    const combination = `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
-    const skuIndex = skus.get(sku);
-    if (skuIndex !== undefined) context.addIssue({ code: 'custom', path: ['variants', index, 'sku'], message: `Duplicate SKU also used by variant ${skuIndex + 1}` });
-    else skus.set(sku, index);
-    const combinationIndex = combinations.get(combination);
-    if (combinationIndex !== undefined) context.addIssue({ code: 'custom', path: ['variants', index, 'size'], message: `Duplicate color-size combination also used by variant ${combinationIndex + 1}` });
-    else combinations.set(combination, index);
+export const adminProductSchema = z
+  .object({
+    title: z.string().min(2),
+    slug: z.string().optional().default(""),
+    description: z.string().min(10),
+    shortDescription: z.string().optional().default(""),
+    richDescription: z.string().min(10),
+    category: z.string().regex(/^[a-f\d]{24}$/i),
+    categoryIds: z.string().optional().default(""),
+    collections: z.string().optional().default(""),
+    tags: z.string().optional().default(""),
+    gender: z.enum(["men", "women", "unisex"]).default("unisex"),
+    status: z.enum(["draft", "published", "archived"]).default("published"),
+    visibility: z.enum(["visible", "hidden"]).default("visible"),
+    isSale: z.boolean().default(false),
+    isFeatured: z.boolean().default(false),
+    isBestseller: z.boolean().default(false),
+    isNewArrival: z.boolean().default(false),
+    isLatestDrop: z.boolean().default(false),
+    materialCare: z.string().optional().default(""),
+    fitDetails: z.string().optional().default(""),
+    shippingReturns: z.string().optional().default(""),
+    sizeGuide: z.string().optional().default(""),
+    productHighlights: z.string().optional().default(""),
+    pickupAddress: z.string().optional().default(""),
+    lowStockThreshold: z.coerce.number().int().min(0).default(10),
+    weight: z.coerce.number().min(0).optional(),
+    length: z.coerce.number().min(0).optional(),
+    width: z.coerce.number().min(0).optional(),
+    height: z.coerce.number().min(0).optional(),
+    packagingWeight: z.coerce.number().min(0).max(25).optional(),
+    defaultPackagePreset: z.string().max(80).optional().default(""),
+    maximumQuantityPerPackage: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1_000)
+      .default(10),
+    seoTitle: z.string().optional().default(""),
+    seoDescription: z.string().optional().default(""),
+    ogImage: z.string().optional().default(""),
+    basePrice: z.coerce.number().min(0),
+    comparePrice: z.coerce.number().min(0).optional(),
+    costPrice: z.coerce.number().min(0).optional(),
+    manufacturingCost: z.coerce.number().min(0).default(0),
+    packagingCost: z.coerce.number().min(0).default(0),
+    marketingCost: z.coerce.number().min(0).default(0),
+    handlingCost: z.coerce.number().min(0).default(0),
+    otherCost: z.coerce.number().min(0).default(0),
+    gstPercent: z.coerce
+      .number()
+      .refine((value) => value === 5, "GST must be 5%")
+      .default(5),
+    hsnCode: z.string().optional().default(""),
+    productCode: z.string().optional().default(""),
+    variants: z.array(adminProductVariantSchema).min(1),
+    image: z.string().url(),
+    hoverImage: z.string().optional().default(""),
+    videoUrl: z.string().optional().default(""),
+    mobileVideoUrl: z.string().optional().default(""),
+    videoPosterImage: z.string().optional().default(""),
+    imageAltText: z.string().optional().default(""),
+  })
+  .superRefine((product, context) => {
+    if (
+      product.comparePrice !== undefined &&
+      product.comparePrice > 0 &&
+      product.comparePrice <= product.basePrice
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["comparePrice"],
+        message: "MRP must be greater than the selling price.",
+      });
+    }
+    const skus = new Map<string, number>();
+    const combinations = new Map<string, number>();
+    product.variants.forEach((variant, index) => {
+      const sku = variant.sku.trim().toUpperCase();
+      const combination = `${variant.color.trim().toLowerCase()}|${variant.size.trim().toLowerCase()}`;
+      const skuIndex = skus.get(sku);
+      if (skuIndex !== undefined)
+        context.addIssue({
+          code: "custom",
+          path: ["variants", index, "sku"],
+          message: `Duplicate SKU also used by variant ${skuIndex + 1}`,
+        });
+      else skus.set(sku, index);
+      const combinationIndex = combinations.get(combination);
+      if (combinationIndex !== undefined)
+        context.addIssue({
+          code: "custom",
+          path: ["variants", index, "size"],
+          message: `Duplicate color-size combination also used by variant ${combinationIndex + 1}`,
+        });
+      else combinations.set(combination, index);
+    });
   });
-});
 
 export const adminCouponSchema = z.object({
   code: z.string().min(2),
-  type: z.enum(['percentage', 'fixed', 'freeShipping']),
+  type: z.enum(["percentage", "fixed", "freeShipping"]),
   value: z.coerce.number().min(0),
   minOrderValue: z.coerce.number().min(0).default(0),
   maxDiscount: optionalNumber(z.coerce.number().min(0)),
   usageLimit: optionalNumber(z.coerce.number().int().min(1)),
   userUsageLimit: z.coerce.number().int().min(1).default(1),
-  applicableProducts: z.string().optional().default(''),
-  applicableCategories: z.string().optional().default(''),
-  validFrom: z.preprocess((value) => value instanceof Date ? value.toISOString().slice(0, 10) : value ?? '', z.string().min(4)),
-  validUntil: z.preprocess((value) => value instanceof Date ? value.toISOString().slice(0, 10) : value ?? '', z.string().min(4))
+  applicableProducts: z.string().optional().default(""),
+  applicableCategories: z.string().optional().default(""),
+  validFrom: z.preprocess(
+    (value) =>
+      value instanceof Date ? value.toISOString().slice(0, 10) : (value ?? ""),
+    z.string().min(4),
+  ),
+  validUntil: z.preprocess(
+    (value) =>
+      value instanceof Date ? value.toISOString().slice(0, 10) : (value ?? ""),
+    z.string().min(4),
+  ),
 });
 
 export const adminCategorySchema = z.object({
@@ -126,20 +194,20 @@ export const adminCategorySchema = z.object({
   slug: z.string().min(2),
   parent: z.string().optional(),
   image: z.string().url(),
-  description: z.string().optional().default(''),
-  heroTitle: z.string().optional().default(''),
-  heroSubtitle: z.string().optional().default(''),
-  heroImage: z.string().optional().default(''),
-  mobileHeroImage: z.string().optional().default(''),
-  bannerImage: z.string().optional().default(''),
-  mobileBannerImage: z.string().optional().default(''),
-  thumbnailImage: z.string().optional().default(''),
-  categoryCardImage: z.string().optional().default(''),
-  categoryVideo: z.string().optional().default(''),
-  mobileCategoryVideo: z.string().optional().default(''),
-  backgroundVideo: z.string().optional().default(''),
-  videoPosterImage: z.string().optional().default(''),
-  imageAltText: z.string().optional().default(''),
+  description: z.string().optional().default(""),
+  heroTitle: z.string().optional().default(""),
+  heroSubtitle: z.string().optional().default(""),
+  heroImage: z.string().optional().default(""),
+  mobileHeroImage: z.string().optional().default(""),
+  bannerImage: z.string().optional().default(""),
+  mobileBannerImage: z.string().optional().default(""),
+  thumbnailImage: z.string().optional().default(""),
+  categoryCardImage: z.string().optional().default(""),
+  categoryVideo: z.string().optional().default(""),
+  mobileCategoryVideo: z.string().optional().default(""),
+  backgroundVideo: z.string().optional().default(""),
+  videoPosterImage: z.string().optional().default(""),
+  imageAltText: z.string().optional().default(""),
   videoAutoplay: z.boolean().default(true),
   videoMuted: z.boolean().default(true),
   videoLoop: z.boolean().default(true),
@@ -154,28 +222,39 @@ export const adminCategorySchema = z.object({
   showOnHomepage: z.boolean().default(false),
   showOnCollectionPages: z.boolean().default(true),
   showInFooter: z.boolean().default(false),
-  bannerTitle: z.string().optional().default(''),
-  bannerSubtitle: z.string().optional().default(''),
-  defaultSort: z.enum(['newest', 'price-asc', 'price-desc', 'best-selling', 'top-rated']).default('newest'),
-  defaultGridView: z.union([z.literal(1), z.literal(2), z.literal(4)]).default(4),
+  bannerTitle: z.string().optional().default(""),
+  bannerSubtitle: z.string().optional().default(""),
+  defaultSort: z
+    .enum(["newest", "price-asc", "price-desc", "best-selling", "top-rated"])
+    .default("newest"),
+  defaultGridView: z
+    .union([z.literal(1), z.literal(2), z.literal(4)])
+    .default(4),
   areFiltersVisible: z.boolean().default(true),
   isAdvancedFilterEnabled: z.boolean().default(true),
   isFlashlightEnabled: z.boolean().default(true),
-  seoTitle: z.string().optional().default(''),
-  seoDescription: z.string().optional().default(''),
-  ogImage: z.string().optional().default(''),
-  canonicalSlug: z.string().optional().default('')
+  seoTitle: z.string().optional().default(""),
+  seoDescription: z.string().optional().default(""),
+  ogImage: z.string().optional().default(""),
+  canonicalSlug: z.string().optional().default(""),
 });
 
 export const adminOrderStatusSchema = z.object({
-  status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+  status: z.enum([
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ]),
   note: z.string().max(240).optional(),
-  trackingNumber: z.string().max(80).optional()
+  trackingNumber: z.string().max(80).optional(),
 });
 
 export const adminUserUpdateSchema = z.object({
-  role: z.enum(['customer', 'admin', 'superadmin', 'manager', 'viewer']),
-  isActive: z.enum(['true', 'false'])
+  role: z.enum(["customer", "admin", "superadmin", "manager", "viewer"]),
+  isActive: z.enum(["true", "false"]),
 });
 
 export const adminBannerSchema = z.object({
@@ -189,5 +268,5 @@ export const adminBannerSchema = z.object({
   startDate: z.string().min(4),
   endDate: z.string().min(4),
   sortOrder: z.coerce.number().int().min(0),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
 });

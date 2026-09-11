@@ -1,6 +1,8 @@
 // Governed by .rules v1.0
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../invoice.service.js', () => ({ InvoiceService: { ensureForOrder: vi.fn().mockResolvedValue({}) } }));
+
 process.env.NODE_ENV = 'test';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
@@ -185,7 +187,7 @@ describe('mock provider and status normalization', () => {
     expect(orderUpdate).toHaveBeenCalledTimes(2);
     expect(orderUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({ _id: shipment.order }),
-      { $set: { fulfillmentStatus: 'fulfilled', orderStatus: 'delivered' } }
+      [expect.objectContaining({ $set: expect.objectContaining({ fulfillmentStatus: 'fulfilled', orderStatus: 'delivered', paymentStatus: expect.any(Object), amountPaid: expect.any(Object), amountDue: expect.any(Object) }) })]
     );
     expect(notify).not.toHaveBeenCalled();
     vi.restoreAllMocks();

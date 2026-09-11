@@ -5,7 +5,7 @@ const confirmedStatuses = ['paid', 'partially_paid', 'refunded', 'partially_refu
 const failedStatuses = ['failed', 'cancelled'];
 
 export const isOrderPaymentConfirmed = (order: Pick<Order, 'paymentMode' | 'paymentStatus'>): boolean => {
-  if (order.paymentMode === 'cod') return order.paymentStatus === 'cod_pending' || confirmedStatuses.includes(order.paymentStatus);
+  if (order.paymentMode === 'cod') return ['cod_pending', 'cod_collected'].includes(order.paymentStatus) || confirmedStatuses.includes(order.paymentStatus);
   return confirmedStatuses.includes(order.paymentStatus);
 };
 

@@ -7,6 +7,7 @@ import { ShipmentModel } from '../models/shipment.model.js';
 import { UserModel } from '../models/user.model.js';
 import { ApiError } from '../utils/api-error.js';
 import { addIstDays, endOfIstDay, formatIstDay, startOfIstDay } from '../utils/analytics-simulation.js';
+import { codCollectionSummary, normalizeOrderPaymentRead } from './order-payment-status.js';
 
 export interface AnalyticsPoint {
   day: string;
@@ -45,6 +46,10 @@ export interface AnalyticsSummary {
     cancelledOrders: number;
     failedPaymentOrders: number;
     refundedOrders: number;
+    codCollectedOrders: number;
+    codPendingOrders: number;
+    codCollectedRevenue: number;
+    codPendingAmount: number;
     grossRevenue: number;
     netRevenue: number;
     discounts: number;
@@ -85,7 +90,7 @@ type OrderLike = {
   _id: unknown;
   user?: unknown;
   items: Array<{ product: unknown; title: string; sku: string; quantity: number; price: number }>;
-  paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'partially_paid' | 'cod_pending' | 'refunded' | 'partially_refunded' | 'cancelled';
+  paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'partially_paid' | 'cod_pending' | 'cod_collected' | 'refunded' | 'partially_refunded' | 'cancelled';
   paymentMode?: 'online' | 'cod' | 'partial';
   orderStatus: 'pending' | 'placed' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
   subtotal: number;
@@ -122,7 +127,7 @@ const roundMoney = (value: number): number => Math.round(value * 100) / 100;
 const objectId = (value: unknown): string => String(value && typeof value === 'object' && '_id' in value ? (value as { _id: unknown })._id : value);
 export const collectedFor = (order: OrderLike): number => {
   if ((order.amountPaid ?? 0) > 0) return Math.min(order.total, order.amountPaid ?? 0);
-  return ['paid', 'refunded', 'partially_refunded'].includes(order.paymentStatus) ? order.total : 0;
+  return ['paid', 'cod_collected', 'refunded', 'partially_refunded'].includes(order.paymentStatus) ? order.total : 0;
 };
 const isRevenueEligible = (order: OrderLike): boolean => collectedFor(order) > 0;
 const refundFor = (order: OrderLike): number => Math.max(0, Math.min(collectedFor(order), order.refundAmount ?? (order.paymentStatus === 'refunded' ? collectedFor(order) : 0)));
@@ -135,7 +140,7 @@ export const isBusinessOrder = (order: OrderLike): boolean => {
 };
 
 const outstandingFor = (orders: OrderLike[]): { cod: number; partial: number; total: number } => {
-  const cod = roundMoney(orders.filter((order) => order.paymentMode === 'cod' && order.paymentStatus === 'cod_pending').reduce((sum, order) => sum + (order.amountDue ?? order.total), 0));
+  const cod = codCollectionSummary(orders).pendingAmount;
   const partial = roundMoney(orders.filter((order) => order.paymentMode === 'partial' && order.paymentStatus === 'partially_paid').reduce((sum, order) => sum + (order.amountDue ?? Math.max(0, order.total - (order.amountPaid ?? 0))), 0));
   return { cod, partial, total: roundMoney(cod + partial) };
 };
@@ -150,6 +155,7 @@ const summarizeOrders = (orders: OrderLike[], users: AnalyticsUserLike[], start:
     orderCountsByUser.set(id, (orderCountsByUser.get(id) ?? 0) + 1);
   }
   const relevantUsers = users.filter((user) => orderUsers.has(objectId(user._id)));
+  const cod = codCollectionSummary(orders);
   const summary: AnalyticsSummary['summary'] = {
     totalOrders: businessOrders.length,
     paidOrders: businessOrders.filter(isRevenueEligible).length,
@@ -165,6 +171,10 @@ const summarizeOrders = (orders: OrderLike[], users: AnalyticsUserLike[], start:
     cancelledOrders: businessOrders.filter((order) => order.orderStatus === 'cancelled').length,
     failedPaymentOrders: orders.filter((order) => order.paymentStatus === 'failed').length,
     refundedOrders: businessOrders.filter((order) => order.paymentStatus === 'refunded' || order.paymentStatus === 'partially_refunded').length,
+    codCollectedOrders: cod.collectedOrders,
+    codPendingOrders: cod.pendingOrders,
+    codCollectedRevenue: cod.collectedAmount,
+    codPendingAmount: cod.pendingAmount,
     grossRevenue: roundMoney(businessOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
     netRevenue: roundMoney(businessOrders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
     discounts: roundMoney(businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
@@ -272,11 +282,13 @@ export const AdminService = {
       orderMatch.$and = [{ isTestOrder: { $ne: true } }, { isAnalyticsTestData: { $ne: true } }];
       previousMatch.$and = [{ isTestOrder: { $ne: true } }, { isAnalyticsTestData: { $ne: true } }];
     }
-    const [orders, previousOrders, inventoryProducts] = await Promise.all([
+    const [rawOrders, rawPreviousOrders, inventoryProducts] = await Promise.all([
       OrderModel.find(orderMatch).select('-shippingAddress -billingAddress -timeline').lean<OrderLike[]>(),
       OrderModel.find(previousMatch).select('-shippingAddress -billingAddress -timeline').lean<OrderLike[]>(),
       ProductModel.find({ isActive: true, isArchived: { $ne: true } }).select('title slug productCode costPrice lowStockThreshold variants').lean<ProductLike[]>()
     ]);
+    const orders = rawOrders.map((order) => normalizeOrderPaymentRead(order) as OrderLike);
+    const previousOrders = rawPreviousOrders.map((order) => normalizeOrderPaymentRead(order) as OrderLike);
     const productIds = [...new Set(orders.flatMap((order) => order.items.map((item) => objectId(item.product))))];
     const userIds = [...new Set([...orders, ...previousOrders].flatMap((order) => order.user ? [objectId(order.user)] : []))];
     const [products, categories, collections, users] = await Promise.all([

@@ -11,6 +11,8 @@ import { PaymentController } from '../../controllers/payment.controller.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema } from '../../validators/common.validator.js';
 import { adminShippingAddressSchema, orderArchiveSchema, orderPermanentDeleteSchema, orderStatusSchema, refundSchema } from '../../validators/order.validator.js';
+import { InvoiceController } from '../../controllers/invoice.controller.js';
+import { bulkInvoicePdfSchema, invoiceListQuerySchema, invoiceSettingsSchema } from '../../validators/invoice.validator.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -21,6 +23,12 @@ adminRouter.get('/analytics/product-costs', requireRole(['admin', 'superadmin'])
 adminRouter.post('/analytics/product-costs/import', requireRole(['admin', 'superadmin']), catalogueCsvUpload.single('file'), AdminController.importProductCosts);
 adminRouter.get('/analytics', AdminController.analytics);
 adminRouter.get('/orders', OrderController.all);
+adminRouter.get('/invoices', validate({ query: invoiceListQuerySchema }), InvoiceController.list);
+adminRouter.post('/invoices/bulk-pdf', requireRole(['manager', 'admin', 'superadmin']), validate({ body: bulkInvoicePdfSchema }), InvoiceController.bulkPdf);
+adminRouter.get('/invoices/settings', InvoiceController.settings);
+adminRouter.patch('/invoices/settings', requireRole(['admin', 'superadmin']), validate({ body: invoiceSettingsSchema }), InvoiceController.saveSettings);
+adminRouter.get('/invoices/:id', validate({ params: idParamSchema }), InvoiceController.byId);
+adminRouter.get('/invoices/:id/pdf', requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema }), InvoiceController.pdf);
 adminRouter.get('/orders/:id', validate({ params: idParamSchema }), OrderController.adminById);
 adminRouter.post('/orders/:id/archive', requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema, body: orderArchiveSchema }), OrderController.archive);
 adminRouter.post('/orders/:id/restore', requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema }), OrderController.restore);

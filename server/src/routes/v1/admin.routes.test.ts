@@ -80,6 +80,18 @@ describe('admin analytics route auth', () => {
     expect(response.status).toBe(403);
   });
 
+  it('blocks unauthenticated and customer access to invoice records and PDFs', async () => {
+    expect((await request(app).get('/admin/invoices')).status).toBe(401);
+    expect((await request(app).get('/admin/invoices').set('Authorization', 'Bearer ' + tokenFor('customer'))).status).toBe(403);
+    expect((await request(app).get('/admin/invoices/66dff3ab1b43b28cb1260a01/pdf').set('Authorization', 'Bearer ' + tokenFor('customer'))).status).toBe(403);
+  });
+
+  it('blocks read-only viewers from bulk invoice exports and settings mutation', async () => {
+    const auth = { Authorization: 'Bearer ' + tokenFor('viewer') };
+    expect((await request(app).post('/admin/invoices/bulk-pdf').set(auth).send({ invoiceIds: ['66dff3ab1b43b28cb1260a01'] })).status).toBe(403);
+    expect((await request(app).patch('/admin/invoices/settings').set(auth).send({})).status).toBe(403);
+  });
+
   for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund', '/admin/orders/000000000000000000000000/sync-refund']) {
     it(`blocks customer access to ${path}`, async () => {
       const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('customer')).send({ amount: 1 });

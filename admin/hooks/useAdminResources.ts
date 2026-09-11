@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, AdminPromotionExperienceDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
+import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, AdminPromotionExperienceDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, InvoiceDto, InvoiceListDto, InvoiceSettingsDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
 
 interface ApiEnvelope<TData> {
   success: boolean;
@@ -43,6 +43,10 @@ export const useAdminProducts = (filters: AdminProductFilters = {}) => useQuery(
 export const useAdminProduct = (id: string) => useQuery({ queryKey: ['admin', 'products', id], queryFn: async (): Promise<ProductDto> => { const response = await api.get<ApiEnvelope<ProductDto>>('/products/admin/' + id); return response.data.data; }, enabled: id.length > 0 });
 export const useAdminOrders = (view: 'active' | 'archived' | 'all' = 'active') => useQuery({ queryKey: ['admin', 'orders', 'list', view], queryFn: async (): Promise<OrderDto[]> => { const response = await api.get<ApiEnvelope<OrderDto[]>>('/admin/orders', { params: { view } }); return response.data.data; }, refetchInterval: 60_000, refetchOnWindowFocus: true });
 export const useAdminOrder = (id: string) => useQuery({ queryKey: ['admin', 'orders', id], queryFn: async (): Promise<OrderDto> => { const response = await api.get<ApiEnvelope<OrderDto>>('/admin/orders/' + id); return response.data.data; }, enabled: id.length > 0 });
+export interface AdminInvoiceFilters { page?: number; limit?: number; search?: string; startDate?: string; endDate?: string; orderStartDate?: string; orderEndDate?: string; paymentMethod?: string; paymentStatus?: string; orderStatus?: string; invoiceStatus?: string; state?: string; minAmount?: number; maxAmount?: number; sort?: string; }
+export const useAdminInvoices = (filters: AdminInvoiceFilters) => useQuery({ queryKey: ['admin', 'invoices', filters], queryFn: async (): Promise<InvoiceListDto> => { const response = await api.get<ApiEnvelope<InvoiceListDto>>('/admin/invoices', { params: filters }); return response.data.data; }, placeholderData: (previous) => previous });
+export const useAdminInvoice = (id: string) => useQuery({ queryKey: ['admin', 'invoices', id], queryFn: async (): Promise<InvoiceDto> => { const response = await api.get<ApiEnvelope<InvoiceDto>>('/admin/invoices/' + id); return response.data.data; }, enabled: id.length > 0 });
+export const useInvoiceSettings = () => useQuery({ queryKey: ['admin', 'invoices', 'settings'], queryFn: async (): Promise<InvoiceSettingsDto> => { const response = await api.get<ApiEnvelope<InvoiceSettingsDto>>('/admin/invoices/settings'); return response.data.data; } });
 export const useAdminCategories = () => useQuery({ queryKey: ['admin', 'categories'], queryFn: async (): Promise<CategoryDto[]> => { const response = await api.get<ApiEnvelope<CategoryDto[]>>('/admin/categories'); return response.data.data; } });
 export const useAdminNavigation = () => useQuery({ queryKey: ['admin', 'navigation'], queryFn: async (): Promise<NavigationItemDto[]> => { const response = await api.get<ApiEnvelope<NavigationItemDto[]>>('/admin/navigation'); return response.data.data; } });
 export const useAdminCollections = () => useQuery({ queryKey: ['admin', 'collections'], queryFn: async (): Promise<CollectionDto[]> => { const response = await api.get<ApiEnvelope<CollectionDto[]>>('/admin/collections'); return response.data.data; } });

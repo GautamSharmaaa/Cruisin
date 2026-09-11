@@ -43,7 +43,7 @@ const orderTransitions: Record<OrderStatus, OrderStatus[]> = {
   placed: ["confirmed", "cancelled"],
   confirmed: ["processing", "cancelled"],
   processing: ["shipped", "cancelled"],
-  shipped: ["delivered"],
+  shipped: [],
   delivered: ["returned"],
   cancelled: [],
   returned: [],
@@ -318,6 +318,12 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
             value={selectedStatus}
             onChange={(event) => setStatus(event.target.value as OrderStatus)}
           />
+          {currentStatus === "shipped" ? (
+            <p className="text-xs leading-5 text-text-muted sm:col-span-2 xl:col-span-3">
+              Delivered and COD Collected are synchronized from Shiprocket
+              tracking.
+            </p>
+          ) : null}
           <Input
             label={COPY.orders.tracking}
             value={trackingNumber || current.trackingNumber || ""}
@@ -451,23 +457,12 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
             integration.
           </p>
           <div className="mt-4 grid gap-3">
-            {canRecordCollection &&
-            current.paymentMode === "cod" &&
-            current.paymentStatus !== "paid" ? (
-              <Button
-                onClick={() =>
-                  paymentAction.mutate(
-                    { id: displayId, action: "mark-cod-paid" },
-                    {
-                      onSuccess: () =>
-                        setOperationNotice("COD collection recorded."),
-                    },
-                  )
-                }
-                disabled={paymentAction.isPending}
-              >
-                Mark COD paid
-              </Button>
+            {current.paymentMode === "cod" &&
+            !["paid", "cod_collected"].includes(current.paymentStatus) ? (
+              <p className="border-l-2 border-accent-gold pl-3 text-xs leading-5 text-text-secondary">
+                COD remains pending until Shiprocket confirms delivery.
+                Collection is then recorded automatically.
+              </p>
             ) : null}
             {canRecordCollection &&
             current.paymentMode === "partial" &&

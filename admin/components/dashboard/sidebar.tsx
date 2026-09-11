@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 'use client';
-import { BarChart3, Boxes, Calculator, ChevronRight, FilePenLine, Files, LayoutDashboard, Package, Percent, RefreshCcw, Repeat2, Rows3, ShoppingBag, Truck, Users, X } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, FilePenLine, Files, FileText, LayoutDashboard, Package, Percent, RefreshCcw, Repeat2, Rows3, ShoppingBag, Truck, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -19,6 +19,7 @@ const links = [
   { label: COPY.nav.storefront, href: '/storefront', icon: Rows3 },
   { label: COPY.nav.delivery, href: '/delivery', icon: Truck },
   { label: COPY.nav.orders, href: '/orders', icon: ShoppingBag },
+  { label: COPY.nav.invoices, href: '/invoices', icon: FileText },
   { label: 'Logistics', href: '/logistics', icon: Truck },
   { label: 'Logistics analytics', href: '/logistics/analytics', icon: BarChart3 },
   { label: 'NDR recovery', href: '/logistics/ndr', icon: RefreshCcw },
@@ -28,8 +29,7 @@ const links = [
   { label: COPY.nav.users, href: '/users', icon: Users },
   { label: COPY.nav.discounts, href: '/discounts', icon: Percent },
   { label: COPY.nav.cms, href: '/cms', icon: FilePenLine },
-  { label: COPY.nav.analytics, href: '/analytics', icon: BarChart3 },
-  { label: 'Cost & COD analytics', href: '/analytics/costs', icon: Calculator }
+  { label: COPY.nav.analytics, href: '/analytics', icon: BarChart3 }
 ] as const;
 
 export function Sidebar({ isOpen, onClose }: SidebarProps): ReactNode {

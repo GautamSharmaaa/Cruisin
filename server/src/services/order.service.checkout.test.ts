@@ -160,7 +160,7 @@ describe('OrderService authenticated checkout', () => {
       billingAddress: { fullName: 'Customer', phone: '+919876543210', line1: '1 Test Street', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'IN' }
     });
 
-    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 0, shipping: 0, total: 1_000, amountPaid: 0, amountDue: 1_000, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black', unitCostBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, unitCostTotal: 380 })] }));
+    expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({ user: customerId, paymentMode: 'online', metaCheckoutEventId: 'checkout:11111111-1111-4111-8111-111111111111', tax: 47.62, shipping: 0, total: 1_000, amountPaid: 0, amountDue: 1_000, items: [expect.objectContaining({ sku: 'TEST-S', size: 'S', color: 'Black', gstPercent: 5, unitCostBreakdown: { manufacturing: 300, packaging: 25, marketing: 40, handling: 10, other: 5 }, unitCostTotal: 380 })] }));
     expect(paymentService.getProvider).toHaveBeenCalledWith('razorpay');
     expect(addressBookService.saveCheckoutAddress).not.toHaveBeenCalled();
     expect(userModel.updateOne).not.toHaveBeenCalled();
@@ -528,7 +528,7 @@ describe('OrderService authenticated checkout', () => {
     expect(orderModel.create).toHaveBeenCalledWith(expect.objectContaining({
       subtotal: 1_000,
       shipping: 0,
-      tax: 0,
+      tax: 47.62,
       total: 1_000
     }));
     expect(result).toMatchObject({ payment: { id: 'order_threshold', amount: 1_000 }, amountToPay: 1_000 });

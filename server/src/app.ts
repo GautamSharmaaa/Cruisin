@@ -24,7 +24,7 @@ export const createApp = (): Express => {
   app.set('trust proxy', env.TRUST_PROXY);
   if (env.SENTRY_DSN) Sentry.init({ dsn: env.SENTRY_DSN, environment: env.APP_ENV });
   app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' ? { directives: { defaultSrc: ["'self'"], imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], connectSrc: ["'self'", env.CLIENT_URL, env.ADMIN_URL] } } : false }));
-  app.use(cors({ origin: allowedBrowserOrigins, credentials: true }));
+  app.use(cors({ origin: allowedBrowserOrigins, credentials: true, exposedHeaders: ['Content-Disposition', 'X-Invoice-Download-Recorded'] }));
   app.use('/api/v1/payments/webhooks/stripe', express.raw({ type: 'application/json' }));
   app.use('/api/v1/payments/webhooks/razorpay', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
