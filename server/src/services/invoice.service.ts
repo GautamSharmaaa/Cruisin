@@ -367,6 +367,110 @@ const nextSequence = async (financialYear: string): Promise<number> => {
 };
 
 export const InvoiceService = {
+  async syncEligibleOrders(limit = 250): Promise<{
+    eligibleOrders: number;
+    alreadyGenerated: number;
+    inspected: number;
+    created: number;
+    issues: Array<{ orderId: string; orderNumber: string; message: string }>;
+    remainingEligible: number;
+  }> {
+    const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit)));
+    const eligibleMatch: FilterQuery<OrderSnapshot> = {
+      orderStatus: "delivered",
+      $or: [
+        {
+          paymentMethod: { $ne: "cod" },
+          paymentStatus: { $in: ["paid", "partially_refunded", "refunded"] },
+        },
+        {
+          paymentMethod: "cod",
+          paymentStatus: {
+            $in: [
+              "cod_pending",
+              "cod_collected",
+              "paid",
+              "partially_refunded",
+              "refunded",
+            ],
+          },
+        },
+      ],
+    };
+    const [eligibleOrders, missing] = await Promise.all([
+      OrderModel.countDocuments(eligibleMatch),
+      OrderModel.aggregate<{
+        candidates: Array<{
+          _id: Types.ObjectId;
+          orderNumber?: string;
+          createdAt: Date;
+        }>;
+        total: Array<{ count: number }>;
+      }>([
+        { $match: eligibleMatch },
+        {
+          $lookup: {
+            from: InvoiceModel.collection.name,
+            localField: "_id",
+            foreignField: "_id",
+            as: "generatedInvoice",
+          },
+        },
+        { $match: { generatedInvoice: { $eq: [] } } },
+        {
+          $facet: {
+            candidates: [
+              { $sort: { createdAt: 1, _id: 1 } },
+              { $limit: safeLimit },
+              { $project: { _id: 1, orderNumber: 1, createdAt: 1 } },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ] as PipelineStage[]),
+    ]);
+    const candidates = missing[0]?.candidates ?? [];
+    const missingBefore = missing[0]?.total[0]?.count ?? 0;
+    const issues: Array<{
+      orderId: string;
+      orderNumber: string;
+      message: string;
+    }> = [];
+    let created = 0;
+    for (const order of candidates) {
+      const orderId = String(order._id);
+      try {
+        const invoice = await this.ensureForOrder(orderId, order.createdAt);
+        if (invoice) created += 1;
+        else
+          issues.push({
+            orderId,
+            orderNumber: order.orderNumber ?? orderId,
+            message: "Order is no longer eligible for an invoice",
+          });
+      } catch (error) {
+        issues.push({
+          orderId,
+          orderNumber: order.orderNumber ?? orderId,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Invoice generation failed",
+        });
+      }
+    }
+    const result = {
+      eligibleOrders,
+      alreadyGenerated: Math.max(0, eligibleOrders - missingBefore),
+      inspected: candidates.length,
+      created,
+      issues,
+      remainingEligible: Math.max(0, missingBefore - created),
+    };
+    logger.info("Eligible orders synchronized with invoices", result);
+    return result;
+  },
+
   async ensureForOrder(
     orderId: string,
     invoiceDate = new Date(),

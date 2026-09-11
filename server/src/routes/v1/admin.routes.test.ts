@@ -24,12 +24,16 @@ const { adminService } = vi.hoisted(() => ({
   adminService: {
     overview: vi.fn(),
     analytics: vi.fn(),
-    analyticsSummary: vi.fn()
-  }
+    analyticsSummary: vi.fn(),
+  },
 }));
 
-vi.mock('../../services/admin.service.js', () => ({ AdminService: adminService }));
-vi.mock('../../controllers/upload.controller.js', () => ({ UploadController: { signature: vi.fn() } }));
+vi.mock('../../services/admin.service.js', () => ({
+  AdminService: adminService,
+}));
+vi.mock('../../controllers/upload.controller.js', () => ({
+  UploadController: { signature: vi.fn() },
+}));
 vi.mock('../../controllers/catalogue.controller.js', () => ({
   CatalogueController: {
     dashboard: vi.fn(),
@@ -44,9 +48,11 @@ vi.mock('../../controllers/catalogue.controller.js', () => ({
     exports: vi.fn(),
     exportDownload: vi.fn(),
     settings: vi.fn(),
-    updateSettings: vi.fn()
+    updateSettings: vi.fn(),
   },
-  catalogueCsvUpload: { single: () => (_req: unknown, _res: unknown, next: () => void) => next() }
+  catalogueCsvUpload: {
+    single: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+  },
 }));
 
 let app: express.Express;
@@ -70,38 +76,83 @@ describe('admin analytics route auth', () => {
   });
 
   it('blocks analytics summary for non-admin users', async () => {
-    const response = await request(app).get('/admin/analytics/summary').set('Authorization', 'Bearer ' + tokenFor('customer'));
+    const response = await request(app)
+      .get('/admin/analytics/summary')
+      .set('Authorization', 'Bearer ' + tokenFor('customer'));
     expect(response.status).toBe(403);
     expect(adminService.analyticsSummary).not.toHaveBeenCalled();
   });
 
   it('blocks customer access to the admin order collection', async () => {
-    const response = await request(app).get('/admin/orders').set('Authorization', 'Bearer ' + tokenFor('customer'));
+    const response = await request(app)
+      .get('/admin/orders')
+      .set('Authorization', 'Bearer ' + tokenFor('customer'));
     expect(response.status).toBe(403);
   });
 
   it('blocks unauthenticated and customer access to invoice records and PDFs', async () => {
     expect((await request(app).get('/admin/invoices')).status).toBe(401);
-    expect((await request(app).get('/admin/invoices').set('Authorization', 'Bearer ' + tokenFor('customer'))).status).toBe(403);
-    expect((await request(app).get('/admin/invoices/66dff3ab1b43b28cb1260a01/pdf').set('Authorization', 'Bearer ' + tokenFor('customer'))).status).toBe(403);
+    expect(
+      (
+        await request(app)
+          .get('/admin/invoices')
+          .set('Authorization', 'Bearer ' + tokenFor('customer'))
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(app)
+          .get('/admin/invoices/66dff3ab1b43b28cb1260a01/pdf')
+          .set('Authorization', 'Bearer ' + tokenFor('customer'))
+      ).status,
+    ).toBe(403);
   });
 
   it('blocks read-only viewers from bulk invoice exports and settings mutation', async () => {
     const auth = { Authorization: 'Bearer ' + tokenFor('viewer') };
-    expect((await request(app).post('/admin/invoices/bulk-pdf').set(auth).send({ invoiceIds: ['66dff3ab1b43b28cb1260a01'] })).status).toBe(403);
+    expect(
+      (
+        await request(app)
+          .post('/admin/invoices/bulk-pdf')
+          .set(auth)
+          .send({ invoiceIds: ['66dff3ab1b43b28cb1260a01'] })
+      ).status,
+    ).toBe(403);
     expect((await request(app).patch('/admin/invoices/settings').set(auth).send({})).status).toBe(403);
+  });
+
+  it.each(['viewer', 'manager'] as const)('blocks %s from invoice synchronization', async (role) => {
+    const response = await request(app)
+      .post('/admin/invoices/sync')
+      .set('Authorization', 'Bearer ' + tokenFor(role))
+      .send({ limit: 25 });
+    expect(response.status).toBe(403);
+  });
+
+  it('validates invoice synchronization batches before running them', async () => {
+    const response = await request(app)
+      .post('/admin/invoices/sync')
+      .set('Authorization', 'Bearer ' + tokenFor('admin'))
+      .send({ limit: 501 });
+    expect(response.status).toBe(400);
   });
 
   for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund', '/admin/orders/000000000000000000000000/sync-refund']) {
     it(`blocks customer access to ${path}`, async () => {
-      const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('customer')).send({ amount: 1 });
+      const response = await request(app)
+        .post(path)
+        .set('Authorization', 'Bearer ' + tokenFor('customer'))
+        .send({ amount: 1 });
       expect(response.status).toBe(403);
     });
   }
 
   for (const path of ['/admin/orders/000000000000000000000000/mark-cod-paid', '/admin/orders/000000000000000000000000/mark-partial-paid', '/admin/orders/000000000000000000000000/refund', '/admin/orders/000000000000000000000000/sync-refund']) {
     it(`blocks read-only viewers from financial mutation ${path}`, async () => {
-      const response = await request(app).post(path).set('Authorization', 'Bearer ' + tokenFor('viewer')).send({ amount: 1 });
+      const response = await request(app)
+        .post(path)
+        .set('Authorization', 'Bearer ' + tokenFor('viewer'))
+        .send({ amount: 1 });
       expect(response.status).toBe(403);
     });
   }
@@ -115,8 +166,13 @@ describe('admin analytics route auth', () => {
   });
 
   it('allows analytics summary for admins', async () => {
-    adminService.analyticsSummary.mockResolvedValue({ summary: { netRevenue: 123 }, revenueByDay: [] });
-    const response = await request(app).get('/admin/analytics/summary?preset=last7').set('Authorization', 'Bearer ' + tokenFor('admin'));
+    adminService.analyticsSummary.mockResolvedValue({
+      summary: { netRevenue: 123 },
+      revenueByDay: [],
+    });
+    const response = await request(app)
+      .get('/admin/analytics/summary?preset=last7')
+      .set('Authorization', 'Bearer ' + tokenFor('admin'));
     expect(response.status).toBe(200);
     expect(response.body.data.summary.netRevenue).toBe(123);
     expect(adminService.analyticsSummary).toHaveBeenCalledWith(expect.objectContaining({ preset: 'last7' }));

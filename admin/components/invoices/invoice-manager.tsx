@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 "use client";
 
-import { Download, Eye, Search, X } from "lucide-react";
+import { Download, Eye, RefreshCw, Search, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -23,6 +23,7 @@ import { StatusPill } from "@/components/dashboard/status-pill";
 import { Button } from "@/components/ui/button";
 import { COPY } from "@/constants/copy";
 import {
+  useAdminMe,
   useAdminInvoices,
   type AdminInvoiceFilters,
 } from "@/hooks/useAdminResources";
@@ -172,10 +173,12 @@ export function InvoiceManager(): ReactNode {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const me = useAdminMe();
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allResults, setAllResults] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState("");
   const filters = useMemo<AdminInvoiceFilters>(() => {
     const value: AdminInvoiceFilters = {
@@ -205,6 +208,9 @@ export function InvoiceManager(): ReactNode {
   const pageIndeterminate =
     !allResults && pageIds.some((id) => selected.has(id)) && !pageChecked;
   const selectedCount = allResults ? (data?.total ?? 0) : selected.size;
+  const canSyncInvoices = ["admin", "superadmin"].includes(
+    String(me.data?.role),
+  );
 
   const updateUrl = (changes: Record<string, string | undefined>): void => {
     const next = new URLSearchParams(searchParams.toString());
@@ -320,8 +326,75 @@ export function InvoiceManager(): ReactNode {
     }
   };
 
+  const syncInvoices = async (): Promise<void> => {
+    if (
+      !window.confirm(
+        "Generate invoices for eligible delivered orders that do not already have one? Existing invoices will not be changed.",
+      )
+    )
+      return;
+    setSyncing(true);
+    setNotice("Checking delivered orders and generating missing invoices…");
+    try {
+      const response = await api.post<{
+        data: {
+          eligibleOrders: number;
+          alreadyGenerated: number;
+          inspected: number;
+          created: number;
+          issues: Array<{ orderNumber: string; message: string }>;
+          remainingEligible: number;
+        };
+      }>("/admin/invoices/sync", { limit: 250 });
+      const result = response.data.data;
+      await queryClient.invalidateQueries({ queryKey: ["admin", "invoices"] });
+      const parts = [
+        `${result.created} invoice${result.created === 1 ? "" : "s"} generated`,
+        `${result.alreadyGenerated} already existed`,
+      ];
+      if (result.issues.length > 0)
+        parts.push(`${result.issues.length} need attention`);
+      if (result.remainingEligible > 0)
+        parts.push(`${result.remainingEligible} remaining—run sync again`);
+      setNotice(`${parts.join(" · ")}.`);
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Invoice sync failed.",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <section className="grid min-w-0 gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-border bg-background-elevated p-4">
+        <div>
+          <p className="text-sm font-medium text-text-primary">
+            Missing invoices
+          </p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Generate invoices for eligible old or new delivered orders. Existing
+            invoice snapshots stay unchanged.
+          </p>
+        </div>
+        <Button
+          onClick={() => void syncInvoices()}
+          disabled={syncing || preparing || !canSyncInvoices}
+          title={
+            canSyncInvoices
+              ? "Generate invoices missing from eligible delivered orders"
+              : "Admin or superadmin access required"
+          }
+        >
+          <RefreshCw
+            size={17}
+            className={`mr-2 ${syncing ? "animate-spin" : ""}`}
+          />
+          {syncing ? "Syncing invoices…" : "Generate / sync invoices"}
+        </Button>
+      </div>
+
       <AdminStatsGrid>
         <AdminStat
           label="Total invoices"
@@ -333,7 +406,9 @@ export function InvoiceManager(): ReactNode {
         />
         <AdminStat
           label="Total invoiced value"
-          value={data ? formatPrecisePrice(data.summary.totalInvoicedValue) : "—"}
+          value={
+            data ? formatPrecisePrice(data.summary.totalInvoicedValue) : "—"
+          }
           tone="gold"
         />
         <AdminStat

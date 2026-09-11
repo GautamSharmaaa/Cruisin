@@ -12,7 +12,7 @@ import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema } from '../../validators/common.validator.js';
 import { adminShippingAddressSchema, orderArchiveSchema, orderPermanentDeleteSchema, orderStatusSchema, refundSchema } from '../../validators/order.validator.js';
 import { InvoiceController } from '../../controllers/invoice.controller.js';
-import { bulkInvoicePdfSchema, invoiceListQuerySchema, invoiceSettingsSchema } from '../../validators/invoice.validator.js';
+import { bulkInvoicePdfSchema, invoiceListQuerySchema, invoiceSettingsSchema, invoiceSyncSchema } from '../../validators/invoice.validator.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -25,6 +25,7 @@ adminRouter.get('/analytics', AdminController.analytics);
 adminRouter.get('/orders', OrderController.all);
 adminRouter.get('/invoices', validate({ query: invoiceListQuerySchema }), InvoiceController.list);
 adminRouter.post('/invoices/bulk-pdf', requireRole(['manager', 'admin', 'superadmin']), validate({ body: bulkInvoicePdfSchema }), InvoiceController.bulkPdf);
+adminRouter.post('/invoices/sync', requireRole(['admin', 'superadmin']), validate({ body: invoiceSyncSchema }), InvoiceController.sync);
 adminRouter.get('/invoices/settings', InvoiceController.settings);
 adminRouter.patch('/invoices/settings', requireRole(['admin', 'superadmin']), validate({ body: invoiceSettingsSchema }), InvoiceController.saveSettings);
 adminRouter.get('/invoices/:id', validate({ params: idParamSchema }), InvoiceController.byId);

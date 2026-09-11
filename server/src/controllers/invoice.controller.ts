@@ -10,10 +10,23 @@ const safeFilename = (value: string): string => value.replace(/[^A-Za-z0-9._-]+/
 const listFilters = (value: Record<string, unknown>): InvoiceFilters => value as InvoiceFilters;
 const exportFilename = (filters?: InvoiceFilters): string => {
   if (filters?.startDate && filters.endDate) {
-    const display = (date: string): string => new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date(`${date}T12:00:00+05:30`)).replaceAll(' ', '-');
+    const display = (date: string): string =>
+      new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata',
+      })
+        .format(new Date(`${date}T12:00:00+05:30`))
+        .replaceAll(' ', '-');
     return safeFilename(`Cruisin-Invoices-${display(filters.startDate)}-to-${display(filters.endDate)}.pdf`);
   }
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
   return `Cruisin-Invoices-${today}.pdf`;
 };
 
@@ -36,14 +49,22 @@ export const InvoiceController = {
       await InvoiceService.recordDownloaded([String(invoice._id)], req.user?.userId, 'single');
     } catch (error) {
       downloadRecorded = false;
-      logger.error('Invoice download status could not be recorded', { invoiceId: String(invoice._id), invoiceNumber: invoice.invoiceNumber, error });
+      logger.error('Invoice download status could not be recorded', {
+        invoiceId: String(invoice._id),
+        invoiceNumber: invoice.invoiceNumber,
+        error,
+      });
     }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Invoice-Download-Recorded', downloadRecorded ? 'true' : 'false');
     res.setHeader('Content-Length', String(pdf.length));
     res.send(pdf);
-    logger.info('Single invoice PDF generated', { invoiceId: String(invoice._id), invoiceNumber: invoice.invoiceNumber, durationMs: Date.now() - started });
+    logger.info('Single invoice PDF generated', {
+      invoiceId: String(invoice._id),
+      invoiceNumber: invoice.invoiceNumber,
+      durationMs: Date.now() - started,
+    });
   }),
   bulkPdf: asyncHandler(async (req: Request<Record<string, string>, unknown, { invoiceIds?: string[]; selectAll?: boolean; filters?: InvoiceFilters }>, res: Response): Promise<void> => {
     const started = Date.now();
@@ -52,22 +73,35 @@ export const InvoiceController = {
     const filename = exportFilename(req.body.filters);
     let downloadRecorded = true;
     try {
-      await InvoiceService.recordDownloaded(invoices.map((invoice) => String(invoice._id)), req.user?.userId, 'bulk');
+      await InvoiceService.recordDownloaded(
+        invoices.map((invoice) => String(invoice._id)),
+        req.user?.userId,
+        'bulk',
+      );
     } catch (error) {
       downloadRecorded = false;
-      logger.error('Bulk invoice download status could not be recorded', { bulkCount: invoices.length, error });
+      logger.error('Bulk invoice download status could not be recorded', {
+        bulkCount: invoices.length,
+        error,
+      });
     }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Invoice-Download-Recorded', downloadRecorded ? 'true' : 'false');
     res.setHeader('Content-Length', String(pdf.length));
     res.send(pdf);
-    logger.info('Bulk invoice PDF generated', { bulkCount: invoices.length, durationMs: Date.now() - started });
+    logger.info('Bulk invoice PDF generated', {
+      bulkCount: invoices.length,
+      durationMs: Date.now() - started,
+    });
   }),
   settings: asyncHandler(async (_req: Request, res: Response): Promise<void> => {
     res.json(new ApiResponse(await InvoiceService.getSettings(), 'Invoice settings loaded'));
   }),
   saveSettings: asyncHandler(async (req: Request<Record<string, string>, unknown, InvoiceSettingsValue>, res: Response): Promise<void> => {
     res.json(new ApiResponse(await InvoiceService.saveSettings(req.body), 'Invoice settings saved for future invoices'));
-  })
+  }),
+  sync: asyncHandler(async (req: Request<Record<string, string>, unknown, { limit?: number }>, res: Response): Promise<void> => {
+    res.json(new ApiResponse(await InvoiceService.syncEligibleOrders(req.body.limit ?? 250), 'Eligible delivered orders synchronized with invoices'));
+  }),
 };
