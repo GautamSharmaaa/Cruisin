@@ -46,10 +46,10 @@ describe('invoice API validation', () => {
       footer: 'Thank you',
       authorizedSignatory: '',
       signatureAssetUrl: '',
-      bulkPdfLimit: 100,
+      bulkPdfLimit: 1000,
     };
     expect(invoiceSettingsSchema.safeParse(base).success).toBe(true);
-    expect(invoiceSettingsSchema.safeParse({ ...base, bulkPdfLimit: 251 }).success).toBe(false);
+    expect(invoiceSettingsSchema.safeParse({ ...base, bulkPdfLimit: 1001 }).success).toBe(false);
   });
 
   it('defaults and bounds invoice sync batches', () => {

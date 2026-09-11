@@ -18,7 +18,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig): InternalAxios
   return config;
 });
 
-api.interceptors.response.use((response) => response, async (error: AxiosError<ApiEnvelope<unknown>> & { config?: InternalAxiosRequestConfig & { _retry?: boolean } }): Promise<unknown> => {
+api.interceptors.response.use((response) => response, async (error: AxiosError<ApiEnvelope<unknown> | Blob> & { config?: InternalAxiosRequestConfig & { _retry?: boolean } }): Promise<unknown> => {
   const original = error.config;
   if (error.response?.status === 401 && original && !original._retry && !original.url?.includes('/auth/refresh')) {
     original._retry = true;
@@ -28,7 +28,16 @@ api.interceptors.response.use((response) => response, async (error: AxiosError<A
       return api(original);
     }
   }
-  return Promise.reject(new Error(error.response?.data.message ?? 'Network error'));
+  let message = error.response?.data && !(error.response.data instanceof Blob) ? error.response.data.message : undefined;
+  if (!message && error.response?.data instanceof Blob && error.response.data.type.includes('json')) {
+    try {
+      const payload = JSON.parse(await error.response.data.text()) as { message?: string };
+      message = payload.message;
+    } catch {
+      // Preserve the network fallback when a file response is not valid JSON.
+    }
+  }
+  return Promise.reject(new Error(message ?? 'Network error'));
 });
 
 export const refreshAdminAccessToken = async (): Promise<string | null> => {

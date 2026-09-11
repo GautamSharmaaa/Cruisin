@@ -21,6 +21,7 @@ import {
 } from "@/components/dashboard/admin-ui";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { Button } from "@/components/ui/button";
+import { API_CONFIG } from "@/constants/config";
 import { COPY } from "@/constants/copy";
 import {
   useAdminMe,
@@ -266,7 +267,7 @@ export function InvoiceManager(): ReactNode {
     try {
       const response = await api.get<Blob>(
         `/admin/invoices/${idOf(invoice)}/pdf`,
-        { responseType: "blob" },
+        { responseType: "blob", timeout: API_CONFIG.uploadTimeout },
       );
       downloadBlob(
         response.data,
@@ -300,7 +301,7 @@ export function InvoiceManager(): ReactNode {
         allResults
           ? { selectAll: true, filters: exportFilters }
           : { invoiceIds: [...selected] },
-        { responseType: "blob" },
+        { responseType: "blob", timeout: API_CONFIG.uploadTimeout },
       );
       downloadBlob(
         response.data,

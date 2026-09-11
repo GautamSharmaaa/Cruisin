@@ -103,5 +103,5 @@ export const invoiceSettingsSchema = z.object({
   footer: z.string().trim().max(300),
   authorizedSignatory: z.string().trim().max(120),
   signatureAssetUrl: z.string().trim().url().or(z.literal('')),
-  bulkPdfLimit: z.coerce.number().int().min(1).max(250),
+  bulkPdfLimit: z.coerce.number().int().min(1).max(1000),
 });

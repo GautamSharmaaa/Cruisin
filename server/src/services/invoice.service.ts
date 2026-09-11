@@ -105,7 +105,7 @@ export const defaultInvoiceSettings: InvoiceSettingsValue = {
   footer: "Thank you for shopping with Cruisin.",
   authorizedSignatory: "",
   signatureAssetUrl: "",
-  bulkPdfLimit: 100,
+  bulkPdfLimit: 1000,
 };
 
 const roundMoney = roundInvoiceMoney;
@@ -380,6 +380,7 @@ const settings = async (): Promise<InvoiceSettingsValue> => {
     ...defaultInvoiceSettings,
     ...(value ?? {}),
     ...invoiceBusinessIdentity,
+    bulkPdfLimit: 1000,
   } as InvoiceSettingsValue;
 };
 
