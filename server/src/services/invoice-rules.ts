@@ -3,6 +3,7 @@ export interface InvoiceEligibilityOrder {
   paymentMethod: string;
   paymentStatus: string;
   orderStatus: string;
+  archivedAt?: Date | null;
 }
 export interface InvoiceLineSource {
   price: number;
@@ -34,18 +35,15 @@ export const financialYearFor = (date: Date): string => {
 };
 
 export const isInvoiceEligible = (order: InvoiceEligibilityOrder): boolean => {
-  if (order.orderStatus !== "delivered") return false;
-  if (order.paymentMethod === "cod")
-    return [
-        "cod_pending",
-        "cod_collected",
-        "paid",
-        "partially_refunded",
-        "refunded",
-      ].includes(order.paymentStatus);
-  return ["paid", "partially_refunded", "refunded"].includes(
-    order.paymentStatus,
-  );
+  if (order.archivedAt) return false;
+  return [
+    "placed",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "returned",
+  ].includes(order.orderStatus);
 };
 
 const distribute = (total: number, weights: number[]): number[] => {

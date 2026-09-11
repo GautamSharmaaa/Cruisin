@@ -61,6 +61,7 @@ interface OrderSnapshot {
   paymentMethod: string;
   paymentStatus: string;
   orderStatus: string;
+  archivedAt?: Date | null;
   subtotal: number;
   tax: number;
   shipping: number;
@@ -414,25 +415,17 @@ export const InvoiceService = {
   }> {
     const safeLimit = Math.min(10, Math.max(1, Math.trunc(limit)));
     const eligibleMatch: FilterQuery<OrderSnapshot> = {
-      orderStatus: "delivered",
-      $or: [
-        {
-          paymentMethod: { $ne: "cod" },
-          paymentStatus: { $in: ["paid", "partially_refunded", "refunded"] },
-        },
-        {
-          paymentMethod: "cod",
-          paymentStatus: {
-            $in: [
-              "cod_pending",
-              "cod_collected",
-              "paid",
-              "partially_refunded",
-              "refunded",
-            ],
-          },
-        },
-      ],
+      archivedAt: { $exists: false },
+      orderStatus: {
+        $in: [
+          "placed",
+          "confirmed",
+          "processing",
+          "shipped",
+          "delivered",
+          "returned",
+        ],
+      },
     };
     const [eligibleOrders, missing] = await Promise.all([
       OrderModel.countDocuments(eligibleMatch),

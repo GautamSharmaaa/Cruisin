@@ -329,7 +329,7 @@ export function InvoiceManager(): ReactNode {
   const syncInvoices = async (): Promise<void> => {
     if (
       !window.confirm(
-        "Generate invoices for eligible delivered orders that do not already have one? Existing invoices will not be changed.",
+        "Generate invoices for valid active orders that do not already have one? Archived and cancelled orders are excluded, and existing invoices will not be changed.",
       )
     )
       return;
@@ -392,8 +392,8 @@ export function InvoiceManager(): ReactNode {
             Missing invoices
           </p>
           <p className="mt-1 text-xs text-text-secondary">
-            Generate invoices for eligible old or new delivered orders. Existing
-            invoice snapshots stay unchanged.
+            Generate invoices for every valid active order. Archived and
+            cancelled orders are excluded; live statuses remain synchronized.
           </p>
         </div>
         <Button
@@ -401,7 +401,7 @@ export function InvoiceManager(): ReactNode {
           disabled={syncing || preparing || !canSyncInvoices}
           title={
             canSyncInvoices
-              ? "Generate invoices missing from eligible delivered orders"
+              ? "Generate invoices missing from valid active orders"
               : "Admin or superadmin access required"
           }
         >

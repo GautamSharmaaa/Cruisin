@@ -19,7 +19,7 @@ describe("invoice lifecycle rules", () => {
     );
   });
 
-  it("waits for successful delivery before allowing prepaid invoices", () => {
+  it("allows placed active prepaid orders and excludes incomplete or cancelled orders", () => {
     expect(
       isInvoiceEligible({
         paymentMethod: "razorpay",
@@ -33,7 +33,7 @@ describe("invoice lifecycle rules", () => {
         paymentStatus: "paid",
         orderStatus: "confirmed",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isInvoiceEligible({
         paymentMethod: "razorpay",
@@ -50,21 +50,21 @@ describe("invoice lifecycle rules", () => {
     ).toBe(false);
   });
 
-  it("allows delivered COD orders, including legacy delivered COD pending records", () => {
+  it("allows active COD orders from placement through return", () => {
     expect(
       isInvoiceEligible({
         paymentMethod: "cod",
         paymentStatus: "cod_pending",
         orderStatus: "placed",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isInvoiceEligible({
         paymentMethod: "cod",
         paymentStatus: "cod_pending",
         orderStatus: "confirmed",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isInvoiceEligible({
         paymentMethod: "cod",
@@ -86,6 +86,21 @@ describe("invoice lifecycle rules", () => {
         orderStatus: "delivered",
       }),
     ).toBe(true);
+    expect(
+      isInvoiceEligible({
+        paymentMethod: "cod",
+        paymentStatus: "cod_pending",
+        orderStatus: "returned",
+      }),
+    ).toBe(true);
+    expect(
+      isInvoiceEligible({
+        paymentMethod: "cod",
+        paymentStatus: "cod_pending",
+        orderStatus: "placed",
+        archivedAt: new Date(),
+      }),
+    ).toBe(false);
   });
 });
 

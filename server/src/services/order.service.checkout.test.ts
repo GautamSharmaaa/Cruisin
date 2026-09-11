@@ -25,6 +25,7 @@ const {
   couponModel,
   couponRedemptionService,
   logisticsJobService,
+  invoiceService,
   mongoTransaction,
   orderModel,
   productModel,
@@ -44,6 +45,7 @@ const {
     reserveCouponRedemption: vi.fn()
   },
   logisticsJobService: { enqueue: vi.fn() },
+  invoiceService: { ensureForOrder: vi.fn() },
   mongoTransaction: { withMongoTransaction: vi.fn() },
   orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), countDocuments: vi.fn() },
   productModel: { bulkWrite: vi.fn(), find: vi.fn(), updateOne: vi.fn() },
@@ -65,6 +67,7 @@ vi.mock('./address-book.service.js', () => ({ AddressBookService: addressBookSer
 vi.mock('./payment.service.js', () => ({ PaymentService: paymentService }));
 vi.mock('./coupon-redemption.service.js', () => couponRedemptionService);
 vi.mock('./logistics/logistics-job.service.js', () => ({ LogisticsJobService: logisticsJobService }));
+vi.mock('./invoice.service.js', () => ({ InvoiceService: invoiceService }));
 vi.mock('../utils/mongo-transaction.js', () => mongoTransaction);
 vi.mock('../utils/send-email.js', () => ({ sendEmail }));
 
@@ -451,6 +454,8 @@ describe('OrderService authenticated checkout', () => {
     expect(sendEmail).toHaveBeenCalledOnce();
     expect(addressBookService.saveCheckoutAddress).toHaveBeenCalledOnce();
     expect(userModel.updateOne).toHaveBeenCalledOnce();
+    expect(invoiceService.ensureForOrder).toHaveBeenCalledTimes(2);
+    expect(invoiceService.ensureForOrder).toHaveBeenCalledWith(orderId);
     expect(orderModel.updateOne).toHaveBeenCalledTimes(3);
     expect(orderModel.updateOne).toHaveBeenCalledWith(
       { _id: orderId, customerSnapshotSynchronizedAt: { $exists: false } },

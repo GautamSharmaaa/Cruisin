@@ -27,6 +27,7 @@ import { shouldAutoCreateProviderOrder } from './logistics/logistics-automation.
 import { LogisticsQuoteService, type PricedCartLine } from './logistics/logistics-quote.service.js';
 import { LogisticsService } from './logistics/logistics.service.js';
 import { assertCouponCustomerEligible, confirmCouponRedemption, releaseCouponRedemption, reserveCouponRedemption } from './coupon-redemption.service.js';
+import { InvoiceService } from './invoice.service.js';
 
 type AddressInput = Record<string, unknown>;
 type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string };
@@ -636,6 +637,7 @@ export const OrderService = {
         { $set: { customerSnapshotSynchronizedAt: new Date() } }
       );
     }
+    await InvoiceService.ensureForOrder(orderId);
   },
 
   async releaseExpiredReservation(orderId: string): Promise<void> {
