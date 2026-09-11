@@ -109,6 +109,9 @@ export const defaultInvoiceSettings: InvoiceSettingsValue = {
 };
 
 const roundMoney = roundInvoiceMoney;
+const INVOICE_GST_RATE = 5;
+const includedInvoiceGst = (grossProductValue: number): number =>
+  roundMoney((Math.max(0, grossProductValue) * INVOICE_GST_RATE) / 105);
 const dateStart = (value: string): Date =>
   new Date(`${value}T00:00:00.000+05:30`);
 const dateEnd = (value: string): Date =>
@@ -141,6 +144,47 @@ const sanitizeInvoiceContact = (
     const address = value as Record<string, unknown>;
     return { ...address, phone: publicInvoicePhone(address.phone) };
   };
+  const subtotal = Number(invoice.subtotal ?? 0);
+  const discounts =
+    Number(invoice.productDiscount ?? 0) +
+    Number(invoice.couponDiscount ?? 0) +
+    Number(invoice.promotionDiscount ?? 0);
+  const grossProductValue = roundMoney(Math.max(0, subtotal - discounts));
+  const totalTax = includedInvoiceGst(grossProductValue);
+  const taxableValue = roundMoney(grossProductValue - totalTax);
+  const seller =
+    (invoice.seller as Record<string, unknown> | undefined) ?? {};
+  const billingAddress =
+    (invoice.billingAddress as Record<string, unknown> | undefined) ?? {};
+  const intraState =
+    String(seller.state ?? "").toLowerCase() ===
+    String(billingAddress.state ?? "").toLowerCase();
+  const items = Array.isArray(invoice.items)
+    ? invoice.items.map((value) => {
+        const item = value as Record<string, unknown>;
+        const lineGross = Number(
+          item.lineTotal ??
+            Number(item.taxableValue ?? 0) + Number(item.totalTax ?? 0),
+        );
+        const lineTax = includedInvoiceGst(lineGross);
+        const lineTaxable = roundMoney(lineGross - lineTax);
+        const halfTax = roundMoney(lineTax / 2);
+        return {
+          ...item,
+          taxableValue: lineTaxable,
+          gstRate: INVOICE_GST_RATE,
+          cgstRate: intraState ? INVOICE_GST_RATE / 2 : 0,
+          cgstAmount: intraState ? halfTax : 0,
+          sgstRate: intraState ? INVOICE_GST_RATE / 2 : 0,
+          sgstAmount: intraState ? roundMoney(lineTax - halfTax) : 0,
+          igstRate: intraState ? 0 : INVOICE_GST_RATE,
+          igstAmount: intraState ? 0 : lineTax,
+          totalTax: lineTax,
+          lineTotal: roundMoney(lineGross),
+        };
+      })
+    : invoice.items;
+  const halfTax = roundMoney(totalTax / 2);
   return {
     ...invoice,
     customer: {
@@ -150,6 +194,12 @@ const sanitizeInvoiceContact = (
     },
     billingAddress: sanitizeAddress(invoice.billingAddress),
     shippingAddress: sanitizeAddress(invoice.shippingAddress),
+    items,
+    taxableValue,
+    totalTax,
+    cgst: intraState ? halfTax : 0,
+    sgst: intraState ? roundMoney(totalTax - halfTax) : 0,
+    igst: intraState ? 0 : totalTax,
   };
 };
 
@@ -539,6 +589,7 @@ export const InvoiceService = {
       order.billingAddress.state &&
       business.state.toLowerCase() === order.billingAddress.state.toLowerCase(),
     );
+    const calculatedTax = includedInvoiceGst(order.subtotal - order.discount);
     const allocations = allocateInvoiceLines(
       order.items.map((item) => ({
         price: item.price,
@@ -546,16 +597,13 @@ export const InvoiceService = {
         gstRate: item.gstPercent ?? 0,
       })),
       order.discount,
-      order.tax,
+      calculatedTax,
       intraState,
     );
     const items = order.items.map((item, index) => {
       const product = metadata.get(String(item.product));
       const allocation = allocations[index];
       const totalTax = allocation.totalTax;
-      const storedRate =
-        item.gstPercent ??
-        (typeof product?.gstPercent === "number" ? product.gstPercent : 0);
       return {
         productId: item.product,
         productName: item.title,
@@ -576,12 +624,12 @@ export const InvoiceService = {
             : item.price),
         discount: allocation.discount,
         taxableValue: allocation.taxableValue,
-        gstRate: order.tax > 0 ? storedRate : 0,
-        cgstRate: order.tax > 0 && intraState ? roundMoney(storedRate / 2) : 0,
+        gstRate: INVOICE_GST_RATE,
+        cgstRate: intraState ? INVOICE_GST_RATE / 2 : 0,
         cgstAmount: allocation.cgstAmount,
-        sgstRate: order.tax > 0 && intraState ? roundMoney(storedRate / 2) : 0,
+        sgstRate: intraState ? INVOICE_GST_RATE / 2 : 0,
         sgstAmount: allocation.sgstAmount,
-        igstRate: order.tax > 0 && !intraState ? storedRate : 0,
+        igstRate: intraState ? 0 : INVOICE_GST_RATE,
         igstAmount: allocation.igstAmount,
         totalTax,
         lineTotal: roundMoney(allocation.taxableValue + totalTax),
@@ -640,7 +688,7 @@ export const InvoiceService = {
         cgst,
         sgst,
         igst,
-        totalTax: order.tax,
+        totalTax: calculatedTax,
         grandTotal: order.total,
         paymentMethod: order.paymentMethod,
         paymentStatus: order.paymentStatus,
@@ -706,7 +754,35 @@ export const InvoiceService = {
                 $group: {
                   _id: null,
                   value: { $sum: "$grandTotal" },
-                  gst: { $sum: "$totalTax" },
+                  gst: {
+                    $sum: {
+                      $round: [
+                        {
+                          $multiply: [
+                            {
+                              $max: [
+                                0,
+                                {
+                                  $subtract: [
+                                    "$subtotal",
+                                    {
+                                      $add: [
+                                        "$productDiscount",
+                                        "$couponDiscount",
+                                        "$promotionDiscount",
+                                      ],
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                            INVOICE_GST_RATE / 105,
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                  },
                 },
               },
             ],
