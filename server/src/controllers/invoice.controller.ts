@@ -102,6 +102,6 @@ export const InvoiceController = {
     res.json(new ApiResponse(await InvoiceService.saveSettings(req.body), 'Invoice settings saved for future invoices'));
   }),
   sync: asyncHandler(async (req: Request<Record<string, string>, unknown, { limit?: number }>, res: Response): Promise<void> => {
-    res.json(new ApiResponse(await InvoiceService.syncEligibleOrders(req.body.limit ?? 250), 'Eligible delivered orders synchronized with invoices'));
+    res.json(new ApiResponse(await InvoiceService.syncEligibleOrders(req.body.limit ?? 3), 'Eligible delivered orders synchronized with invoices'));
   }),
 };

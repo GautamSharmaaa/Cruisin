@@ -53,9 +53,9 @@ describe('invoice API validation', () => {
   });
 
   it('defaults and bounds invoice sync batches', () => {
-    expect(invoiceSyncSchema.parse({})).toEqual({ limit: 250 });
-    expect(invoiceSyncSchema.parse({ limit: '500' })).toEqual({ limit: 500 });
-    expect(invoiceSyncSchema.safeParse({ limit: 501 }).success).toBe(false);
+    expect(invoiceSyncSchema.parse({})).toEqual({ limit: 3 });
+    expect(invoiceSyncSchema.parse({ limit: '10' })).toEqual({ limit: 10 });
+    expect(invoiceSyncSchema.safeParse({ limit: 11 }).success).toBe(false);
     expect(invoiceSyncSchema.safeParse({ limit: 0 }).success).toBe(false);
   });
 });

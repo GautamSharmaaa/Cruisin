@@ -76,7 +76,7 @@ export const bulkInvoicePdfSchema = z
   });
 
 export const invoiceSyncSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(250),
+  limit: z.coerce.number().int().min(1).max(10).default(3),
 });
 
 export const invoiceSettingsSchema = z.object({

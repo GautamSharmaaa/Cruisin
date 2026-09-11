@@ -133,7 +133,7 @@ describe('admin analytics route auth', () => {
     const response = await request(app)
       .post('/admin/invoices/sync')
       .set('Authorization', 'Bearer ' + tokenFor('admin'))
-      .send({ limit: 501 });
+      .send({ limit: 11 });
     expect(response.status).toBe(400);
   });
 

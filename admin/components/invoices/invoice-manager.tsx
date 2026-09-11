@@ -336,24 +336,42 @@ export function InvoiceManager(): ReactNode {
     setSyncing(true);
     setNotice("Checking delivered orders and generating missing invoices…");
     try {
-      const response = await api.post<{
-        data: {
-          eligibleOrders: number;
-          alreadyGenerated: number;
-          inspected: number;
-          created: number;
-          issues: Array<{ orderNumber: string; message: string }>;
-          remainingEligible: number;
-        };
-      }>("/admin/invoices/sync", { limit: 250 });
-      const result = response.data.data;
+      type SyncResult = {
+        eligibleOrders: number;
+        alreadyGenerated: number;
+        inspected: number;
+        created: number;
+        issues: Array<{ orderNumber: string; message: string }>;
+        remainingEligible: number;
+      };
+      let totalCreated = 0;
+      let totalIssues = 0;
+      let result: SyncResult | undefined;
+      for (let batch = 0; batch < 200; batch += 1) {
+        const response = await api.post<{ data: SyncResult }>(
+          "/admin/invoices/sync",
+          { limit: 3 },
+        );
+        result = response.data.data;
+        totalCreated += result.created;
+        totalIssues += result.issues.length;
+        setNotice(
+          `${totalCreated} invoice${totalCreated === 1 ? "" : "s"} generated · ${result.remainingEligible} remaining…`,
+        );
+        if (
+          result.remainingEligible === 0 ||
+          result.inspected === 0 ||
+          result.created === 0
+        )
+          break;
+      }
       await queryClient.invalidateQueries({ queryKey: ["admin", "invoices"] });
+      if (!result) throw new Error("Invoice sync did not start.");
       const parts = [
-        `${result.created} invoice${result.created === 1 ? "" : "s"} generated`,
-        `${result.alreadyGenerated} already existed`,
+        `${totalCreated} invoice${totalCreated === 1 ? "" : "s"} generated`,
+        `${Math.max(0, result.eligibleOrders - totalCreated - result.remainingEligible)} already existed`,
       ];
-      if (result.issues.length > 0)
-        parts.push(`${result.issues.length} need attention`);
+      if (totalIssues > 0) parts.push(`${totalIssues} need attention`);
       if (result.remainingEligible > 0)
         parts.push(`${result.remainingEligible} remaining—run sync again`);
       setNotice(`${parts.join(" · ")}.`);

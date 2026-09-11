@@ -367,7 +367,7 @@ const nextSequence = async (financialYear: string): Promise<number> => {
 };
 
 export const InvoiceService = {
-  async syncEligibleOrders(limit = 250): Promise<{
+  async syncEligibleOrders(limit = 3): Promise<{
     eligibleOrders: number;
     alreadyGenerated: number;
     inspected: number;
@@ -375,7 +375,7 @@ export const InvoiceService = {
     issues: Array<{ orderId: string; orderNumber: string; message: string }>;
     remainingEligible: number;
   }> {
-    const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit)));
+    const safeLimit = Math.min(10, Math.max(1, Math.trunc(limit)));
     const eligibleMatch: FilterQuery<OrderSnapshot> = {
       orderStatus: "delivered",
       $or: [
