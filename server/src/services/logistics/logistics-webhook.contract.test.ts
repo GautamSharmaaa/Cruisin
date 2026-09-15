@@ -128,6 +128,13 @@ describe('webhook lookup, ordering and terminal-state contract', () => {
     expect(mocks.shipment.trackingScans).toHaveLength(1);
   });
 
+  it('parses unzoned webhook delivery scans as India local time', async () => {
+    await LogisticsWebhookService.process({ awb: 'IST-DELIVERY-AWB', current_status: 'Delivered',
+      scans: [{ date: '2026-09-15 15:08:00', status: '000-T-DL', 'sr-status': 7, activity: 'Delivered' }] });
+    expect(mocks.shipment.deliveredDate.toISOString()).toBe('2026-09-15T09:38:00.000Z');
+    expect(mocks.shipment.trackingScans[0].timestamp.toISOString()).toBe('2026-09-15T09:38:00.000Z');
+  });
+
   it('records NDR and RTO operational state without duplicating inventory work', async () => {
     await LogisticsWebhookService.process({
       awb: 'NDR-AWB',

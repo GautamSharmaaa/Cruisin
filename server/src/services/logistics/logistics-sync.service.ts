@@ -10,13 +10,14 @@ import { logger } from '../../utils/logger.js';
 import { InvoiceService } from '../invoice.service.js';
 import { LogisticsNotificationService } from './logistics-notification.service.js';
 import { canApplyShipmentStatus } from './logistics-status.js';
+import { parseShiprocketDate } from './shiprocket-date.js';
+import { confirmedShiprocketDeliveryDate } from './shiprocket-delivery.js';
+import { planShiprocketTimestampRepair } from './shiprocket-timestamp-repair.js';
 
 export type ShiprocketSyncSource = 'webhook' | 'manual_sync' | 'scheduled_reconciliation';
 
 const safeDate = (value: string | Date | undefined): Date | undefined => {
-  if (!value) return undefined;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
+  return parseShiprocketDate(value);
 };
 
 const scanFingerprint = (scan: TrackingScan): string => {
@@ -142,6 +143,19 @@ export const applyShiprocketSnapshot = async (
     shipment.shipmentStatus = snapshot.status;
     changed = true;
   }
+  const timestampRepair = planShiprocketTimestampRepair({
+    deliveredDate: shipment.deliveredDate ?? undefined,
+    lastTrackingUpdate: shipment.lastTrackingUpdate ?? undefined,
+    trackingScans: shipment.trackingScans.map((scan) => ({
+      fingerprint: scan.fingerprint, status: scan.status as ShipmentStatus,
+      rawStatus: scan.rawStatus, message: scan.message, timestamp: scan.timestamp,
+      location: scan.location ?? undefined, providerStatusId: scan.providerStatusId ?? undefined
+    }))
+  }, snapshot, now.getTime());
+  if (timestampRepair?.scansCorrected) {
+    shipment.set('trackingScans', timestampRepair.trackingScans);
+    changed = true;
+  }
   const existing = new Set(shipment.trackingScans.map((scan) => scan.fingerprint));
   for (const scan of snapshot.scans) {
     const timestamp = safeDate(scan.timestamp);
@@ -159,7 +173,14 @@ export const applyShiprocketSnapshot = async (
   if (latestTracking) shipment.lastTrackingUpdate = latestTracking;
   const currentStatus = shipment.shipmentStatus as ShipmentStatus;
   const statusChanged = previousStatus !== currentStatus;
-  if (currentStatus === 'delivered') shipment.deliveredDate ??= latestTracking ?? now;
+  const deliveredDate = confirmedShiprocketDeliveryDate(snapshot, now.getTime());
+  const previousDeliveryTime = shipment.deliveredDate?.getTime();
+  if (currentStatus === 'delivered' && deliveredDate && (previousDeliveryTime === undefined
+    || !Number.isFinite(previousDeliveryTime) || previousDeliveryTime > now.getTime()
+    || deliveredDate.getTime() < previousDeliveryTime)) {
+    shipment.deliveredDate = deliveredDate;
+    changed = true;
+  }
   if (statusChanged && currentStatus === 'ndr' && shipment.ndr) {
     shipment.ndr.occurredAt ??= latestTracking ?? now;
     shipment.ndr.reason = snapshot.scans.at(-1)?.message ?? 'Delivery attempt failed';

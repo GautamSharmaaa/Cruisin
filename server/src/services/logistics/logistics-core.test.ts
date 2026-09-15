@@ -258,6 +258,52 @@ describe('mock provider and status normalization', () => {
     vi.restoreAllMocks();
   });
 
+  it('repairs a provider-verified legacy delivery time and scan without duplicating events or extending the window', async () => {
+    const corrected = new Date(Date.now() - 60_000);
+    const legacy = new Date(corrected.getTime() + 330 * 60_000);
+    const shipment = new ShipmentModel({
+      order: '66b000000000000000000001', sourceOrderId: 'CR-TIMEZONE-REPAIR',
+      shipmentStatus: 'delivered', deliveredDate: legacy, lastTrackingUpdate: legacy,
+      trackingScans: [{ fingerprint: 'legacy', status: 'delivered', rawStatus: '000-T-DL', message: 'Delivered', location: 'QA hub', timestamp: legacy }]
+    });
+    vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null });
+    const notify = vi.spyOn(LogisticsNotificationService, 'emit').mockResolvedValue({} as never);
+    const snapshot = { status: 'delivered' as const, rawStatus: 'Delivered', deliveredDate: corrected.toISOString(),
+      scans: [{ status: 'delivered' as const, rawStatus: '000-T-DL', message: 'Delivered', location: 'QA hub', timestamp: corrected.toISOString() }] };
+    const first = await applyShiprocketSnapshot(shipment, snapshot, 'manual_sync');
+    expect(first.changed).toBe(true);
+    expect(first.scansAdded).toBe(0);
+    expect(shipment.deliveredDate?.getTime()).toBe(corrected.getTime());
+    expect(shipment.lastTrackingUpdate?.getTime()).toBe(corrected.getTime());
+    expect(shipment.trackingScans).toHaveLength(1);
+    const second = await applyShiprocketSnapshot(shipment, snapshot, 'manual_sync');
+    expect(second.changed).toBe(false);
+    await applyShiprocketSnapshot(shipment, { ...snapshot, deliveredDate: new Date(corrected.getTime() + 30_000).toISOString(), scans: [] }, 'manual_sync');
+    expect(shipment.deliveredDate?.getTime()).toBe(corrected.getTime());
+    expect(notify).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('does not invent delivery confirmation from sync time or a non-delivery scan', async () => {
+    const shipment = new ShipmentModel({ order: '66b000000000000000000001', sourceOrderId: 'CR-NO-DELIVERY-TIME', shipmentStatus: 'delivered' });
+    vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 0, upsertedCount: 0, upsertedId: null });
+    await applyShiprocketSnapshot(shipment, { status: 'in_transit', rawStatus: 'In Transit', scans: [{ status: 'in_transit', rawStatus: 'In Transit', message: 'Moving', timestamp: '2026-09-01T08:00:00Z' }] }, 'manual_sync');
+    expect(shipment.deliveredDate).toBeUndefined();
+    vi.restoreAllMocks();
+  });
+
+  it('returns courier eligibility only for a non-future delivery timestamp', async () => {
+    const deliveredDate = new Date(Date.now() + 86_400_000);
+    vi.spyOn(OrderModel, 'findOne').mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: '66b000000000000000000001', orderStatus: 'delivered' }) } as never);
+    vi.spyOn(ShipmentModel, 'find').mockReturnValue({ sort: vi.fn(() => ({ lean: vi.fn().mockResolvedValue([{ _id: '66b000000000000000000002', shipmentType: 'forward', shipmentStatus: 'delivered', deliveredDate, trackingScans: [] }]) })) } as never);
+    expect(await LogisticsService.trackingForOrder('66b000000000000000000001', '66b000000000000000000003')).toMatchObject({ returnWindow: { eligible: false } });
+    deliveredDate.setTime(Date.now() - 60_000);
+    expect(await LogisticsService.trackingForOrder('66b000000000000000000001', '66b000000000000000000003')).toMatchObject({ returnWindow: { eligible: true, daysRemaining: 5 } });
+    vi.restoreAllMocks();
+  });
+
   it('updates the commerce order only from forward-shipment status changes', async () => {
     const orderUpdate = vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedCount: 0, upsertedId: null });
     const forward = new ShipmentModel({

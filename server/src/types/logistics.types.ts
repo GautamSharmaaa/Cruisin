@@ -182,6 +182,7 @@ export interface TrackingResult {
   status: ShipmentStatus;
   rawStatus: string;
   estimatedDelivery?: string;
+  deliveredDate?: string;
   scans: TrackingScan[];
 }
 

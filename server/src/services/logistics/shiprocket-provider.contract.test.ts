@@ -48,6 +48,22 @@ const returnAddress = {
 };
 
 describe('ShiprocketProvider live response compatibility', () => {
+  it('converts unzoned tracking and delivery summary timestamps from IST, retaining explicit UTC offsets', async () => {
+    const client = { get: vi.fn().mockResolvedValue({ tracking_data: {
+      shipment_track: [{ awb_code: 'AWB-TIMEZONE', current_status: 'Delivered', delivered_date: '2026-09-15 15:08:00' }],
+      shipment_track_activities: [
+        { date: '2026-09-15 15:08:00', status: '000-T-DL', 'sr-status': 7 },
+        { date: '2026-09-15T09:00:00Z', status: 'In Transit' },
+        { date: 'not-a-date', status: 'In Transit' }
+      ]
+    } }) } as unknown as ShiprocketClient;
+    const result = await new ShiprocketProvider(client).trackShipment({ awb: 'AWB-TIMEZONE' });
+    expect(result.deliveredDate).toBe('2026-09-15T09:38:00.000Z');
+    expect(result.scans).toHaveLength(2);
+    expect(result.scans[0]).toMatchObject({ status: 'delivered', timestamp: '2026-09-15T09:38:00.000Z' });
+    expect(result.scans[1].timestamp).toBe('2026-09-15T09:00:00.000Z');
+  });
+
   it('normalizes the numeric mode returned by the live serviceability API', async () => {
     const client = {
       get: vi.fn().mockResolvedValue({

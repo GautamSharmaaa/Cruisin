@@ -6,6 +6,7 @@ import type { ReconcileShipmentResult, TrackingScan } from '../../types/logistic
 import { applyShiprocketSnapshot, recordShiprocketSyncFailure } from './logistics-sync.service.js';
 import { normalizeShipmentStatus } from './logistics-status.js';
 import { LogisticsJobService } from './logistics-job.service.js';
+import { parseShiprocketDate } from './shiprocket-date.js';
 
 interface WebhookInput {
   awb?: string | number;
@@ -93,8 +94,8 @@ export const LogisticsWebhookService = {
       return { accepted: true, duplicate: false, matched: false };
     }
     const scans: TrackingScan[] = (input.scans ?? []).flatMap((scan) => {
-      const timestamp = new Date(scan.date);
-      if (Number.isNaN(timestamp.getTime())) return [];
+      const timestamp = parseShiprocketDate(scan.date);
+      if (!timestamp) return [];
       const statusId = scan['sr-status'] ?? scan.status_id;
       return [{
         status: normalizeShipmentStatus(scan.status, statusId),

@@ -1048,7 +1048,7 @@ export const LogisticsService = {
     const returnWindow = deliveredAt ? {
       deliveredAt,
       endsAt: returnWindowEndsAt,
-      eligible: order.orderStatus !== 'cancelled' && forwardShipment?.shipmentStatus === 'delivered' && returnWindowRemainingMs > 0,
+      eligible: order.orderStatus !== 'cancelled' && forwardShipment?.shipmentStatus === 'delivered' && deliveredAt.getTime() <= Date.now() && returnWindowRemainingMs > 0,
       daysRemaining: Math.ceil(returnWindowRemainingMs / 86_400_000)
     } : undefined;
     return {

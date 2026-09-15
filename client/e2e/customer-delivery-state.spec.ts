@@ -61,6 +61,25 @@ test('expired courier window keeps the action disabled', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Window closed' })).toBeDisabled();
 });
 
+test('refreshing a corrected courier timezone timestamp restores the return/exchange action', async ({ page }) => {
+  const corrected = Date.now() - 60_000;
+  const shifted = corrected + 330 * 60_000;
+  await authenticate(page, { ...baseOrder, orderStatus: 'delivered' }, { orderId, shipments: [], returnWindow: {
+    deliveredAt: new Date(shifted).toISOString(), endsAt: new Date(shifted + 5 * 86_400_000).toISOString(), eligible: false, daysRemaining: 5
+  } });
+  await page.goto(`${storefrontUrl}/account/orders/${orderId}`);
+  await expect(page.getByRole('button', { name: 'Delivery confirmation unavailable' })).toBeDisabled();
+  await page.route(`**/api/v1/orders/${orderId}/tracking`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: envelope({
+    orderId, shipments: [], returnWindow: { deliveredAt: new Date(corrected).toISOString(), endsAt: new Date(corrected + 5 * 86_400_000).toISOString(), eligible: true, daysRemaining: 5 }
+  }) }));
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Return or exchange', exact: true })).toBeEnabled();
+  await expect(page.getByText('5 days left to request a return or exchange')).toBeVisible();
+  await page.getByRole('button', { name: 'Return or exchange', exact: true }).click();
+  await expect(page.getByRole('dialog').getByText('Return an item')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Exchange size or colour')).toBeVisible();
+});
+
 test('order marked delivered without courier timestamp does not enable requests', async ({ page }) => {
   await authenticate(page, { ...baseOrder, orderStatus: 'delivered' }, { orderId, shipments: [] });
   await page.goto(`${storefrontUrl}/account/orders/${orderId}`);

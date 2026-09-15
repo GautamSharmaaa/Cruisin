@@ -28,6 +28,7 @@ import { LogisticsProviderError } from '../../types/logistics.types.js';
 import type { LogisticsProvider } from './logistics-provider.js';
 import { normalizeShipmentStatus } from './logistics-status.js';
 import { ShiprocketClient } from './shiprocket-client.js';
+import { parseShiprocketDate } from './shiprocket-date.js';
 
 const serviceabilitySchema = z.object({
   data: z.object({
@@ -106,7 +107,8 @@ const trackingSchema = z.object({
       awb_code: z.union([z.string(), z.number()]).optional(),
       courier_name: z.string().optional(),
       current_status: z.string().optional(),
-      etd: z.string().optional()
+      etd: z.string().optional(),
+      delivered_date: z.string().nullable().optional()
     }).passthrough()).optional(),
     shipment_track_activities: z.array(z.object({
       date: z.string(),
@@ -413,20 +415,25 @@ export class ShiprocketProvider implements LogisticsProvider {
     const response = await this.client.get(path, trackingSchema);
     const summary = response.tracking_data.shipment_track?.[0];
     const rawStatus = summary?.current_status ?? String(response.tracking_data.shipment_status ?? response.tracking_data.track_status ?? 'Unknown');
-    const scans: TrackingScan[] = (response.tracking_data.shipment_track_activities ?? []).map((activity) => ({
-      status: normalizeShipmentStatus(activity.status),
-      rawStatus: activity.status,
-      providerStatusId: activity['sr-status'],
-      message: activity.activity ?? activity.status,
-      location: activity.location,
-      timestamp: new Date(activity.date).toISOString()
-    }));
+    const scans: TrackingScan[] = (response.tracking_data.shipment_track_activities ?? []).flatMap((activity) => {
+      const timestamp = parseShiprocketDate(activity.date);
+      if (!timestamp) return [];
+      return [{
+        status: normalizeShipmentStatus(activity.status, activity['sr-status']),
+        rawStatus: activity.status,
+        providerStatusId: activity['sr-status'],
+        message: activity.activity ?? activity.status,
+        location: activity.location,
+        timestamp: timestamp.toISOString()
+      }];
+    });
     return {
       awb: summary?.awb_code ? String(summary.awb_code) : input.awb,
       courierName: summary?.courier_name,
       status: normalizeShipmentStatus(rawStatus),
       rawStatus,
       estimatedDelivery: summary?.etd,
+      deliveredDate: parseShiprocketDate(summary?.delivered_date ?? undefined)?.toISOString(),
       scans
     };
   }
@@ -501,6 +508,7 @@ export class ShiprocketProvider implements LogisticsProvider {
       status: tracking?.status ?? normalizeShipmentStatus(rawStatus, providerStatusId),
       rawStatus: tracking?.rawStatus ?? rawStatus,
       estimatedDelivery: tracking?.estimatedDelivery ?? estimatedDelivery,
+      deliveredDate: tracking?.deliveredDate,
       shippingMode,
       providerShippingCost,
       codCharge,
