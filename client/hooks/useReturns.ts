@@ -29,9 +29,16 @@ export interface ExchangeOptionItem {
   variantId: string; productId: string; title: string; sku: string; size?: string; color?: string; quantity: number;
   alternatives: Array<{ id: string; size: string; color: string; colorHex: string; sku: string; price: number; stock: number; enabled: boolean }>;
 }
-export interface CustomerExchange { _id: string; requestNumber: string; status: string; requestedSku: string; createdAt: string; }
+export interface CustomerExchange { _id: string; requestNumber: string; order: string; status: string; requestedSku: string; originalItem?: { title: string; sku: string; size?: string; color?: string; quantity: number }; createdAt: string; updatedAt?: string; }
+export interface CustomerFulfillmentRequests { returns: CustomerReturn[]; exchanges: CustomerExchange[]; }
 export interface ExchangePaymentSession { request: { id: string; requestNumber: string; status: string; handlingFee: number; handlingFeePaymentStatus: string }; payment: { id: string; amount: number; currency: string; provider: 'razorpay' } | null; }
-export const useMyReturns = () => useQuery({ queryKey: ['returns', 'mine'], queryFn: async (): Promise<CustomerReturn[]> => (await api.get<ApiEnvelope<{ returns: CustomerReturn[] }>>('/fulfillment/mine')).data.data.returns });
+const myRequestsQuery = {
+  queryKey: ['returns', 'mine'] as const,
+  refetchInterval: 60_000,
+  queryFn: async (): Promise<CustomerFulfillmentRequests> => (await api.get<ApiEnvelope<CustomerFulfillmentRequests>>('/fulfillment/mine')).data.data,
+};
+export const useMyReturns = () => useQuery({ ...myRequestsQuery, select: (data) => data.returns });
+export const useMyExchanges = () => useQuery({ ...myRequestsQuery, select: (data) => data.exchanges });
 export const useUploadReturnEvidence = () => useMutation({ mutationFn: async (file: File): Promise<ReturnEvidenceUpload> => { const form = new FormData(); form.append('photo', file); return (await api.post<ApiEnvelope<ReturnEvidenceUpload>>('/fulfillment/returns/evidence', form)).data.data; } });
 export const useCreateReturn = () => useMutation({ mutationFn: async (input: { orderId: string; items: Array<{ variantId: string; quantity: number }>; reason: string; details?: string; evidence: Array<Omit<ReturnEvidenceUpload, 'url'>>; idempotencyKey: string }): Promise<ReturnPaymentSession> => (await api.post<ApiEnvelope<ReturnPaymentSession>>('/fulfillment/returns', input)).data.data });
 export const useExchangeOptions = (orderId: string, enabled: boolean) => useQuery({ queryKey: ['exchanges', 'options', orderId], enabled: enabled && Boolean(orderId), queryFn: async (): Promise<ExchangeOptionItem[]> => (await api.get<ApiEnvelope<{ items: ExchangeOptionItem[] }>>(`/fulfillment/exchanges/options/${orderId}`)).data.data.items });

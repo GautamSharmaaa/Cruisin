@@ -4,7 +4,9 @@
 import { RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { useMyReturns } from '@/hooks/useReturns';
+import { useMyReturns, useMyExchanges } from '@/hooks/useReturns';
+import { ExchangeRequestHistory } from '@/components/account/exchange-request-history';
+import { RETURN_EXCHANGE_COPY } from '@/constants/return-exchange';
 import { RefundDestinationPanel, ReturnRefundProgress } from '@/components/account/refund-destination-panel';
 import { formatPrice } from '@/lib/utils';
 
@@ -12,8 +14,9 @@ const date = (value?: string): string => value ? new Intl.DateTimeFormat('en-IN'
 
 export default function ReturnsPage(): ReactNode {
   const returns = useMyReturns();
+  const exchanges = useMyExchanges();
   return <main className="px-6 py-28 lg:px-20 lg:py-36"><section className="mx-auto max-w-[1200px]">
-    <header className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">Post-purchase care</p><h1 className="mt-4 font-display text-4xl">My returns</h1><p className="mt-3 text-sm text-text-secondary">Payment, review, pickup, and refund progress for your return requests.</p></div><Link href="/account/wallet" className="inline-flex min-h-12 items-center justify-center border border-border px-5 text-xs uppercase tracking-[0.1em]">Cruisin Wallet</Link></header>
+    <header className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">Post-purchase care</p><h1 className="mt-4 font-display text-4xl">{RETURN_EXCHANGE_COPY.historyTitle}</h1><p className="mt-3 text-sm text-text-secondary">{RETURN_EXCHANGE_COPY.historyDescription}</p></div><Link href="/account/wallet" className="inline-flex min-h-12 items-center justify-center border border-border px-5 text-xs uppercase tracking-[0.1em]">Cruisin Wallet</Link></header>
     {returns.isLoading ? <p className="mt-8 text-sm text-text-secondary">Loading returns…</p> : null}
     {returns.error ? <p role="alert" className="mt-8 text-sm text-danger">{returns.error.message}</p> : null}
     {returns.data?.length ? <div className="mt-8 grid gap-5">{returns.data.map((request) => <article key={request._id} className="border border-border bg-background-elevated p-5 sm:p-6">
@@ -25,6 +28,7 @@ export default function ReturnsPage(): ReactNode {
       {request.evidence?.length ? <div className="mt-5 flex flex-wrap gap-2" aria-label="Submitted issue photos">{request.evidence.map((photo, index) => <img key={photo.url} src={photo.url} alt={`Submitted issue photo ${index + 1}`} className="h-20 w-20 border border-border object-cover" />)}</div> : null}
       {request.details ? <p className="mt-5 border-l-2 border-accent-gold pl-3 text-sm leading-6 text-text-secondary">{request.details}</p> : null}
     </article>)}</div> : null}
-    {!returns.isLoading && returns.data?.length === 0 ? <div className="mt-8 border border-border bg-background-elevated p-10 text-center"><RotateCcw className="mx-auto text-accent-gold" /><h2 className="mt-4 font-display text-2xl">No return requests</h2><p className="mt-2 text-sm text-text-secondary">Eligible delivered orders will show a Return items option in order details.</p><Link href="/account/orders" className="mt-6 inline-flex min-h-11 items-center bg-accent-gold px-5 text-xs uppercase tracking-[0.1em] text-text-inverse">View orders</Link></div> : null}
+    <ExchangeRequestHistory requests={exchanges.data ?? []} showOrderLink />
+    {!returns.isLoading && !exchanges.isLoading && returns.data?.length === 0 && exchanges.data?.length === 0 ? <div className="mt-8 border border-border bg-background-elevated p-10 text-center"><RotateCcw className="mx-auto text-accent-gold" /><h2 className="mt-4 font-display text-2xl">{RETURN_EXCHANGE_COPY.emptyTitle}</h2><p className="mt-2 text-sm text-text-secondary">{RETURN_EXCHANGE_COPY.emptyDescription}</p><Link href="/account/orders" className="mt-6 inline-flex min-h-11 items-center bg-accent-gold px-5 text-xs uppercase tracking-[0.1em] text-text-inverse">View orders</Link></div> : null}
   </section></main>;
 }

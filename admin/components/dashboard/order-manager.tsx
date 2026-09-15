@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select-field';
 import { COPY } from '@/constants/copy';
+import { ORDER_MANAGEMENT_COPY } from '@/constants/order-management';
 import { getOrderDeleteEligibility, useOrderManagementAction, useUpdateOrderStatus } from '@/hooks/useAdminMutations';
 import { formatPrice } from '@/lib/utils';
+import { isCollectedOrder, orderTransitions, type OrderStatus } from '@/lib/order-management';
 import type { OrderDto } from '@/types/dto.types';
 
 export interface OrderManagerProps {
@@ -22,15 +24,12 @@ export interface OrderManagerProps {
   onViewChange: (view: 'active' | 'archived' | 'all') => void;
 }
 
-type OrderStatus = 'pending' | 'placed' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
-
 const orderId = (order: OrderDto): string => order.id ?? order._id ?? order.createdAt ?? COPY.common.none;
 const orderLabel = (order: OrderDto): string => order.orderNumber ?? orderId(order);
 const orderStatusValues: OrderStatus[] = ['pending', 'placed', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
-const orderTransitions: Record<OrderStatus, OrderStatus[]> = { pending: ['confirmed', 'cancelled'], placed: ['confirmed', 'cancelled'], confirmed: ['processing', 'cancelled'], processing: ['shipped', 'cancelled'], shipped: ['delivered'], delivered: ['returned'], cancelled: [], returned: [] };
 const statusOptionsFor = (current: OrderStatus) => [current, ...orderTransitions[current]].map((value) => ({ value, label: value === 'placed' ? 'Placed' : value === 'returned' ? 'Returned' : COPY.orders.statuses[value as keyof typeof COPY.orders.statuses] ?? value }));
 const statuses = ['all', ...orderStatusValues] as const;
-const paymentStatuses = ['all', 'pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'refunded', 'partially_refunded'] as const;
+const paymentStatuses = ['all', 'pending', 'authorized', 'paid', 'failed', 'partially_paid', 'cod_pending', 'cod_collected', 'refunded', 'partially_refunded'] as const;
 const paymentModes = ['all', 'online', 'cod', 'partial'] as const;
 
 export function OrderManager({ orders, isLoading, view, onViewChange }: OrderManagerProps): ReactNode {
@@ -87,12 +86,12 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
 
   const stats = useMemo(() => ({
     total: orders.length,
-    paid: orders.filter((order) => order.paymentStatus === 'paid' && order.orderStatus !== 'cancelled').length,
+    paid: orders.filter(isCollectedOrder).length,
     pending: orders.filter((order) => ['pending', 'placed'].includes(order.orderStatus)).length,
     shipped: orders.filter((order) => ['shipped', 'delivered'].includes(order.orderStatus)).length,
     cancelled: orders.filter((order) => order.orderStatus === 'cancelled').length,
     refundAction: orders.filter((order) => ['required', 'failed'].includes(order.cancellation?.refundStatus ?? '')).length,
-    revenue: orders.filter((order) => order.paymentStatus === 'paid' && order.orderStatus !== 'cancelled').reduce((sum, order) => sum + order.total, 0)
+    revenue: orders.filter(isCollectedOrder).reduce((sum, order) => sum + order.total, 0)
   }), [orders]);
 
   const filteredOrders = useMemo(() => {
@@ -117,12 +116,12 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
   return <section className="grid min-w-0 gap-6">
     <AdminStatsGrid className="xl:grid-cols-7">
       <AdminStat label="Orders" value={stats.total} />
-      <AdminStat label="Paid" value={stats.paid} tone="success" />
+      <AdminStat label={ORDER_MANAGEMENT_COPY.collectedOrders} value={stats.paid} tone="success" />
       <AdminStat label="Pending/Placed" value={stats.pending} tone="warning" />
       <AdminStat label="Shipped/Delivered" value={stats.shipped} />
       <AdminStat label="Cancelled" value={stats.cancelled} tone="danger" />
       <AdminStat label="Refund action" value={stats.refundAction} tone={stats.refundAction ? 'danger' : 'success'} />
-      <AdminStat label="Paid revenue" value={formatPrice(stats.revenue)} tone="gold" />
+      <AdminStat label={ORDER_MANAGEMENT_COPY.collectedRevenue} value={formatPrice(stats.revenue)} tone="gold" />
     </AdminStatsGrid>
 
     <div className="flex flex-wrap gap-2" role="group" aria-label="Order archive view">{(['active', 'archived', 'all'] as const).map((option) => <Button key={option} variant={view === option ? 'primary' : 'secondary'} onClick={() => onViewChange(option)}>{option[0].toUpperCase() + option.slice(1)}</Button>)}</div>
@@ -132,7 +131,7 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
     <AdminFilters action={<Button variant="secondary" onClick={() => { setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setPaymentModeFilter('all'); setDateRange('all'); }}>Reset Filters</Button>}>
       <label className="grid min-w-[260px] flex-1 gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>Search order, customer, product, cancellation</span><span className="flex h-11 items-center border border-border bg-background-input px-3"><Search size={16} className="mr-2 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm normal-case text-text-primary outline-none" /></span></label>
       <SelectField label="Order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])} options={statuses.map((value) => ({ value, label: value === 'all' ? 'All statuses' : value === 'placed' ? 'Placed' : value === 'returned' ? 'Returned' : COPY.orders.statuses[value] }))} />
-      <SelectField label="Payment status" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as (typeof paymentStatuses)[number])} options={paymentStatuses.map((value) => ({ value, label: value === 'all' ? 'All payments' : value }))} />
+      <SelectField label="Payment status" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as (typeof paymentStatuses)[number])} options={paymentStatuses.map((value) => ({ value, label: value === 'all' ? 'All payments' : value.replaceAll('_', ' ') }))} />
       <SelectField label="Payment mode" value={paymentModeFilter} onChange={(event) => setPaymentModeFilter(event.target.value as (typeof paymentModes)[number])} options={paymentModes.map((value) => ({ value, label: value === 'all' ? 'All methods' : value }))} />
     </AdminFilters>
 
@@ -146,7 +145,7 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
           <td className="p-4">{order.archivedAt ? <span className="mb-2 inline-flex border border-warning/60 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-warning">Archived</span> : null}<Link className="block break-all font-mono text-text-primary hover:text-accent-gold" href={'/orders/' + id}>{orderLabel(order)}</Link><p className="mt-2 text-xs text-text-muted">{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'No date'}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{order.shippingAddress?.fullName ?? 'Guest'}</p><p className="mt-1 text-xs">{order.shippingAddress?.phone ?? 'No phone'}</p><p className="mt-1 text-xs">{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(', ')}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{itemCount} items</p><p className="mt-1 max-w-72 truncate text-xs">{order.items?.map((item) => item.title + ' x' + item.quantity).join(', ') || 'No items'}</p>{order.couponCode ? <p className="mt-1 font-mono text-xs text-accent-gold">{order.couponCode}</p> : null}</td>
-          <td className="p-4"><StatusPill tone={order.paymentStatus === 'paid' ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMode ?? order.paymentMethod ?? 'payment'} · paid {formatPrice(order.amountPaid ?? 0)} · due {formatPrice(order.orderStatus === 'cancelled' ? 0 : order.amountDue ?? order.total)}</p><p className="mt-1 max-w-48 truncate font-mono text-[10px] text-text-muted">{order.razorpayPaymentId ?? ''}</p></td>
+          <td className="p-4"><StatusPill tone={isCollectedOrder(order) ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus.replaceAll('_', ' ')}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMode ?? order.paymentMethod ?? 'payment'} · paid {formatPrice(order.amountPaid ?? 0)} · due {formatPrice(order.orderStatus === 'cancelled' ? 0 : order.amountDue ?? order.total)}</p><p className="mt-1 max-w-48 truncate font-mono text-[10px] text-text-muted">{order.razorpayPaymentId ?? ''}</p></td>
           <td className="p-4"><StatusPill tone={order.orderStatus === 'cancelled' ? 'danger' : order.orderStatus === 'delivered' ? 'success' : 'warning'}>{order.orderStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.trackingNumber ?? 'No tracking'}</p>{order.cancellation ? <div className="mt-3 max-w-52 border-l-2 border-danger pl-2 text-xs"><p className="text-text-primary">{order.cancellation.reason}</p>{order.cancellation.details ? <p className="mt-1 line-clamp-2 text-text-muted">{order.cancellation.details}</p> : null}<p className="mt-1 uppercase tracking-[0.08em] text-danger">Refund {order.cancellation.refundStatus.replaceAll('_', ' ')}</p></div> : null}</td>
           <td className="p-4 font-mono text-accent-gold">{formatPrice(order.total)}<p className="mt-1 text-xs text-text-muted">Discount {formatPrice(order.discount ?? 0)}</p></td>
           <td className="p-4"><div className="grid min-w-56 gap-2"><SelectField label={'Status for order ' + id} options={statusOptionsFor(order.orderStatus as OrderStatus)} value={status} onChange={(event) => setStatusesById((current) => ({ ...current, [id]: event.target.value as OrderStatus }))} /><Input label={'Tracking for order ' + id} value={tracking[id] ?? order.trackingNumber ?? ''} onChange={(event) => setTracking((current) => ({ ...current, [id]: event.target.value }))} /><Input label={'Admin note for order ' + id} value={notes[id] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div></td>

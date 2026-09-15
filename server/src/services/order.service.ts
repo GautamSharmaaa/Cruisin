@@ -60,7 +60,7 @@ const orderStatusTransitions: Record<string, string[]> = {
   placed: ['confirmed', 'cancelled'],
   confirmed: ['processing', 'cancelled'],
   processing: ['shipped', 'cancelled'],
-  shipped: ['delivered'],
+  shipped: [],
   delivered: ['returned'],
   returned: [],
   cancelled: []

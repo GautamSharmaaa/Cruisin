@@ -103,6 +103,31 @@ describe('prepaid return handling fee', () => {
     expect(await ReturnRequestModel.countDocuments({ order: undeliveredOrderId })).toBe(0);
   });
 
+  it('reads exchange eligibility from courier delivery without rewriting a stale order', async () => {
+    await OrderModel.updateOne({ _id: orderId }, { $set: { orderStatus: 'shipped', fulfillmentStatus: 'ready_to_ship' } });
+    try {
+      await expect(ReturnExchangeService.exchangeOptions(String(customerId), orderId)).resolves.toHaveProperty('items');
+      expect(await OrderModel.findById(orderId).lean()).toMatchObject({ orderStatus: 'shipped', fulfillmentStatus: 'ready_to_ship' });
+    } finally {
+      await OrderModel.updateOne({ _id: orderId }, { $set: { orderStatus: 'delivered', fulfillmentStatus: 'fulfilled' } });
+    }
+  });
+
+  it('rejects expired, missing and future courier timestamps without rewriting the order', async () => {
+    const shipment = await ShipmentModel.findOne({ order: orderId, shipmentType: 'forward' }).lean();
+    await OrderModel.updateOne({ _id: orderId }, { $set: { orderStatus: 'shipped' } });
+    try {
+      for (const date of [new Date(Date.now() - 6 * 86_400_000), null, new Date(Date.now() + 86_400_000)]) {
+        await ShipmentModel.updateOne({ _id: shipment?._id }, { $set: { deliveredDate: date } });
+        await expect(ReturnExchangeService.exchangeOptions(String(customerId), orderId)).rejects.toMatchObject({ statusCode: 409 });
+        expect((await OrderModel.findById(orderId).lean())?.orderStatus).toBe('shipped');
+      }
+    } finally {
+      await ShipmentModel.updateOne({ _id: shipment?._id }, { $set: { deliveredDate: shipment?.deliveredDate } });
+      await OrderModel.updateOne({ _id: orderId }, { $set: { orderStatus: 'delivered' } });
+    }
+  });
+
   it('records a COD manual UPI refund only after an admin supplies the matching destination and UTR', async () => {
     const created = await ReturnExchangeService.createReturn(String(customerId), { orderId: codOrderId, items: [{ variantId: firstVariantId, quantity: 1 }], reason: 'quality_issue', details: 'COD refund destination test', evidence: evidence(customerId), idempotencyKey: '10000000-0000-4000-8000-000000000004' }) as { request: { id: string }; payment: { id: string } };
     await ReturnExchangeService.verifyReturnPayment(String(customerId), { requestId: created.request.id, payload: { razorpay_order_id: created.payment.id, razorpay_payment_id: 'pay_mock_return_fee_cod', mockVerified: true } });

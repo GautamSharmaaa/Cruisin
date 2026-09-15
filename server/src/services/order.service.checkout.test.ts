@@ -1181,12 +1181,14 @@ describe('OrderService authenticated checkout', () => {
   it.each([
     ['cancelled', 'processing'],
     ['delivered', 'processing'],
-    ['returned', 'processing']
-  ])('rejects terminal or backward order transition %s -> %s', async (from, to) => {
+    ['returned', 'processing'],
+    ['shipped', 'delivered']
+  ])('rejects disallowed manual order transition %s -> %s', async (from, to) => {
     const orderId = new Types.ObjectId().toString();
     orderModel.findById.mockResolvedValue({ _id: orderId, orderStatus: from });
     const { OrderService } = await import('./order.service.js');
     await expect(OrderService.updateStatus(orderId, { status: to })).rejects.toThrow(`Order cannot move from ${from} to ${to}`);
+    expect(orderModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   it('accepts a valid transition and rejects a concurrent stale write', async () => {

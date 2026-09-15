@@ -15,9 +15,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { OrderCancellationDialog } from "@/components/account/order-cancellation-dialog";
+import { OrderReturnPanel } from "@/components/account/order-return-panel";
 import { SafeImage } from "@/components/shared/safe-image";
 import { ROUTES } from "@/constants/routes";
 import { useOrder } from "@/hooks/useOrders";
+import { useOrderTracking, type ShipmentTracking } from "@/hooks/useLogistics";
 import {
   canCustomerCancel,
   customerFacingOrderStatus,
@@ -151,7 +153,14 @@ const BillBreakdown = ({ order }: { order: Order }): ReactNode => {
   );
 };
 
-const OrderDetails = ({ order }: { order: Order }): ReactNode => {
+interface OrderDetailsProps {
+  order: Order;
+  returnWindow?: ShipmentTracking['returnWindow'];
+  trackingPending: boolean;
+  trackingError: boolean;
+}
+
+const OrderDetails = ({ order, returnWindow, trackingPending, trackingError }: OrderDetailsProps): ReactNode => {
   const id = orderId(order);
   const displayStatus = customerFacingOrderStatus(order);
 
@@ -265,6 +274,8 @@ const OrderDetails = ({ order }: { order: Order }): ReactNode => {
               ))}
             </div>
           </section>
+
+          <OrderReturnPanel order={order} returnWindow={returnWindow} trackingPending={trackingPending} trackingError={trackingError} />
 
           {order.cancellation ? (
             <section
@@ -547,6 +558,7 @@ const OrderDetails = ({ order }: { order: Order }): ReactNode => {
 export default function OrderDetailPage(): ReactNode {
   const params = useParams<{ id: string }>();
   const order = useOrder(params.id);
+  const tracking = useOrderTracking(params.id);
 
   return (
     <main className="mx-auto min-h-[70vh] max-w-7xl px-5 pb-24 pt-28 sm:px-8 lg:px-12 lg:pt-36">
@@ -572,7 +584,7 @@ export default function OrderDetailPage(): ReactNode {
         </section>
       ) : null}
       {order.isLoading ? <DetailSkeleton /> : null}
-      {order.data ? <OrderDetails order={order.data} /> : null}
+      {order.data ? <OrderDetails order={order.data} returnWindow={tracking.data?.returnWindow} trackingPending={tracking.isPending} trackingError={tracking.isError} /> : null}
     </main>
   );
 }

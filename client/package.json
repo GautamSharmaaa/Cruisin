@@ -14,6 +14,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:returns": "playwright test --config=playwright.customer-returns.config.ts",
     "test:e2e:logistics": "playwright test --config=playwright.logistics.config.ts",
     "test:e2e:meta": "playwright test -c playwright.meta.config.ts"
   },

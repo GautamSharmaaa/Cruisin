@@ -77,14 +77,12 @@ const loadProductVariant = async (productId: unknown, variantId: unknown) => {
 const assertDeliveredOrder = async (orderId: string, customerId: string) => {
   const order = await OrderModel.findOne({ _id: objectId(orderId), user: objectId(customerId), archivedAt: { $exists: false }, isTestOrder: { $ne: true }, isAnalyticsTestData: { $ne: true } });
   if (!order) throw new ApiError(404, 'Order not found');
-  const shipment = await ShipmentModel.findOne({ order: order._id, shipmentType: 'forward', shipmentStatus: 'delivered' }).lean();
-  if (order.orderStatus === 'cancelled' || !shipment) throw new ApiError(409, 'Returns and exchanges are available after delivery');
-  if (order.orderStatus !== 'delivered') {
-    order.orderStatus = 'delivered';
-    order.fulfillmentStatus = 'fulfilled';
-    await order.save();
-  }
-  if (!shipment?.deliveredDate || Date.now() - shipment.deliveredDate.getTime() > 5 * 86_400_000) throw new ApiError(409, 'The 5-day return and exchange window has ended');
+  const shipment = await ShipmentModel.findOne({ order: order._id, shipmentType: 'forward' }).sort({ createdAt: -1 }).lean();
+  if (order.orderStatus === 'cancelled' || shipment?.shipmentStatus !== 'delivered') throw new ApiError(409, 'Returns and exchanges are available after delivery');
+  const deliveredAt = shipment.deliveredDate?.getTime();
+  const now = Date.now();
+  if (deliveredAt === undefined || !Number.isFinite(deliveredAt) || deliveredAt > now) throw new ApiError(409, 'Courier delivery confirmation is unavailable');
+  if (now >= deliveredAt + 5 * 86_400_000) throw new ApiError(409, 'The 5-day return and exchange window has ended');
   return order;
 };
 
