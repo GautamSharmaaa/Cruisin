@@ -179,6 +179,7 @@ export interface WorkflowRequest {
   _id: string;
   requestNumber: string;
   status: string;
+  allowedActions?: string[];
   reason?: string;
   details?: string;
   evidence?: Array<{ url: string; format: string }>;

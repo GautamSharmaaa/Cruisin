@@ -79,6 +79,10 @@ describe('prepaid return handling fee', () => {
     const paid = await ReturnExchangeService.verifyReturnPayment(String(customerId), { requestId: first.request.id, payload: { razorpay_order_id: first.payment.id, razorpay_payment_id: 'pay_mock_return_fee', mockVerified: true } }) as { status: string; handlingFeePaymentStatus: string };
     expect(paid).toMatchObject({ status: 'requested', handlingFeePaymentStatus: 'paid' });
     await expect(ReturnExchangeService.verifyReturnPayment(String(customerId), { requestId: first.request.id, payload: {} })).resolves.toMatchObject({ status: 'requested', handlingFeePaymentStatus: 'paid' });
+    await expect(ReturnExchangeService.actOnReturn(first.request.id, { action: 'more_information' }, String(new Types.ObjectId()))).resolves.toMatchObject({ status: 'more_information' });
+    const needsInformation = await ReturnExchangeService.listReturns('admin') as Array<{ _id: Types.ObjectId; allowedActions?: string[] }>;
+    expect(needsInformation.find((request) => String(request._id) === first.request.id)?.allowedActions).toEqual(['approved', 'rejected']);
+    await expect(ReturnExchangeService.actOnReturn(first.request.id, { action: 'approved' }, String(new Types.ObjectId()))).resolves.toMatchObject({ status: 'approved' });
     const mine = await ReturnExchangeService.mine(String(customerId));
     expect(JSON.stringify(mine)).not.toContain(first.payment.id);
     expect(JSON.stringify(mine)).not.toContain('pay_mock_return_fee');

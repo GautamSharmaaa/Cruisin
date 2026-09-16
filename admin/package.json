@@ -12,7 +12,8 @@
     "start": "next start -H 0.0.0.0 -p ${PORT:-3001}",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:returns": "playwright test --config=playwright.returns.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -27,6 +27,21 @@ const objectId = (value: string): Types.ObjectId => {
   if (!Types.ObjectId.isValid(value)) throw new ApiError(400, 'Invalid identifier');
   return new Types.ObjectId(value);
 };
+const returnTransitions: Record<string, readonly string[]> = {
+  requested: ['more_information', 'approved', 'rejected'],
+  more_information: ['approved', 'rejected'],
+  approved: ['create_reverse_pickup'],
+  reverse_pickup: ['warehouse_received'],
+  in_transit: ['warehouse_received'],
+  warehouse_received: ['quality_check_passed', 'quality_check_failed'],
+  quality_check_passed: ['open_refund_window'],
+  refund_window_open: ['refund_pending', 'record_manual_upi_refund'],
+  refund_pending: ['refunded'],
+  refunded: ['closed'],
+  quality_check_failed: ['closed'],
+  rejected: ['closed']
+};
+const returnActionsForStatus = (status: string): string[] => [...(returnTransitions[status] ?? [])];
 const returnWithoutEncryptedDestination = (request: HydratedDocument<ReturnRequestDocument>): Record<string, unknown> => {
   const safe = request.toObject() as Record<string, unknown> & { refundDestination?: Record<string, unknown> };
   if (safe.refundDestination) delete safe.refundDestination.encryptedDetails;
@@ -717,6 +732,7 @@ export const ReturnExchangeService = {
       }
       return {
         ...request,
+        allowedActions: returnActionsForStatus(request.status),
         refundDestination: request.refundDestination ? {
           ...request.refundDestination,
           encryptedDetails: undefined,
@@ -737,21 +753,7 @@ export const ReturnExchangeService = {
     let request = await ReturnRequestModel.findById(objectId(requestId)).select('+refundDestination.encryptedDetails');
     if (!request) throw new ApiError(404, 'Return request not found');
     if (input.action === 'record_manual_upi_refund' && request.status === 'refunded' && request.manualTransferReference === input.transactionReference) return returnWithoutEncryptedDestination(request);
-    const transitions: Record<string, string[]> = {
-      requested: ['more_information', 'approved', 'rejected'],
-      more_information: ['approved', 'rejected'],
-      approved: ['create_reverse_pickup'],
-      reverse_pickup: ['warehouse_received'],
-      in_transit: ['warehouse_received'],
-      warehouse_received: ['quality_check_passed', 'quality_check_failed'],
-      quality_check_passed: ['open_refund_window'],
-      refund_window_open: ['refund_pending', 'record_manual_upi_refund'],
-      refund_pending: ['refunded'],
-      refunded: ['closed'],
-      quality_check_failed: ['closed'],
-      rejected: ['closed']
-    };
-    if (!(transitions[request.status] ?? []).includes(input.action)) throw new ApiError(409, `Return cannot perform ${input.action} from ${request.status}`);
+    if (!returnActionsForStatus(request.status).includes(input.action)) throw new ApiError(409, `Return cannot perform ${input.action} from ${request.status}`);
     if (input.action === 'create_reverse_pickup') {
       const shipment = await ensureReverseShipment(request, adminId);
       request.reverseShipment = shipment?._id;
