@@ -42,6 +42,7 @@ export const adminReturnRouter = Router();
 adminReturnRouter.use(requireAuth, requireAdmin);
 adminReturnRouter.get('/', ReturnExchangeController.returns);
 adminReturnRouter.post('/:id/refund-destination', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema, body: adminRefundDestinationSchema }), ReturnExchangeController.setRefundDestinationByAdmin);
+adminReturnRouter.post('/:id/reconcile-refund', requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), ReturnExchangeController.reconcileRefund);
 adminReturnRouter.post('/:id/action', requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema, body: workflowActionSchema }), requireAdminForShiprocketActions(['create_reverse_pickup']), requireAdminForFinancialActions(['open_refund_window', 'refund_pending', 'refunded', 'record_manual_upi_refund']), ReturnExchangeController.returnAction);
 
 export const adminExchangeRouter = Router();

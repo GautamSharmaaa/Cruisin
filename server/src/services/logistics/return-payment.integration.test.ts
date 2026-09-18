@@ -11,6 +11,7 @@ import { UserModel } from '../../models/user.model.js';
 import { WalletModel } from '../../models/wallet.model.js';
 import { ReturnExchangeService } from './return-exchange.service.js';
 import { PaymentService } from '../payment.service.js';
+import { OrderService } from '../order.service.js';
 import { env } from '../../config/env.js';
 import { UploadService } from '../upload.service.js';
 
@@ -20,6 +21,7 @@ const otherCustomerId = new Types.ObjectId();
 let orderId = '';
 let undeliveredOrderId = '';
 let codOrderId = '';
+let externalRefundOrderId = '';
 let firstVariantId = '';
 let secondVariantId = '';
 const address = { fullName: 'Return Test', phone: '9000000000', line1: 'Test address', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'India' };
@@ -35,7 +37,7 @@ beforeAll(async () => {
   if (mongoose.connection.readyState === 0) await mongoose.connect(process.env.MONGODB_URI!);
   await UserModel.deleteMany({ _id: { $in: [customerId, otherCustomerId] } });
   await UserModel.create({ _id: customerId, name: 'Return Test', email: `return-${customerId}@test.local`, passwordHash: 'not-used-in-test', role: 'customer', status: 'active' });
-  await ReturnRequestModel.deleteMany({ idempotencyKey: { $in: ['10000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000004'] } });
+  await ReturnRequestModel.deleteMany({ idempotencyKey: { $in: ['10000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000005'] } });
   const product = await ProductModel.create({ title: marker, slug: marker.toLowerCase(), description: 'Return payment integration test product', richDescription: 'Local-only QA', category: new Types.ObjectId(), basePrice: 900, variants: [
     { size: 'M', color: 'Black', colorHex: '#000000', sku: `${marker}-M`, price: 900, stock: 10, weight: 0.25, dimensions: { length: 30, width: 25, height: 2 } },
     { size: 'L', color: 'Black', colorHex: '#000000', sku: `${marker}-L`, price: 900, stock: 10, weight: 0.25, dimensions: { length: 30, width: 25, height: 2 } }
@@ -49,11 +51,14 @@ beforeAll(async () => {
   const delivered = await OrderModel.create({ ...baseOrder, orderNumber: `CR-${marker}-DELIVERED`, orderStatus: 'delivered' });
   const undelivered = await OrderModel.create({ ...baseOrder, orderNumber: `CR-${marker}-CONFIRMED`, orderStatus: 'confirmed', fulfillmentStatus: 'pending_logistics' });
   const cod = await OrderModel.create({ ...baseOrder, orderNumber: `CR-${marker}-COD`, orderStatus: 'delivered', paymentMethod: 'cod', paymentMode: 'cod', paymentProvider: 'cod', razorpayPaymentId: undefined });
+  const externalRefund = await OrderModel.create({ ...baseOrder, orderNumber: `CR-${marker}-EXTERNAL-REFUND`, orderStatus: 'delivered', razorpayPaymentId: 'pay_external_return_order' });
   orderId = String(delivered._id);
   undeliveredOrderId = String(undelivered._id);
   codOrderId = String(cod._id);
+  externalRefundOrderId = String(externalRefund._id);
   await ShipmentModel.create({ order: delivered._id, shipmentType: 'forward', sourceOrderId: delivered.orderNumber, pickupLocation: 'Local QA', package: { productWeightKg: 0.5, packagingWeightKg: 0.03, deadWeightKg: 0.53, lengthCm: 30, breadthCm: 25, heightCm: 4 }, shipmentStatus: 'delivered', deliveredDate: new Date(), idempotencyKey: `forward:${marker}` });
   await ShipmentModel.create({ order: cod._id, shipmentType: 'forward', sourceOrderId: cod.orderNumber, pickupLocation: 'Local QA', package: { productWeightKg: 0.5, packagingWeightKg: 0.03, deadWeightKg: 0.53, lengthCm: 30, breadthCm: 25, heightCm: 4 }, shipmentStatus: 'delivered', deliveredDate: new Date(), idempotencyKey: `forward:${marker}:cod` });
+  await ShipmentModel.create({ order: externalRefund._id, shipmentType: 'forward', sourceOrderId: externalRefund.orderNumber, pickupLocation: 'Local QA', package: { productWeightKg: 0.5, packagingWeightKg: 0.03, deadWeightKg: 0.53, lengthCm: 30, breadthCm: 25, heightCm: 4 }, shipmentStatus: 'delivered', deliveredDate: new Date(), idempotencyKey: `forward:${marker}:external-refund` });
 });
 
 afterAll(async () => {
@@ -102,6 +107,16 @@ describe('prepaid return handling fee', () => {
     await expect(ReturnExchangeService.createReturn(String(otherCustomerId), input)).rejects.toMatchObject({ statusCode: 409 });
     await expect(ReturnExchangeService.createReturn(String(customerId), { ...input, items: [{ variantId: firstVariantId, quantity: 2 }], idempotencyKey: '10000000-0000-4000-8000-000000000002' })).rejects.toMatchObject({ statusCode: 409 });
     expect(() => UploadService.validateReturnEvidence(input.evidence[0]!, String(otherCustomerId))).toThrow('Invalid return photo');
+  });
+
+  it('reconciles a unique order-page Razorpay refund into its open return request', async () => {
+    const created = await ReturnExchangeService.createReturn(String(customerId), { orderId: externalRefundOrderId, items: [{ variantId: firstVariantId, quantity: 1 }], reason: 'wrong_size_fit', details: 'Refunded from order payment operations', evidence: evidence(customerId), idempotencyKey: '10000000-0000-4000-8000-000000000005' }) as { request: { id: string }; payment: { id: string } };
+    await ReturnExchangeService.verifyReturnPayment(String(customerId), { requestId: created.request.id, payload: { razorpay_order_id: created.payment.id, razorpay_payment_id: 'pay_mock_external_return_fee', mockVerified: true } });
+    await ReturnRequestModel.updateOne({ _id: created.request.id }, { $set: { status: 'quality_check_passed' } });
+    await ReturnExchangeService.actOnReturn(created.request.id, { action: 'open_refund_window' }, String(new Types.ObjectId()));
+    await OrderService.refund(externalRefundOrderId, 900, 'incorrect size', String(new Types.ObjectId()), '20000000-0000-4000-8000-000000000001');
+    const reconciled = await ReturnRequestModel.findById(created.request.id).lean();
+    expect(reconciled).toMatchObject({ status: 'refunded', refundStatus: 'processed', productRefundReference: 'rfnd_mock_return_product', refundDestination: { method: 'original_payment', verificationStatus: 'verified' } });
   });
 
   it('rejects requests before delivery without creating a payment or request', async () => {

@@ -28,6 +28,7 @@ import { LogisticsQuoteService, type PricedCartLine } from './logistics/logistic
 import { LogisticsService } from './logistics/logistics.service.js';
 import { assertCouponCustomerEligible, confirmCouponRedemption, releaseCouponRedemption, reserveCouponRedemption } from './coupon-redemption.service.js';
 import { InvoiceService } from './invoice.service.js';
+import { ReturnRefundReconciliationService } from './return-refund-reconciliation.service.js';
 
 type AddressInput = Record<string, unknown>;
 type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string };
@@ -38,6 +39,13 @@ const enforceCartVersion = (cart: { version?: number | null }, expectedVersion?:
 
 const idString = (value: unknown): string => value instanceof Types.ObjectId ? value.toString() : typeof value === 'string' ? value : value && typeof value === 'object' && '_id' in value ? String((value as { _id: unknown })._id) : '';
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const reconcileReturnRefundSafely = async (orderId: string): Promise<void> => {
+  try {
+    await ReturnRefundReconciliationService.reconcileOrder(orderId);
+  } catch (error) {
+    logger.error('Order refund was saved but its return-request reconciliation failed', { orderId, error });
+  }
+};
 const onlineReservationTtlMs = 15 * 60_000;
 const checkoutRequestHash = (input: CheckoutInput): string => crypto.createHash('sha256').update(JSON.stringify({
   shippingAddress: input.shippingAddress,
@@ -862,6 +870,7 @@ export const OrderService = {
     reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
     if (statusChanged) order.timeline.push({ status: status === 'processed' ? order.paymentStatus : 'refund_failed', timestamp: new Date(), note: `Razorpay refund ${status}` });
     await order.save();
+    await reconcileReturnRefundSafely(String(order._id));
   },
 
   async refund(orderId: string, amount: number, reason: string | undefined, adminId: string, idempotencyKey: string): Promise<unknown> {
@@ -888,6 +897,7 @@ export const OrderService = {
     }
     reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
     await order.save();
+    if (!idempotencyKey.startsWith('return-refund:')) await reconcileReturnRefundSafely(String(order._id));
     return refund;
   },
 
@@ -907,6 +917,7 @@ export const OrderService = {
     reconcileCancellationRefundState(order as unknown as CancellationRefundOrder);
     if (statusChanged) order.timeline.push({ status: providerRefund.status === 'processed' ? order.paymentStatus : `refund_${providerRefund.status}`, timestamp: new Date(), note: `Razorpay refund synchronized: ${providerRefund.status}` });
     await order.save();
+    await reconcileReturnRefundSafely(String(order._id));
     return order;
   },
 

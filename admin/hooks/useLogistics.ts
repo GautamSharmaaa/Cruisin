@@ -427,3 +427,12 @@ export const useAdminSetRefundDestination = () => {
     onSuccess: async (): Promise<void> => client.invalidateQueries({ queryKey: ["admin", "returns"] }),
   });
 };
+
+export const useAdminReconcileReturnRefund = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<unknown> =>
+      (await api.post<ApiEnvelope<unknown>>(`/admin/returns/${id}/reconcile-refund`, {})).data.data,
+    onSuccess: async (): Promise<void> => client.invalidateQueries({ queryKey: ["admin", "returns"] }),
+  });
+};

@@ -15,7 +15,7 @@ const statusForAction: Record<string, string> = {
   open_refund_window: 'refund_window_open', refund_pending: 'refund_pending', refunded: 'refunded', closed: 'closed'
 };
 
-const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin', failureAction?: string, refundPaymentMode: 'razorpay_original' | 'cod_destination' = 'cod_destination'): Promise<{ writes: string[] }> => {
+const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin', failureAction?: string, refundPaymentMode: 'razorpay_original' | 'cod_destination' = 'cod_destination', originalDestinationVerified = true): Promise<{ writes: string[] }> => {
   let status = initialStatus;
   const writes: string[] = [];
   await page.route('**/*', (route) => {
@@ -29,7 +29,13 @@ const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin',
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ accessToken: 'admin-return-qa-token' }) });
     if (path.endsWith('/auth/me')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ id: 'admin-qa', name: 'QA Admin', email: 'admin@example.test', role, isVerified: true, isActive: true }) });
-    if (path.endsWith('/admin/returns') && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([{ _id: 'return-qa', requestNumber: 'RET-QA-FLOW', status, allowedActions: actionsByStatus[status] ?? [], reason: 'quality_issue', refundStatus: status === 'refund_window_open' ? 'ready' : 'not_started', refundPaymentMode, productRefundAmount: 899, refundDestination: status === 'refund_window_open' && refundPaymentMode === 'razorpay_original' ? { method: 'original_payment', verificationStatus: 'verified', maskedDetails: 'Original Razorpay payment method' } : undefined, createdAt: new Date().toISOString(), order: { orderNumber: 'CR-QA-RETURN' }, customer: { name: 'QA Customer' }, items: [{ sku: 'QA-TEE-M', title: 'QA Tee', size: 'M', color: 'Black', quantity: 1 }] }]) });
+    if (path.endsWith('/admin/returns') && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([{ _id: 'return-qa', requestNumber: 'RET-QA-FLOW', status, allowedActions: actionsByStatus[status] ?? [], reason: 'quality_issue', refundStatus: status === 'refunded' ? 'processed' : status === 'refund_window_open' && originalDestinationVerified ? 'ready' : status === 'refund_window_open' ? 'awaiting_destination' : 'not_started', refundPaymentMode, refundAvailableMethods: refundPaymentMode === 'razorpay_original' && !originalDestinationVerified ? [] : refundPaymentMode === 'razorpay_original' ? ['original_payment'] : ['wallet', 'upi'], productRefundAmount: 899, productRefundReference: status === 'refunded' ? 'rfnd_qa_reconciled' : undefined, refundDestination: ['refund_window_open', 'refunded'].includes(status) && refundPaymentMode === 'razorpay_original' && originalDestinationVerified ? { method: 'original_payment', verificationStatus: 'verified', maskedDetails: 'Original Razorpay payment method' } : undefined, createdAt: new Date().toISOString(), order: { orderNumber: 'CR-QA-RETURN' }, customer: { name: 'QA Customer' }, items: [{ sku: 'QA-TEE-M', title: 'QA Tee', size: 'M', color: 'Black', quantity: 1 }] }]) });
+    if (path.endsWith('/admin/returns/return-qa/reconcile-refund') && request.method() === 'POST') {
+      writes.push('reconcile_refund');
+      originalDestinationVerified = true;
+      status = 'refunded';
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ matched: [{ requestId: 'return-qa', providerRefundId: 'rfnd_qa_reconciled', status: 'processed' }] }) });
+    }
     if (path.endsWith('/admin/returns/return-qa/action') && request.method() === 'POST') {
       const input = request.postDataJSON() as { action: string };
       writes.push(input.action);
@@ -105,4 +111,12 @@ test('COD returns keep the wallet and UPI destination flow', async ({ page }) =>
   await expect(page.getByText('This COD refund needs the customer or an authorized admin')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set / update COD refund destination' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Issue Razorpay refund' })).toHaveCount(0);
+});
+
+test('an older order-page refund can be reconciled without issuing another refund', async ({ page }) => {
+  const audit = await mockAdmin(page, 'refund_window_open', 'superadmin', undefined, 'razorpay_original', false);
+  await page.goto(`${adminUrl}/returns`);
+  await page.getByRole('button', { name: 'Sync completed Razorpay refund' }).click();
+  await expect(page.getByText(/QA Customer · refunded · Refund processed/i)).toBeVisible();
+  expect(audit.writes).toEqual(['reconcile_refund']);
 });

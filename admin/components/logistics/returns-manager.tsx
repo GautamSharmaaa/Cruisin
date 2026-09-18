@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAdminMe } from '@/hooks/useAdminResources';
-import { useAdminReturns, useAdminSetRefundDestination, useWorkflowAction, type WorkflowRequest } from '@/hooks/useLogistics';
+import { useAdminReconcileReturnRefund, useAdminReturns, useAdminSetRefundDestination, useWorkflowAction, type WorkflowRequest } from '@/hooks/useLogistics';
 import { returnWorkflowActionLabel, returnWorkflowWaitingMessage, visibleReturnWorkflowActions } from '@/constants/return-workflow';
 
 const actionLabel = (request: WorkflowRequest, action: string): string => {
@@ -18,6 +18,7 @@ export function ReturnsManager(): ReactNode {
   const requests = useAdminReturns();
   const action = useWorkflowAction('returns');
   const setDestination = useAdminSetRefundDestination();
+  const reconcileRefund = useAdminReconcileReturnRefund();
   const me = useAdminMe();
   const canManageRefund = me.data?.role === 'admin' || me.data?.role === 'superadmin';
   const [manualRequest, setManualRequest] = useState<WorkflowRequest | null>(null);
@@ -26,7 +27,7 @@ export function ReturnsManager(): ReactNode {
   const [destinationRequest, setDestinationRequest] = useState<WorkflowRequest | null>(null);
   const [destinationMethod, setDestinationMethod] = useState<'wallet' | 'upi'>('wallet');
   const [destinationUpiId, setDestinationUpiId] = useState('');
-  const workflowError = action.error ?? setDestination.error;
+  const workflowError = action.error ?? setDestination.error ?? reconcileRefund.error;
   const openManualRefund = (request: WorkflowRequest): void => {
     setManualRequest(request);
     setManualUpiId(request.refundDestination?.manualUpiId ?? '');
@@ -48,7 +49,7 @@ export function ReturnsManager(): ReactNode {
     setDestination.mutate({ id: destinationRequest._id, destination }, { onSuccess: () => { setDestinationRequest(null); setDestinationUpiId(''); } });
   };
   return <div className="grid gap-4">
-    {workflowError ? <div role="alert" aria-live="assertive" data-testid="return-workflow-error" className="fixed left-1/2 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 border border-danger/60 bg-background-elevated p-4 text-danger shadow-2xl"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="font-medium text-text-primary">Return action could not be completed</p><p className="mt-1 break-words text-sm leading-5">{workflowError.message}</p></div><button type="button" aria-label="Dismiss return error" onClick={() => { action.reset(); setDestination.reset(); }} className="grid h-9 w-9 shrink-0 place-items-center text-text-secondary transition hover:text-text-primary"><X className="h-4 w-4" /></button></div> : null}
+    {workflowError ? <div role="alert" aria-live="assertive" data-testid="return-workflow-error" className="fixed left-1/2 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 border border-danger/60 bg-background-elevated p-4 text-danger shadow-2xl"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="font-medium text-text-primary">Return action could not be completed</p><p className="mt-1 break-words text-sm leading-5">{workflowError.message}</p></div><button type="button" aria-label="Dismiss return error" onClick={() => { action.reset(); setDestination.reset(); reconcileRefund.reset(); }} className="grid h-9 w-9 shrink-0 place-items-center text-text-secondary transition hover:text-text-primary"><X className="h-4 w-4" /></button></div> : null}
     {requests.data?.map((request) => <article key={request._id} className="grid gap-4 border border-border bg-background-elevated p-5 lg:grid-cols-[1fr_auto] lg:items-start">
       <div>
         <p className="font-mono text-xs text-accent-gold">{request.requestNumber}</p>
@@ -72,7 +73,8 @@ export function ReturnsManager(): ReactNode {
       <div className="grid min-w-64 gap-2">
         {request.refundPaymentMode === 'razorpay_original' && ['refund_window_open', 'refund_pending', 'refunded'].includes(request.status) ? <div className="border border-success/40 bg-success/10 p-3 text-xs leading-5 text-text-secondary"><p className="flex items-center gap-2 font-medium text-text-primary"><CreditCard className="h-4 w-4 text-success" />Online payment · Razorpay</p><p className="mt-2">The eligible product amount is refunded to the original card, bank account, or UPI source. No wallet or separate UPI destination is required.</p>{request.productRefundReference ? <p className="mt-2 break-all font-mono text-text-primary">{request.productRefundReference} · {request.providerRefund?.status ?? request.refundStatus ?? 'submitted'}</p> : null}</div> : null}
         {request.refundPaymentMode !== 'razorpay_original' && request.status === 'refund_window_open' && request.refundDestination?.verificationStatus !== 'verified' ? <p className="border border-warning/40 bg-warning/10 p-3 text-xs text-text-secondary">{request.refundDestination?.manualUpiId ? 'A manual UPI destination is saved. Transfer externally, verify the beneficiary in your payment app, then record the matching UPI and UTR.' : 'This COD refund needs the customer or an authorized admin to choose Cruisin Wallet or add the customer UPI ID.'}</p> : null}
-        {canManageRefund && request.status === 'refund_window_open' && request.refundPaymentMode === 'razorpay_original' && request.refundDestination?.verificationStatus !== 'verified' ? <Button variant="secondary" onClick={() => setDestination.mutate({ id: request._id, destination: { method: 'original_payment' } })} disabled={setDestination.isPending}><CreditCard className="h-4 w-4" />Use original Razorpay payment</Button> : null}
+        {canManageRefund && request.status === 'refund_window_open' && request.refundPaymentMode === 'razorpay_original' && request.refundDestination?.verificationStatus !== 'verified' && request.refundAvailableMethods?.includes('original_payment') ? <Button variant="secondary" onClick={() => setDestination.mutate({ id: request._id, destination: { method: 'original_payment' } })} disabled={setDestination.isPending}><CreditCard className="h-4 w-4" />Use original Razorpay payment</Button> : null}
+        {canManageRefund && request.status === 'refund_window_open' && request.refundPaymentMode === 'razorpay_original' && request.refundDestination?.verificationStatus !== 'verified' && !request.refundAvailableMethods?.includes('original_payment') ? <Button variant="secondary" onClick={() => reconcileRefund.mutate(request._id)} disabled={reconcileRefund.isPending}><RefreshCw className={`h-4 w-4 ${reconcileRefund.isPending ? 'animate-spin' : ''}`} />Sync completed Razorpay refund</Button> : null}
         {canManageRefund && request.status === 'refund_window_open' && request.refundPaymentMode !== 'razorpay_original' ? <Button variant="secondary" onClick={() => openDestination(request)} disabled={setDestination.isPending}>Set / update COD refund destination</Button> : null}
         {canManageRefund && request.status === 'refund_window_open' && request.refundDestination?.method === 'upi' && request.refundDestination.manualUpiId && request.refundDestination.verificationStatus === 'pending' ? <Button onClick={() => openManualRefund(request)} disabled={action.isPending}>Record manual UPI transfer</Button> : null}
         {returnWorkflowWaitingMessage(request.status, me.data?.role, request.allowedActions) ? <p className="border border-border p-3 text-xs leading-5 text-text-secondary">{returnWorkflowWaitingMessage(request.status, me.data?.role, request.allowedActions)}</p> : null}

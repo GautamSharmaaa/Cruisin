@@ -21,6 +21,7 @@ import { RazorpayXPayoutService, type AlternateRefundDestination } from '../razo
 import { WalletService } from '../wallet.service.js';
 import { RefundDestinationVault } from '../refund-destination-vault.service.js';
 import { LogisticsProviderError } from '../../types/logistics.types.js';
+import { ReturnRefundReconciliationService } from '../return-refund-reconciliation.service.js';
 
 const requestNumber = (prefix: string): string => `${prefix}-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 const objectId = (value: string): Types.ObjectId => {
@@ -734,8 +735,7 @@ export const ReturnExchangeService = {
         ? order?.refunds?.find((refund) => refund.providerRefundId === request.productRefundReference)
         : undefined;
       const razorpayOriginal = request.refundDestination?.method === 'original_payment'
-        || availableMethods.includes('original_payment')
-        || Boolean(providerRefund);
+        || (order?.paymentProvider === 'razorpay' && Boolean(order.razorpayPaymentId));
       let manualUpiId: string | undefined;
       let destinationReadError = false;
       if (elevated && request.refundDestination?.encryptedDetails) {
@@ -771,6 +771,15 @@ export const ReturnExchangeService = {
 
   async listExchanges(): Promise<unknown> {
     return ExchangeRequestModel.find().populate('order').sort({ createdAt: -1 }).limit(500).lean();
+  },
+
+  async reconcileRefund(requestId: string): Promise<unknown> {
+    const request = await ReturnRequestModel.findById(objectId(requestId)).select('order requestNumber productRefundReference').lean();
+    if (!request) throw new ApiError(404, 'Return request not found');
+    if (request.productRefundReference) return { matched: [], alreadyLinked: true, providerRefundId: request.productRefundReference };
+    const result = await ReturnRefundReconciliationService.reconcileOrder(String(request.order), String(request._id));
+    if (!result.matched.length) throw new ApiError(409, 'No unique completed Razorpay refund matches this return amount');
+    return result;
   },
 
   async actOnReturn(requestId: string, input: { action: string; note?: string; upiId?: string; transactionReference?: string; transferredAt?: string }, adminId: string): Promise<unknown> {

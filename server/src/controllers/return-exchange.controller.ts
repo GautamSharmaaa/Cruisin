@@ -21,6 +21,9 @@ export const ReturnExchangeController = {
   setRefundDestinationByAdmin: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(new ApiResponse(await ReturnExchangeService.setRefundDestinationByAdmin(String(req.params.id ?? ''), req.body, req.user?.userId ?? '', req.user?.role === 'superadmin' ? 'superadmin' : 'admin'), 'Customer refund destination updated'));
   }),
+  reconcileRefund: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    res.json(new ApiResponse(await ReturnExchangeService.reconcileRefund(String(req.params.id ?? '')), 'Return refund reconciled'));
+  }),
   refreshRefundDestination: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(new ApiResponse(await ReturnExchangeService.refreshRefundDestination(req.user?.userId ?? '', String(req.params.id ?? '')), 'Refund destination verification refreshed'));
   }),

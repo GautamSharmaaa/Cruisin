@@ -26,6 +26,7 @@ const controller = vi.hoisted(() => ({
   verifyReturnPayment: vi.fn(),
   submitRefundDestination: vi.fn(),
   setRefundDestinationByAdmin: vi.fn((_req: unknown, res: { json: (value: unknown) => void }): void => res.json({})),
+  reconcileRefund: vi.fn((_req: unknown, res: { json: (value: unknown) => void }): void => res.json({})),
   refreshRefundDestination: vi.fn(),
   wallet: vi.fn(),
   createExchange: vi.fn(),
@@ -63,6 +64,7 @@ describe('return and exchange Shiprocket mutation access', () => {
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'refund_pending' })).status).toBe(403);
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'record_manual_upi_refund', upiId: '9876543210@upi', transactionReference: 'UTR123456' })).status).toBe(403);
     expect((await request(app).post('/admin/returns/000000000000000000000002/refund-destination').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ method: 'upi', upiId: '9876543210@upi' })).status).toBe(403);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/reconcile-refund').set('Authorization', `Bearer ${tokenFor('manager')}`).send({})).status).toBe(403);
     expect((await request(app).post('/admin/exchanges/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'create_reverse_pickup' })).status).toBe(403);
     expect((await request(app).post('/admin/exchanges/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor('manager')}`).send({ action: 'replacement_shipped' })).status).toBe(403);
   });
@@ -72,5 +74,6 @@ describe('return and exchange Shiprocket mutation access', () => {
     expect(response.status).toBe(200);
     expect((await request(app).post('/admin/returns/000000000000000000000002/action').set('Authorization', `Bearer ${tokenFor(role)}`).send({ action: 'open_refund_window' })).status).toBe(200);
     expect((await request(app).post('/admin/returns/000000000000000000000002/refund-destination').set('Authorization', `Bearer ${tokenFor(role)}`).send({ method: 'wallet' })).status).toBe(200);
+    expect((await request(app).post('/admin/returns/000000000000000000000002/reconcile-refund').set('Authorization', `Bearer ${tokenFor(role)}`).send({})).status).toBe(200);
   });
 });
