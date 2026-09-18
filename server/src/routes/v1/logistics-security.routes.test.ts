@@ -26,7 +26,7 @@ const { controller } = vi.hoisted(() => {
     controller: {
       quote: vi.fn(noop), tracking: vi.fn(noop), list: vi.fn(noop), ndr: vi.fn(noop), rto: vi.fn(noop), byId: vi.fn(noop), kpis: vi.fn(noop), syncHealth: vi.fn(noop), analytics: vi.fn(noop), jobs: vi.fn(noop), notifications: vi.fn(noop),
       createOrder: vi.fn(noop), compareCouriers: vi.fn(noop), confirmPackage: vi.fn(noop), assignAwb: vi.fn(noop), schedulePickup: vi.fn(noop),
-      document: vi.fn(() => noop), documentAccess: vi.fn(noop), track: vi.fn(noop), sync: vi.fn(noop), bulkSync: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
+      document: vi.fn(() => noop), documentAccess: vi.fn(noop), replacementInvoice: vi.fn(noop), track: vi.fn(noop), sync: vi.fn(noop), bulkSync: vi.fn(noop), cancel: vi.fn(noop), ndrAction: vi.fn(noop), rtoWarehouse: vi.fn(noop)
     }
   };
 });

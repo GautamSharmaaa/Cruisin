@@ -150,7 +150,7 @@ describe('prepaid return handling fee', () => {
     expect(String(updated[0]?.replacementShipment)).toBe(String(updated[1]?.replacementShipment));
     const replacements = await ShipmentModel.find({ order: orderId, shipmentType: 'exchange_replacement' }).lean();
     expect(replacements).toHaveLength(1);
-    expect(replacements[0]).toMatchObject({ sourceOrderId: `REPLACEMENT-NOCHARGE-CR-${marker}-DELIVERED`, shipmentStatus: 'awb_assigned', exchangeStatus: 'replacement_shipped' });
+    expect(replacements[0]).toMatchObject({ sourceOrderId: `REPLACEMENT-EXCHANGE-CR-${marker}-DELIVERED`, shipmentStatus: 'awb_assigned', exchangeStatus: 'replacement_shipped' });
   });
 
   it('rejects expired, missing and future courier timestamps without rewriting the order', async () => {

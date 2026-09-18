@@ -358,18 +358,19 @@ describe('ShiprocketProvider live response compatibility', () => {
     );
   });
 
-  it('preserves replacement declared values while making the payable invoice total zero', async () => {
+  it('preserves replacement declared values while invoicing only the prepaid exchange fee', async () => {
     const post = vi.fn().mockResolvedValue({ order_id: 444, shipment_id: 555, status: 'NEW' });
     const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
 
     await provider.createOrder({
       ...mutationOrderInput,
-      sourceOrderId: 'REPLACEMENT-NOCHARGE-CR-TEST',
+      sourceOrderId: 'REPLACEMENT-EXCHANGE-CR-TEST',
       paymentMode: 'prepaid',
       subtotal: 2_198,
       shippingCharge: 0,
+      transactionCharge: 100,
       totalDiscount: 2_198,
-      total: 0,
+      total: 100,
       items: [
         { ...mutationOrderInput.items[0], sku: 'BLACK-L', sellingPrice: 1_099, discount: 1_099 },
         { ...mutationOrderInput.items[0], sku: 'GREY-L', sellingPrice: 1_099, discount: 1_099 }
@@ -381,6 +382,7 @@ describe('ShiprocketProvider live response compatibility', () => {
       expect.objectContaining({
         payment_method: 'Prepaid',
         sub_total: 2_198,
+        transaction_charges: 100,
         total_discount: 2_198,
         order_items: [
           expect.objectContaining({ sku: 'BLACK-L', selling_price: 1_099, discount: 1_099 }),

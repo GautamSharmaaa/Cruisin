@@ -4,6 +4,7 @@ import { LogisticsJobService } from "../services/logistics/logistics-job.service
 import { LogisticsNotificationService } from "../services/logistics/logistics-notification.service.js";
 import { LogisticsQuoteService } from "../services/logistics/logistics-quote.service.js";
 import { LogisticsService } from "../services/logistics/logistics.service.js";
+import { ReplacementInvoiceService } from "../services/logistics/replacement-invoice.service.js";
 import type { PackageMeasurement } from "../types/logistics.types.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
@@ -225,6 +226,13 @@ export const LogisticsController = {
       );
     },
   ),
+  replacementInvoice: asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const result = await ReplacementInvoiceService.generate(String(req.params.shipmentId ?? ''));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${result.filename}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(result.buffer);
+  }),
   track: asyncHandler(async (req: Request, res: Response): Promise<void> => {
     res.json(
       new ApiResponse(

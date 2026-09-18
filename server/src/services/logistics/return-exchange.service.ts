@@ -217,6 +217,8 @@ type ReplacementRequestInput = {
   order: unknown;
   requestedVariant: unknown;
   requestedSku: string;
+  handlingFee?: number;
+  handlingFeePaymentStatus?: string;
   originalItem?: { product: unknown; quantity: number } | null;
   replacementShipment?: unknown;
 };
@@ -261,7 +263,7 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
       shipment = await ShipmentModel.create({
         order: order._id,
         shipmentType: 'exchange_replacement',
-        sourceOrderId: `REPLACEMENT-NOCHARGE-${order.orderNumber}`,
+        sourceOrderId: `REPLACEMENT-EXCHANGE-${order.orderNumber}`,
         pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
         package: parcel,
         shipmentStatus: 'pending_provider',
@@ -303,6 +305,9 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
         return { name: product.title, sku: variant.sku, units: quantity, sellingPrice: unitPrice, discount: unitPrice, tax: 0 };
       });
       const total = items.reduce((sum, item) => sum + item.sellingPrice * item.units, 0);
+      const exchangeHandlingFee = Math.max(0, ...requests
+        .filter((request) => request.handlingFeePaymentStatus === 'paid')
+        .map((request) => request.handlingFee ?? 0));
       const result = await provider.createOrder({
         localOrderId: String(order._id),
         sourceOrderId: shipment.sourceOrderId,
@@ -313,8 +318,9 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
         paymentMode: 'prepaid',
         subtotal: total,
         shippingCharge: 0,
+        transactionCharge: exchangeHandlingFee,
         totalDiscount: total,
-        total: 0,
+        total: exchangeHandlingFee,
         package: parcel
       });
       shipment.providerOrderId = result.providerOrderId;

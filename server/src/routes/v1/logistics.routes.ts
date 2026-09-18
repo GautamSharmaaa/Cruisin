@@ -31,6 +31,7 @@ adminLogisticsRouter.get('/rto', validate({ query: logisticsListQuerySchema }), 
 adminLogisticsRouter.get('/jobs', validate({ query: logisticsListQuerySchema.omit({ type: true, search: true }) }), LogisticsController.jobs);
 adminLogisticsRouter.get('/notifications', validate({ query: logisticsListQuerySchema.omit({ type: true, search: true }) }), LogisticsController.notifications);
 adminLogisticsRouter.get('/:shipmentId/documents/:kind', requireRole(['admin', 'superadmin']), validate({ params: documentParamSchema }), LogisticsController.documentAccess);
+adminLogisticsRouter.get('/:shipmentId/replacement-invoice', requireRole(['admin', 'superadmin']), validate({ params: shipmentIdParamSchema }), LogisticsController.replacementInvoice);
 adminLogisticsRouter.get('/:shipmentId', validate({ params: shipmentIdParamSchema }), LogisticsController.byId);
 adminLogisticsRouter.post('/sync', requireRole(['manager', 'admin', 'superadmin']), LogisticsController.bulkSync);
 adminLogisticsRouter.post('/orders/:orderId/create', requireRole(['admin', 'superadmin']), validate({ params: orderIdParamSchema }), LogisticsController.createOrder);

@@ -249,7 +249,7 @@ const courierRate = (courier: z.infer<typeof serviceabilitySchema>['data']['avai
 };
 
 const orderBody = (input: CreateLogisticsOrderInput): Record<string, unknown> => {
-  const representedTotal = money(input.subtotal + input.shippingCharge + (input.codHandlingCharge ?? 0) - input.totalDiscount);
+  const representedTotal = money(input.subtotal + input.shippingCharge + (input.transactionCharge ?? input.codHandlingCharge ?? 0) - input.totalDiscount);
   if (representedTotal !== money(input.total)) {
     throw new LogisticsProviderError('invalid_payload', 'Shiprocket payload charges do not reconcile with the Cruisin order total', false, 409);
   }
@@ -280,7 +280,7 @@ const orderBody = (input: CreateLogisticsOrderInput): Record<string, unknown> =>
   payment_method: input.paymentMode === 'cod' ? 'COD' : 'Prepaid',
   shipping_charges: input.shippingCharge,
   giftwrap_charges: 0,
-  transaction_charges: input.codHandlingCharge ?? 0,
+  transaction_charges: input.transactionCharge ?? input.codHandlingCharge ?? 0,
   total_discount: input.totalDiscount,
   sub_total: input.subtotal,
   length: input.package.lengthCm,

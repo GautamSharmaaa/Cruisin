@@ -117,6 +117,7 @@ export interface CreateLogisticsOrderInput {
   subtotal: number;
   shippingCharge: number;
   codHandlingCharge?: number;
+  transactionCharge?: number;
   totalDiscount: number;
   total: number;
   package: PackageMeasurement;

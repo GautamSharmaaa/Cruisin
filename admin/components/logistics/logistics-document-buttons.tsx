@@ -5,6 +5,7 @@ import { FileText, Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { api } from '@/lib/api';
 import { useGenerateLogisticsDocument, type LogisticsDocumentAccess, type Shipment } from '@/hooks/useLogistics';
 
 const title = (kind: 'label' | 'invoice'): string => kind === 'label' ? 'Shipping label' : 'Order invoice';
@@ -41,6 +42,18 @@ export function LogisticsDocumentButtons({ shipment, compact = false }: { shipme
     popup.document.title = `Preparing ${title(kind)}`;
     popup.document.body.textContent = `Preparing secure ${title(kind).toLowerCase()} preview…`;
     setNotice('');
+    if (kind === 'invoice' && shipment.shipmentType === 'exchange_replacement') {
+      void api.get<Blob>(`/admin/logistics/${shipment._id}/replacement-invoice`, { responseType: 'blob' }).then((response) => {
+        const url = URL.createObjectURL(response.data);
+        popup.location.replace(url);
+        setNotice('Prepaid exchange replacement invoice ready to print.');
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }).catch((error: Error) => {
+        popup.close();
+        setNotice(error.message);
+      });
+      return;
+    }
     documents.mutate({ shipmentId: shipment._id, kind }, {
       onSuccess: (document) => {
         setNotice(`${title(kind)} ready to print.`);
@@ -56,7 +69,7 @@ export function LogisticsDocumentButtons({ shipment, compact = false }: { shipme
   const buttonClass = compact ? 'min-h-9 px-3 text-[11px]' : 'min-h-9 px-4';
   return <>
     <Button variant="secondary" className={buttonClass} onClick={() => printDocument('label')} disabled={!shipment.awb || documents.isPending} title={shipment.awb ? 'Open the Shiprocket label print preview' : 'Sync an AWB from Shiprocket before printing the label'}><Printer className="mr-1 h-3 w-3" />Print label</Button>
-    <Button variant="secondary" className={buttonClass} onClick={() => printDocument('invoice')} disabled={!shipment.providerOrderId || documents.isPending} title={shipment.providerOrderId ? 'Open the Shiprocket invoice print preview' : 'Create or sync the Shiprocket order before printing the invoice'}><FileText className="mr-1 h-3 w-3" />Print invoice</Button>
+    <Button variant="secondary" className={buttonClass} onClick={() => printDocument('invoice')} disabled={!shipment.providerOrderId || documents.isPending} title={shipment.shipmentType === 'exchange_replacement' ? 'Open the prepaid exchange replacement invoice' : shipment.providerOrderId ? 'Open the Shiprocket invoice print preview' : 'Create or sync the Shiprocket order before printing the invoice'}><FileText className="mr-1 h-3 w-3" />{shipment.shipmentType === 'exchange_replacement' ? 'Replacement invoice' : 'Print invoice'}</Button>
     {notice ? <span className="basis-full text-xs text-text-muted" role={documents.error ? 'alert' : 'status'}>{notice}</span> : null}
   </>;
 }
