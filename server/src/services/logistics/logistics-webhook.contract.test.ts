@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   shipmentFind: vi.fn(),
   shipmentSave: vi.fn(),
   orderUpdate: vi.fn(),
+  returnUpdate: vi.fn(),
   notify: vi.fn(),
   shipment: {} as Record<string, any>
 }));
@@ -19,6 +20,9 @@ vi.mock('../../models/shipment.model.js', () => ({
 }));
 vi.mock('../../models/order.model.js', () => ({
   OrderModel: { updateOne: mocks.orderUpdate }
+}));
+vi.mock('../../models/return-request.model.js', () => ({
+  ReturnRequestModel: { updateOne: mocks.returnUpdate }
 }));
 vi.mock('./logistics-notification.service.js', () => ({
   LogisticsNotificationService: { emit: mocks.notify }
@@ -56,6 +60,7 @@ describe('webhook lookup, ordering and terminal-state contract', () => {
     mocks.eventSave.mockResolvedValue(undefined);
     mocks.shipmentSave.mockResolvedValue(undefined);
     mocks.orderUpdate.mockResolvedValue({});
+    mocks.returnUpdate.mockResolvedValue({ modifiedCount: 0 });
     mocks.notify.mockResolvedValue({});
   });
 

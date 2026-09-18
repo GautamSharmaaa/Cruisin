@@ -3,6 +3,8 @@ import type { ShipmentStatus } from '../../types/logistics.types.js';
 
 const exactStatusMap: Record<string, ShipmentStatus> = {
   new: 'provider_order_created',
+  'return pending': 'provider_order_created',
+  'return created': 'provider_order_created',
   'awb assigned': 'awb_assigned',
   'pickup scheduled': 'pickup_scheduled',
   'pickup queued': 'pickup_scheduled',

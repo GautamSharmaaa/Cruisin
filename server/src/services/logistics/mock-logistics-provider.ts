@@ -170,6 +170,11 @@ export class MockLogisticsProvider implements LogisticsProvider {
     return { cancelled: true, status: 'Cancelled' };
   }
 
+  public async findReturnBySourceOrderId(sourceOrderId: string): Promise<CreateReturnResult | undefined> {
+    const existing = this.sourceOrders.get(`RETURN-${sourceOrderId}`);
+    return existing ? { ...existing, awb: `MOCKRETURN${idFrom(existing.providerShipmentId).slice(0, 8)}` } : undefined;
+  }
+
   public async createReturn(input: CreateReturnInput): Promise<CreateReturnResult> {
     const result = await this.createOrder({ ...input, sourceOrderId: `RETURN-${input.sourceOrderId}` });
     return { ...result, awb: `MOCKRETURN${idFrom(result.providerShipmentId).slice(0, 8)}` };

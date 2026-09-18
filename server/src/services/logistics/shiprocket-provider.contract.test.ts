@@ -232,7 +232,11 @@ describe('ShiprocketProvider live response compatibility', () => {
         operation: undefined
       })
     ]);
-    expect(get).toHaveBeenCalledWith('/orders/processing/return', expect.anything(), { page: 1, per_page: 100 });
+    expect(get).toHaveBeenCalledWith('/orders/processing/return', expect.anything(), {
+      page: 1,
+      per_page: 100,
+      channel_order_id: 'CR-CONTRACT-RETURN'
+    });
   });
 
   it('uses a valid warehouse email when a phone-only customer has an internal placeholder email', async () => {

@@ -21,6 +21,7 @@ import { calculatePackage, type PackageLine } from "./package-calculator.js";
 import { LogisticsAutomationService } from "./logistics-automation.service.js";
 import { LogisticsNotificationService } from "./logistics-notification.service.js";
 import { applyShiprocketSnapshot, recordShiprocketSyncFailure, type ShiprocketSyncSource } from "./logistics-sync.service.js";
+import { normalizeShipmentStatus } from "./logistics-status.js";
 import { getLogisticsProvider } from "./provider-factory.js";
 import { buildCustomerTrackingMilestones } from "./customer-tracking.js";
 
@@ -741,12 +742,25 @@ export const LogisticsService = {
   ): Promise<unknown> {
     const shipment = await getShipment(shipmentId);
     if (shipment.provider !== "shiprocket") throw new ApiError(409, "Shipment is not managed by Shiprocket");
+    const provider = getLogisticsProvider();
     if (!shipment.providerOrderId && !shipment.providerShipmentId) {
-      throw new ApiError(409, "Create the Shiprocket order before synchronization");
+      if (shipment.shipmentType !== "return" || !shipment.sourceOrderId) {
+        throw new ApiError(409, "Create the Shiprocket order before synchronization");
+      }
+      const discovered = await provider.findReturnBySourceOrderId(shipment.sourceOrderId);
+      if (!discovered) throw new ApiError(404, "No matching Shiprocket return was found");
+      await applyShiprocketSnapshot(shipment, {
+        providerOrderId: discovered.providerOrderId,
+        providerShipmentId: discovered.providerShipmentId,
+        awb: discovered.awb,
+        status: normalizeShipmentStatus(discovered.status),
+        rawStatus: discovered.status,
+        scans: []
+      }, source);
     }
     await ShipmentModel.updateOne({ _id: shipment._id }, { $set: { lastSyncAttemptAt: new Date(), lastSyncSource: source } });
     try {
-      const snapshot = await getLogisticsProvider().reconcileShipment({
+      const snapshot = await provider.reconcileShipment({
         providerOrderId: shipment.providerOrderId ?? undefined,
         providerShipmentId: shipment.providerShipmentId ?? undefined,
         awb: shipment.awb ?? undefined,
@@ -791,6 +805,7 @@ export const LogisticsService = {
       $or: [
         { providerOrderId: { $type: "string" } },
         { providerShipmentId: { $type: "string" } },
+        { shipmentType: "return", sourceOrderId: { $type: "string" } },
       ],
     })
       .sort({ lastSuccessfulSyncAt: 1, updatedAt: 1 })

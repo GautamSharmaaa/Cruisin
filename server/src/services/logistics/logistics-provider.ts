@@ -36,5 +36,6 @@ export interface LogisticsProvider {
   trackShipment(input: TrackingInput): Promise<TrackingResult>;
   reconcileShipment(input: ReconcileShipmentInput): Promise<ReconcileShipmentResult>;
   cancelShipment(input: CancelShipmentInput): Promise<CancelShipmentResult>;
+  findReturnBySourceOrderId(sourceOrderId: string): Promise<CreateReturnResult | undefined>;
   createReturn(input: CreateReturnInput): Promise<CreateReturnResult>;
 }

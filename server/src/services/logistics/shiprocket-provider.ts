@@ -539,14 +539,18 @@ export class ShiprocketProvider implements LogisticsProvider {
     return { cancelled: true, status: typeof response.message === 'string' ? response.message : 'Cancelled' };
   }
 
-  private async findExistingReturn(sourceOrderId: string): Promise<CreateReturnResult | undefined> {
-    const response = await this.client.get('/orders/processing/return', processingReturnsSchema, { page: 1, per_page: 100 });
+  public async findReturnBySourceOrderId(sourceOrderId: string): Promise<CreateReturnResult | undefined> {
+    const response = await this.client.get('/orders/processing/return', processingReturnsSchema, {
+      page: 1,
+      per_page: 100,
+      channel_order_id: sourceOrderId
+    });
     const existing = response.data.find((order) => stringValue(order, ['channel_order_id', 'order_id']) === sourceOrderId);
     return existing ? returnResultFromRecord(existing) : undefined;
   }
 
   public async createReturn(input: CreateReturnInput): Promise<CreateReturnResult> {
-    const existing = await this.findExistingReturn(input.sourceOrderId);
+    const existing = await this.findReturnBySourceOrderId(input.sourceOrderId);
     if (existing) return existing;
     const response = await this.client.post('/shipments/create/return-shipment', {
       order_id: input.sourceOrderId.slice(0, 50),
@@ -590,7 +594,7 @@ export class ShiprocketProvider implements LogisticsProvider {
     }, providerDetailsSchema);
     const created = returnResultFromRecord(response);
     if (created) return created;
-    const recovered = await this.findExistingReturn(input.sourceOrderId);
+    const recovered = await this.findReturnBySourceOrderId(input.sourceOrderId);
     if (recovered) return recovered;
     throw new LogisticsProviderError(
       'permanent_provider',

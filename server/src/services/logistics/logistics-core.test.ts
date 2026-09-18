@@ -30,18 +30,20 @@ let canApplyShipmentStatus: typeof import('./logistics-status.js').canApplyShipm
 let applyShiprocketSnapshot: typeof import('./logistics-sync.service.js').applyShiprocketSnapshot;
 let ShipmentModel: typeof import('../../models/shipment.model.js').ShipmentModel;
 let OrderModel: typeof import('../../models/order.model.js').OrderModel;
+let ReturnRequestModel: typeof import('../../models/return-request.model.js').ReturnRequestModel;
 let LogisticsNotificationService: typeof import('./logistics-notification.service.js').LogisticsNotificationService;
 let LogisticsService: typeof import('./logistics.service.js').LogisticsService;
 let LogisticsAuditModel: typeof import('../../models/logistics-audit.model.js').LogisticsAuditModel;
 
 beforeAll(async () => {
-  const [packageModule, mockModule, statusModule, syncModule, shipmentModule, orderModule, notificationModule, logisticsModule, auditModule] = await Promise.all([
+  const [packageModule, mockModule, statusModule, syncModule, shipmentModule, orderModule, returnRequestModule, notificationModule, logisticsModule, auditModule] = await Promise.all([
     import('./package-calculator.js'),
     import('./mock-logistics-provider.js'),
     import('./logistics-status.js'),
     import('./logistics-sync.service.js'),
     import('../../models/shipment.model.js'),
     import('../../models/order.model.js'),
+    import('../../models/return-request.model.js'),
     import('./logistics-notification.service.js'),
     import('./logistics.service.js'),
     import('../../models/logistics-audit.model.js')
@@ -54,6 +56,7 @@ beforeAll(async () => {
   applyShiprocketSnapshot = syncModule.applyShiprocketSnapshot;
   ShipmentModel = shipmentModule.ShipmentModel;
   OrderModel = orderModule.OrderModel;
+  ReturnRequestModel = returnRequestModule.ReturnRequestModel;
   LogisticsNotificationService = notificationModule.LogisticsNotificationService;
   LogisticsService = logisticsModule.LogisticsService;
   LogisticsAuditModel = auditModule.LogisticsAuditModel;
@@ -144,6 +147,7 @@ describe('mock provider and status normalization', () => {
 
   it.each([
     ['Pickup Queued', undefined, 'pickup_scheduled'],
+    ['RETURN PENDING', undefined, 'provider_order_created'],
     ['Out for Pickup', 19, 'out_for_pickup'],
     ['Picked Up', 42, 'picked_up'],
     ['Delayed', 13, 'delivery_exception'],
@@ -306,6 +310,7 @@ describe('mock provider and status normalization', () => {
 
   it('updates the commerce order only from forward-shipment status changes', async () => {
     const orderUpdate = vi.spyOn(OrderModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedCount: 0, upsertedId: null });
+    const returnUpdate = vi.spyOn(ReturnRequestModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedCount: 0, upsertedId: null });
     const forward = new ShipmentModel({
       order: '66b000000000000000000001',
       shipmentType: 'forward',
@@ -336,9 +341,53 @@ describe('mock provider and status normalization', () => {
     await applyShiprocketSnapshot(reverse, cancelled, 'manual_sync');
 
     expect(orderUpdate).toHaveBeenCalledTimes(1);
+    expect(returnUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ $or: expect.arrayContaining([{ requestNumber: 'CR-RETURN-CANCEL' }]) }),
+      { $set: { reverseShipment: reverse._id } }
+    );
     expect(orderUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ _id: forward.order }),
       { $set: { fulfillmentStatus: 'cancelled', orderStatus: 'cancelled' } }
+    );
+    vi.restoreAllMocks();
+  });
+
+  it('links a Shiprocket return to its request and advances the customer-visible workflow', async () => {
+    const shipment = new ShipmentModel({
+      order: '66b000000000000000000001',
+      shipmentType: 'return',
+      sourceOrderId: 'RET-EXTERNAL-INITIATED',
+      providerOrderId: '3001',
+      providerShipmentId: '4001',
+      pickupLocation: 'QA Warehouse',
+      shipmentStatus: 'provider_order_created',
+      returnStatus: 'approved',
+      package: { productWeightKg: 0.4, packagingWeightKg: 0.1, deadWeightKg: 0.5, lengthCm: 20, breadthCm: 15, heightCm: 5, measurementConfirmed: true, warnings: [] },
+      idempotencyKey: 'return:external-initiated'
+    });
+    vi.spyOn(shipment, 'save').mockResolvedValue(shipment);
+    const returnUpdate = vi.spyOn(ReturnRequestModel, 'updateOne').mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedCount: 0, upsertedId: null });
+    vi.spyOn(LogisticsNotificationService, 'emit').mockResolvedValue({} as never);
+
+    await applyShiprocketSnapshot(shipment, {
+      providerOrderId: '3001',
+      providerShipmentId: '4001',
+      awb: 'RETURN-AWB-EXTERNAL',
+      status: 'pickup_scheduled',
+      rawStatus: 'Pickup Scheduled',
+      scans: []
+    }, 'webhook');
+
+    expect(shipment.returnStatus).toBe('reverse_pickup');
+    expect(returnUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: { $in: ['approved'] },
+        $or: expect.arrayContaining([{ requestNumber: 'RET-EXTERNAL-INITIATED' }])
+      }),
+      expect.objectContaining({
+        $set: expect.objectContaining({ reverseShipment: shipment._id, status: 'reverse_pickup' }),
+        $push: expect.objectContaining({ history: expect.objectContaining({ action: 'shiprocket_reverse_pickup' }) })
+      })
     );
     vi.restoreAllMocks();
   });

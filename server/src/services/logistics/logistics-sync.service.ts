@@ -2,6 +2,7 @@
 import crypto from 'node:crypto';
 import type { HydratedDocument } from 'mongoose';
 import { OrderModel } from '../../models/order.model.js';
+import { ReturnRequestModel } from '../../models/return-request.model.js';
 import type { ShipmentDocument } from '../../models/shipment.model.js';
 import { ShipmentModel } from '../../models/shipment.model.js';
 import type { ReconcileShipmentResult, ShipmentStatus, TrackingScan } from '../../types/logistics.types.js';
@@ -84,6 +85,67 @@ const reconcileOrderFulfilment = async (orderId: unknown, status: ShipmentStatus
 const assertIdentifierIntegrity = (current: string | null | undefined, incoming: string | undefined, label: string): void => {
   if (current && incoming && current !== incoming) {
     throw new LogisticsProviderError('invalid_payload', `Shiprocket returned a conflicting ${label}`, false, 409);
+  }
+};
+
+type ReturnWorkflowStatus = 'reverse_pickup' | 'in_transit' | 'warehouse_received';
+
+const returnWorkflowStatus = (status: ShipmentStatus): ReturnWorkflowStatus | undefined => {
+  if (['delivered', 'returned'].includes(status)) return 'warehouse_received';
+  if (['out_for_pickup', 'picked_up', 'shipped', 'in_transit', 'reached_destination_hub', 'out_for_delivery', 'return_in_transit'].includes(status)) return 'in_transit';
+  if (['provider_order_created', 'awb_assigned', 'pickup_scheduled'].includes(status)) return 'reverse_pickup';
+  return undefined;
+};
+
+const synchronizeReturnRequest = async (
+  shipment: HydratedDocument<ShipmentDocument>,
+  status: ShipmentStatus,
+  source: ShiprocketSyncSource
+): Promise<void> => {
+  if (shipment.shipmentType !== 'return' || !shipment.sourceOrderId) return;
+  const target = returnWorkflowStatus(status);
+  const identity = {
+    $or: [
+      { reverseShipment: shipment._id },
+      { requestNumber: shipment.sourceOrderId }
+    ],
+    $and: [{
+      $or: [
+        { reverseShipment: shipment._id },
+        { reverseShipment: { $exists: false } },
+        { reverseShipment: null }
+      ]
+    }]
+  };
+  if (!target) {
+    await ReturnRequestModel.updateOne(identity, { $set: { reverseShipment: shipment._id } });
+    return;
+  }
+  const allowedCurrentStatuses: Record<ReturnWorkflowStatus, string[]> = {
+    reverse_pickup: ['approved'],
+    in_transit: ['approved', 'reverse_pickup'],
+    warehouse_received: ['approved', 'reverse_pickup', 'in_transit']
+  };
+  const now = new Date();
+  const transition = await ReturnRequestModel.updateOne(
+    { ...identity, status: { $in: allowedCurrentStatuses[target] } },
+    {
+      $set: {
+        reverseShipment: shipment._id,
+        status: target,
+        ...(target === 'warehouse_received' ? { warehouseReceivedAt: shipment.deliveredDate ?? now } : {})
+      },
+      $push: {
+        history: {
+          action: `shiprocket_${target}`,
+          note: `Return status synchronized from Shiprocket (${source})`,
+          createdAt: now
+        }
+      }
+    }
+  );
+  if (!transition.modifiedCount) {
+    await ReturnRequestModel.updateOne(identity, { $set: { reverseShipment: shipment._id } });
   }
 };
 
@@ -190,6 +252,14 @@ export const applyShiprocketSnapshot = async (
     shipment.rto.initiatedAt ??= latestTracking ?? now;
     shipment.rto.status = currentStatus === 'rto_delivered' ? 'delivered' : currentStatus === 'rto_in_transit' ? 'in_transit' : 'initiated';
   }
+  const targetReturnStatus = shipment.shipmentType === 'return' ? returnWorkflowStatus(currentStatus) : undefined;
+  if (targetReturnStatus) {
+    const nextReturnStatus = targetReturnStatus === 'warehouse_received' ? 'received' : targetReturnStatus;
+    if (shipment.returnStatus !== nextReturnStatus) {
+      shipment.returnStatus = nextReturnStatus;
+      changed = true;
+    }
+  }
   shipment.lastSyncAttemptAt = now;
   shipment.lastSuccessfulSyncAt = now;
   shipment.lastSyncAt = now;
@@ -198,6 +268,7 @@ export const applyShiprocketSnapshot = async (
   shipment.lastProviderError = undefined;
   if (source === 'webhook') shipment.lastWebhookAt = now;
   await shipment.save();
+  await synchronizeReturnRequest(shipment, currentStatus, source);
   const affectsForwardOrder = shipment.shipmentType !== 'return' && shipment.shipmentType !== 'exchange_replacement';
   // Always reconcile the parent order. This repairs legacy/stale order records even
   // when Shiprocket repeats the same terminal shipment status on a later sync.
