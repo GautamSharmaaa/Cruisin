@@ -22,6 +22,7 @@ let orderId = '';
 let undeliveredOrderId = '';
 let codOrderId = '';
 let externalRefundOrderId = '';
+let productId = '';
 let firstVariantId = '';
 let secondVariantId = '';
 const address = { fullName: 'Return Test', phone: '9000000000', line1: 'Test address', city: 'Delhi', state: 'Delhi', postalCode: '110001', country: 'India' };
@@ -42,6 +43,7 @@ beforeAll(async () => {
     { size: 'M', color: 'Black', colorHex: '#000000', sku: `${marker}-M`, price: 900, stock: 10, weight: 0.25, dimensions: { length: 30, width: 25, height: 2 } },
     { size: 'L', color: 'Black', colorHex: '#000000', sku: `${marker}-L`, price: 900, stock: 10, weight: 0.25, dimensions: { length: 30, width: 25, height: 2 } }
   ] });
+  productId = String(product._id);
   firstVariantId = String(product.variants[0]?._id);
   secondVariantId = String(product.variants[1]?._id);
   const baseOrder = { user: customerId, shippingAddress: address, billingAddress: address, paymentMethod: 'razorpay', paymentMode: 'online', paymentProvider: 'razorpay', paymentStatus: 'paid', razorpayPaymentId: 'pay_original_return_order', fulfillmentStatus: 'fulfilled', subtotal: 2_700, tax: 0, shipping: 0, discount: 0, codFee: 0, total: 2_700, amountPaid: 2_700, amountDue: 0, stockReserved: true, items: [
@@ -132,6 +134,23 @@ describe('prepaid return handling fee', () => {
     } finally {
       await OrderModel.updateOne({ _id: orderId }, { $set: { orderStatus: 'delivered', fulfillmentStatus: 'fulfilled' } });
     }
+  });
+
+  it('creates one replacement shipment for every ready exchange line in an order', async () => {
+    const requests = await ExchangeRequestModel.create([
+      { requestNumber: `EXC-${marker}-ONE`, order: orderId, customer: customerId, originalItem: { product: productId, variant: firstVariantId, sku: `${marker}-M`, quantity: 1 }, requestedVariant: secondVariantId, requestedSku: `${marker}-L`, status: 'replacement_pending', handlingFee: 100, handlingFeePaymentStatus: 'paid', inventoryReserved: true, idempotencyKey: '30000000-0000-4000-8000-000000000001' },
+      { requestNumber: `EXC-${marker}-TWO`, order: orderId, customer: customerId, originalItem: { product: productId, variant: secondVariantId, sku: `${marker}-L`, quantity: 1 }, requestedVariant: firstVariantId, requestedSku: `${marker}-M`, status: 'replacement_pending', handlingFee: 100, handlingFeePaymentStatus: 'paid', inventoryReserved: true, idempotencyKey: '30000000-0000-4000-8000-000000000002' }
+    ]);
+
+    await ReturnExchangeService.actOnExchange(String(requests[0]!._id), { action: 'replacement_shipped' }, String(new Types.ObjectId()));
+
+    const updated = await ExchangeRequestModel.find({ _id: { $in: requests.map((request) => request._id) } }).sort({ requestNumber: 1 }).lean();
+    expect(updated).toHaveLength(2);
+    expect(updated.every((request) => request.status === 'replacement_shipped' && request.inventoryReserved === false)).toBe(true);
+    expect(String(updated[0]?.replacementShipment)).toBe(String(updated[1]?.replacementShipment));
+    const replacements = await ShipmentModel.find({ order: orderId, shipmentType: 'exchange_replacement' }).lean();
+    expect(replacements).toHaveLength(1);
+    expect(replacements[0]).toMatchObject({ sourceOrderId: `REPLACEMENT-CR-${marker}-DELIVERED`, shipmentStatus: 'awb_assigned', exchangeStatus: 'replacement_shipped' });
   });
 
   it('rejects expired, missing and future courier timestamps without rewriting the order', async () => {

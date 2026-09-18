@@ -211,7 +211,7 @@ const ensureReverseShipment = async (request: {
   }
 };
 
-const ensureReplacementShipment = async (request: {
+type ReplacementRequestInput = {
   _id: unknown;
   requestNumber: string;
   order: unknown;
@@ -219,43 +219,111 @@ const ensureReplacementShipment = async (request: {
   requestedSku: string;
   originalItem?: { product: unknown; quantity: number } | null;
   replacementShipment?: unknown;
-}, adminId: string) => {
-  if (request.replacementShipment) return ShipmentModel.findById(request.replacementShipment);
-  if (!request.originalItem) throw new ApiError(409, 'Exchange request item data is missing');
-  const order = await OrderModel.findById(request.order);
+};
+
+const ensureReplacementShipment = async (requests: ReplacementRequestInput[], adminId: string) => {
+  if (!requests.length) throw new ApiError(409, 'There are no replacement products ready to ship');
+  if (requests.some((request) => !request.originalItem)) throw new ApiError(409, 'Exchange request item data is missing');
+  const orderId = String(requests[0]!.order);
+  if (requests.some((request) => String(request.order) !== orderId)) throw new ApiError(409, 'Replacement products must belong to one order');
+  const order = await OrderModel.findById(orderId);
   if (!order) throw new ApiError(404, 'Order not found');
-  const { product, variant } = await loadProductVariant(request.originalItem.product, request.requestedVariant);
-  const parcel = await calculatePackage([{ product, variant, quantity: request.originalItem.quantity }]);
-  let shipment = await ShipmentModel.create({
-    order: order._id,
-    shipmentType: 'exchange_replacement',
-    sourceOrderId: `REPLACEMENT-${request.requestNumber}`,
-    pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
-    package: parcel,
-    shipmentStatus: 'pending_provider',
-    exchangeStatus: 'replacement_pending',
-    idempotencyKey: `exchange-replacement:${request._id}`,
-    createdBy: objectId(adminId)
-  });
+  const loadedItems = await Promise.all(requests.map(async (request) => {
+    const originalItem = request.originalItem!;
+    const { product, variant } = await loadProductVariant(originalItem.product, request.requestedVariant);
+    return { product, variant, quantity: originalItem.quantity };
+  }));
+  const parcel = await calculatePackage(loadedItems);
+  const idempotencyKey = `exchange-replacement-order:${order._id}`;
+  const linkedShipmentIds = [...new Set(requests.map((request) => request.replacementShipment).filter(Boolean).map(String))];
+  if (linkedShipmentIds.length > 1) throw new ApiError(409, 'Replacement products are linked to different shipments');
+  let shipment = linkedShipmentIds[0]
+    ? await ShipmentModel.findById(linkedShipmentIds[0])
+    : await ShipmentModel.findOne({ provider: 'shiprocket', idempotencyKey });
+  if (shipment?.awb) return shipment;
+  if (shipment) {
+    const staleBefore = new Date(Date.now() - 5 * 60_000);
+    shipment = await ShipmentModel.findOneAndUpdate(
+      {
+        _id: shipment._id,
+        $or: [
+          { shipmentStatus: 'error' },
+          { shipmentStatus: 'pending_provider', updatedAt: { $lte: staleBefore } },
+          { shipmentStatus: 'provider_order_created' }
+        ]
+      },
+      { $set: { shipmentStatus: shipment.providerShipmentId ? 'provider_order_created' : 'pending_provider' }, $unset: { lastProviderError: 1 } },
+      { new: true }
+    );
+    if (!shipment) throw new ApiError(409, 'Replacement shipment creation is already in progress');
+  } else {
+    try {
+      shipment = await ShipmentModel.create({
+        order: order._id,
+        shipmentType: 'exchange_replacement',
+        sourceOrderId: `REPLACEMENT-${order.orderNumber}`,
+        pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
+        package: parcel,
+        shipmentStatus: 'pending_provider',
+        exchangeStatus: 'replacement_pending',
+        idempotencyKey,
+        createdBy: objectId(adminId)
+      });
+    } catch (error) {
+      const duplicateKey = typeof error === 'object' && error !== null && 'code' in error && error.code === 11_000;
+      if (!duplicateKey) throw error;
+      const existing = await ShipmentModel.findOne({ provider: 'shiprocket', idempotencyKey });
+      if (existing?.awb) return existing;
+      throw new ApiError(409, 'Replacement shipment creation is already in progress');
+    }
+  }
   try {
-    const unitPrice = variant.priceOverride ?? variant.price;
-    const result = await getLogisticsProvider().createOrder({
-      localOrderId: String(order._id),
-      sourceOrderId: shipment.sourceOrderId,
-      orderDate: new Date(),
-      pickupLocation: shipment.pickupLocation,
-      address: await address(order),
-      items: [{ name: product.title, sku: variant.sku, units: request.originalItem.quantity, sellingPrice: unitPrice, discount: 0, tax: 0 }],
-      paymentMode: 'prepaid',
-      subtotal: unitPrice * request.originalItem.quantity,
-      shippingCharge: 0,
-      totalDiscount: 0,
-      total: unitPrice * request.originalItem.quantity,
-      package: parcel
-    });
-    const awb = await getLogisticsProvider().assignCourier({ providerShipmentId: result.providerShipmentId });
-    shipment.providerOrderId = result.providerOrderId;
-    shipment.providerShipmentId = result.providerShipmentId;
+    const provider = getLogisticsProvider();
+    if (shipment.providerShipmentId || shipment.providerOrderId) {
+      const reconciled = await provider.reconcileShipment({
+        providerOrderId: shipment.providerOrderId ?? undefined,
+        providerShipmentId: shipment.providerShipmentId ?? undefined,
+        awb: shipment.awb ?? undefined,
+        createdAt: shipment.createdAt.toISOString()
+      });
+      if (reconciled.awb) {
+        shipment.awb = reconciled.awb;
+        shipment.courierId = reconciled.courierId;
+        shipment.courierName = reconciled.courierName;
+        shipment.rawProviderStatus = reconciled.rawStatus;
+        shipment.shipmentStatus = 'awb_assigned';
+        shipment.exchangeStatus = 'replacement_shipped';
+        await shipment.save();
+        return shipment;
+      }
+    }
+    if (!shipment.providerShipmentId) {
+      const items = loadedItems.map(({ product, variant, quantity }) => {
+        const unitPrice = variant.priceOverride ?? variant.price;
+        return { name: product.title, sku: variant.sku, units: quantity, sellingPrice: unitPrice, discount: 0, tax: 0 };
+      });
+      const total = items.reduce((sum, item) => sum + item.sellingPrice * item.units, 0);
+      const result = await provider.createOrder({
+        localOrderId: String(order._id),
+        sourceOrderId: shipment.sourceOrderId,
+        orderDate: new Date(),
+        pickupLocation: shipment.pickupLocation,
+        address: await address(order),
+        items,
+        paymentMode: 'prepaid',
+        subtotal: total,
+        shippingCharge: 0,
+        totalDiscount: 0,
+        total,
+        package: parcel
+      });
+      shipment.providerOrderId = result.providerOrderId;
+      shipment.providerShipmentId = result.providerShipmentId;
+      shipment.rawProviderStatus = result.status;
+      shipment.shipmentStatus = 'provider_order_created';
+      await shipment.save();
+    }
+    const awb = await provider.assignCourier({ providerShipmentId: shipment.providerShipmentId! });
     shipment.awb = awb.awb;
     shipment.courierId = awb.courierId;
     shipment.courierName = awb.courierName;
@@ -266,7 +334,14 @@ const ensureReplacementShipment = async (request: {
     return shipment;
   } catch (error) {
     shipment.shipmentStatus = 'error';
-    shipment.lastProviderError = { code: 'provider_error', message: error instanceof Error ? error.message : 'Replacement shipment failed', retryable: true, occurredAt: new Date() };
+    const providerError = error instanceof LogisticsProviderError ? error : undefined;
+    shipment.lastProviderError = {
+      code: providerError?.code ?? 'provider_error',
+      message: error instanceof Error ? error.message : 'Replacement shipment failed',
+      retryable: providerError?.retryable ?? false,
+      correlationId: providerError?.providerReference,
+      occurredAt: new Date()
+    };
     await shipment.save();
     throw error;
   }
@@ -1032,10 +1107,28 @@ export const ReturnExchangeService = {
       request.status = 'quality_check_failed';
       request.qualityCheckedAt = new Date();
     } else if (input.action === 'replacement_shipped' && request.status === 'replacement_pending') {
-      const shipment = await ensureReplacementShipment(request, adminId);
-      request.replacementShipment = shipment?._id;
-      request.inventoryReserved = false;
-      request.status = 'replacement_shipped';
+      const orderRequests = await ExchangeRequestModel.find({ order: request.order }).sort({ _id: 1 });
+      const unfinished = orderRequests.filter((candidate) => ['reverse_pickup', 'in_transit', 'warehouse_received'].includes(candidate.status));
+      if (unfinished.length) throw new ApiError(409, `Complete quality checks for the remaining ${unfinished.length} product${unfinished.length === 1 ? '' : 's'} before shipping replacements`);
+      const replacementRequests = orderRequests.filter((candidate) => candidate.status === 'replacement_pending');
+      if (!replacementRequests.some((candidate) => String(candidate._id) === String(request._id))) throw new ApiError(409, 'This product is no longer waiting for replacement shipment');
+      const shipment = await ensureReplacementShipment(replacementRequests, adminId);
+      const shippedAt = new Date();
+      await ExchangeRequestModel.updateMany(
+        { _id: { $in: replacementRequests.map((candidate) => candidate._id) }, status: 'replacement_pending' },
+        {
+          $set: { replacementShipment: shipment?._id, inventoryReserved: false, status: 'replacement_shipped' },
+          $push: { history: { action: 'replacement_shipped', note: `Consolidated replacement shipment for ${replacementRequests.length} product${replacementRequests.length === 1 ? '' : 's'}`, admin: objectId(adminId), createdAt: shippedAt } }
+        }
+      );
+      await Promise.all(replacementRequests.map((candidate) => LogisticsNotificationService.emit({
+        eventType: 'replacement_shipped',
+        orderId: String(candidate.order),
+        shipmentId: shipment ? String(shipment._id) : undefined,
+        entityReference: String(candidate._id),
+        dedupeKey: `replacement_shipped:exchange:${candidate._id}`
+      })));
+      return ExchangeRequestModel.findById(request._id);
     } else if (input.action === 'complete' && request.status === 'replacement_shipped') {
       request.status = 'completed';
     } else if (input.action === 'close' && ['completed', 'rejected', 'quality_check_failed'].includes(request.status)) {
@@ -1047,9 +1140,7 @@ export const ReturnExchangeService = {
     await request.save();
     const exchangeEvent = input.action === 'approve'
       ? 'exchange_approved'
-      : input.action === 'replacement_shipped'
-        ? 'replacement_shipped'
-        : input.action === 'complete'
+      : input.action === 'complete'
           ? 'exchange_completed'
           : null;
     if (exchangeEvent) {

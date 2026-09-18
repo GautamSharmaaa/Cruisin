@@ -63,14 +63,8 @@ const createOrderSchema = z.object({
 }).passthrough();
 
 const awbSchema = z.object({
-  response: z.object({
-    data: z.object({
-      awb_code: z.union([z.string(), z.number()]),
-      courier_company_id: z.coerce.number().optional(),
-      courier_name: z.string().optional(),
-      assigned_date_time: z.string().optional()
-    }).passthrough()
-  }).passthrough()
+  awb_assign_status: z.coerce.number().optional(),
+  response: z.object({ data: z.record(z.unknown()) }).passthrough()
 }).passthrough();
 
 const pickupSchema = z.object({
@@ -388,7 +382,19 @@ export class ShiprocketProvider implements LogisticsProvider {
       ...(input.isReturn ? { is_return: 1 } : {})
     }, awbSchema);
     const data = response.response.data;
-    return { awb: String(data.awb_code), courierId: data.courier_company_id, courierName: data.courier_name, status: 'AWB Assigned' };
+    const awb = stringValue(data, ['awb_code', 'awb']);
+    if (!awb) {
+      const providerError = stringValue(data, ['awb_assign_error', 'message', 'error'])?.toLowerCase() ?? '';
+      if (providerError.includes('serviceab')) throw new LogisticsProviderError('not_serviceable', 'No Shiprocket courier is serviceable for this replacement shipment', false, 409);
+      if (providerError.includes('balance') || providerError.includes('wallet')) throw new LogisticsProviderError('permanent_provider', 'Shiprocket wallet balance is insufficient to assign this shipment', false, 409);
+      throw new LogisticsProviderError('permanent_provider', 'Shiprocket did not assign an AWB to this shipment', false, 409);
+    }
+    return {
+      awb,
+      courierId: numericValue(data, ['courier_company_id', 'courier_id']),
+      courierName: stringValue(data, ['courier_name', 'courier']),
+      status: 'AWB Assigned'
+    };
   }
 
   public async schedulePickup(input: SchedulePickupInput): Promise<SchedulePickupResult> {

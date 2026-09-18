@@ -172,6 +172,24 @@ describe('ShiprocketProvider live response compatibility', () => {
     expect(post.mock.calls[1]?.[3]).toBe('document');
   });
 
+  it('accepts Shiprocket AWB success responses with nullable optional courier fields', async () => {
+    const post = vi.fn().mockResolvedValue({ awb_assign_status: 1, response: { data: { awb_code: 19041959472554, courier_company_id: null, courier_name: null } } });
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await expect(provider.assignCourier({ providerShipmentId: '1591610841' })).resolves.toEqual({
+      awb: '19041959472554', courierId: undefined, courierName: undefined, status: 'AWB Assigned'
+    });
+  });
+
+  it('surfaces a useful Shiprocket AWB assignment error from a successful HTTP response', async () => {
+    const post = vi.fn().mockResolvedValue({ awb_assign_status: 0, response: { data: { awb_assign_error: 'Serviceability Error: no courier available' } } });
+    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+
+    await expect(provider.assignCourier({ providerShipmentId: '1591610841' })).rejects.toMatchObject({
+      code: 'not_serviceable', message: 'No Shiprocket courier is serviceable for this replacement shipment', statusCode: 409
+    });
+  });
+
   it('uses the exact guarded Shiprocket mutation endpoints and provider payload shapes', async () => {
     const get = vi.fn().mockResolvedValue({ data: [] });
     const post = vi.fn(async (path: string, _body?: unknown, _schema?: unknown, _operation?: string) => {

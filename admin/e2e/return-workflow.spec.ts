@@ -120,3 +120,41 @@ test('an older order-page refund can be reconciled without issuing another refun
   await expect(page.getByText(/QA Customer · refunded · Refund processed/i)).toBeVisible();
   expect(audit.writes).toEqual(['reconcile_refund']);
 });
+
+test('multi-line exchanges expose one order-level replacement shipment action', async ({ page }) => {
+  let status = 'replacement_pending';
+  const writes: string[] = [];
+  await page.route('**/*', (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (!['localhost', '127.0.0.1'].includes(url.hostname) || !['GET', 'HEAD'].includes(request.method())) return route.abort();
+    return route.continue();
+  });
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ accessToken: 'admin-exchange-qa-token' }) });
+    if (path.endsWith('/auth/me')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ id: 'admin-qa', role: 'superadmin', isVerified: true, isActive: true }) });
+    if (path.endsWith('/admin/exchanges') && request.method() === 'GET') {
+      const order = { _id: 'order-qa', orderNumber: 'CR-QA-EXCHANGE', shippingAddress: { fullName: 'QA Customer', phone: '9000000000', city: 'Delhi', state: 'Delhi', postalCode: '110001' }, items: [{ variant: 'variant-one', title: 'QA Joggers', sku: 'QA-JOGGER-M', size: 'M', color: 'Black' }, { variant: 'variant-two', title: 'QA Joggers', sku: 'QA-JOGGER-L', size: 'L', color: 'Grey' }] };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([
+        { _id: 'exchange-one', requestNumber: 'EXC-QA-ONE', status, order, originalItem: { variant: 'variant-one', sku: 'QA-JOGGER-M', quantity: 1 }, requestedSku: 'QA-JOGGER-L' },
+        { _id: 'exchange-two', requestNumber: 'EXC-QA-TWO', status, order, originalItem: { variant: 'variant-two', sku: 'QA-JOGGER-L', quantity: 1 }, requestedSku: 'QA-JOGGER-M' }
+      ]) });
+    }
+    if (path.endsWith('/admin/exchanges/exchange-one/action') && request.method() === 'POST') {
+      writes.push((request.postDataJSON() as { action: string }).action);
+      status = 'replacement_shipped';
+      return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ _id: 'exchange-one', status }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([]) });
+  });
+
+  await page.goto(`${adminUrl}/exchanges/order-qa`);
+  const shipButton = page.getByRole('button', { name: 'Ship one replacement order · 2 items' });
+  await expect(shipButton).toHaveCount(1);
+  await shipButton.click();
+  await expect(shipButton).toHaveCount(0);
+  expect(writes).toEqual(['replacement_shipped']);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

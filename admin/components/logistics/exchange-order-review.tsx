@@ -46,10 +46,14 @@ export function ExchangeOrderReview({ orderId }: ExchangeOrderReviewProps): Reac
   const awaitingApproval = group.requests.filter((request) => request.status === 'requested');
   const approvedForPickup = group.requests.filter((request) => request.status === 'inventory_reserved' && !request.reverseShipment);
   const canCreatePickup = canMutateShiprocket && awaitingApproval.length === 0 && approvedForPickup.length > 0;
+  const replacementPending = group.requests.filter((request) => request.status === 'replacement_pending');
+  const replacementBlocked = group.requests.some((request) => ['reverse_pickup', 'in_transit', 'warehouse_received'].includes(request.status));
+  const canShipReplacements = canMutateShiprocket && replacementPending.length > 0 && !replacementBlocked;
   const order = group.requests[0]?.order;
   const shippingAddress = order?.shippingAddress;
 
   return <section className="grid gap-6">
+    {action.error ? <div role="alert" aria-live="assertive" className="fixed left-1/2 top-4 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 border border-danger/60 bg-background-elevated p-4 text-danger shadow-2xl"><div className="min-w-0 flex-1"><p className="font-medium text-text-primary">Exchange action could not be completed</p><p className="mt-1 break-words text-sm leading-5">{action.error.message}</p></div><button type="button" aria-label="Dismiss exchange error" onClick={() => action.reset()} className="grid h-9 w-9 shrink-0 place-items-center text-text-secondary transition hover:text-text-primary">×</button></div> : null}
     <PageHeader
       eyebrow="Exchange order review"
       title={group.orderNumber}
@@ -84,7 +88,7 @@ export function ExchangeOrderReview({ orderId }: ExchangeOrderReviewProps): Reac
           </div>
           <div className="flex flex-wrap gap-2 md:justify-end">
             {actions
-              .filter((value) => value !== 'replacement_shipped' || canMutateShiprocket)
+              .filter((value) => value !== 'replacement_shipped')
               .map((value) => <Button
                 key={value}
                 variant={value === 'reject' ? 'secondary' : 'primary'}
@@ -111,6 +115,9 @@ export function ExchangeOrderReview({ orderId }: ExchangeOrderReviewProps): Reac
         disabled={action.isPending}
       >Create single pickup · {approvedForPickup.length} item{approvedForPickup.length === 1 ? '' : 's'}</Button> : null}
     </footer>
-    {action.error ? <p className="text-sm text-danger">{action.error.message}</p> : null}
+    {replacementPending.length > 0 ? <footer className="flex flex-col gap-4 border border-border bg-background-elevated p-5 lg:flex-row lg:items-center lg:justify-between">
+      <div><p className="font-display text-xl">Order-level replacement shipment</p><p className="mt-2 text-sm text-text-secondary">{replacementBlocked ? 'Complete the remaining warehouse quality checks before shipping replacements.' : `Create one Shiprocket replacement order containing all ${replacementPending.length} approved product${replacementPending.length === 1 ? '' : 's'}.`}</p></div>
+      {canShipReplacements ? <Button variant="primary" onClick={() => action.mutate({ id: replacementPending[0]._id, action: 'replacement_shipped' })} disabled={action.isPending}>Ship one replacement order · {replacementPending.length} item{replacementPending.length === 1 ? '' : 's'}</Button> : null}
+    </footer> : null}
   </section>;
 }
