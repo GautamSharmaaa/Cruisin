@@ -87,8 +87,10 @@ describe('prepaid return handling fee', () => {
     expect(JSON.stringify(mine)).not.toContain(first.payment.id);
     expect(JSON.stringify(mine)).not.toContain('pay_mock_return_fee');
     await ReturnRequestModel.updateOne({ _id: first.request.id }, { $set: { status: 'quality_check_passed' } });
-    await ReturnExchangeService.actOnReturn(first.request.id, { action: 'open_refund_window' }, String(new Types.ObjectId()));
-    await ReturnExchangeService.submitRefundDestination(String(customerId), first.request.id, { method: 'original_payment' });
+    const opened = await ReturnExchangeService.actOnReturn(first.request.id, { action: 'open_refund_window' }, String(new Types.ObjectId())) as { status: string; refundStatus: string; refundDestination?: { method?: string; verificationStatus?: string } };
+    expect(opened).toMatchObject({ status: 'refund_window_open', refundStatus: 'ready', refundDestination: { method: 'original_payment', verificationStatus: 'verified' } });
+    const adminView = await ReturnExchangeService.listReturns('admin') as Array<{ _id: Types.ObjectId; refundPaymentMode?: string; refundAvailableMethods?: string[] }>;
+    expect(adminView.find((request) => String(request._id) === first.request.id)).toMatchObject({ refundPaymentMode: 'razorpay_original', refundAvailableMethods: ['original_payment'] });
     const refunded = await ReturnExchangeService.actOnReturn(first.request.id, { action: 'refund_pending' }, String(new Types.ObjectId())) as { status: string; refundStatus: string; productRefundAmount: number; productRefundReference: string };
     expect(refunded).toMatchObject({ status: 'refunded', refundStatus: 'processed', productRefundAmount: 1_800, productRefundReference: 'rfnd_mock_return_product' });
     const refundedOrder = await OrderModel.findById(orderId).lean();
@@ -136,7 +138,7 @@ describe('prepaid return handling fee', () => {
     const created = await ReturnExchangeService.createReturn(String(customerId), { orderId: codOrderId, items: [{ variantId: firstVariantId, quantity: 1 }], reason: 'quality_issue', details: 'COD refund destination test', evidence: evidence(customerId), idempotencyKey: '10000000-0000-4000-8000-000000000004' }) as { request: { id: string }; payment: { id: string } };
     await ReturnExchangeService.verifyReturnPayment(String(customerId), { requestId: created.request.id, payload: { razorpay_order_id: created.payment.id, razorpay_payment_id: 'pay_mock_return_fee_cod', mockVerified: true } });
     await ReturnRequestModel.updateOne({ _id: created.request.id }, { $set: { status: 'quality_check_passed' } });
-    await ReturnExchangeService.actOnReturn(created.request.id, { action: 'open_refund_window' }, String(new Types.ObjectId()));
+    await expect(ReturnExchangeService.actOnReturn(created.request.id, { action: 'open_refund_window' }, String(new Types.ObjectId()))).resolves.toMatchObject({ status: 'refund_window_open', refundStatus: 'awaiting_destination' });
     const mine = await ReturnExchangeService.mine(String(customerId)) as { returns: Array<{ _id: string; refundAvailableMethods: string[]; refundUpiMode: string }> };
     expect(mine.returns.find((request) => request._id === created.request.id)).toMatchObject({ refundAvailableMethods: ['wallet', 'upi'], refundUpiMode: 'manual_admin' });
     await expect(ReturnExchangeService.submitRefundDestination(String(otherCustomerId), created.request.id, { method: 'upi', upiId: 'attacker@upi' })).rejects.toMatchObject({ statusCode: 404 });

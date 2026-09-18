@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import { describe, expect, it } from 'vitest';
-import { refundDestinationSchema, returnPaymentVerifySchema, returnRequestSchema } from './logistics.validator.js';
+import { adminRefundDestinationSchema, refundDestinationSchema, returnPaymentVerifySchema, returnRequestSchema } from './logistics.validator.js';
 
 const valid = {
   orderId: '000000000000000000000001',
@@ -39,5 +39,10 @@ describe('return request validation', () => {
     expect(refundDestinationSchema.safeParse({ method: 'upi', upiId: '9876543210' }).success).toBe(false);
     expect(refundDestinationSchema.safeParse({ method: 'bank', accountHolderName: 'Return Customer', accountNumber: '123456789012', confirmAccountNumber: '123456789012', ifsc: 'HDFC0000053' }).success).toBe(true);
     expect(refundDestinationSchema.safeParse({ method: 'bank', accountHolderName: 'Return Customer', accountNumber: '123456789012', confirmAccountNumber: '123456789013', ifsc: 'HDFC0000053' }).success).toBe(false);
+  });
+
+  it('lets authorized admins select the original Razorpay payment for legacy online returns', () => {
+    expect(adminRefundDestinationSchema.safeParse({ method: 'original_payment' }).success).toBe(true);
+    expect(adminRefundDestinationSchema.safeParse({ method: 'bank', accountNumber: '123456789012' }).success).toBe(false);
   });
 });

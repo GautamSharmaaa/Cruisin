@@ -372,12 +372,12 @@ type RefundDestinationInput =
   | { method: 'wallet' }
   | { method: 'upi'; upiId: string }
   | { method: 'bank'; accountHolderName: string; accountNumber: string; confirmAccountNumber: string; ifsc: string };
-type AdminRefundDestinationInput = Extract<RefundDestinationInput, { method: 'wallet' | 'upi' }>;
-const refundMethods = (order?: { paymentProvider?: string; razorpayPaymentId?: string | null; amountPaid?: number; refunds?: Array<{ amount: number; status: string }> } | null, requestedAmount = 0) => {
+type AdminRefundDestinationInput = Extract<RefundDestinationInput, { method: 'original_payment' | 'wallet' | 'upi' }>;
+const refundMethods = (order?: { paymentProvider?: string; razorpayPaymentId?: string | null; amountPaid?: number; refunds?: Array<{ amount: number; status: string }> } | null, requestedAmount = 0): Array<RefundDestinationInput['method']> => {
   const committedRefunds = order?.refunds?.filter((refund) => ['created', 'pending', 'processed'].includes(refund.status)).reduce((sum, refund) => sum + refund.amount, 0) ?? 0;
   const originalPaymentAvailable = order?.paymentProvider === 'razorpay' && order.razorpayPaymentId && Number(order.amountPaid) - committedRefunds >= requestedAmount;
+  if (originalPaymentAvailable) return ['original_payment' as const];
   return [
-  ...(originalPaymentAvailable ? ['original_payment' as const] : []),
   'wallet' as const,
   ...(RazorpayXPayoutService.available() || env.MANUAL_REFUND_UPI_ENABLED ? ['upi' as const] : []),
   ...(RazorpayXPayoutService.available() ? ['bank' as const] : [])
@@ -402,7 +402,7 @@ const saveRefundDestination = async (
   const request = await ReturnRequestModel.findOne({ _id: objectId(requestId), ...ownershipFilter });
   if (!request) throw new ApiError(404, 'Return request not found');
   if (request.status !== 'refund_window_open' || !['awaiting_destination', 'ready', 'failed'].includes(request.refundStatus)) throw new ApiError(409, 'The refund destination window is not open');
-  if (actor.role !== 'customer' && !['wallet', 'upi'].includes(input.method)) throw new ApiError(400, 'Admin may choose Cruisin Wallet or customer UPI only');
+  if (actor.role !== 'customer' && !['original_payment', 'wallet', 'upi'].includes(input.method)) throw new ApiError(400, 'Admin may use the original Razorpay payment, Cruisin Wallet, or customer UPI only');
   const [order, customer] = await Promise.all([
     OrderModel.findById(request.order).select('paymentProvider razorpayPaymentId amountPaid refunds').lean(),
     UserModel.findById(request.customer).select('name email phone').lean()
@@ -721,6 +721,21 @@ export const ReturnExchangeService = {
     if (elevated) query.select('+refundDestination.encryptedDetails');
     const requests = await query.lean();
     return requests.map((request) => {
+      const order = request.order as unknown as {
+        paymentMode?: string;
+        paymentMethod?: string;
+        paymentProvider?: string;
+        razorpayPaymentId?: string | null;
+        amountPaid?: number;
+        refunds?: Array<{ amount: number; status: string; providerRefundId?: string; reason?: string; createdAt?: Date }>;
+      };
+      const availableMethods = refundMethods(order, request.productRefundAmount ?? 0);
+      const providerRefund = request.productRefundReference
+        ? order?.refunds?.find((refund) => refund.providerRefundId === request.productRefundReference)
+        : undefined;
+      const razorpayOriginal = request.refundDestination?.method === 'original_payment'
+        || availableMethods.includes('original_payment')
+        || Boolean(providerRefund);
       let manualUpiId: string | undefined;
       let destinationReadError = false;
       if (elevated && request.refundDestination?.encryptedDetails) {
@@ -733,6 +748,15 @@ export const ReturnExchangeService = {
       return {
         ...request,
         allowedActions: returnActionsForStatus(request.status),
+        refundPaymentMode: razorpayOriginal ? 'razorpay_original' : 'cod_destination',
+        refundAvailableMethods: request.status === 'refund_window_open' ? availableMethods : [],
+        providerRefund: providerRefund ? {
+          id: providerRefund.providerRefundId,
+          amount: providerRefund.amount,
+          status: providerRefund.status,
+          reason: providerRefund.reason,
+          createdAt: providerRefund.createdAt
+        } : undefined,
         refundDestination: request.refundDestination ? {
           ...request.refundDestination,
           encryptedDetails: undefined,
@@ -760,9 +784,29 @@ export const ReturnExchangeService = {
       request.status = 'reverse_pickup';
     } else if (input.action === 'open_refund_window') {
       request.status = 'refund_window_open';
-      request.refundStatus = 'awaiting_destination';
       request.refundWindowOpenedAt = new Date();
       request.refundWindowOpenedBy = objectId(adminId);
+      const [order, customer] = await Promise.all([
+        OrderModel.findById(request.order).select('paymentProvider razorpayPaymentId amountPaid refunds').lean(),
+        UserModel.findById(request.customer).select('name').lean()
+      ]);
+      if (!order || !customer) throw new ApiError(404, 'Return customer or order was not found');
+      if (refundMethods(order, request.productRefundAmount ?? 0).includes('original_payment')) {
+        const now = new Date();
+        request.refundDestination = {
+          method: 'original_payment',
+          verificationStatus: 'verified',
+          maskedDetails: 'Original Razorpay payment method',
+          registeredName: customer.name,
+          submittedBy: objectId(adminId),
+          submittedByRole: 'admin',
+          submittedAt: now,
+          verifiedAt: now
+        };
+        request.refundStatus = 'ready';
+      } else {
+        request.refundStatus = 'awaiting_destination';
+      }
     } else if (input.action === 'refund_pending') {
       const claimed = await ReturnRequestModel.findOneAndUpdate(
         { _id: request._id, status: 'refund_window_open', refundStatus: { $in: ['ready', 'failed'] }, 'refundDestination.verificationStatus': 'verified' },
@@ -884,7 +928,7 @@ export const ReturnExchangeService = {
         : input.action === 'warehouse_received'
           ? 'return_received'
           : input.action === 'open_refund_window'
-            ? 'return_refund_destination_required'
+            ? request.refundDestination?.method === 'original_payment' ? null : 'return_refund_destination_required'
           : effectiveAction === 'refund_pending'
             ? 'return_refund_initiated'
             : effectiveAction === 'refunded'

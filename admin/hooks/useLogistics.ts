@@ -196,6 +196,9 @@ export interface WorkflowRequest {
   productRefundReference?: string;
   refundWindowOpenedAt?: string;
   refundDestination?: { method?: "original_payment" | "wallet" | "upi" | "bank"; verificationStatus?: "not_submitted" | "pending" | "verified" | "failed"; maskedDetails?: string; registeredName?: string; manualUpiId?: string; submittedByRole?: "customer" | "admin" | "superadmin"; submittedAt?: string; verifiedAt?: string };
+  refundPaymentMode?: "razorpay_original" | "cod_destination";
+  refundAvailableMethods?: Array<"original_payment" | "wallet" | "upi" | "bank">;
+  providerRefund?: { id?: string; amount: number; status: string; reason?: string; createdAt?: string };
   manualTransferReference?: string;
   manualTransferredAt?: string;
   createdAt: string;
@@ -419,7 +422,7 @@ export const useWorkflowAction = (kind: "returns" | "exchanges") => {
 export const useAdminSetRefundDestination = () => {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; destination: { method: "wallet" } | { method: "upi"; upiId: string } }): Promise<unknown> =>
+    mutationFn: async (input: { id: string; destination: { method: "original_payment" } | { method: "wallet" } | { method: "upi"; upiId: string } }): Promise<unknown> =>
       (await api.post<ApiEnvelope<unknown>>(`/admin/returns/${input.id}/refund-destination`, input.destination)).data.data,
     onSuccess: async (): Promise<void> => client.invalidateQueries({ queryKey: ["admin", "returns"] }),
   });

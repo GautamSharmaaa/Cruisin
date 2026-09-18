@@ -15,7 +15,7 @@ const statusForAction: Record<string, string> = {
   open_refund_window: 'refund_window_open', refund_pending: 'refund_pending', refunded: 'refunded', closed: 'closed'
 };
 
-const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin', failureAction?: string): Promise<{ writes: string[] }> => {
+const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin', failureAction?: string, refundPaymentMode: 'razorpay_original' | 'cod_destination' = 'cod_destination'): Promise<{ writes: string[] }> => {
   let status = initialStatus;
   const writes: string[] = [];
   await page.route('**/*', (route) => {
@@ -29,7 +29,7 @@ const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin',
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/auth/refresh')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ accessToken: 'admin-return-qa-token' }) });
     if (path.endsWith('/auth/me')) return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ id: 'admin-qa', name: 'QA Admin', email: 'admin@example.test', role, isVerified: true, isActive: true }) });
-    if (path.endsWith('/admin/returns') && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([{ _id: 'return-qa', requestNumber: 'RET-QA-FLOW', status, allowedActions: actionsByStatus[status] ?? [], reason: 'quality_issue', refundStatus: 'not_started', createdAt: new Date().toISOString(), order: { orderNumber: 'CR-QA-RETURN' }, customer: { name: 'QA Customer' }, items: [{ sku: 'QA-TEE-M', title: 'QA Tee', size: 'M', color: 'Black', quantity: 1 }] }]) });
+    if (path.endsWith('/admin/returns') && request.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: envelope([{ _id: 'return-qa', requestNumber: 'RET-QA-FLOW', status, allowedActions: actionsByStatus[status] ?? [], reason: 'quality_issue', refundStatus: status === 'refund_window_open' ? 'ready' : 'not_started', refundPaymentMode, productRefundAmount: 899, refundDestination: status === 'refund_window_open' && refundPaymentMode === 'razorpay_original' ? { method: 'original_payment', verificationStatus: 'verified', maskedDetails: 'Original Razorpay payment method' } : undefined, createdAt: new Date().toISOString(), order: { orderNumber: 'CR-QA-RETURN' }, customer: { name: 'QA Customer' }, items: [{ sku: 'QA-TEE-M', title: 'QA Tee', size: 'M', color: 'Black', quantity: 1 }] }]) });
     if (path.endsWith('/admin/returns/return-qa/action') && request.method() === 'POST') {
       const input = request.postDataJSON() as { action: string };
       writes.push(input.action);
@@ -89,4 +89,20 @@ test('reverse-pickup failures appear in a dismissible notification at the top', 
   expect(box?.y).toBeLessThanOrEqual(20);
   await page.getByRole('button', { name: 'Dismiss return error' }).click();
   await expect(notification).toHaveCount(0);
+});
+
+test('online returns use the original Razorpay payment action', async ({ page }) => {
+  await mockAdmin(page, 'refund_window_open', 'superadmin', undefined, 'razorpay_original');
+  await page.goto(`${adminUrl}/returns`);
+  await expect(page.getByText('Online payment · Razorpay')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Issue Razorpay refund' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Set / update COD refund destination' })).toHaveCount(0);
+});
+
+test('COD returns keep the wallet and UPI destination flow', async ({ page }) => {
+  await mockAdmin(page, 'refund_window_open');
+  await page.goto(`${adminUrl}/returns`);
+  await expect(page.getByText('This COD refund needs the customer or an authorized admin')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Set / update COD refund destination' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Issue Razorpay refund' })).toHaveCount(0);
 });

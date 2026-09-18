@@ -187,6 +187,7 @@ export const refundDestinationSchema = z.discriminatedUnion('method', [
 });
 
 export const adminRefundDestinationSchema = z.discriminatedUnion('method', [
+  z.object({ method: z.literal('original_payment') }).strict(),
   z.object({ method: z.literal('wallet') }).strict(),
   z.object({ method: z.literal('upi'), upiId: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{1,254}@[a-z][a-z0-9.-]{1,63}$/i, 'Enter a valid UPI ID') }).strict()
 ]);
