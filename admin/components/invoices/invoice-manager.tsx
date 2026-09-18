@@ -28,6 +28,7 @@ import {
   useAdminInvoices,
   type AdminInvoiceFilters,
 } from "@/hooks/useAdminResources";
+import { useAdminExchanges } from "@/hooks/useLogistics";
 import { api } from "@/lib/api";
 import { formatPrecisePrice } from "@/lib/utils";
 import type { InvoiceDto } from "@/types/dto.types";
@@ -201,7 +202,28 @@ export function InvoiceManager(): ReactNode {
     return value;
   }, [searchParams]);
   const invoices = useAdminInvoices(filters);
+  const exchanges = useAdminExchanges();
   const data = invoices.data;
+  const exchangeInvoices = useMemo(() => {
+    const byShipment = new Map<string, { shipmentId: string; orderNumber: string; requestNumbers: string[]; fee: number; createdAt: string }>();
+    for (const request of exchanges.data ?? []) {
+      if (request.status !== "replacement_shipped" || !request.replacementShipment) continue;
+      const existing = byShipment.get(request.replacementShipment);
+      if (existing) {
+        existing.requestNumbers.push(request.requestNumber);
+        existing.fee = Math.max(existing.fee, request.handlingFeePaymentStatus === "paid" ? request.handlingFee ?? 0 : 0);
+      } else {
+        byShipment.set(request.replacementShipment, {
+          shipmentId: request.replacementShipment,
+          orderNumber: request.order?.orderNumber ?? "Unknown order",
+          requestNumbers: [request.requestNumber],
+          fee: request.handlingFeePaymentStatus === "paid" ? request.handlingFee ?? 0 : 0,
+          createdAt: request.createdAt,
+        });
+      }
+    }
+    return [...byShipment.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [exchanges.data]);
   const pageIds = data?.items.map(idOf) ?? [];
   const pageChecked =
     pageIds.length > 0 &&
@@ -283,6 +305,20 @@ export function InvoiceManager(): ReactNode {
       setNotice(
         error instanceof Error ? error.message : "Invoice download failed.",
       );
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const downloadExchangeInvoice = async (shipmentId: string, orderNumber: string): Promise<void> => {
+    setPreparing(true);
+    setNotice(`Preparing exchange invoice for ${orderNumber}…`);
+    try {
+      const response = await api.get<Blob>(`/admin/logistics/${shipmentId}/replacement-invoice`, { responseType: "blob", timeout: API_CONFIG.uploadTimeout });
+      downloadBlob(response.data, `replacement-${orderNumber}.pdf`);
+      setNotice("Exchange replacement invoice downloaded.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Exchange invoice download failed.");
     } finally {
       setPreparing(false);
     }
@@ -436,6 +472,36 @@ export function InvoiceManager(): ReactNode {
           tone="success"
         />
       </AdminStatsGrid>
+
+      {exchangeInvoices.length > 0 ? (
+        <AdminCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-display text-2xl text-text-primary">Exchange replacement invoices</p>
+              <p className="mt-2 text-sm text-text-secondary">Separate prepaid exchange documents. Original sale invoices remain unchanged and are mentioned below.</p>
+            </div>
+            <StatusPill tone="success">{exchangeInvoices.length} generated</StatusPill>
+          </div>
+          <div className="mt-5 grid gap-3">
+            {exchangeInvoices.map((replacement) => {
+              const original = data?.items.find((invoice) => invoice.orderNumber === replacement.orderNumber);
+              return (
+                <div key={replacement.shipmentId} className="flex flex-wrap items-center justify-between gap-4 border border-border p-4">
+                  <div>
+                    <p className="font-mono text-sm text-accent-gold">EXCHANGE · {replacement.orderNumber}</p>
+                    <p className="mt-2 text-sm text-text-primary">Invoice total {formatPrecisePrice(replacement.fee)} · prepaid · amount due ₹0</p>
+                    <p className="mt-1 text-xs text-text-secondary">Products paid earlier on original order · {replacement.requestNumbers.join(", ")}</p>
+                    <p className="mt-1 text-xs text-text-muted">{original ? `Earlier original sale invoice: ${original.invoiceNumber}` : "No earlier original sale invoice found in the current invoice register."}</p>
+                  </div>
+                  <Button onClick={() => void downloadExchangeInvoice(replacement.shipmentId, replacement.orderNumber)} disabled={preparing}>
+                    <Download size={15} className="mr-2" />Download exchange invoice
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </AdminCard>
+      ) : null}
 
       <AdminCard>
         <div className="flex flex-wrap items-end gap-3">

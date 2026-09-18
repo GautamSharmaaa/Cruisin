@@ -210,6 +210,7 @@ export interface WorkflowRequest {
   };
   customer?: { name?: string; email?: string; phone?: string };
   reverseShipment?: { shipmentStatus?: string; returnStatus?: string; courierName?: string; awb?: string; pickupStatus?: string; lastTrackingUpdate?: string };
+  replacementShipment?: string;
 }
 export interface LogisticsDocumentAccess {
   shipmentId: string;
