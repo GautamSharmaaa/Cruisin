@@ -15,7 +15,7 @@ const statusForAction: Record<string, string> = {
   open_refund_window: 'refund_window_open', refund_pending: 'refund_pending', refunded: 'refunded', closed: 'closed'
 };
 
-const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin'): Promise<{ writes: string[] }> => {
+const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin', failureAction?: string): Promise<{ writes: string[] }> => {
   let status = initialStatus;
   const writes: string[] = [];
   await page.route('**/*', (route) => {
@@ -33,6 +33,7 @@ const mockAdmin = async (page: Page, initialStatus: string, role = 'superadmin')
     if (path.endsWith('/admin/returns/return-qa/action') && request.method() === 'POST') {
       const input = request.postDataJSON() as { action: string };
       writes.push(input.action);
+      if (input.action === failureAction) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ success: false, data: null, message: 'Shiprocket could not provide the return shipment details.' }) });
       status = statusForAction[input.action] ?? status;
       return route.fulfill({ status: 200, contentType: 'application/json', body: envelope({ _id: 'return-qa', status }) });
     }
@@ -75,4 +76,17 @@ test('approved manager request explains the admin handoff instead of showing an 
   await page.goto(`${adminUrl}/returns`);
   await expect(page.getByText('Approved. Waiting for an admin or superadmin to create the reverse pickup.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create reverse pickup' })).toHaveCount(0);
+});
+
+test('reverse-pickup failures appear in a dismissible notification at the top', async ({ page }) => {
+  await mockAdmin(page, 'approved', 'superadmin', 'create_reverse_pickup');
+  await page.goto(`${adminUrl}/returns`);
+  await page.getByRole('button', { name: 'Create reverse pickup' }).click();
+  const notification = page.getByTestId('return-workflow-error');
+  await expect(notification).toBeVisible();
+  await expect(notification).toContainText('Shiprocket could not provide the return shipment details.');
+  const box = await notification.boundingBox();
+  expect(box?.y).toBeLessThanOrEqual(20);
+  await page.getByRole('button', { name: 'Dismiss return error' }).click();
+  await expect(notification).toHaveCount(0);
 });

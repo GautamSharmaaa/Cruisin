@@ -62,17 +62,6 @@ const createOrderSchema = z.object({
   status: z.string().optional().default('NEW')
 }).passthrough();
 
-const createReturnSchema = z.object({
-  status: z.union([z.string(), z.number()]),
-  payload: z.object({
-    order_id: z.union([z.string(), z.number()]),
-    shipment_id: z.union([z.string(), z.number()]),
-    awb_code: z.union([z.string(), z.number()]).optional(),
-    courier_name: z.string().optional(),
-    pickup_generated: z.coerce.number().optional()
-  }).passthrough()
-}).passthrough();
-
 const awbSchema = z.object({
   response: z.object({
     data: z.object({
@@ -122,6 +111,9 @@ const trackingSchema = z.object({
 
 const genericStatusSchema = z.record(z.unknown());
 const providerDetailsSchema = z.record(z.unknown());
+const processingReturnsSchema = z.object({
+  data: z.array(z.record(z.unknown())).default([])
+}).passthrough();
 const STATEMENT_PAGE_SIZE = 200;
 const MAX_STATEMENT_PAGES = 100;
 
@@ -156,6 +148,28 @@ const shipmentRecord = (order: UnknownRecord, expectedShipmentId?: string): Unkn
   const shipments = Array.isArray(order.shipments) ? order.shipments.map(asRecord).filter((item): item is UnknownRecord => Boolean(item)) : [];
   if (!expectedShipmentId) return shipments[0];
   return shipments.find((shipment) => stringValue(shipment, ['id', 'shipment_id']) === expectedShipmentId) ?? shipments[0];
+};
+const returnResultFromRecord = (record: UnknownRecord): CreateReturnResult | undefined => {
+  const payload = asRecord(record.payload) ?? asRecord(record.data) ?? record;
+  const shipment = shipmentRecord(payload) ?? shipmentRecord(record);
+  const providerOrderId = stringValue(payload, ['order_id', 'id']) ?? stringValue(record, ['order_id', 'id']);
+  const providerShipmentId = stringValue(payload, ['shipment_id'])
+    ?? stringValue(record, ['shipment_id'])
+    ?? stringValue(shipment, ['shipment_id', 'id']);
+  if (!providerOrderId || !providerShipmentId) return undefined;
+  const awb = stringValue(payload, ['awb_code', 'awb'])
+    ?? stringValue(record, ['awb_code', 'awb'])
+    ?? stringValue(shipment, ['awb_code', 'awb']);
+  const pickupGenerated = numericValue(payload, ['pickup_generated']) ?? numericValue(record, ['pickup_generated']);
+  const providerStatus = stringValue(payload, ['status', 'status_name'])
+    ?? stringValue(record, ['status', 'status_name'])
+    ?? 'RETURN CREATED';
+  return {
+    providerOrderId,
+    providerShipmentId,
+    awb,
+    status: pickupGenerated === 1 ? 'PICKUP GENERATED' : providerStatus
+  };
 };
 
 const money = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -525,7 +539,15 @@ export class ShiprocketProvider implements LogisticsProvider {
     return { cancelled: true, status: typeof response.message === 'string' ? response.message : 'Cancelled' };
   }
 
+  private async findExistingReturn(sourceOrderId: string): Promise<CreateReturnResult | undefined> {
+    const response = await this.client.get('/orders/processing/return', processingReturnsSchema, { page: 1, per_page: 100 });
+    const existing = response.data.find((order) => stringValue(order, ['channel_order_id', 'order_id']) === sourceOrderId);
+    return existing ? returnResultFromRecord(existing) : undefined;
+  }
+
   public async createReturn(input: CreateReturnInput): Promise<CreateReturnResult> {
+    const existing = await this.findExistingReturn(input.sourceOrderId);
+    if (existing) return existing;
     const response = await this.client.post('/shipments/create/return-shipment', {
       order_id: input.sourceOrderId.slice(0, 50),
       order_date: input.orderDate.toISOString().replace('T', ' ').slice(0, 16),
@@ -565,12 +587,16 @@ export class ShiprocketProvider implements LogisticsProvider {
       height: input.package.heightCm,
       weight: input.package.deadWeightKg,
       request_pickup: true
-    }, createReturnSchema);
-    return {
-      providerOrderId: String(response.payload.order_id),
-      providerShipmentId: String(response.payload.shipment_id),
-      awb: response.payload.awb_code ? String(response.payload.awb_code) : undefined,
-      status: response.payload.pickup_generated === 1 ? 'PICKUP GENERATED' : String(response.status)
-    };
+    }, providerDetailsSchema);
+    const created = returnResultFromRecord(response);
+    if (created) return created;
+    const recovered = await this.findExistingReturn(input.sourceOrderId);
+    if (recovered) return recovered;
+    throw new LogisticsProviderError(
+      'permanent_provider',
+      'Shiprocket accepted the return but did not provide shipment details. Retry to reconcile the return before creating another.',
+      false,
+      502
+    );
   }
 }

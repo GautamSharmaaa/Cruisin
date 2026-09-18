@@ -173,6 +173,7 @@ describe('ShiprocketProvider live response compatibility', () => {
   });
 
   it('uses the exact guarded Shiprocket mutation endpoints and provider payload shapes', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [] });
     const post = vi.fn(async (path: string, _body?: unknown, _schema?: unknown, _operation?: string) => {
       if (path === '/orders/create/adhoc') return { order_id: 444, shipment_id: 555, status: 'NEW' };
       if (path === '/courier/assign/awb') return { response: { data: { awb_code: 'AWB-CONTRACT', courier_company_id: 42, courier_name: 'Contract Courier' } } };
@@ -182,7 +183,7 @@ describe('ShiprocketProvider live response compatibility', () => {
       if (path === '/shipments/create/return-shipment') return { status: 1, payload: { order_id: 777, shipment_id: 888, awb_code: 'RETURN-AWB', courier_name: 'Reverse Courier', pickup_generated: 1 } };
       throw new Error(`Unexpected mutation path: ${path}`);
     });
-    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+    const provider = new ShiprocketProvider({ get, post } as unknown as ShiprocketClient);
 
     await expect(provider.createOrder(mutationOrderInput)).resolves.toMatchObject({ providerOrderId: '444', providerShipmentId: '555' });
     await expect(provider.assignCourier({ providerShipmentId: '555', courierId: 42 })).resolves.toMatchObject({ awb: 'AWB-CONTRACT', courierId: 42 });
@@ -231,14 +232,16 @@ describe('ShiprocketProvider live response compatibility', () => {
         operation: undefined
       })
     ]);
+    expect(get).toHaveBeenCalledWith('/orders/processing/return', expect.anything(), { page: 1, per_page: 100 });
   });
 
   it('uses a valid warehouse email when a phone-only customer has an internal placeholder email', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [] });
     const post = vi.fn().mockResolvedValue({
       status: 1,
       payload: { order_id: 777, shipment_id: 888, awb_code: 'RETURN-AWB', pickup_generated: 1 }
     });
-    const provider = new ShiprocketProvider({ post } as unknown as ShiprocketClient);
+    const provider = new ShiprocketProvider({ get, post } as unknown as ShiprocketClient);
 
     await provider.createReturn({
       ...mutationOrderInput,
@@ -254,6 +257,54 @@ describe('ShiprocketProvider live response compatibility', () => {
     expect(body).not.toHaveProperty('shipping_is_billing');
     expect(body).not.toHaveProperty('pickup_location');
     expect(body).not.toHaveProperty('return_reason');
+  });
+
+  it('reconciles an existing Shiprocket return before retrying the create mutation', async () => {
+    const get = vi.fn().mockResolvedValue({ data: [{
+      id: 1_594_984_867,
+      channel_order_id: 'RET-MU3RKTM1-9C77EA',
+      shipment_id: 1_591_201_148,
+      status: 'RETURN PENDING',
+      shipments: [{ awb: '', courier: '' }]
+    }] });
+    const post = vi.fn();
+    const provider = new ShiprocketProvider({ get, post } as unknown as ShiprocketClient);
+
+    await expect(provider.createReturn({
+      ...mutationOrderInput,
+      sourceOrderId: 'RET-MU3RKTM1-9C77EA',
+      returnAddress,
+      returnReason: 'Quality issue'
+    })).resolves.toEqual({
+      providerOrderId: '1594984867',
+      providerShipmentId: '1591201148',
+      awb: undefined,
+      status: 'RETURN PENDING'
+    });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('recovers a partial wrapper success from the Shiprocket return list', async () => {
+    const get = vi.fn()
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [{
+        id: 777,
+        channel_order_id: 'CR-CONTRACT-PARTIAL',
+        shipment_id: 888,
+        status: 'RETURN PENDING',
+        shipments: []
+      }] });
+    const post = vi.fn().mockResolvedValue({ status: 1, payload: { order_created: 1, awb_generated: 0, pickup_generated: 0 } });
+    const provider = new ShiprocketProvider({ get, post } as unknown as ShiprocketClient);
+
+    await expect(provider.createReturn({
+      ...mutationOrderInput,
+      sourceOrderId: 'CR-CONTRACT-PARTIAL',
+      returnAddress,
+      returnReason: 'Quality issue'
+    })).resolves.toMatchObject({ providerOrderId: '777', providerShipmentId: '888', status: 'RETURN PENDING' });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledTimes(2);
   });
 
   it('represents the Cruisin COD handling fee without changing item prices', async () => {
