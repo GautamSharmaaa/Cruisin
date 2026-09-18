@@ -261,7 +261,7 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
       shipment = await ShipmentModel.create({
         order: order._id,
         shipmentType: 'exchange_replacement',
-        sourceOrderId: `REPLACEMENT-${order.orderNumber}`,
+        sourceOrderId: `REPLACEMENT-NOCHARGE-${order.orderNumber}`,
         pickupLocation: logisticsConfig.pickupLocation ?? 'Mock Warehouse',
         package: parcel,
         shipmentStatus: 'pending_provider',
@@ -300,7 +300,7 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
     if (!shipment.providerShipmentId) {
       const items = loadedItems.map(({ product, variant, quantity }) => {
         const unitPrice = variant.priceOverride ?? variant.price;
-        return { name: product.title, sku: variant.sku, units: quantity, sellingPrice: unitPrice, discount: 0, tax: 0 };
+        return { name: product.title, sku: variant.sku, units: quantity, sellingPrice: unitPrice, discount: unitPrice, tax: 0 };
       });
       const total = items.reduce((sum, item) => sum + item.sellingPrice * item.units, 0);
       const result = await provider.createOrder({
@@ -313,8 +313,8 @@ const ensureReplacementShipment = async (requests: ReplacementRequestInput[], ad
         paymentMode: 'prepaid',
         subtotal: total,
         shippingCharge: 0,
-        totalDiscount: 0,
-        total,
+        totalDiscount: total,
+        total: 0,
         package: parcel
       });
       shipment.providerOrderId = result.providerOrderId;
