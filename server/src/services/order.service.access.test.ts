@@ -19,7 +19,7 @@ process.env.SENDGRID_API_KEY = 'test';
 const { couponRedemptionService, mongoTransaction, orderModel } = vi.hoisted(() => ({
   couponRedemptionService: { releaseCouponRedemption: vi.fn() },
   mongoTransaction: { withMongoTransaction: vi.fn() },
-  orderModel: { findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() }
+  orderModel: { find: vi.fn(), findById: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn() }
 }));
 vi.mock('../models/order.model.js', () => ({ OrderModel: orderModel }));
 vi.mock('./coupon-redemption.service.js', () => couponRedemptionService);
@@ -50,6 +50,20 @@ describe('OrderService customer access', () => {
     orderModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: 'legacy-cancelled-order', user: 'owner-id', orderStatus: 'cancelled', amountDue: 912 }) });
 
     await expect(OrderService.byId('legacy-cancelled-order', { userId: 'owner-id', role: 'customer' })).resolves.toMatchObject({ orderStatus: 'cancelled', amountDue: 0 });
+  });
+
+  it('returns every admin order without a hidden 200-order ceiling', async () => {
+    const orders = Array.from({ length: 201 }, (_, index) => ({ _id: `order-${index}`, createdAt: new Date(2026, 0, index + 1) }));
+    const lean = vi.fn().mockResolvedValue(orders);
+    const sort = vi.fn().mockReturnValue({ lean });
+    orderModel.find.mockReturnValue({ sort });
+    const { OrderService } = await import('./order.service.js');
+
+    const result = await OrderService.adminList('active');
+
+    expect(result).toHaveLength(201);
+    expect(orderModel.find).toHaveBeenCalledWith({ archivedAt: { $exists: false } });
+    expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
   });
 
   it('cancels an owned confirmed order with an auditable customer reason', async () => {
