@@ -54,7 +54,7 @@ export function Footer(_props: FooterProps): ReactNode {
       <section>
         <h3 className="font-display text-xl text-text-primary">Contact Us</h3>
         <div className="mt-5 grid gap-4 text-sm leading-6 text-text-secondary">
-          <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex gap-3 transition hover:text-accent-gold"><Phone size={16} className="mt-1 shrink-0 text-accent-gold" />WhatsApp: {phone}</a>
+          {/* <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex gap-3 transition hover:text-accent-gold"><Phone size={16} className="mt-1 shrink-0 text-accent-gold" />WhatsApp: {phone}</a> */}
           <p className="flex gap-3"><Clock3 size={16} className="mt-1 shrink-0 text-accent-gold" /><span>Support: 24/7 on WhatsApp and email</span></p>
           <a href={'mailto:' + email} className="flex gap-3 transition hover:text-accent-gold"><Mail size={16} className="mt-1 shrink-0 text-accent-gold" />Email: {email}</a>
         </div>
