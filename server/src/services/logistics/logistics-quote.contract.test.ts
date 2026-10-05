@@ -141,7 +141,7 @@ describe('logistics quote ownership, freshness and authoritative pricing', () =>
     })).resolves.toMatchObject({
       quoteId,
       shippingMethod: 'standard',
-      shippingCharge: 0,
+      shippingCharge: 92,
       option: { courierId: 10, courierName: 'Mock Surface', providerCost: 80 }
     });
     expect(LogisticsQuoteModel.findOne).toHaveBeenCalledWith({ quoteId, user: userId });

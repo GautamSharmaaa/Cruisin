@@ -134,7 +134,7 @@ describe('OrderService authenticated checkout', () => {
     cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
     siteSettingsModel.findOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) })
+      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ standardShippingRate: 0 }) })
     });
   });
 
