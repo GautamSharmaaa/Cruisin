@@ -82,6 +82,14 @@ const documentSchema = z.object({
   manifest_url: z.string().url().optional()
 }).passthrough();
 
+// Shiprocket may use "NA" for an activity without a numeric status ID.
+// Keep that activity and its timestamp instead of discarding all tracking data.
+const optionalActivityStatusId = z.preprocess((value) => {
+  if (typeof value === 'number') return Number.isInteger(value) && value >= 0 ? value : undefined;
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) return Number(value.trim());
+  return undefined;
+}, z.number().int().nonnegative().optional());
+
 const trackingSchema = z.object({
   tracking_data: z.object({
     track_status: z.union([z.string(), z.number()]).optional(),
@@ -98,7 +106,7 @@ const trackingSchema = z.object({
       status: z.string(),
       activity: z.string().optional(),
       location: z.string().optional(),
-      'sr-status': z.coerce.number().optional()
+      'sr-status': optionalActivityStatusId
     }).passthrough()).optional()
   }).passthrough()
 }).passthrough();
