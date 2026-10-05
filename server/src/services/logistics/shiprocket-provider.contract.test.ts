@@ -48,6 +48,43 @@ const returnAddress = {
 };
 
 describe('ShiprocketProvider live response compatibility', () => {
+  it('retains courier delivery evidence when an unrelated activity has an NA status ID', async () => {
+    const response = { tracking_data: {
+      shipment_status: 7,
+      shipment_track: [{ current_status: 'Delivered', delivered_date: '2026-10-02 11:11:14' }],
+      shipment_track_activities: [
+        { date: '2026-10-02 11:11:14', status: 'Delivered', 'sr-status': 7 },
+        { date: '2026-10-02 10:07:43', status: 'RecipientRequestedAlternateDeliveryTiming', 'sr-status': 'NA' }
+      ]
+    } };
+    const client = { get: vi.fn().mockImplementation(async (_path: string, schema: { parse: (input: unknown) => unknown }) => schema.parse(response)) } as unknown as ShiprocketClient;
+    const tracking = await new ShiprocketProvider(client).trackShipment({ awb: 'AWB-NA-STATUS' });
+    expect(tracking).toMatchObject({ status: 'delivered', deliveredDate: '2026-10-02T05:41:14.000Z' });
+    expect(tracking.scans).toHaveLength(2);
+    expect(tracking.scans[0]).toMatchObject({ status: 'delivered', providerStatusId: 7 });
+    expect(tracking.scans[1]).toMatchObject({ providerStatusId: undefined, rawStatus: 'RecipientRequestedAlternateDeliveryTiming' });
+  });
+
+  it('uses that courier evidence during a read-only shipment reconciliation', async () => {
+    const client = { get: vi.fn().mockImplementation(async (path: string, schema: { parse: (input: unknown) => unknown }) => {
+      if (path === '/shipments/555') return schema.parse({ data: { id: 555, order_id: 444, awb: 'AWB-NA-STATUS', status_name: 'Delivered' } });
+      if (path === '/orders/show/444') return schema.parse({ data: { id: 444, shipments: [{ id: 555, awb: 'AWB-NA-STATUS' }] } });
+      if (path === '/courier/track/awb/AWB-NA-STATUS') return schema.parse({ tracking_data: {
+        shipment_status: 7,
+        shipment_track: [{ current_status: 'Delivered', delivered_date: '2026-10-02 11:11:14' }],
+        shipment_track_activities: [
+          { date: '2026-10-02 11:11:14', status: 'Delivered', 'sr-status': 7 },
+          { date: '2026-10-02 10:07:43', status: 'RecipientRequestedAlternateDeliveryTiming', 'sr-status': 'NA' }
+        ]
+      } });
+      if (path === '/account/details/statement') throw new Error('Statement unavailable');
+      throw new Error(`Unexpected read path: ${path}`);
+    }) } as unknown as ShiprocketClient;
+    const reconciled = await new ShiprocketProvider(client).reconcileShipment({ providerOrderId: '444', providerShipmentId: '555', awb: 'AWB-NA-STATUS' });
+    expect(reconciled).toMatchObject({ status: 'delivered', deliveredDate: '2026-10-02T05:41:14.000Z' });
+    expect(reconciled.scans).toHaveLength(2);
+  });
+
   it('converts unzoned tracking and delivery summary timestamps from IST, retaining explicit UTC offsets', async () => {
     const client = { get: vi.fn().mockResolvedValue({ tracking_data: {
       shipment_track: [{ awb_code: 'AWB-TIMEZONE', current_status: 'Delivered', delivered_date: '2026-09-15 15:08:00' }],
