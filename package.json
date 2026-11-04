@@ -26,16 +26,24 @@
     "test:e2e:logistics": "npm --workspace client run test:e2e:logistics",
     "verify:logistics": "SHIPROCKET_ENABLED=false SHIPROCKET_MODE=mock SHIPROCKET_ALLOW_LIVE_READS=false SHIPROCKET_ALLOW_LIVE_DOCUMENTS=false SHIPROCKET_ALLOW_LIVE_MUTATIONS=false npm-run-all --sequential lint typecheck test build verify:logistics:focused verify:logistics:secrets",
     "verify:logistics:focused": "npm --workspace server run verify:logistics",
-    "verify:logistics:secrets": "node scripts/verify-logistics-secrets.mjs"
+    "verify:logistics:secrets": "node scripts/verify-logistics-secrets.mjs",
+    "v2:infra": "node scripts/v2-infra.mjs",
+    "v2:api": "node scripts/v2.mjs api",
+    "v2:storefront": "node scripts/v2.mjs storefront",
+    "v2:admin": "node scripts/v2.mjs admin",
+    "v2:test": "node scripts/v2.mjs test",
+    "v2:e2e": "node scripts/v2.mjs e2e",
+    "v2:build": "node scripts/v2.mjs build"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",
     "typescript": "^5.8.3"
   },
   "overrides": {
-    "next": "15.5.23",
+    "next": "15.5.29",
     "postcss": "8.5.26",
     "nanoid": "3.3.18",
-    "sharp": "0.35.0"
+    "sharp": "0.35.5",
+    "brace-expansion@<2": "1.1.21"
   }
 }

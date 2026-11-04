@@ -9,13 +9,13 @@ const client = (): ReturnType<typeof twilio> => {
 };
 
 export const sendLogisticsSms = async (to: string, body: string): Promise<void> => {
-  if (env.NODE_ENV !== 'production') throw new ApiError(503, 'Outbound logistics SMS is disabled outside production');
+  if (env.APP_ENV !== 'production') throw new ApiError(503, 'Outbound logistics SMS is disabled outside production');
   if (!env.TWILIO_SMS_FROM) throw new ApiError(503, 'Logistics SMS sender is not configured');
   await client().messages.create({ to, from: env.TWILIO_SMS_FROM, body });
 };
 
 export const sendLogisticsWhatsapp = async (to: string, body: string): Promise<void> => {
-  if (env.NODE_ENV !== 'production') throw new ApiError(503, 'Outbound logistics WhatsApp is disabled outside production');
+  if (env.APP_ENV !== 'production') throw new ApiError(503, 'Outbound logistics WhatsApp is disabled outside production');
   if (!env.TWILIO_WHATSAPP_FROM) throw new ApiError(503, 'Logistics WhatsApp sender is not configured');
   await client().messages.create({
     to: `whatsapp:${to.replace(/^whatsapp:/, '')}`,

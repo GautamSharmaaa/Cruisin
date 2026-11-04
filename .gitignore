@@ -25,3 +25,7 @@ mongodb-dump/
 mongodb-dumps/
 razorpay_test_api_keys_*.csv
 .DS_Store
+*.enc
+*.key
+Cruisin-Backups/
+.Cruisin-Recovery-Keys/

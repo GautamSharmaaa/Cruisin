@@ -23,6 +23,7 @@ export const IdentityProviderService = {
     return { providerUserId: payload.sub, email: payload.email, name: payload.name ?? payload.email.split('@')[0] ?? 'Cruisin Member', avatar: payload.picture };
   },
   async sendOtp(phone: string, channel: 'whatsapp', otp: string): Promise<void> {
+    if (env.APP_ENV !== 'production') return;
     if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
       if (env.NODE_ENV === 'production') throw new ApiError(503, 'OTP delivery is not configured');
       logger.info('Development OTP generated', { phone, channel });

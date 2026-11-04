@@ -1,0 +1,28 @@
+name: V2 staging deployment
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [codex/cruisin-v2]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: cruisin-v2-staging
+  cancel-in-progress: false
+jobs:
+  deploy:
+    # Hosted staging remains stopped until explicitly enabled after isolation review.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository && vars.V2_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: cruisin-v2-staging
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Require staging deployment approval
+        env:
+          STAGING_TOKEN: ${{ secrets.RAILWAY_V2_STAGING_TOKEN }}
+        run: |
+          test -n "$STAGING_TOKEN"
+          echo 'Deployment remains disabled until pinned tooling, private access, dedicated databases and synthetic fixtures have been verified.'
+          exit 1

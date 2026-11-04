@@ -18,3 +18,10 @@ export default defineConfig({
     { name: 'mobile-chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } }
   ]
 });
+
+
+// Browser automation is restricted to isolated local instances.
+for (const key of ['PLAYWRIGHT_STOREFRONT_URL', 'PLAYWRIGHT_ADMIN_URL', 'PLAYWRIGHT_API_URL']) {
+  const target = process.env[key];
+  if (target && !['127.0.0.1', 'localhost'].includes(new URL(target).hostname)) throw new Error('Browser tests refuse nonlocal targets');
+}

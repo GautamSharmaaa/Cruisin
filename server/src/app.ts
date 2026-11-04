@@ -43,7 +43,13 @@ export const createApp = (): Express => {
       res.status(503).json(new ApiResponse({ status: 'not_ready' }, 'API dependencies unavailable', ['Dependency health check failed']));
     }
   });
-  app.use('/api/v1', generalLimiter, v1Router);
+  app.use('/api/v1', (req, res, next) => {
+    if (env.APP_ENV !== 'production' && /webhooks?/.test(req.path)) {
+      res.status(403).json(new ApiResponse(null, 'Webhooks disabled in nonproduction'));
+      return;
+    }
+    next();
+  }, generalLimiter, v1Router);
   app.use((_req, _res, next) => { next(new ApiError(404, 'Route not found')); });
   app.use(errorHandler);
   return app;

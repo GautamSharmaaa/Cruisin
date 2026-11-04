@@ -18,7 +18,7 @@ env:
   APP_ENV: development
   CLIENT_URL: http://127.0.0.1:3100
   ADMIN_URL: http://127.0.0.1:3101
-  MONGODB_URI: mongodb://127.0.0.1:27017/cruisin-test
+  MONGODB_URI: mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests
   REDIS_URL: redis://127.0.0.1:6379/14
   JWT_ACCESS_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   JWT_REFRESH_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -75,6 +75,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: node scripts/v2-secret-scan.mjs
+      - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

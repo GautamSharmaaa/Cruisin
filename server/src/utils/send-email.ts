@@ -20,6 +20,6 @@ export interface EmailPayload {
 }
 
 export const sendEmail = async (payload: EmailPayload): Promise<void> => {
-  if (env.NODE_ENV !== 'production') return;
+  if (env.APP_ENV !== 'production') return;
   await getSendgridClient().send({ from: env.EMAIL_FROM, ...payload });
 };

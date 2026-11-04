@@ -1,8 +1,10 @@
 // Governed by .rules v1.0
 import { config } from 'dotenv';
 import { z } from 'zod';
+import { assertV2Isolation } from './v2-isolation.js';
 
 config();
+assertV2Isolation(process.env);
 
 const optionalSecret = z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional());
 const optionalString = z.preprocess((value) => value === '' ? undefined : value, z.string().trim().min(1).optional());
@@ -162,7 +164,7 @@ const envSchema = z.object({
   }
   if (value.LOGISTICS_SMS_NOTIFICATIONS_ENABLED && !value.TWILIO_SMS_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_SMS_FROM'], message: 'TWILIO_SMS_FROM is required when logistics SMS notifications are enabled' });
   if (value.LOGISTICS_WHATSAPP_NOTIFICATIONS_ENABLED && !value.TWILIO_WHATSAPP_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_WHATSAPP_FROM'], message: 'TWILIO_WHATSAPP_FROM is required when logistics WhatsApp notifications are enabled' });
-  if (value.APP_ENV === 'development') return;
+  if (value.APP_ENV !== 'production') return;
   if (value.NODE_ENV !== 'production') context.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'NODE_ENV must be production outside local development' });
   if (value.TRUST_PROXY < 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TRUST_PROXY'], message: 'TRUST_PROXY must be at least 1 behind Railway proxying' });
   if (mongo && (mongo.hostname === 'localhost' || mongo.hostname === '127.0.0.1')) {

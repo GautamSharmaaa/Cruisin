@@ -1,12 +1,14 @@
 // Governed by .rules v1.0
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../config/v2-isolation.js', () => ({ assertV2Isolation: vi.fn() }));
+
 process.env.NODE_ENV = 'production';
 process.env.APP_ENV = 'development';
 process.env.CLIENT_URL = 'http://localhost:3000';
 process.env.ADMIN_URL = 'http://localhost:3001';
-process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
-process.env.REDIS_URL = 'redis://localhost:6379/15';
+process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
+process.env.REDIS_URL ??= 'redis://localhost:6379/15';
 process.env.JWT_ACCESS_SECRET = 'a'.repeat(32);
 process.env.JWT_REFRESH_SECRET = 'b'.repeat(32);
 process.env.CLOUDINARY_CLOUD_NAME = 'test';
@@ -34,7 +36,9 @@ beforeAll(async () => {
   sendWhatsapp = module.sendLogisticsWhatsapp;
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  const { env } = await import('../config/env.js');
+  env.APP_ENV = 'production';
   createMessage.mockReset();
   createMessage.mockResolvedValue({});
 });
