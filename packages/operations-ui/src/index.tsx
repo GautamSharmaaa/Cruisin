@@ -92,19 +92,27 @@ export function OperationsPage({
   onLogout,
 }: OperationsPageProps): ReactNode {
   const [resolvedUnit, setResolvedUnit] = useState<PhysicalUnit | null>(null);
+  const [summaryError, setSummaryError] = useState("");
+  const [summaryRevision, setSummaryRevision] = useState(0);
   const [summary, setSummary] = useState<{
     tasks: { active: number; overdue: number };
     pendingApprovals: number;
     lowStockVariants: number;
     unitStates: { _id: string; count: number }[];
+    openExceptions: number;
+    unreadNotifications: number;
+    fulfillment: {awaitingPacking:number; packed:number; readyForHandover:number} | null;
   } | null>(null);
   useEffect(() => {
-    if (module === "dashboard")
-      void api
-        .get<NonNullable<typeof summary>>("/summary")
-        .then(setSummary)
-        .catch(fail);
-  }, [api, module]);
+    if (module !== "dashboard") return;
+    let active = true;
+    setSummaryError("");
+    setSummary(null);
+    void api.get<NonNullable<typeof summary>>("/summary")
+      .then((result) => { if (active) setSummary(result); })
+      .catch((error: unknown) => { if (active) setSummaryError(error instanceof Error ? error.message : C.error); });
+    return () => { active = false; };
+  }, [api, module, summaryRevision]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
@@ -169,7 +177,7 @@ export function OperationsPage({
   if (module === "dashboard")
     content = (
       <>
-        {summary ? (
+        {summaryError ? <Alert tone="danger">{summaryError}</Alert> : summary ? (
           <Card title={C.operationalSummary}>
             <div className="ui-row">
               <Status>
@@ -181,6 +189,13 @@ export function OperationsPage({
               <Status>
                 {C.pendingApprovals}: {summary.pendingApprovals}
               </Status>
+              <Status>{C.openExceptions}: {summary.openExceptions}</Status>
+              <Status>{C.unreadNotifications}: {summary.unreadNotifications}</Status>
+              {summary.fulfillment && <>
+                <Status>{C.awaitingPacking}: {summary.fulfillment.awaitingPacking}</Status>
+                <Status>{C.packedOrders}: {summary.fulfillment.packed}</Status>
+                <Status>{C.readyForHandover}: {summary.fulfillment.readyForHandover}</Status>
+              </>}
               {principal.permissions.includes("inventory.view") && (
                 <Status>
                   {C.lowStockVariants}: {summary.lowStockVariants}
@@ -208,17 +223,10 @@ export function OperationsPage({
             <a className="ui-button ui-button-primary" href="/tasks">
               {C.viewTasks}
             </a>
-            <Status>
-              {
-                taskItems.filter(
-                  (t) => !["COMPLETED", "CANCELLED"].includes(t.status),
-                ).length
-              }{" "}
-              {C.tasks}
-            </Status>
+            {summary && <Status>{summary.tasks.active} {C.tasks}</Status>}
           </div>
         </Card>
-        <NotificationList api={api} timezone={timezone} />
+        <NotificationList key={summaryRevision} api={api} timezone={timezone} />
       </>
     );
   if (list.data && module === "tasks")
@@ -513,7 +521,7 @@ export function OperationsPage({
                 <SopEditor api={api} onSaved={reload} />
               </Dialog>
             )}
-          <Button variant="ghost" onClick={reload}>
+          <Button variant="ghost" onClick={() => { reload(); setSummaryRevision(r => r + 1); }}>
             {C.refresh}
           </Button>
         </div>

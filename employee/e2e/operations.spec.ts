@@ -202,6 +202,35 @@ test("administrator and employee complete an independently reviewed task", async
     Origin: adminUrl,
     Authorization: `Bearer ${(await login.json()).data.accessToken}`,
   };
+  // Exercise real notification pagination and recover a summary after a network failure.
+  const employeeRows = (await (await request.get(base + "/admin/operations/employees?q=" + encodeURIComponent(name), {headers:authHeaders})).json()).data.items as {_id:string;name:string}[];
+  const recipient = employeeRows.find(row => row.name === name);
+  expect(recipient).toBeTruthy();
+  for (let i = 0; i < 21; i++) {
+    const created = await request.post(base + "/admin/operations/tasks", {
+      headers:authHeaders,
+      data:{title:`Notification fixture ${id} ${i}`,assignees:[recipient!._id]},
+    });
+    expect(created.status()).toBe(200);
+  }
+  await employee.goto(employeeUrl + "/");
+  await expect(employee.getByText("Orders awaiting packing: 0", {exact:true})).toBeVisible();
+  const notifications=employee.locator("section").filter({has:employee.getByRole("heading",{name:"Notifications",exact:true})});
+  const pagination=notifications.getByRole("navigation",{name:"Pagination"});
+  await expect(pagination).toContainText("1 / 2");
+  await pagination.getByRole("button",{name:"Next",exact:true}).click();
+  await expect(pagination).toContainText("2 / 2");
+  await expect(pagination.getByRole("button",{name:"Next",exact:true})).toBeDisabled();
+  const read=notifications.getByRole("button",{name:"Mark read",exact:true}).first();
+  const readResponse=employee.waitForResponse(r=>r.url().includes("/notifications/") && r.url().endsWith("/read") && r.request().method()==="POST");
+  await read.click(); expect((await readResponse).status()).toBe(200);
+  await employee.route("**/employee/summary",route=>route.abort("failed"));
+  await employee.getByRole("button",{name:"Refresh",exact:true}).last().click();
+  await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toBeVisible();
+  await employee.unroute("**/employee/summary");
+  await employee.getByRole("button",{name:"Refresh",exact:true}).last().click();
+  await expect(employee.getByText("Orders awaiting packing: 0", {exact:true})).toBeVisible();
+  await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toHaveCount(0);
   const categories = (await (await request.get(base + "/categories")).json())
     .data;
   const countSku = `COUNT-${id}`;

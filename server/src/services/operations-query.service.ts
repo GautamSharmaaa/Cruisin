@@ -1,3 +1,5 @@
+import { FulfillmentRecordModel } from "../models/fulfillment-record.model.js";
+import { OperationsExceptionModel } from "../models/physical-unit.model.js";
 import { EmployeeTaskService } from "./employee-task.service.js";
 import { PhysicalUnitModel } from "../models/physical-unit.model.js";
 import { ApprovalRequestModel } from "../models/approval-request.model.js";
@@ -37,7 +39,7 @@ export const OperationsQueryService = {
         ? ["sop_change", "sop_publication"]
         : []),
     ];
-    const [tasks, unreadNotifications, pendingApprovals, unitStates, lowStock] =
+    const [tasks, unreadNotifications, pendingApprovals, unitStates, lowStock, fulfillmentCounts, openExceptions] =
       await Promise.all([
         EmployeeTaskService.summary(ctx),
         OperationsNotificationModel.countDocuments({
@@ -71,6 +73,22 @@ export const OperationsQueryService = {
               { $count: "count" },
             ])
           : [],
+        ctx.actor.permissions.includes("orders.view")
+          ? EmployeeTaskModel.aggregate<{_id:string; count:number}>([
+              { $match: {
+                category: "order_packaging", order: { $exists: true },
+                status: { $nin: ["COMPLETED", "CANCELLED"] },
+                ...(ctx.actor.kind === "employee" ? {assignees:ctx.actor.id} : {}),
+              } },
+              { $group: {_id:"$order"} },
+              { $lookup: {from:FulfillmentRecordModel.collection.name,localField:"_id",foreignField:"order",as:"fulfillment"} },
+              { $group: {_id:{$ifNull:[{$arrayElemAt:["$fulfillment.stage",0]},"PICKING"]},count:{$sum:1}} },
+            ])
+          : null,
+        OperationsExceptionModel.countDocuments({
+          status: {$in:["OPEN","ASSIGNED"]},
+          ...(ctx.actor.kind === "employee" ? {$or:[{reporter:ctx.actor.id},{owner:ctx.actor.id}]} : {}),
+        }),
       ]);
     return {
       tasks,
@@ -78,6 +96,12 @@ export const OperationsQueryService = {
       pendingApprovals,
       unitStates,
       lowStockVariants: lowStock[0]?.count ?? 0,
+      openExceptions,
+      fulfillment: fulfillmentCounts === null ? null : {
+        awaitingPacking: fulfillmentCounts.find(r=>r._id === "PICKING")?.count ?? 0,
+        packed: fulfillmentCounts.find(r=>r._id === "PACKED")?.count ?? 0,
+        readyForHandover: fulfillmentCounts.find(r=>r._id === "READY_FOR_HANDOVER")?.count ?? 0,
+      },
     };
   },
 
@@ -214,7 +238,7 @@ export const OperationsQueryService = {
     const filter = { recipient: ctx.actor.id };
     const [items, total] = await Promise.all([
       OperationsNotificationModel.find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip((page.page - 1) * page.limit)
         .limit(page.limit)
         .lean(),

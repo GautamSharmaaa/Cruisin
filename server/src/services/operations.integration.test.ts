@@ -966,3 +966,40 @@ it('prevents modifying persisted audit and ledger documents through save',async(
 it('fails closed when the real Redis connection is interrupted during OTP issuance',async()=>{const e=await createEmployee();const count=await EmployeeOtpModel.countDocuments();await redis.quit();try{await expect(EmployeeAuthService.requestOtp(e.number,randomUUID())).rejects.toThrow();expect(await EmployeeOtpModel.countDocuments()).toBe(count);}finally{await redis.connect();expect(await redis.ping()).toBe('PONG');}});
 
 it('requires all newly created V2 variants to enter stock through physical QC and packaging',async()=>{const {ProductService}=await import('./product.service.js');const p=await product(0);const original=(await ProductModel.findById(p.product))!.toObject();const input={...Object.fromEntries(Object.entries(original).filter(([key])=>!["_id","__v"].includes(key))),slug:`new-v2-${run}`,variants:original.variants.map(v=>({...v,sku:`${v.sku}-NEW`,stock:3}))};await expect(ProductService.create(input)).rejects.toThrow();const created=await ProductService.create({...input,variants:input.variants.map(v=>({...v,stock:0}))});expect(created.variants[0].unitTracked).toBe(true);expect(String(created.variants[0]._id)).not.toBe(String(original.variants[0]._id));});
+
+it('counts packing and dispatch work from persisted tasks without leaking another employee work', async () => {
+  const {FulfillmentRecordModel}=await import('../models/fulfillment-record.model.js');
+  const actor:Principal={id:new Types.ObjectId().toString(),kind:'employee',name:'Summary scope fixture',permissions:['tasks.view','orders.view']};
+  const records=[];
+  for(const [stage,status,assignee] of [
+    ['PICKING','IN_PROGRESS',actor.id],['PACKED','IN_PROGRESS',actor.id],
+    ['READY_FOR_HANDOVER','IN_PROGRESS',actor.id],['READY_FOR_HANDOVER','IN_PROGRESS',other.id],
+    ['PICKING','CANCELLED',actor.id],['PICKING','COMPLETED',actor.id],
+  ] as const){
+    const order=new Types.ObjectId();
+    const task=await EmployeeTaskModel.create({title:'Synthetic dispatch summary',creator:admin.id,assignees:[assignee],category:'order_packaging',order,status});
+    records.push(await FulfillmentRecordModel.create({order,task:task._id,stage}));
+  }
+  // A new task without a record is also awaiting picking; duplicate tasks must not inflate order counts.
+  const order=new Types.ObjectId();
+  await EmployeeTaskModel.create([{title:'New fulfillment',creator:admin.id,assignees:[actor.id],category:'order_packaging',order},{title:'Duplicate task fixture',creator:admin.id,assignees:[actor.id],category:'order_packaging',order}]);
+  try {
+    const summary=await OperationsQueryService.summary(ctx(actor));
+    expect(summary).toMatchObject({fulfillment:{awaitingPacking:2,packed:1,readyForHandover:1}});
+    const restricted=await OperationsQueryService.summary(ctx({...actor,permissions:['tasks.view']}));
+    expect(restricted).toHaveProperty('fulfillment',null);
+  } finally {await FulfillmentRecordModel.deleteMany({_id:{$in:records.map(r=>r._id)}});await EmployeeTaskModel.deleteMany({assignees:actor.id});}
+});
+
+it('counts only unresolved exceptions reported by or assigned to the employee',async()=>{
+  const {OperationsExceptionModel}=await import('../models/physical-unit.model.js');
+  const actor:Principal={id:new Types.ObjectId().toString(),kind:'employee',name:'Exception summary fixture',permissions:['tasks.view']};
+  const fixtures=await OperationsExceptionModel.create([
+    {type:'Missing unit',entity:'summary-fixture',reporter:actor.id,reason:'Synthetic investigation'},
+    {type:'Package issue',entity:'summary-fixture',reporter:other.id,owner:actor.id,status:'ASSIGNED',reason:'Synthetic investigation'},
+    {type:'Resolved issue',entity:'summary-fixture',reporter:actor.id,status:'RESOLVED',reason:'Synthetic investigation'},
+    {type:'Other issue',entity:'summary-fixture',reporter:other.id,reason:'Synthetic investigation'},
+  ]);
+  try {expect(await OperationsQueryService.summary(ctx(actor))).toHaveProperty('openExceptions',2);}
+  finally {await OperationsExceptionModel.deleteMany({_id:{$in:fixtures.map(f=>f._id)}});}
+});

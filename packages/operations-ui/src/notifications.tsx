@@ -55,15 +55,17 @@ export function NotificationList({
   api,
   timezone,
 }: NotificationListProps): ReactNode {
+  const [page, setPage] = useState(1);
   const list = useList<{
     _id: string;
     message: string;
     event: string;
     createdAt: string;
     readAt?: string;
-  }>(api, "/notifications");
+  }>(api, "/notifications", "", "", page);
   return (
     <Card title={C.notifications}>
+      {!list.data && !list.error && <Skeleton />}
       {list.error && <Alert tone="danger">{list.error}</Alert>}
       {list.data?.items.map((n) => (
         <div key={n._id} className="ui-row">
@@ -86,6 +88,7 @@ export function NotificationList({
         </div>
       ))}
       {list.data?.items.length === 0 && <p>{C.notificationEmpty}</p>}
+      {list.data && list.data.pages > 1 && <Pagination page={page} pages={list.data.pages} onChange={setPage} />}
     </Card>
   );
 }

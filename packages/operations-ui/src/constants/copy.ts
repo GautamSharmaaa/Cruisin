@@ -1,4 +1,9 @@
 export const OPS_COPY = {
+  openExceptions: "Open exceptions",
+  unreadNotifications: "Unread notifications",
+  awaitingPacking: "Orders awaiting packing",
+  packedOrders: "Packed orders",
+  readyForHandover: "Ready for dispatch",
   inspectionHistory:"Immutable inspection history",
   inspectionType:"Inspection type",
   sopVersionUsed:"SOP version used",
