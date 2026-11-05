@@ -1,3 +1,4 @@
+import {stockActorContext} from './services/stock-actor-context.js';
 // Governed by .rules v1.0
 import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
@@ -22,6 +23,7 @@ export const createApp = (): Express => {
   const app = express();
   morgan.token('safe-path', (req) => req.url?.split('?')[0] ?? '-');
   app.set('trust proxy', env.TRUST_PROXY);
+  app.use((req,_res,next)=>stockActorContext.run({request:req},next));
   if (env.SENTRY_DSN) Sentry.init({ dsn: env.SENTRY_DSN, environment: env.APP_ENV });
   app.use(helmet({ contentSecurityPolicy: env.NODE_ENV === 'production' ? { directives: { defaultSrc: ["'self'"], imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], connectSrc: ["'self'", env.CLIENT_URL, env.ADMIN_URL] } } : false }));
   app.use(cors({ origin: allowedBrowserOrigins, credentials: true, exposedHeaders: ['Content-Disposition', 'X-Invoice-Download-Recorded'] }));
@@ -32,7 +34,7 @@ export const createApp = (): Express => {
   app.use(cookieParser());
   app.use(mongoSanitizeMiddleware);
   app.use(requestPerformanceMiddleware);
-  app.use(morgan(env.NODE_ENV === 'production' ? ':remote-addr :method :safe-path :status :res[content-length] - :response-time ms' : 'dev'));
+  app.use(morgan(env.NODE_ENV === 'production' ? ':remote-addr :method :safe-path :status :res[content-length] - :response-time ms' : ':method :safe-path :status :response-time ms'));
   app.get('/health', (_req, res) => { res.json(new ApiResponse({ status: 'ok' }, 'API healthy')); });
   app.get('/ready', async (_req, res) => {
     try {

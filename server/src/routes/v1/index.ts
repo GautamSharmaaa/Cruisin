@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import { operationsAdminRouter, employeeRouter, publicMediaRouter } from './operations.routes.js';
 import { Router } from 'express';
 import { adminRouter } from './admin.routes.js';
 import { adminManagementRouter } from './admin-management.routes.js';
@@ -20,6 +21,9 @@ import { adminExchangeRouter, adminReturnRouter, returnExchangeRouter } from './
 import { promotionExperienceAdminRouter, promotionExperienceRouter } from './promotion-experience.routes.js';
 
 export const v1Router = Router();
+v1Router.use('/admin/operations', operationsAdminRouter);
+v1Router.use('/employee', employeeRouter);
+v1Router.use('/media', publicMediaRouter);
 v1Router.use('/auth', authRouter);
 v1Router.use('/products', productRouter);
 v1Router.use('/navigation', navigationRouter);
