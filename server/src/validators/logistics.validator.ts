@@ -168,7 +168,7 @@ export const returnRequestSchema = z
 
 export const returnPaymentVerifySchema = z.object({
   requestId: objectIdSchema,
-  payload: z.record(z.unknown())
+  payload: z.record(z.string(), z.unknown())
 }).strict();
 
 export const refundDestinationSchema = z.discriminatedUnion('method', [

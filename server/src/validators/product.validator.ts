@@ -1,3 +1,4 @@
+import {patchObject} from './patch-object.js';
 // Governed by .rules v1.0
 import { z } from 'zod';
 import { objectIdSchema, queryBooleanSchema } from './common.validator.js';
@@ -107,7 +108,7 @@ const validatePriceRelationship = (product: { basePrice?: number; comparePrice?:
   }
 };
 export const productBodySchema = productFieldsSchema.superRefine(validatePriceRelationship);
-export const productUpdateSchema = productFieldsSchema.partial().superRefine(validatePriceRelationship);
+export const productUpdateSchema = patchObject(productFieldsSchema).superRefine(validatePriceRelationship);
 export const productQuerySchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   category: z.string().optional(),

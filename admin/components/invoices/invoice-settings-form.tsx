@@ -19,7 +19,7 @@ const inputClass = 'h-11 border border-border bg-background-input px-3 text-sm n
 export function InvoiceSettingsForm(): ReactNode {
   const settings = useInvoiceSettings();
   const [notice, setNotice] = useState('');
-  const form = useForm<InvoiceSettingsFormValue>({ resolver: zodResolver(invoiceSettingsSchema), defaultValues: { legalName: 'Cruisin', tradeName: 'CRUISIN', invoicePrefix: 'CR', registeredAddress: 'KV APPAREL 992/1, Gali No. 2, Kapashera Extention, Kapashera, New Delhi 110037, Near Mahadeep Public School, South West Delhi, Delhi, India', gstin: '07BZXPV5435K1ZB', state: 'Delhi', stateCode: '07', phone: '8287846203', email: '', footer: 'Thank you for shopping with Cruisin.', authorizedSignatory: '', signatureAssetUrl: '', bulkPdfLimit: 100 } });
+  const form = useForm<import("zod").input<typeof invoiceSettingsSchema>, unknown, InvoiceSettingsFormValue>({ resolver: zodResolver(invoiceSettingsSchema), defaultValues: { legalName: 'Cruisin', tradeName: 'CRUISIN', invoicePrefix: 'CR', registeredAddress: 'KV APPAREL 992/1, Gali No. 2, Kapashera Extention, Kapashera, New Delhi 110037, Near Mahadeep Public School, South West Delhi, Delhi, India', gstin: '07BZXPV5435K1ZB', state: 'Delhi', stateCode: '07', phone: '8287846203', email: '', footer: 'Thank you for shopping with Cruisin.', authorizedSignatory: '', signatureAssetUrl: '', bulkPdfLimit: 100 } });
   useEffect(() => { if (settings.data) form.reset(settings.data); }, [form, settings.data]);
   const save = form.handleSubmit(async (value): Promise<void> => {
     setNotice('Saving settings…');

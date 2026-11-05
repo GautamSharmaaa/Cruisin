@@ -55,7 +55,7 @@ export const categoryBodySchema = z.object({
   seoDescription: z.string().max(260).optional().default(''),
   ogImage: optionalUrlSchema.default(''),
   canonicalSlug: z.string().max(160).optional().default(''),
-  customContent: z.record(z.unknown()).nullable().optional(),
+  customContent: z.record(z.string(), z.unknown()).nullable().optional(),
   breadcrumb: z.array(breadcrumbItemSchema).default([])
 });
 

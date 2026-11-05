@@ -1,0 +1,23 @@
+{
+  "name": "@cruisin/ui",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.tsx",
+    "./styles.css": "./src/styles.css",
+    "./copy": "./src/constants/copy.ts"
+  },
+  "dependencies": {
+    "radix-ui": "1.8.1",
+    "next-themes": "^0.4.6",
+    "sonner": "^2.0.7",
+    "cmdk": "^1.1.1",
+    "react-day-picker": "^9.11.1",
+    "date-fns": "^4.1.0",
+    "input-otp": "^1.4.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

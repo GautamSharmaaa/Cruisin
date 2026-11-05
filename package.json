@@ -9,7 +9,11 @@
   "workspaces": [
     "client",
     "admin",
-    "server"
+    "server",
+    "employee",
+    "packages/ui",
+    "packages/contracts",
+    "packages/operations-ui"
   ],
   "scripts": {
     "dev": "npm-run-all --parallel dev:server dev:client dev:admin",
@@ -18,9 +22,9 @@
     "dev:client": "npm --workspace client run dev",
     "dev:admin": "npm --workspace admin run dev",
     "dev:server": "npm --workspace server run dev",
-    "build": "npm --workspaces run build",
-    "typecheck": "npm --workspaces run typecheck",
-    "lint": "npm --workspaces run lint",
+    "build": "npm --workspaces --if-present run build",
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "lint": "npm --workspaces --if-present run lint",
     "test": "npm --workspace server run test && npm --workspace client run test && npm --workspace admin run test",
     "test:e2e": "npm --workspace client run test:e2e",
     "test:e2e:logistics": "npm --workspace client run test:e2e:logistics",
@@ -33,7 +37,8 @@
     "v2:admin": "node scripts/v2.mjs admin",
     "v2:test": "node scripts/v2.mjs test",
     "v2:e2e": "node scripts/v2.mjs e2e",
-    "v2:build": "node scripts/v2.mjs build"
+    "v2:build": "node scripts/v2.mjs build",
+    "v2:employee": "node scripts/v2.mjs employee"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",

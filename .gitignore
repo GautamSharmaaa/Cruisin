@@ -29,3 +29,6 @@ razorpay_test_api_keys_*.csv
 *.key
 Cruisin-Backups/
 .Cruisin-Recovery-Keys/
+
+employee/test-results/
+employee/playwright-report/

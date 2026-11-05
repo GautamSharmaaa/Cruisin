@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 "use client";
+import {uploadPublicMedia} from "@/lib/media-upload";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AxiosResponse } from "axios";
 import { useDropzone } from "react-dropzone";
@@ -255,7 +256,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
     control,
     getValues,
     trigger,
-  } = useForm<ProductFormValues>({
+  } = useForm<import("zod").input<typeof adminProductSchema>, unknown, ProductFormValues>({
     resolver: zodResolver(adminProductSchema),
     defaultValues: formValuesFromProduct(product),
   });
@@ -465,42 +466,11 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const uploadFiles = useCallback(
     async (files: File[]): Promise<string[]> => {
       if (!files.length) return [];
-      const sig = await uploadSignature.mutateAsync();
       const urls: string[] = [];
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append(
-          "api_key",
-          String(process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? ""),
-        );
-        formData.append("timestamp", String(sig.timestamp));
-        formData.append("signature", sig.signature);
-        formData.append("folder", sig.folder);
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        if (!cloudName)
-          throw new Error("Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME");
-        let response: AxiosResponse<CloudinaryUploadResponse>;
-        try {
-          response = await externalUploadApi.post<CloudinaryUploadResponse>(
-            `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-            formData,
-          );
-        } catch (error) {
-          if (error instanceof Error && /timeout/i.test(error.message)) {
-            throw new Error(
-              `Upload timed out for ${file.name}. Check the connection and retry this image.`,
-            );
-          }
-          throw error;
-        }
-        if (!response.data.secure_url)
-          throw new Error(`Upload failed for ${file.name}`);
-        urls.push(response.data.secure_url);
-      }
+      for (const file of files) urls.push(await uploadPublicMedia(file));
       return urls;
     },
-    [uploadSignature],
+    [],
   );
 
   const onDropHandler = useCallback(
@@ -732,22 +702,22 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
           />
           <Toggle
             label="Featured"
-            value={watch("isFeatured")}
+            value={watch("isFeatured") ?? false}
             onChange={(value) => setValue("isFeatured", value)}
           />
           <Toggle
             label="Bestseller"
-            value={watch("isBestseller")}
+            value={watch("isBestseller") ?? false}
             onChange={(value) => setValue("isBestseller", value)}
           />
           <Toggle
             label="New Arrival"
-            value={watch("isNewArrival")}
+            value={watch("isNewArrival") ?? false}
             onChange={(value) => setValue("isNewArrival", value)}
           />
           <Toggle
             label="Sale"
-            value={watch("isSale")}
+            value={watch("isSale") ?? false}
             onChange={(value) => setValue("isSale", value)}
           />
         </AdminFormSection>

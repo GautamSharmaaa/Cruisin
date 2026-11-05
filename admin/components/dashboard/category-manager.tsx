@@ -99,7 +99,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
   const [toast, setToast] = useState<Toast>(null);
   const selectedCategory = useMemo(() => categories.find((category) => categoryId(category) === editingId), [categories, editingId]);
   const mode: Mode = selectedCategory ? 'edit' : 'create';
-  const { register, handleSubmit, formState, setValue, watch, reset } = useForm<CategoryFormValues>({ resolver: zodResolver(adminCategorySchema), defaultValues: emptyCategoryValues });
+  const { register, handleSubmit, formState, setValue, watch, reset } = useForm<import("zod").input<typeof adminCategorySchema>, unknown, CategoryFormValues>({ resolver: zodResolver(adminCategorySchema), defaultValues: emptyCategoryValues });
   const image = watch('image');
   const categoryVideo = watch('categoryVideo');
 

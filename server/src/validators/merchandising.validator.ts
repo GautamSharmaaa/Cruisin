@@ -95,7 +95,7 @@ export const collectionBodySchema = z.object({
   productIds: z.array(objectIdSchema).default([]),
   categoryIds: z.array(objectIdSchema).default([]),
   tags: z.array(z.string().min(1).max(80)).default([]),
-  productSortOrder: z.record(z.unknown()).default({}),
+  productSortOrder: z.record(z.string(), z.unknown()).default({}),
   sortOrder: z.number().int().default(0),
   isVisible: z.boolean().default(true),
   isPublished: z.boolean().default(true),
@@ -141,8 +141,8 @@ export const pageSettingsBodySchema = z.object({
   seoDescription: z.string().max(260).optional().default(''),
   ogImage: optionalUrlSchema.default(''),
   isPublished: z.boolean().default(true),
-  sectionVisibility: z.record(z.unknown()).default({}),
-  customSections: z.array(z.record(z.unknown())).default([])
+  sectionVisibility: z.record(z.string(), z.unknown()).default({}),
+  customSections: z.array(z.record(z.string(), z.unknown())).default([])
 });
 
 export const pageSettingsQuerySchema = paginationQuerySchema.extend({
@@ -156,17 +156,17 @@ export const pageSettingsParamSchema = z.object({
 });
 
 export const siteSettingsBodySchema = z.object({
-  defaultGridView: gridViewSchema.default(4),
-  isFlashlightEnabled: z.boolean().default(true),
-  isCollectionCarouselEnabled: z.boolean().default(true),
-  isAdvancedFilterEnabled: z.boolean().default(true),
-  isListingHeroMediaEnabled: z.boolean().default(true),
-  isStorefrontNavigationVisible: z.boolean().default(true),
-  standardShippingRate: z.number().min(0).max(100_000).default(900),
-  expressShippingRate: z.number().min(0).max(100_000).default(1800),
-  freeStandardShippingThreshold: z.number().min(0).max(1_000_000).default(25_000),
-  standardShippingCompareAt: z.number().min(0).max(100_000).default(0),
-  globalFilterSettings: z.record(z.unknown()).default({})
+  defaultGridView: gridViewSchema,
+  isFlashlightEnabled: z.boolean(),
+  isCollectionCarouselEnabled: z.boolean(),
+  isAdvancedFilterEnabled: z.boolean(),
+  isListingHeroMediaEnabled: z.boolean(),
+  isStorefrontNavigationVisible: z.boolean(),
+  standardShippingRate: z.number().min(0).max(100_000),
+  expressShippingRate: z.number().min(0).max(100_000),
+  freeStandardShippingThreshold: z.number().min(0).max(1_000_000),
+  standardShippingCompareAt: z.number().min(0).max(100_000),
+  globalFilterSettings: z.record(z.string(), z.unknown())
 });
 
 export const paymentSettingsBodySchema = z.object({

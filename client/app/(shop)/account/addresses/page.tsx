@@ -34,7 +34,7 @@ export default function AddressesPage(): ReactNode {
   const deleteAddress = useDeleteAddress();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const { register, handleSubmit, formState, reset } = useForm<AddressForm>({ resolver: zodResolver(addressBookSchema), defaultValues: emptyAddress });
+  const { register, handleSubmit, formState, reset } = useForm<import("zod").input<typeof addressBookSchema>, unknown, AddressForm>({ resolver: zodResolver(addressBookSchema), defaultValues: emptyAddress });
 
   const clearEditor = (): void => {
     setEditingId(null);

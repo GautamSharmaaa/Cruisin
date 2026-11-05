@@ -1,0 +1,20 @@
+{
+  "name": "@cruisin/operations-ui",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.tsx",
+    "./copy": "./src/constants/copy.ts"
+  },
+  "dependencies": {
+    "@cruisin/ui": "*",
+    "@cruisin/contracts": "*",
+    "zod": "4.6.7",
+    "react-markdown": "^10.1.0",
+    "@zxing/browser": "^0.1.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

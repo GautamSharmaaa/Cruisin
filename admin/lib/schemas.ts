@@ -23,16 +23,16 @@ export const invoiceSettingsSchema = z.object({
   footer: z.string().trim().max(300),
   authorizedSignatory: z.string().trim().max(120),
   signatureAssetUrl: z.string().trim().url().or(z.literal("")),
-  bulkPdfLimit: z.coerce.number().int().min(1).max(250),
+  bulkPdfLimit: z.coerce.number<number>().int().min(1).max(250),
 });
 
 export type InvoiceSettingsFormValue = z.infer<typeof invoiceSettingsSchema>;
 import { MAX_VARIANT_IMAGES } from "./variant-media";
 
-const optionalNumber = (schema: z.ZodNumber) =>
+const optionalNumber = (schema: z.ZodType<number, number>) =>
   z.preprocess(
-    (value) =>
-      value === "" || value === null || value === undefined ? undefined : value,
+    (value: number | undefined) =>
+      String(value) === "" || value === null || value === undefined ? undefined : value,
     schema.optional(),
   );
 const orderedVariantImagesSchema = z
@@ -61,9 +61,9 @@ export const adminProductVariantSchema = z.object({
   size: z.string().min(1),
   color: z.string().min(1),
   colorHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  stock: z.coerce.number().int().min(0),
-  priceOverride: optionalNumber(z.coerce.number().min(0)),
-  lowStockThreshold: optionalNumber(z.coerce.number().int().min(0)),
+  stock: z.coerce.number<number>().int().min(0),
+  priceOverride: optionalNumber(z.coerce.number<number>().min(0)),
+  lowStockThreshold: optionalNumber(z.coerce.number<number>().int().min(0)),
   enabled: z.boolean().default(true),
   images: orderedVariantImagesSchema,
 });
@@ -93,12 +93,12 @@ export const adminProductSchema = z
     sizeGuide: z.string().optional().default(""),
     productHighlights: z.string().optional().default(""),
     pickupAddress: z.string().optional().default(""),
-    lowStockThreshold: z.coerce.number().int().min(0).default(10),
-    weight: z.coerce.number().min(0).optional(),
-    length: z.coerce.number().min(0).optional(),
-    width: z.coerce.number().min(0).optional(),
-    height: z.coerce.number().min(0).optional(),
-    packagingWeight: z.coerce.number().min(0).max(25).optional(),
+    lowStockThreshold: z.coerce.number<number>().int().min(0).default(10),
+    weight: z.coerce.number<number>().min(0).optional(),
+    length: z.coerce.number<number>().min(0).optional(),
+    width: z.coerce.number<number>().min(0).optional(),
+    height: z.coerce.number<number>().min(0).optional(),
+    packagingWeight: z.coerce.number<number>().min(0).max(25).optional(),
     defaultPackagePreset: z.string().max(80).optional().default(""),
     maximumQuantityPerPackage: z.coerce
       .number()
@@ -109,14 +109,14 @@ export const adminProductSchema = z
     seoTitle: z.string().optional().default(""),
     seoDescription: z.string().optional().default(""),
     ogImage: z.string().optional().default(""),
-    basePrice: z.coerce.number().min(0),
-    comparePrice: z.coerce.number().min(0).optional(),
-    costPrice: z.coerce.number().min(0).optional(),
-    manufacturingCost: z.coerce.number().min(0).default(0),
-    packagingCost: z.coerce.number().min(0).default(0),
-    marketingCost: z.coerce.number().min(0).default(0),
-    handlingCost: z.coerce.number().min(0).default(0),
-    otherCost: z.coerce.number().min(0).default(0),
+    basePrice: z.coerce.number<number>().min(0),
+    comparePrice: z.coerce.number<number>().min(0).optional(),
+    costPrice: z.coerce.number<number>().min(0).optional(),
+    manufacturingCost: z.coerce.number<number>().min(0).default(0),
+    packagingCost: z.coerce.number<number>().min(0).default(0),
+    marketingCost: z.coerce.number<number>().min(0).default(0),
+    handlingCost: z.coerce.number<number>().min(0).default(0),
+    otherCost: z.coerce.number<number>().min(0).default(0),
     gstPercent: z.coerce
       .number()
       .refine((value) => value === 5, "GST must be 5%")
@@ -170,11 +170,11 @@ export const adminProductSchema = z
 export const adminCouponSchema = z.object({
   code: z.string().min(2),
   type: z.enum(["percentage", "fixed", "freeShipping"]),
-  value: z.coerce.number().min(0),
-  minOrderValue: z.coerce.number().min(0).default(0),
-  maxDiscount: optionalNumber(z.coerce.number().min(0)),
-  usageLimit: optionalNumber(z.coerce.number().int().min(1)),
-  userUsageLimit: z.coerce.number().int().min(1).default(1),
+  value: z.coerce.number<number>().min(0),
+  minOrderValue: z.coerce.number<number>().min(0).default(0),
+  maxDiscount: optionalNumber(z.coerce.number<number>().min(0)),
+  usageLimit: optionalNumber(z.coerce.number<number>().int().min(1)),
+  userUsageLimit: z.coerce.number<number>().int().min(1).default(1),
   applicableProducts: z.string().optional().default(""),
   applicableCategories: z.string().optional().default(""),
   validFrom: z.preprocess(
@@ -211,7 +211,7 @@ export const adminCategorySchema = z.object({
   videoAutoplay: z.boolean().default(true),
   videoMuted: z.boolean().default(true),
   videoLoop: z.boolean().default(true),
-  sortOrder: z.coerce.number().int().min(0),
+  sortOrder: z.coerce.number<number>().int().min(0),
   isActive: z.boolean().default(true),
   isVisible: z.boolean().default(true),
   isPublished: z.boolean().default(true),
@@ -267,6 +267,6 @@ export const adminBannerSchema = z.object({
   position: z.string().min(2),
   startDate: z.string().min(4),
   endDate: z.string().min(4),
-  sortOrder: z.coerce.number().int().min(0),
+  sortOrder: z.coerce.number<number>().int().min(0),
   isActive: z.boolean().default(true),
 });

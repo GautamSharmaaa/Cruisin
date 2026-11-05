@@ -36,7 +36,7 @@ enforced_by: Codex
 - Mobile-first. Every component built for 375px first, then md, lg, xl.
 - No layout shifts. All images must have explicit width + height or aspect-ratio.
 - Skeleton loaders required for every async data component.
-- Dark mode is the DEFAULT and ONLY mode for this brand.
+- V2 supports light, dark and system themes; dark remains the initial brand default.
 
 ## API Rules
 - All routes prefixed /api/v1/

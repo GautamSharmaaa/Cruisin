@@ -1,0 +1,16 @@
+{
+  "name": "@cruisin/contracts",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./media-config": {
+      "types": "./media-config.d.ts",
+      "default": "./media-config.js"
+    }
+  }
+}

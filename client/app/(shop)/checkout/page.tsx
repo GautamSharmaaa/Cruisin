@@ -55,7 +55,7 @@ export default function CheckoutPage(): ReactNode {
   const siteSettings = useSiteSettings();
   const addressBook = useAddressBook(Boolean(user));
   const addresses = useMemo(() => Array.isArray(addressBook.data) ? addressBook.data : [], [addressBook.data]);
-  const { handleSubmit, formState, watch, setValue } = useForm<CheckoutForm>({ resolver: zodResolver(checkoutPageSchema), defaultValues: { country: COPY.fields.defaultCountry, paymentMethod: 'razorpay', shippingMethod: 'standard' } });
+  const { handleSubmit, formState, watch, setValue } = useForm<import("zod").input<typeof checkoutPageSchema>, unknown, CheckoutForm>({ resolver: zodResolver(checkoutPageSchema), defaultValues: { country: COPY.fields.defaultCountry, paymentMethod: 'razorpay', shippingMethod: 'standard' } });
   const addressPrefilled = useRef(false);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);

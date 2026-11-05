@@ -1,4 +1,4 @@
-const REQUIRED_TEST_MONGO_URI = 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
+const REQUIRED_TEST_MONGO_URI = 'mongodb://127.0.0.1:27983/cruisin-sync-order-analytics-tests';
 const REQUIRED_TEST_DATABASE = 'cruisin-sync-order-analytics-tests';
 
 const asserted = Symbol.for('cruisin.testDatabaseGuard.asserted');

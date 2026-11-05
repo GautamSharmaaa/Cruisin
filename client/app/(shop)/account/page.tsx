@@ -34,7 +34,7 @@ export default function AccountPage(): ReactNode {
   const logout = useLogout();
   const wallet = useCustomerWallet();
   const [greeting, setGreeting] = useState('Welcome');
-  const { register, handleSubmit, formState, reset } = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) });
+  const { register, handleSubmit, formState, reset } = useForm<import("zod").input<typeof profileSchema>, unknown, ProfileForm>({ resolver: zodResolver(profileSchema) });
   useEffect(() => { if (me.data) reset({ name: me.data.name || undefined, email: me.data.email || undefined, phone: me.data.phone, whatsappNumber: me.data.whatsappNumber }); }, [me.data, reset]);
   useEffect(() => {
     const hour = new Date().getHours();

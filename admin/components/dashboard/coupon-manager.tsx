@@ -35,7 +35,7 @@ export function CouponManager({ coupons, isLoading }: CouponManagerProps): React
   const archiveCoupon = useArchiveCoupon();
   const products = useAdminProducts({ limit: 100, sort: 'updated' });
   const categories = useAdminCategories();
-  const { register, handleSubmit, formState, reset, watch, setValue } = useForm<CouponFormValues>({ resolver: zodResolver(adminCouponSchema), defaultValues: { type: 'percentage', minOrderValue: 0, userUsageLimit: 1, applicableProducts: '', applicableCategories: '' } });
+  const { register, handleSubmit, formState, reset, watch, setValue } = useForm<import("zod").input<typeof adminCouponSchema>, unknown, CouponFormValues>({ resolver: zodResolver(adminCouponSchema), defaultValues: { type: 'percentage', minOrderValue: 0, userUsageLimit: 1, applicableProducts: '', applicableCategories: '' } });
 
   const selectedProducts = watch('applicableProducts') ?? '';
   const selectedCategories = watch('applicableCategories') ?? '';

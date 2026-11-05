@@ -19,7 +19,7 @@
     "test:e2e:meta": "playwright test -c playwright.meta.config.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
+    "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-select": "^2.1.4",
     "@react-oauth/google": "^0.13.5",
@@ -32,8 +32,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
-    "zod": "^3.24.1",
-    "zustand": "^5.0.3"
+    "zod": "4.6.7",
+    "zustand": "^5.0.3",
+    "@cruisin/ui": "*",
+    "@cruisin/contracts": "*"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

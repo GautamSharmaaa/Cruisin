@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {uploadPublicMedia} from '@/lib/media-upload';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, UploadCloud, X } from 'lucide-react';
 import type { ChangeEvent, ReactNode } from 'react';
@@ -426,18 +427,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
     setMediaUploading(true);
     setMediaUploadMessage('Uploading ' + file.name + '…');
     try {
-      const signature = await cmsUploadSignature.mutateAsync();
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', String(process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? ''));
-      formData.append('timestamp', String(signature.timestamp));
-      formData.append('signature', signature.signature);
-      formData.append('folder', signature.folder);
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) throw new Error('Missing Cloudinary configuration');
-      const response = await externalUploadApi.post<CloudinaryUploadResponse>(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, formData);
-      const url = response.data.secure_url;
-      if (!url) throw new Error('Upload did not return a media URL');
+      const url = await uploadPublicMedia(file);
       const isVideo = file.type.startsWith('video/');
       onContent('mediaType', isVideo ? 'video' : 'image');
       onContent(isVideo ? 'videoUrl' : 'imageUrl', url);
