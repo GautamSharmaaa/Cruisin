@@ -22,15 +22,15 @@ test.describe('supported cross-browser smoke contract', () => {
     await expect(menu).toHaveCount(0);
 
     await page.goto('/shop', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('combobox', {name:/^Sort/}).selectOption('price-asc');
+    await expect(page).toHaveURL(/sort=price-asc/);
+    await expectNoHorizontalOverflow(page);
     const firstProductLink = page.locator('a[href^="/product/"]').first();
     await expect(firstProductLink).toBeVisible();
     const productHref = await firstProductLink.getAttribute('href');
     const productTitle = (await firstProductLink.getByRole('heading').textContent())?.trim();
     expect(productHref).toBeTruthy();
     expect(productTitle).toBeTruthy();
-    await page.locator('select').selectOption('price-asc');
-    await expect(page).toHaveURL(/sort=price-asc/);
-    await expectNoHorizontalOverflow(page);
 
     await page.goto(productHref!, { waitUntil: 'domcontentloaded' });
     // WebKit can take longer to hydrate the PDP after the catalogue request.

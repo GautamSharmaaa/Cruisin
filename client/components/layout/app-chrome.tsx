@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import { ThemeSelect } from '@cruisin/ui';
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -20,5 +21,5 @@ export function AppChrome({ children }: AppChromeProps): ReactNode {
   const cartOpen = useCartStore((state) => state.isOpen);
   const focusedCommerce = pathname === '/cart' || pathname === '/checkout';
   useEffect(() => { closeCart(); }, [closeCart, pathname]);
-  return <MobileAuthSheetProvider><div className="luxury-noise">{focusedCommerce ? <div className="hidden md:block"><Navbar /></div> : <Navbar />}<div id="main" tabIndex={-1} className="relative z-10 min-h-dvh">{children}</div>{focusedCommerce ? <div className="hidden md:block"><Footer /></div> : <Footer />}<CartDrawer />{focusedCommerce ? null : <BottomNav onSearch={() => setSearch(true)} />}<SearchModal open={search} onOpenChange={setSearch} /><PromotionRuntime blocked={search || cartOpen} /></div></MobileAuthSheetProvider>;
+  return <MobileAuthSheetProvider><div className="luxury-noise">{focusedCommerce ? <div className="hidden md:block"><Navbar /></div> : <Navbar />}<div id="main" tabIndex={-1} className="relative z-10 min-h-dvh">{children}</div>{focusedCommerce ? <div className="hidden md:block"><Footer /></div> : <Footer />}<div className="relative z-20 mx-auto max-w-7xl px-6 py-6"><ThemeSelect /></div><CartDrawer />{focusedCommerce ? null : <BottomNav onSearch={() => setSearch(true)} />}<SearchModal open={search} onOpenChange={setSearch} /><PromotionRuntime blocked={search || cartOpen} /></div></MobileAuthSheetProvider>;
 }

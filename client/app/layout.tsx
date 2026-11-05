@@ -7,6 +7,7 @@ import { Providers } from '@/components/shared/providers';
 import { COPY } from '@/constants/copy';
 import { SITE_CONFIG } from '@/constants/config';
 import './globals.css';
+import '@cruisin/ui/styles.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_CONFIG.url),
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export interface RootLayoutProps { children: ReactNode; }
 export default function RootLayout({ children }: RootLayoutProps): ReactNode {
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
-  return <html lang="en" className="dark" data-scroll-behavior="smooth">
+  return <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
     <head>{metaPixelId ? <>
       <script id="cruisin-meta-pixel-bootstrap" src="/meta-pixel-bootstrap.js" />
     </> : null}</head>

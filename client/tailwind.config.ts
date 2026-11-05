@@ -3,8 +3,7 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   darkMode: ['class'],
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
-  theme: {
+  content: { relative: true, files: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './hooks/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}', '../packages/ui/src/**/*.{ts,tsx}', '../packages/operations-ui/src/**/*.{ts,tsx}'] }, theme: {
     extend: {
       colors: {
         background: { primary: 'var(--bg-primary)', elevated: 'var(--bg-elevated)', overlay: 'var(--bg-overlay)', input: 'var(--bg-input)' },

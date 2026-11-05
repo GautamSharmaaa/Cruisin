@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 
+import {renderLogisticsPrintPreview as renderPrintPreview} from '@cruisin/ui';
 import { FileText, Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -10,23 +11,6 @@ import { useGenerateLogisticsDocument, type LogisticsDocumentAccess, type Shipme
 
 const title = (kind: 'label' | 'invoice'): string => kind === 'label' ? 'Shipping label' : 'Order invoice';
 
-const renderPrintPreview = (popup: Window, document: LogisticsDocumentAccess): void => {
-  if (document.url.startsWith('https://')) {
-    // Open the provider PDF directly: Shiprocket may block cross-origin iframes,
-    // while direct navigation keeps the browser's native print/download controls.
-    popup.location.replace(document.url);
-    return;
-  }
-  popup.document.body.replaceChildren();
-  popup.document.title = `Cruisin ${title(document.kind as 'label' | 'invoice')}`;
-  const heading = popup.document.createElement('h1');
-  heading.textContent = `Cruisin ${title(document.kind as 'label' | 'invoice')}`;
-  popup.document.body.append(heading);
-  const reference = popup.document.createElement('p');
-  reference.textContent = `Mock document reference: ${document.url}`;
-  popup.document.body.append(reference);
-  popup.print();
-};
 
 export function LogisticsDocumentButtons({ shipment, compact = false }: { shipment: Shipment; compact?: boolean }): ReactNode {
   const documents = useGenerateLogisticsDocument();

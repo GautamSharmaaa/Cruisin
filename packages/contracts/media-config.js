@@ -1,0 +1,1 @@
+export const mediaDeliveryConfig=(value)=>{if(!value)return {origin:'',patterns:[]};const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||u.pathname!=='/'||u.search||u.hash)throw new Error('Media delivery must use a plain HTTPS origin');return {origin:u.origin,patterns:[{protocol:'https',hostname:u.hostname,port:u.port,pathname:'/**'}]};};

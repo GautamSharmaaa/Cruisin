@@ -1,2 +1,1 @@
-// Governed by .rules v1.0
-module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } };
+module.exports = { plugins: { tailwindcss: { config: require('node:path').join(__dirname, 'tailwind.config.ts') }, autoprefixer: {} } };
