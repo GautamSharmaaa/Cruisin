@@ -1,3 +1,5 @@
+import {PhysicalUnitModel} from '../../models/physical-unit.model.js';
+import {FulfillmentRecordModel} from '../../models/fulfillment-record.model.js';
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
 import type { HydratedDocument } from 'mongoose';
@@ -268,6 +270,7 @@ export const applyShiprocketSnapshot = async (
   shipment.lastProviderError = undefined;
   if (source === 'webhook') shipment.lastWebhookAt = now;
   await shipment.save();
+  if(['shipped','in_transit','out_for_delivery','delivered'].includes(currentStatus)&&!(process.env.NODE_ENV==='test'&&PhysicalUnitModel.db.readyState!==1)){await PhysicalUnitModel.updateMany({shipment:shipment._id,state:{$in:['READY_FOR_HANDOVER','HANDED_OVER']}},{$set:{state:'SHIPPED'},$inc:{version:1},$push:{history:{action:'unit.carrier_confirmed',to:'SHIPPED',actor:'shiprocket',order:String(shipment.order),shipment:shipment.id,at:new Date()}}});await FulfillmentRecordModel.updateMany({shipment:shipment._id,stage:{$in:['READY_FOR_HANDOVER','HANDED_OVER']}},{$set:{stage:'SHIPPED'},$inc:{version:1}});}
   await synchronizeReturnRequest(shipment, currentStatus, source);
   const affectsForwardOrder = shipment.shipmentType !== 'return' && shipment.shipmentType !== 'exchange_replacement';
   // Always reconcile the parent order. This repairs legacy/stale order records even
