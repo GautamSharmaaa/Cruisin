@@ -50,15 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
@@ -74,6 +65,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Start isolated transactional MongoDB
+        run: |
+          docker run -d --name cruisin-ci-mongo -p 127.0.0.1:27017:27017 mongo:8.0 --replSet rsCi --bind_ip_all
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' && break
+            sleep 1
+          done
+          docker exec cruisin-ci-mongo mongosh --quiet --eval 'rs.initiate({_id:"rsCi",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'if(!db.hello().isWritablePrimary) quit(1)' && exit 0
+            sleep 1
+          done
+          exit 1
       - run: npm ci
       - run: node scripts/v2-secret-scan.mjs
       - run: npm audit --audit-level=high
@@ -92,15 +96,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:
@@ -116,6 +111,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Start isolated transactional MongoDB
+        run: |
+          docker run -d --name cruisin-ci-mongo -p 127.0.0.1:27017:27017 mongo:8.0 --replSet rsCi --bind_ip_all
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' && break
+            sleep 1
+          done
+          docker exec cruisin-ci-mongo mongosh --quiet --eval 'rs.initiate({_id:"rsCi",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'if(!db.hello().isWritablePrimary) quit(1)' && exit 0
+            sleep 1
+          done
+          exit 1
       - run: npm ci
       - run: npm run build
         env:
@@ -145,18 +153,92 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  operations-e2e:
+    name: Synthetic warehouse cross-application workflows
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PORT: 8192
+      CLIENT_URL: http://127.0.0.1:3192
+      ADMIN_URL: http://127.0.0.1:3193
+      EMPLOYEE_URL: http://127.0.0.1:3194
+      MONGODB_URI: mongodb://127.0.0.1:27017/cruisin-v2-operations-ci
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8192/api/v1
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3192
+      NEXT_PUBLIC_STOREFRONT_URL: http://127.0.0.1:3192
+      API_PROXY_TARGET: http://127.0.0.1:8192
+      PLAYWRIGHT_API_URL: http://127.0.0.1:8192/api/v1
+      PLAYWRIGHT_ADMIN_URL: http://127.0.0.1:3193
+      PLAYWRIGHT_EMPLOYEE_URL: http://127.0.0.1:3194
+      SHIPROCKET_ENABLED: 'false'
+      LOGISTICS_WORKER_ENABLED: 'false'
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Start isolated transactional MongoDB
+        run: |
+          docker run -d --name cruisin-ci-mongo -p 127.0.0.1:27017:27017 mongo:8.0 --replSet rsCi --bind_ip_all
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' && break
+            sleep 1
+          done
+          docker exec cruisin-ci-mongo mongosh --quiet --eval 'rs.initiate({_id:"rsCi",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in $(seq 1 30); do
+            docker exec cruisin-ci-mongo mongosh --quiet --eval 'if(!db.hello().isWritablePrimary) quit(1)' && exit 0
+            sleep 1
+          done
+          exit 1
+      - run: npm ci
+      - run: npm run build
+        env:
+          NODE_ENV: production
+      - run: npm --workspace server run seed
+        env:
+          NODE_ENV: development
+      - run: npx playwright install --with-deps chromium
+      - name: Verify local warehouse workflows on built applications
+        env:
+          NODE_ENV: development
+        run: |
+          node server/dist/index.js > /tmp/operations-api.log 2>&1 & api_pid=$!
+          NODE_ENV=production node node_modules/next/dist/bin/next start client -H 127.0.0.1 -p 3192 > /tmp/operations-client.log 2>&1 & client_pid=$!
+          NODE_ENV=production node node_modules/next/dist/bin/next start admin -H 127.0.0.1 -p 3193 > /tmp/operations-admin.log 2>&1 & admin_pid=$!
+          NODE_ENV=production node node_modules/next/dist/bin/next start employee -H 127.0.0.1 -p 3194 > /tmp/operations-employee.log 2>&1 & employee_pid=$!
+          trap 'kill "$api_pid" "$client_pid" "$admin_pid" "$employee_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8192/health && curl -fsS -o /dev/null http://127.0.0.1:3192 && curl -fsS -o /dev/null http://127.0.0.1:3193/login && curl -fsS -o /dev/null http://127.0.0.1:3194/login; then break; fi
+            sleep 1
+          done
+          npm --workspace employee run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: operations-browser-failure-artifacts
+          path: employee/test-results
+          retention-days: 7
+
   deployment-gate:
     name: Deployment gate
     if: always()
-    needs: [quality, browser-e2e]
+    needs: [quality, browser-e2e, operations-e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Require every verification job
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
           BROWSER_RESULT: ${{ needs.browser-e2e.result }}
+          OPERATIONS_RESULT: ${{ needs.operations-e2e.result }}
         run: |
           echo "Quality result: $QUALITY_RESULT"
           echo "Browser result: $BROWSER_RESULT"
           test "$QUALITY_RESULT" = "success"
           test "$BROWSER_RESULT" = "success"
+          test "$OPERATIONS_RESULT" = "success"

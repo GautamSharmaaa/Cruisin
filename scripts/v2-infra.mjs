@@ -12,7 +12,7 @@ const listening = port => new Promise(resolve => {
   socket.once('error', () => resolve(false));
 });
 const commands = [
-  [27983, '/opt/homebrew/opt/mongodb-community@8.0/bin/mongod', ['--dbpath', join(base, 'mongo'), '--bind_ip', '127.0.0.1', '--port', '27983', '--logpath', join(base, 'logs/mongo.log'), '--fork']],
+  [27983, '/opt/homebrew/opt/mongodb-community@8.0/bin/mongod', ['--dbpath', join(base, 'mongo'), '--bind_ip', '127.0.0.1', '--port', '27983', '--replSet', 'rsCruisinV2', '--logpath', join(base, 'logs/mongo.log'), '--fork']],
   [6392, 'redis-server', ['--bind', '127.0.0.1', '--port', '6392', '--dir', join(base, 'redis'), '--appendonly', 'yes', '--daemonize', 'yes', '--logfile', join(base, 'logs/redis.log')]]
 ];
 for (const [port, executable, args] of commands) {
@@ -20,3 +20,6 @@ for (const [port, executable, args] of commands) {
   const result = spawnSync(executable, args, { stdio: 'inherit' });
   if (result.status !== 0) throw new Error(`Failed to start isolated service at ${port}`);
 }
+
+const replica = spawnSync(process.execPath, ['scripts/v2-enable-replica.mjs'], { stdio: 'inherit' });
+if (replica.status !== 0) throw new Error('Local replica-set verification failed');

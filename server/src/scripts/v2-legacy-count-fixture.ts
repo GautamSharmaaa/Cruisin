@@ -1,0 +1,7 @@
+import {env} from '../config/env.js';
+import {connectDb,disconnectDb} from '../config/db.js';
+import {ProductModel} from '../models/product.model.js';
+import {PhysicalUnitModel} from '../models/physical-unit.model.js';
+import {StockMovementModel} from '../models/stock-movement.model.js';
+import {withMongoTransaction} from '../utils/mongo-transaction.js';
+const main=async():Promise<void>=>{const u=new URL(env.MONGODB_URI);if(env.APP_ENV!=='development'||!['127.0.0.1','localhost'].includes(u.hostname))throw new Error('Legacy test fixture requires local isolated resources');const slug=process.argv[2];if(!/^counted-\d{7}[dm]$/.test(slug??''))throw new Error('Only uniquely named synthetic legacy count fixtures are accepted');await connectDb();try{await withMongoTransaction(async session=>{const p=await ProductModel.findOne({slug}).session(session??null);if(!p||p.variants.length!==1||p.variants[0].stock!==0||await PhysicalUnitModel.exists({variant:p.variants[0]._id}).session(session??null))throw new Error('Fixture must be a new empty synthetic variant');const v=p.variants[0];v.stock=2;v.unitTracked=false;v.stockRevision++;await p.save({session});await StockMovementModel.create([{product:p._id,variant:v._id,sku:v.sku,delta:2,reason:'synthetic_legacy_opening',reference:slug,actor:'synthetic-fixture',before:0,after:2,idempotencyKey:`synthetic-opening:${slug}`}],{session});return true;});}finally{await disconnectDb();}};void main().catch(e=>{console.error(e instanceof Error?e.message:'Synthetic fixture failed');process.exitCode=1;});

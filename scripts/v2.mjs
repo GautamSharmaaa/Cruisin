@@ -20,14 +20,23 @@ Object.assign(environment, configuration, {
 });
 const task = process.argv[2] ?? 'api';
 const tasks = {
+  employee: ['node', ['node_modules/next/dist/bin/next', 'dev', 'employee', '-H', '127.0.0.1', '-p', '3194']],
+  'employee-built': ['node', ['node_modules/next/dist/bin/next', 'start', 'employee', '-H', '127.0.0.1', '-p', '3194']],
   api: ['npm', ['--workspace', 'server', 'run', 'dev']],
   storefront: ['node', ['node_modules/next/dist/bin/next', 'dev', 'client', '-H', '127.0.0.1', '-p', '3192']],
   'storefront-built': ['node', ['node_modules/next/dist/bin/next', 'start', 'client', '-H', '127.0.0.1', '-p', '3192']],
   'admin-built': ['node', ['node_modules/next/dist/bin/next', 'start', 'admin', '-H', '127.0.0.1', '-p', '3193']],
+  'operations-indexes': ['node',['--import','tsx','server/src/scripts/v2-operations-indexes.ts',...(process.argv[3]==='--apply'?['--apply']:[])]],
+  'legacy-count-fixture':['node',['--import','tsx','server/src/scripts/v2-legacy-count-fixture.ts',process.argv[3]??'']],
+  'operations-customer': ['node',['--import','tsx','server/src/scripts/v2-operations-customer.ts',process.argv[3]??'']],
+  'operations-e2e': ['npm', ['--workspace', 'employee', 'run', 'test:e2e']],
   e2e: ['npm', ['--workspace', 'client', 'run', 'test:e2e', '--', 'cross-browser.spec.ts']],
   admin: ['node', ['node_modules/next/dist/bin/next', 'dev', 'admin', '-H', '127.0.0.1', '-p', '3193']],
   seed: ['npm', ['--workspace', 'server', 'run', 'seed']],
   test: ['npm', ['test']],
+  'inventory-backfill': ['node', ['--import','tsx','server/src/scripts/v2-inventory-backfill.ts',...(process.argv[3]==='--apply'?['--apply']:[])]],
+  'media-inventory': ['node', ['--import','tsx','server/src/scripts/v2-media-inventory.ts']],
+  'media-migrate': ['node', ['--import','tsx','server/src/scripts/v2-media-migrate.ts',process.argv[3]??'']],
   typecheck: ['npm', ['run', 'typecheck']],
   lint: ['npm', ['run', 'lint']],
   build: ['npm', ['run', 'build']]
@@ -39,7 +48,7 @@ if (task === 'test') {
   environment.MONGODB_URI = 'mongodb://127.0.0.1:27983/cruisin-sync-order-analytics-tests';
   environment.REDIS_URL = 'redis://127.0.0.1:6392/14';
 }
-if (['build', 'storefront-built', 'admin-built'].includes(task)) environment.NODE_ENV = 'production';
+if (['build', 'storefront-built', 'admin-built', 'employee-built'].includes(task)) environment.NODE_ENV = 'production';
 const [command, args] = tasks[task];
 const child = spawn(command, args, { cwd: root, env: environment, stdio: 'inherit' });
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));

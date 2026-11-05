@@ -1,0 +1,12 @@
+import {env} from '../config/env.js';
+import {connectDb,disconnectDb} from '../config/db.js';
+import {EmployeeModel,EmployeeSessionModel,EmployeeOtpModel} from '../models/employee.model.js';
+import {EmployeeTaskModel} from '../models/employee-task.model.js';
+import {ApprovalRequestModel} from '../models/approval-request.model.js';
+import {OperationsAuditModel,OperationsNotificationModel} from '../models/operations-event.model.js';
+import {StockMovementModel,VariantLabelModel,PackingVerificationModel} from '../models/stock-movement.model.js';
+import {SopDocumentModel,SopVersionModel,SopAcknowledgmentModel} from '../models/sop-document.model.js';
+import {MediaAssetModel,MediaMigrationModel,MediaAccessGrantModel} from '../models/media-asset.model.js';
+import {PhysicalUnitModel,UnitReceiptModel,UnitInspectionModel,OperationsExceptionModel,UnitLabelConfigModel} from '../models/physical-unit.model.js';
+import {FulfillmentRecordModel,CourierMeasurementPolicyModel} from '../models/fulfillment-record.model.js';
+const main=async():Promise<void>=>{const u=new URL(env.MONGODB_URI);if(env.APP_ENV==='production'||(env.APP_ENV==='development'&&!['127.0.0.1','localhost'].includes(u.hostname)))throw new Error('Operations index tooling refuses production/nonlocal development');const apply=process.argv.includes('--apply');await connectDb();try{const models=[EmployeeModel,EmployeeSessionModel,EmployeeOtpModel,EmployeeTaskModel,ApprovalRequestModel,OperationsAuditModel,OperationsNotificationModel,StockMovementModel,VariantLabelModel,PackingVerificationModel,SopDocumentModel,SopVersionModel,SopAcknowledgmentModel,MediaAssetModel,MediaMigrationModel,MediaAccessGrantModel,PhysicalUnitModel,UnitReceiptModel,UnitInspectionModel,OperationsExceptionModel,UnitLabelConfigModel,FulfillmentRecordModel,CourierMeasurementPolicyModel];for(const model of models){if(apply)await model.createIndexes();}console.log(JSON.stringify({models:models.length,applied:apply,destructiveIndexDrops:false,productionTarget:false}));}finally{await disconnectDb();}};void main().catch(e=>{console.error(e instanceof Error?e.message:'Index validation failed');process.exitCode=1;});

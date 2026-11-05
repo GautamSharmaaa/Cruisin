@@ -47,7 +47,7 @@ const bootstrap = async (): Promise<void> => {
   if (env.APP_ENV === 'production') stopDurableJobs = startDurableJobProcessor();
   const app = createApp();
   server = app.listen(env.PORT, env.APP_ENV === 'development' ? '127.0.0.1' : '0.0.0.0', () => {
-    logger.info('Cruisin API listening', { host: '0.0.0.0', port: env.PORT, environment: env.NODE_ENV });
+    logger.info('Cruisin API listening', { host: env.APP_ENV === 'development' ? '127.0.0.1' : '0.0.0.0', port: env.PORT, environment: env.NODE_ENV });
   });
 };
 
