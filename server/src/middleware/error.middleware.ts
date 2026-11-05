@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import { MulterError } from 'multer';
 import * as Sentry from '@sentry/node';
 import type { ErrorRequestHandler } from 'express';
 import { env } from '../config/env.js';
@@ -12,7 +13,9 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next): void
   const isBodyParserError = error instanceof SyntaxError && typeof (error as { status?: unknown }).status === 'number' && (error as { body?: unknown }).body !== undefined;
   const isApiError = error instanceof ApiError;
   const isProviderError = error instanceof LogisticsProviderError;
-  const apiError = isApiError
+  const duplicate = typeof error === 'object' && error !== null && 'code' in error && error.code === 11000;
+  const fileError = error instanceof MulterError;
+  const apiError = duplicate ? new ApiError(409, 'A conflicting record already exists') : fileError ? new ApiError(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400, 'Uploaded file exceeds the allowed limits') : isApiError
     ? error
     : isProviderError
       ? new ApiError(error.statusCode, error.message, error.providerReference ? [`Reference: ${error.providerReference}`] : [])
@@ -22,10 +25,10 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next): void
   if (!apiError.isOperational && env.NODE_ENV === 'production') {
     Sentry.captureException(error);
   }
-  logger.error(isApiError ? apiError.message : error?.message || 'Internal server error', {
+  logger.error(apiError.isOperational ? apiError.message : 'Unhandled server error', {
     statusCode: apiError.statusCode,
     errors: apiError.errors,
-    stack: env.NODE_ENV === 'production' ? undefined : (isApiError ? apiError.stack : error?.stack || new Error().stack)
+    stack: env.NODE_ENV === 'production' ? undefined : (isApiError || duplicate || fileError ? apiError.stack : error?.stack || new Error().stack)
   });
   const visibleMessage = env.NODE_ENV === 'production' && !apiError.isOperational ? 'Internal server error' : apiError.message;
   finishPerformanceFlow(undefined, res);

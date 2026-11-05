@@ -140,3 +140,9 @@ const labelConfigSchema = new Schema(
   { timestamps: true },
 );
 export const UnitLabelConfigModel = model("UnitLabelConfig", labelConfigSchema);
+const inspectionRecordSchema=new Schema({unitId:{type:String,required:true,index:true},kind:{type:String,enum:['QC','PACKAGING'],required:true},unitVersion:{type:Number,required:true},sop:{type:Schema.Types.ObjectId,required:true},sopVersion:{type:Number,required:true},employee:{type:String,required:true},snapshot:{type:Schema.Types.Mixed,required:true}},{timestamps:true});
+inspectionRecordSchema.index({unitId:1,kind:1,unitVersion:1},{unique:true});
+inspectionRecordSchema.index({"snapshot.evidence":1});
+inspectionRecordSchema.pre('save',function(){if(!this.isNew)throw new Error('Inspection history is immutable');});
+for(const hook of ['updateOne','updateMany','findOneAndUpdate','deleteOne','deleteMany','findOneAndDelete'] as const)inspectionRecordSchema.pre(hook,function(){throw new Error('Inspection history is immutable');});
+export const UnitInspectionModel=model('UnitInspection',inspectionRecordSchema);
