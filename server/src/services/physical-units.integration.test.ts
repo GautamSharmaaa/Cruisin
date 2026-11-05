@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import {RGBLuminanceSource,HybridBinarizer,BinaryBitmap,QRCodeReader} from '@zxing/library';
+import {RGBLuminanceSource,HybridBinarizer,BinaryBitmap,QRCodeReader,DecodeHintType} from '@zxing/library';
 import { StockMovementModel } from "../models/stock-movement.model.js";
 import { ApprovalService } from "./approval.service.js";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
@@ -165,7 +165,11 @@ describe("physical units use the commerce stock authority", () => {
     const b = await PhysicalUnitsService.label(admin, unit);
     expect(a.code).toBe(b.code);
     expect(a.svg).toContain("<svg");
-    const {data,info}=await sharp(Buffer.from(a.svg)).resize(320,320).greyscale().raw().toBuffer({resolveWithObject:true});const bitmap=new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(new Uint8ClampedArray(data),info.width,info.height)));expect(new QRCodeReader().decode(bitmap).getText()).toBe(a.code);
+    // This is an axis-aligned generated label: verify its encoded pixels directly.
+    // Camera finder/detection behavior requires separate real-device acceptance.
+    const {data,info}=await sharp(Buffer.from(a.svg)).resize(320,320).flatten({background:"white"}).greyscale().raw().toBuffer({resolveWithObject:true});
+    const bitmap=new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(new Uint8ClampedArray(data),info.width,info.height)));
+    expect(new QRCodeReader().decode(bitmap,new Map([[DecodeHintType.PURE_BARCODE,true]])).getText()).toBe(a.code);
     expect(await stock()).toBe(0);
   });
   it("pins QC to a published product SOP and requires evidence", async () => {
