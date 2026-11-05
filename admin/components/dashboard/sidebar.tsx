@@ -4,6 +4,7 @@ import { BarChart3, Boxes, ChevronRight, FilePenLine, Files, FileText, LayoutDas
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { OPS_COPY } from '@cruisin/operations-ui';
 import { COPY } from '@/constants/copy';
 
 export interface SidebarProps {
@@ -12,6 +13,18 @@ export interface SidebarProps {
 }
 
 const links = [
+  {label: OPS_COPY.adminActivity, href:'/activity', icon:Rows3},
+  {label: OPS_COPY.settings, href:'/settings', icon:LayoutDashboard},
+  {label: OPS_COPY.employees, href:'/employees', icon:Users},
+  {label: OPS_COPY.adminTasks, href:'/tasks', icon:Rows3},
+  {label: OPS_COPY.approvals, href:'/approvals', icon:FileText},
+  {label: OPS_COPY.inventory, href:'/inventory', icon:Boxes},
+  {label: OPS_COPY.units, href:'/units', icon:Boxes},
+  {label: OPS_COPY.operationalSummary, href:'/operations', icon:Boxes},
+  {label: OPS_COPY.fulfillment, href:'/fulfillment', icon:Boxes},
+  {label: OPS_COPY.exceptions, href:'/exceptions', icon:Boxes},
+  {label: OPS_COPY.sops, href:'/sops', icon:Files},
+  {label: OPS_COPY.media, href:'/media', icon:Files},
   { label: COPY.nav.overview, href: '/', icon: LayoutDashboard },
   { label: COPY.nav.products, href: '/products', icon: Package },
   { label: COPY.nav.catalogues, href: '/catalogues', icon: Files },
