@@ -1,3 +1,5 @@
+import {recordOrderStockMovement} from './inventory-operations.service.js';
+import {withMongoTransaction} from '../utils/mongo-transaction.js';
 import { Types } from 'mongoose';
 import { CategoryModel } from '../models/category.model.js';
 import { CollectionModel } from '../models/collection.model.js';
@@ -317,22 +319,30 @@ export const ProductService = {
   },
   async bySlug(slug: string): Promise<unknown> { const product = await ProductModel.findOne({ slug, ...publicProductQuery }).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').populate('relatedProducts').populate('recommendedProducts').lean(); if (!product) throw new ApiError(404, 'Product not found'); return sanitizePublicProduct(product); },
   async adminById(id: string): Promise<unknown> { const product = await ProductModel.findById(id).lean(); if (!product) throw new ApiError(404, 'Product not found'); return product; },
-  async create(input: ProductInput): Promise<unknown> {
+  async create(input: ProductInput) {
+    if(Array.isArray(input.variants)&&input.variants.some(v=>Number((v as Record<string,unknown>).stock??0)!==0))throw new ApiError(409,'New V2 stock must be received, quality checked and packaged through physical inventory');
+    const trackedInput={...input,...(Array.isArray(input.variants)?{variants:input.variants.map(v=>({...v as Record<string,unknown>,_id:new Types.ObjectId(),stock:0,unitTracked:true}))}:{})};
     assertPriceRelationship(numberField(input, 'basePrice'), numberField(input, 'comparePrice'));
-    const product = await ProductModel.create(input);
-    markCatalogueStale();
-    return product;
+    return withMongoTransaction(async session=>{
+      const [product]=await ProductModel.create([trackedInput],{session});
+      await recordOrderStockMovement(product.variants.map(v=>({product:product._id,variant:v._id,quantity:v.stock})),1,'purchase_receipt',product.id,session);
+      markCatalogueStale();return product;
+    });
   },
-  async update(id: string, input: ProductInput): Promise<unknown> {
-    const current = await ProductModel.findById(id).select('basePrice comparePrice').lean();
-    if (!current) throw new ApiError(404, 'Product not found');
-    const basePrice = numberField(input, 'basePrice') ?? current.basePrice;
-    const comparePrice = Object.prototype.hasOwnProperty.call(input, 'comparePrice') ? numberField(input, 'comparePrice') : current.comparePrice ?? undefined;
-    assertPriceRelationship(basePrice, comparePrice);
-    const product = await ProductModel.findByIdAndUpdate(id, input, { new: true, runValidators: true });
-    if (!product) throw new ApiError(404, 'Product not found');
-    markCatalogueStale();
-    return product;
+  async update(id: string, input: ProductInput) {
+    return withMongoTransaction(async session=>{
+      const current=await ProductModel.findById(id).session(session??null);if(!current)throw new ApiError(404,'Product not found');
+      assertPriceRelationship(numberField(input,'basePrice')??current.basePrice,Object.prototype.hasOwnProperty.call(input,'comparePrice')?numberField(input,'comparePrice'):current.comparePrice??undefined);
+      const changes={...input};const newVariantIds:string[]=[];
+      if(Array.isArray(input.variants)){
+        const variants=input.variants as Array<Record<string,unknown>>;
+        for(const old of current.variants)if(!variants.some(v=>String(v._id)===String(old._id))&&old.stock>0)throw new ApiError(409,'Clear stock through an approved inventory action before removing a variant');
+        changes.variants=variants.map(v=>{const old=current.variants.find(x=>String(x._id)===String(v._id));if(old){if(Number(v.stock)!==old.stock)throw new ApiError(409,'Stock changes require the inventory approval workflow');return {...v,unitTracked:old.unitTracked??false,stockRevision:old.stockRevision??0,damagedStock:old.damagedStock??0};}if(Number(v.stock??0)!==0)throw new ApiError(409,'Receive new variant stock through physical QC and packaging');const variantId=new Types.ObjectId().toString();newVariantIds.push(variantId);return {...v,_id:variantId,stock:0,unitTracked:true,stockRevision:0,damagedStock:0};});
+      }
+      const product=await ProductModel.findOneAndUpdate({_id:id,__v:current.__v},{$set:changes,$inc:{__v:1}},{new:true,runValidators:true,session});if(!product)throw new ApiError(409,'Product changed; reload');
+      await recordOrderStockMovement(product.variants.filter(v=>newVariantIds.includes(String(v._id))).map(v=>({product:product._id,variant:v._id,quantity:v.stock})),1,'purchase_receipt',id,session);
+      markCatalogueStale();return product;
+    });
   },
   async duplicate(id: string): Promise<unknown> {
     const product = await ProductModel.findById(id).lean();
@@ -344,7 +354,7 @@ export const ProductService = {
       title: 'Copy of ' + product.title,
       slug: product.slug + '-copy-' + suffix.toLowerCase(),
       productCode: product.productCode ? product.productCode + '-COPY-' + suffix : undefined,
-      variants: (product.variants ?? []).map((variant) => ({ ...variant, _id: undefined, sku: variant.sku + '-COPY-' + suffix, stock: 0 })),
+      variants: (product.variants ?? []).map((variant) => ({ ...variant, _id: undefined, sku: variant.sku + '-COPY-' + suffix, stock: 0, stockRevision: 0, damagedStock: 0 })),
       isActive: false,
       isArchived: false,
       isFeatured: false,

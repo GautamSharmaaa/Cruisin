@@ -8,6 +8,7 @@ const documentSchema = new Schema({
   generatedAt: { type: Date },
   expiresAt: { type: Date },
   operationId: { type: String, trim: true },
+  verificationId: {type:String,trim:true},
   providerReference: { type: String, trim: true },
   lastError: { type: String, trim: true, maxlength: 500 }
 }, { _id: false });

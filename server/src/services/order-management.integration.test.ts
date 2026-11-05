@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import mongoose, { Types } from 'mongoose';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { OrderModel } from '../models/order.model.js';
 import { OrderManagementService } from './order-management.service.js';
 
@@ -68,7 +68,12 @@ describe('order archive and permanent-delete safety', () => {
 
   it('fails closed and preserves the order when the local MongoDB target cannot provide a transaction', async () => {
     const created = await OrderModel.create(order('TRANSACTION'));
+    const session = await mongoose.startSession();
+    const transaction = vi.spyOn(session, 'withTransaction').mockRejectedValue(Object.assign(new Error('Transactions unsupported'), { code: 20 }));
+    const startSession = vi.spyOn(mongoose, 'startSession').mockResolvedValue(session);
+    try {
     await expect(OrderManagementService.permanentlyDelete(String(created._id), adminId, { orderNumber: `${prefix}TRANSACTION`, reason: 'Transaction safety test' })).rejects.toMatchObject({ statusCode: 409 });
     expect(await OrderModel.exists({ _id: created._id })).not.toBeNull();
+    } finally { transaction.mockRestore(); startSession.mockRestore(); await session.endSession(); }
   });
 });

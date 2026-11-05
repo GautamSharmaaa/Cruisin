@@ -1,3 +1,6 @@
+import {PhysicalUnitModel} from '../../models/physical-unit.model.js';
+import {withMongoTransaction} from "../../utils/mongo-transaction.js";
+import {recordOrderStockMovement} from "../inventory-operations.service.js";
 // Governed by .rules v1.0
 import crypto from "node:crypto";
 import { Types } from "mongoose";
@@ -500,6 +503,7 @@ export const LogisticsService = {
     shipmentId: string,
     courierId: number | undefined,
     adminId?: string,
+    options?:{deferMockTrackingUntilHandover:boolean},
   ): Promise<unknown> {
     const shipment = await getShipment(shipmentId);
     if (shipment.awb) return shipment;
@@ -535,6 +539,7 @@ export const LogisticsService = {
         entityReference: result.awb,
       });
       await LogisticsAutomationService.afterAwb(shipment);
+      if(logisticsIsMock()&&options?.deferMockTrackingUntilHandover)return shipment;
       try {
         const reconciled = await this.reconcileShiprocketShipment(String(shipment._id), "manual_sync", adminId) as { shipment: unknown };
         return reconciled.shipment;
@@ -660,6 +665,7 @@ export const LogisticsService = {
             [`${kind}.status`]: "ready",
             [`${kind}.url`]: result.url,
             [`${kind}.generatedAt`]: generatedAt,
+            [`${kind}.verificationId`]: operationId,
             [`${kind}.expiresAt`]: expiresAt,
           },
           $unset: { [`${kind}.operationId`]: 1, [`${kind}.lastError`]: 1 },
@@ -971,48 +977,12 @@ export const LogisticsService = {
           409,
           "Record warehouse receipt before restoring RTO inventory",
         );
-      const order = await OrderModel.findOneAndUpdate(
-        { _id: shipment.order, stockReserved: true },
-        {
-          $set: { stockReserved: false },
-          $push: {
-            timeline: {
-              status: "rto_inventory_recovery",
-              timestamp: new Date(),
-              note: "RTO warehouse inspection passed; inventory recovery started",
-            },
-          },
-        },
-        { new: false },
-      );
-      if (order) {
-        try {
-          await Promise.all(
-            order.items.map((item) =>
-              ProductModel.updateOne(
-                { _id: item.product, "variants._id": item.variant },
-                { $inc: { "variants.$.stock": item.quantity } },
-              ),
-            ),
-          );
-        } catch (error) {
-          shipment.rto.inventoryRecoveryStatus = "warehouse_pending";
-          await shipment.save();
-          await OrderModel.updateOne(
-            { _id: shipment.order },
-            {
-              $push: {
-                timeline: {
-                  status: "inventory_review",
-                  timestamp: new Date(),
-                  note: "RTO inspection passed; inventory restoration requires admin review",
-                },
-              },
-            },
-          );
-          throw error;
-        }
-      }
+      await withMongoTransaction(async session=>{
+        const order=await OrderModel.findOneAndUpdate({_id:shipment.order,stockReserved:true},{$set:{stockReserved:false},$push:{timeline:{status:'rto_inventory_recovery',timestamp:new Date(),note:'Inspected RTO inventory restored atomically'}}},{new:false,session});
+        if(!order)return false;
+        const aggregateItems=[];for(const item of order.items){const tracked=await ProductModel.exists({_id:item.product,variants:{$elemMatch:{_id:item.variant,unitTracked:true}}}).session(session??null);if(tracked){const units=await PhysicalUnitModel.find({order:order._id,variant:item.variant,state:{$in:['SHIPPED','HANDED_OVER','READY_FOR_HANDOVER']}}).session(session??null);if(units.length!==item.quantity)throw new ApiError(409,'RTO units require reviewed reconciliation');for(const u of units){u.state='QC_PENDING';u.qc=undefined;u.packaging=undefined;u.version++;u.history.push({action:'unit.rto_received',from:'SHIPPED',to:'QC_PENDING',actor:adminId,order:order.id,shipment:shipment.id,at:new Date(),reason:'RTO requires QC and repackaging before sale'});u.order=undefined;u.shipment=undefined;u.awb=undefined;await u.save({session});}}else{const result=await ProductModel.updateOne({_id:item.product,'variants._id':item.variant},{$inc:{'variants.$.stock':item.quantity,'variants.$.stockRevision':1}},{session});if(result.modifiedCount!==1)throw new ApiError(409,'RTO variant missing; no inventory was restored');aggregateItems.push(item);}}
+        await recordOrderStockMovement(aggregateItems,1,'rto_restock',String(shipment.order),session);return true;
+      });
       shipment.rto.status = "inventory_restored";
       shipment.rto.inventoryRecoveryStatus = "restored";
       shipment.rto.inspectedAt = new Date();

@@ -1305,11 +1305,13 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
                     />
                     <Input
                       label={
-                        index === 0 ? "Stock *" : `Variant ${index + 1} stock *`
+                        index === 0 ? COPY.products.availableStock : `${COPY.products.variantStock} ${index+1}`
                       }
                       type="number"
                       min={0}
                       error={variantError?.stock?.message}
+                      readOnly
+                      title={COPY.products.stockWorkflow}
                       {...register(`variants.${index}.stock` as const)}
                     />
                     <Input

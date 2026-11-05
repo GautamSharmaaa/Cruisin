@@ -1,3 +1,4 @@
+import {ProductService} from "./product.service.js";
 // Governed by .rules v1.0
 import { Types } from "mongoose";
 import { CatalogueImportModel } from "../models/catalogue-import.model.js";
@@ -593,6 +594,7 @@ export const CatalogueImportService = {
               ...variant,
               price: variant.price,
               priceOverride: variant.priceOverride,
+              stock: (existing.variants as unknown as Array<{sku:string;stock:number}>).find(v=>v.sku===variant.sku)?.stock ?? 0,
             }));
           if (mode === "media-only")
             partial.images = mergedImages(
@@ -608,9 +610,7 @@ export const CatalogueImportService = {
               collections: patch.collections,
               collectionSlugs: patch.collectionSlugs,
             });
-          await ProductModel.findByIdAndUpdate(existing._id, partial, {
-            runValidators: true,
-          });
+          await ProductService.update(String(existing._id), partial);
           counts.updatedProducts += 1;
           counts.updatedVariants += variantBuild.updated;
           continue;
@@ -632,11 +632,8 @@ export const CatalogueImportService = {
           lastCatalogueImportId: importRecord?._id ?? null,
         };
         const product = existing
-          ? await ProductModel.findByIdAndUpdate(existing._id, payload, {
-              new: true,
-              runValidators: true,
-            })
-          : await ProductModel.create(payload);
+          ? await ProductService.update(String(existing._id), payload)
+          : await ProductService.create(payload);
         if (existing) counts.updatedProducts += 1;
         else counts.createdProducts += 1;
         counts.createdVariants += variantBuild.created;

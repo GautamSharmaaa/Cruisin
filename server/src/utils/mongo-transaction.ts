@@ -7,7 +7,7 @@ const retryable = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false;
   if ('hasErrorLabel' in error && typeof error.hasErrorLabel === 'function') {
     const hasErrorLabel = error.hasErrorLabel as (label: string) => boolean;
-    if (hasErrorLabel('TransientTransactionError') || hasErrorLabel('UnknownTransactionCommitResult')) return true;
+    if (hasErrorLabel.call(error,'TransientTransactionError') || hasErrorLabel.call(error,'UnknownTransactionCommitResult')) return true;
   }
   return false;
 };

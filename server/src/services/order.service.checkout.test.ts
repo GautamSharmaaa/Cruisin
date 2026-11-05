@@ -48,7 +48,7 @@ const {
   invoiceService: { ensureForOrder: vi.fn() },
   mongoTransaction: { withMongoTransaction: vi.fn() },
   orderModel: { create: vi.fn(), findById: vi.fn(), findOne: vi.fn(), find: vi.fn(), findByIdAndUpdate: vi.fn(), findOneAndUpdate: vi.fn(), updateOne: vi.fn(), countDocuments: vi.fn() },
-  productModel: { bulkWrite: vi.fn(), find: vi.fn(), updateOne: vi.fn() },
+  productModel: { exists:vi.fn(), bulkWrite: vi.fn(), find: vi.fn(), updateOne: vi.fn() },
   siteSettingsModel: { findOne: vi.fn() },
   webhookEventModel: { create: vi.fn() },
   userModel: { findById: vi.fn(), updateOne: vi.fn() },
@@ -131,6 +131,7 @@ describe('OrderService authenticated checkout', () => {
     logisticsJobService.enqueue.mockResolvedValue({});
     productModel.bulkWrite.mockImplementation(async (operations: unknown[]) => ({ modifiedCount: operations.length }));
     productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    productModel.exists.mockResolvedValue(null);
     cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
     siteSettingsModel.findOne.mockReturnValue({
@@ -361,7 +362,7 @@ describe('OrderService authenticated checkout', () => {
 
     expect(productModel.updateOne).toHaveBeenCalledWith(
       { _id: productId, 'variants._id': variantId },
-      { $inc: { 'variants.$.stock': 1 } },
+      { $inc: { 'variants.$.stock': 1, 'variants.$.stockRevision': 1 } },
       expect.any(Object)
     );
     expect(orderModel.updateOne).toHaveBeenCalledWith(
@@ -397,7 +398,7 @@ describe('OrderService authenticated checkout', () => {
     }));
     expect(productModel.updateOne).toHaveBeenCalledWith(
       { _id: productId, 'variants._id': variantId },
-      { $inc: { 'variants.$.stock': 2 } },
+      { $inc: { 'variants.$.stock': 2, 'variants.$.stockRevision': 1 } },
       expect.any(Object)
     );
     expect(couponRedemptionService.releaseCouponRedemption).toHaveBeenCalledWith(orderId, undefined);
@@ -875,6 +876,7 @@ describe('OrderService authenticated checkout', () => {
     orderModel.findOneAndUpdate.mockResolvedValueOnce(order).mockResolvedValueOnce(null);
     orderModel.findById.mockResolvedValue(order);
     productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    productModel.exists.mockResolvedValue(null);
     cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
     const { OrderService } = await import('./order.service.js');
@@ -973,6 +975,7 @@ describe('OrderService authenticated checkout', () => {
       return { lean: vi.fn().mockResolvedValue({ _id: orderId, user: customerId, orderNumber: 'CR-RACE' }) };
     });
     productModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+    productModel.exists.mockResolvedValue(null);
     cartModel.deleteOne.mockResolvedValue({ deletedCount: 1 });
     userModel.findById.mockReturnValue({ lean: vi.fn().mockResolvedValue(null) });
     const { OrderService } = await import('./order.service.js');

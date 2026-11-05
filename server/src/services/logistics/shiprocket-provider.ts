@@ -64,7 +64,7 @@ const createOrderSchema = z.object({
 
 const awbSchema = z.object({
   awb_assign_status: z.coerce.number().optional(),
-  response: z.object({ data: z.record(z.unknown()) }).passthrough()
+  response: z.object({ data: z.record(z.string(), z.unknown()) }).passthrough()
 }).passthrough();
 
 const pickupSchema = z.object({
@@ -111,10 +111,10 @@ const trackingSchema = z.object({
   }).passthrough()
 }).passthrough();
 
-const genericStatusSchema = z.record(z.unknown());
-const providerDetailsSchema = z.record(z.unknown());
+const genericStatusSchema = z.record(z.string(), z.unknown());
+const providerDetailsSchema = z.record(z.string(), z.unknown());
 const processingReturnsSchema = z.object({
-  data: z.array(z.record(z.unknown())).default([])
+  data: z.array(z.record(z.string(), z.unknown())).default([])
 }).passthrough();
 const STATEMENT_PAGE_SIZE = 200;
 const MAX_STATEMENT_PAGES = 100;

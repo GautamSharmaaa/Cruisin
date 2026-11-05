@@ -1,5 +1,7 @@
+import {reservePhysicalUnits,releasePhysicalUnits} from './physical-units.service.js';
+import { recordOrderStockMovement } from './inventory-operations.service.js';
 import crypto from 'node:crypto';
-import { Types, type ClientSession } from 'mongoose';
+import mongoose,{ Types, type ClientSession } from 'mongoose';
 import { env } from '../config/env.js';
 import { logisticsConfig } from '../config/logistics.js';
 import { CartModel } from '../models/cart.model.js';
@@ -127,10 +129,12 @@ const notifyOrderConfirmation = async (orderId: string): Promise<void> => {
 };
 
 const prepareFulfillment = async (orderId: string): Promise<void> => {
+  if(!(process.env.NODE_ENV==='test'&&mongoose.connection.readyState!==1)){const {FulfillmentService}=await import('./fulfillment.service.js');await FulfillmentService.ensureTask(orderId);}
   if (!logisticsConfig.enabled) return;
   try {
     await LogisticsService.ensureDraftForOrder(orderId);
     const order = await OrderModel.findById(orderId).select('paymentMode').lean();
+    const {PhysicalUnitModel}=await import('../models/physical-unit.model.js');if(await PhysicalUnitModel.exists({order:orderId}))return;
     if (shouldAutoCreateProviderOrder(order?.paymentMode)) {
       await LogisticsJobService.enqueue('create_order', { orderId }, `create-order:${orderId}`);
     }
@@ -149,9 +153,10 @@ const prepareFulfillment = async (orderId: string): Promise<void> => {
 
 const sessionOptions = (session?: ClientSession): { session?: ClientSession } => session ? { session } : {};
 
-const reserveInventory = async (
+export const reserveInventory = async (
   items: Array<{ product: unknown; variant: unknown; quantity: number; price: number; sku: string }>,
-  session?: ClientSession
+  session?: ClientSession,
+  reference = 'checkout'
 ): Promise<void> => {
   const result = await ProductModel.bulkWrite(items.map((item) => ({
     updateOne: {
@@ -174,39 +179,48 @@ const reserveInventory = async (
           }
         }
       },
-      update: { $inc: { 'variants.$.stock': -item.quantity } }
+      update: { $inc: { 'variants.$.stock': -item.quantity , 'variants.$.stockRevision': 1} }
     }
   })), { ordered: true, ...sessionOptions(session) });
   if (result.modifiedCount !== items.length) {
     throw new ApiError(409, 'Stock or price changed for an item in your bag; review your bag');
   }
+  await reservePhysicalUnits(items, reference, session);
+  await recordOrderStockMovement(items, -1, 'order_reservation', reference, session);
 };
 
 const reserveStock = async (orderId: string): Promise<void> => {
   const order = await OrderModel.findById(orderId);
   if (!order) throw new ApiError(404, 'Order not found');
   if (order.stockReserved) return;
+  if(await ProductModel.exists({variants:{$elemMatch:{_id:{$in:order.items.map(i=>i.variant)},unitTracked:true}}})){
+    await withMongoTransaction(async session=>{const current=await OrderModel.findOneAndUpdate({_id:orderId,stockReserved:false},{$set:{stockReserved:true}},{new:true,session});if(!current)return true;await reserveInventory(current.items,session,orderId);return true;});return;
+  }
   const reserved: Array<{ product: Types.ObjectId; variant: Types.ObjectId; quantity: number }> = [];
   try {
     for (const item of order.items) {
-      const result = await ProductModel.updateOne({ _id: item.product, status: 'published', visibility: 'visible', isActive: true, isArchived: { $ne: true }, variants: { $elemMatch: { _id: item.variant, enabled: { $ne: false }, stock: { $gte: item.quantity } } } }, { $inc: { 'variants.$.stock': -item.quantity } });
+      const result = await ProductModel.updateOne({ _id: item.product, status: 'published', visibility: 'visible', isActive: true, isArchived: { $ne: true }, variants: { $elemMatch: { _id: item.variant, enabled: { $ne: false }, stock: { $gte: item.quantity } } } }, { $inc: { 'variants.$.stock': -item.quantity , 'variants.$.stockRevision': 1} });
       if (result.modifiedCount === 0) throw new ApiError(409, `Insufficient stock for ${item.sku}`);
+      await recordOrderStockMovement([item], -1, 'late_order_reservation', orderId);
       reserved.push({ product: item.product as Types.ObjectId, variant: item.variant as Types.ObjectId, quantity: item.quantity });
     }
     order.stockReserved = true;
     await order.save();
   } catch (error) {
-    await Promise.all(reserved.map((item) => ProductModel.updateOne({ _id: item.product, 'variants._id': item.variant }, { $inc: { 'variants.$.stock': item.quantity } })));
+    await Promise.all(reserved.map((item) => ProductModel.updateOne({ _id: item.product, 'variants._id': item.variant }, { $inc: { 'variants.$.stock': item.quantity , 'variants.$.stockRevision': 1} })));
+    await recordOrderStockMovement(reserved, 1, 'reservation_compensation', orderId);
     throw error;
   }
 };
 
-const restoreStock = async (order: { stockReserved?: boolean; items: Array<{ product: Types.ObjectId; variant: Types.ObjectId; quantity: number }> }, session?: ClientSession): Promise<void> => {
+const restoreStock = async (order: { _id?: Types.ObjectId; stockReserved?: boolean; items: Array<{ product: Types.ObjectId; variant: Types.ObjectId; quantity: number }> }, session?: ClientSession): Promise<void> => {
   if (!order.stockReserved) return;
-  const restored = await Promise.all(order.items.map((item) => ProductModel.updateOne({ _id: item.product, 'variants._id': item.variant }, { $inc: { 'variants.$.stock': item.quantity } }, sessionOptions(session))));
+  await releasePhysicalUnits(String(order._id),session);
+  const restored = await Promise.all(order.items.map((item) => ProductModel.updateOne({ _id: item.product, 'variants._id': item.variant }, { $inc: { 'variants.$.stock': item.quantity , 'variants.$.stockRevision': 1} }, sessionOptions(session))));
   if (restored.some((result) => result.modifiedCount !== 1)) {
     throw new ApiError(409, 'Reserved inventory could not be restored automatically');
   }
+  await recordOrderStockMovement(order.items, 1, 'reservation_release', String(order._id ?? 'order'), session);
 };
 
 type PricedProduct = ProductDocument & { _id: Types.ObjectId };
@@ -622,6 +636,8 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
     if (typeof order.checkoutCartVersion === 'number') Object.assign(cartFilter, cartVersionFilter(order.checkoutCartVersion));
     await CartModel.deleteOne(cartFilter, sessionOptions(session));
     await LogisticsJobService.enqueue('order_created', { orderId }, `order-created:${orderId}`, 8, { session });
+    if(!(env.NODE_ENV==='test'&&mongoose.connection.readyState!==1)){const {FulfillmentService}=await import('./fulfillment.service.js');await FulfillmentService.ensureTask(orderId,session);}
+    return true;
   });
   return order;
 };
@@ -705,7 +721,7 @@ export const OrderService = {
     try {
       order = await recordPerformanceStage('order.transaction', () => withMongoTransaction(async (session) => {
         await assertCartUnchangedInTransaction(cart, session);
-        await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session));
+        await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session, String(orderId)));
         if (coupon) await recordPerformanceStage('coupon.reserve', () => reserveCouponRedemption({ customerId: userId, coupon, orderId, status: 'reserved', expiresAt: reservationExpiresAt, session }));
         const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, stockReservationExpiresAt: reservationExpiresAt, timeline: [{ status: 'pending', timestamp: new Date(), note: [coupon ? `Coupon ${coupon.code}` : '', bundleSaving.label].filter(Boolean).join(' · ') || 'Order created' }] }, session);
         if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId, session);
@@ -759,13 +775,14 @@ export const OrderService = {
     try {
       order = await recordPerformanceStage('order.transaction', () => withMongoTransaction(async (session) => {
         await assertCartUnchangedInTransaction(cart, session);
-        await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session));
+        await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session, String(orderId)));
         if (coupon) await recordPerformanceStage('coupon.reserve', () => reserveCouponRedemption({ customerId: userId, coupon, orderId, status: 'confirmed', session }));
         const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, timeline: [{ status: 'placed', timestamp: new Date(), note: ['COD order placed; payment due on delivery', bundleSaving.label].filter(Boolean).join(' · ') }] }, session);
         if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId, session);
         const deleted = await CartModel.deleteOne({ _id: cart._id, ...cartVersionFilter(cart.version ?? 0) }, sessionOptions(session));
         if (session && deleted.deletedCount !== 1) throw new ApiError(409, 'Your bag changed while checkout was being finalized');
         await LogisticsJobService.enqueue('order_created', { orderId: String(orderId) }, `order-created:${orderId}`, 8, { session });
+        if(!(env.NODE_ENV==='test'&&mongoose.connection.readyState!==1)){const {FulfillmentService}=await import('./fulfillment.service.js');await FulfillmentService.ensureTask(String(orderId),session);}
         return created;
       }));
     } catch (error) {

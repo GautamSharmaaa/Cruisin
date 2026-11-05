@@ -73,6 +73,7 @@ const orderSchema = new Schema(
     shippingAddress: { type: addressSchema, required: true },
     billingAddress: { type: addressSchema, required: true },
     orderNumber: { type: String, unique: true, sparse: true, index: true },
+    packingVerifiedAt: { type: Date },
     checkoutIdempotencyKey: { type: String, trim: true },
     checkoutRequestHash: { type: String, trim: true },
     checkoutCartVersion: { type: Number, min: 0 },
@@ -134,6 +135,8 @@ orderSchema.index(
   { unique: true, partialFilterExpression: { checkoutIdempotencyKey: { $type: 'string' } } }
 );
 orderSchema.index({ stockReserved: 1, stockReservationExpiresAt: 1, paymentStatus: 1 });
+
+orderSchema.index({stockReserved:1,orderStatus:1,"items.variant":1});
 
 export type OrderDocument = InferSchemaType<typeof orderSchema>;
 export const OrderModel = model('Order', orderSchema);

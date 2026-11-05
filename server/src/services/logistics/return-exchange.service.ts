@@ -1,3 +1,7 @@
+import {PhysicalUnitModel} from '../../models/physical-unit.model.js';
+import {FulfillmentRecordModel} from '../../models/fulfillment-record.model.js';
+import {withMongoTransaction} from '../../utils/mongo-transaction.js';
+import {recordOrderStockMovement} from '../inventory-operations.service.js';
 // Governed by .rules v1.0
 import crypto from 'node:crypto';
 import { Types, type HydratedDocument } from 'mongoose';
@@ -1055,13 +1059,14 @@ export const ReturnExchangeService = {
     if (!request) throw new ApiError(404, 'Exchange request not found');
     if (!request.originalItem) throw new ApiError(409, 'Exchange request item data is missing');
     if (input.action === 'approve' && request.status === 'requested') {
-      const reserved = await ProductModel.updateOne(
-        { _id: request.originalItem.product, variants: { $elemMatch: { _id: request.requestedVariant, enabled: { $ne: false }, stock: { $gte: request.originalItem.quantity } } } },
-        { $inc: { 'variants.$.stock': -request.originalItem.quantity } }
-      );
-      if (!reserved.modifiedCount) throw new ApiError(409, 'Requested replacement is no longer in stock');
-      request.inventoryReserved = true;
-      request.status = 'inventory_reserved';
+      await withMongoTransaction(async session=>{
+        const claimed=await ExchangeRequestModel.findOneAndUpdate({_id:request._id,status:'requested',inventoryReserved:{$ne:true}},{$set:{inventoryReserved:true,status:'inventory_reserved'}},{new:true,session});if(!claimed)throw new ApiError(409,'Exchange was already processed');
+        const tracked=await ProductModel.exists({_id:request.originalItem!.product,variants:{$elemMatch:{_id:request.requestedVariant,unitTracked:true}}}).session(session??null);
+        if(tracked){const replacement=await OrderModel.findOne({_id:request.replacementOrder,user:request.customer,stockReserved:true,orderStatus:{$in:['pending','placed','confirmed','processing']}}).session(session??null);const count=await PhysicalUnitModel.countDocuments({exchange:request._id,order:request.replacementOrder,variant:request.requestedVariant,state:'RESERVED'}).session(session??null);if(!replacement||count!==request.originalItem!.quantity)throw new ApiError(409,'Tracked exchange requires linked reserved replacement units');return true;}
+        const reserved=await ProductModel.updateOne({_id:request.originalItem!.product,variants:{$elemMatch:{_id:request.requestedVariant,enabled:{$ne:false},stock:{$gte:request.originalItem!.quantity}}}},{$inc:{'variants.$.stock':-request.originalItem!.quantity,'variants.$.stockRevision':1}},{session});if(!reserved.modifiedCount)throw new ApiError(409,'Replacement is no longer in stock');
+        await recordOrderStockMovement([{product:request.originalItem!.product,variant:request.requestedVariant,quantity:request.originalItem!.quantity}],-1,'exchange_reservation',request.id,session);return true;
+      });
+      request.inventoryReserved=true;request.status='inventory_reserved';request.unmarkModified('inventoryReserved');request.unmarkModified('status');
     } else if (input.action === 'create_reverse_pickup' && request.status === 'inventory_reserved') {
       const orderRequests = await ExchangeRequestModel.find({
         order: request.order,
@@ -1106,13 +1111,15 @@ export const ReturnExchangeService = {
       request.status = 'replacement_pending';
       request.qualityCheckedAt = new Date();
     } else if (input.action === 'quality_check_failed' && request.status === 'warehouse_received') {
-      if (request.inventoryReserved) {
-        await ProductModel.updateOne({ _id: request.originalItem.product, 'variants._id': request.requestedVariant }, { $inc: { 'variants.$.stock': request.originalItem.quantity } });
-        request.inventoryReserved = false;
-      }
-      request.status = 'quality_check_failed';
-      request.qualityCheckedAt = new Date();
+      await withMongoTransaction(async session=>{
+        const claimed=await ExchangeRequestModel.findOneAndUpdate({_id:request._id,status:'warehouse_received'},{$set:{inventoryReserved:false,status:'quality_check_failed',qualityCheckedAt:new Date()}},{new:false,session});if(!claimed)throw new ApiError(409,'Exchange inspection was already processed');
+        if(claimed.inventoryReserved&&claimed.replacementOrder){const linked=await OrderModel.findById(claimed.replacementOrder).session(session??null);if(linked?.stockReserved)throw new ApiError(409,'Cancel the linked replacement through the authorized order workflow before failing inspection');return true;}
+        if(claimed.inventoryReserved){const changed=await ProductModel.updateOne({_id:request.originalItem!.product,'variants._id':request.requestedVariant},{$inc:{'variants.$.stock':request.originalItem!.quantity,'variants.$.stockRevision':1}},{session});if(!changed.modifiedCount)throw new ApiError(409,'Replacement variant missing');await recordOrderStockMovement([{product:request.originalItem!.product,variant:request.requestedVariant,quantity:request.originalItem!.quantity}],1,'exchange_reservation_release',request.id,session);}return true;
+      });
+      request.inventoryReserved=false;request.status='quality_check_failed';request.qualityCheckedAt=new Date();for(const field of ['inventoryReserved','status','qualityCheckedAt'])request.unmarkModified(field);
     } else if (input.action === 'replacement_shipped' && request.status === 'replacement_pending') {
+      if(request.replacementOrder){const record=await FulfillmentRecordModel.findOne({order:request.replacementOrder,stage:{$in:['HANDED_OVER','SHIPPED']}});if(!record?.shipment)throw new ApiError(409,'Complete the linked replacement through picking, packing and courier handover');request.replacementShipment=record.shipment;request.inventoryReserved=false;request.status='replacement_shipped';request.history.push({action:'replacement_shipped',note:'Linked replacement fulfillment verified',admin:objectId(adminId),createdAt:new Date()});await request.save();return request;}
+
       const orderRequests = await ExchangeRequestModel.find({ order: request.order }).sort({ _id: 1 });
       const unfinished = orderRequests.filter((candidate) => ['reverse_pickup', 'in_transit', 'warehouse_received'].includes(candidate.status));
       if (unfinished.length) throw new ApiError(409, `Complete quality checks for the remaining ${unfinished.length} product${unfinished.length === 1 ? '' : 's'} before shipping replacements`);
