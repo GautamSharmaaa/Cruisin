@@ -39,6 +39,7 @@ const envSchema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   CLIENT_URL: z.string().url().default('http://localhost:3000'),
   ADMIN_URL: z.string().url().default('http://localhost:3001'),
+  EMPLOYEE_URL: z.string().url().default('http://127.0.0.1:3194'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
   REDIS_URL: optionalSecret,
   UPSTASH_REDIS_REST_URL: optionalSecret,
