@@ -130,7 +130,7 @@ export function Portal({ children }: PortalProps): ReactNode {
               <div className="employee-tools">
                 <ThemeSelect />
                 <Button variant="ghost" aria-label={C.refresh} onClick={() => window.location.reload()}><RefreshCw size={16} /></Button>
-                <Button variant="secondary" onClick={() => void logout()}><LogOut size={16} /><span>{C.logout}</span></Button>
+                <Button variant="secondary" aria-label={C.logout} onClick={() => void logout()}><LogOut size={16} /><span>{C.logout}</span></Button>
               </div>
             </div>
           </header>
