@@ -16,14 +16,14 @@ Admin API: `/api/v1/admin/operations`; employee API: `/api/v1/employee`; media: 
 
 ## C. Completed local features
 
-- Shared Radix/shadcn-style controls and semantic light/dark/system themes across all apps.
+- Shared accessible controls and light/dark/system themes; the employee site matches the existing admin black/gold design as requested.
 - Admin employee creation/editing, granular grants/denials, activation and session revocation.
 - Synthetic OTP adapter, one-use challenges, expiry/cooldown/attempt limits, secure cookies, CSRF/Origin checks and refresh-safe sessions.
 - Assigned tasks, checklists/comments/evidence, dependencies, version checks, notifications, independent reviews and rework.
 - Separate product/packaging SOP editors with custom sections, ordered mandatory/photo/scan steps, administrator measurement bounds, immutable publications and acknowledgments.
 - Physical receiving, QC, quarantine/damaged dispositions, immutable unit identity, QR preview/reprint, configured print layout/calibration and manual/camera scan controls.
 - Shared stock/ledger, approved aggregate corrections, exact unit reservation, order picking, parcel measurements/evidence, AWB/document association, explicit handover and carrier status reconciliation.
-- Inspected returns, linked tracked exchange replacements, exception owner assignment/resolution and persisted operational summary counts.
+- Inspected returns, linked tracked exchange replacements, exception owner assignment/resolution and persisted operational summary counts. Dashboard packing/dispatch counts deduplicate orders, enforce employee scope, exclude terminal tasks, and support error/retry. Notifications expose older pages and read actions.
 - Local public/private media delivery, signed grants, checksum verification, guarded R2 adapter, resumable mapping/deduplication and read-only Cloudinary fallback.
 
 ## D. Admin/employee connectivity
@@ -70,7 +70,7 @@ See [TDD evidence](docs/cruisin-v2/operations/TDD_EVIDENCE.md) and [verification
 
 ## K. Regression and build results
 
-The final regression run passed **510 server +90 storefront +45 admin =645 tests** in 102 test files. All four production builds and TypeScript checks pass. The built operations suite has six desktop/mobile cases; existing cross-browser smoke has 12 cases across Chromium, mobile Chromium, Firefox and WebKit. Final print-preview reruns and measured coverage are recorded in the linked evidence document.
+The final regression run passed **512 server +90 storefront +45 admin =647 tests** in 102 test files. All four production builds and TypeScript checks pass. The built operations suite has six desktop/mobile cases; existing cross-browser smoke has 12 cases across Chromium, mobile Chromium, Firefox and WebKit. Final print-preview reruns and measured coverage are recorded in the linked evidence document.
 
 No coverage percentage, hardware compatibility or remote CI result is inferred from mocks. A CI operations job is prepared, its YAML parsed locally, and the deployment gate includes it. No workflow was pushed or run remotely.
 

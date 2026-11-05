@@ -4,8 +4,10 @@ Updated 2026-11-05. Local implementation only. No production writes, remote push
 
 Status: IMPLEMENTED; browser themes and keyboard dialog checks VERIFIED LOCALLY.
 
-`packages/ui` supplies semantic CSS tokens, Radix primitives and shared shadcn-style APIs: button, card, field/input, alert, skeleton, dialog, sheet/drawer, confirmation, tabs, dropdown/select/combobox, calendar/date picker, data table, pagination, tooltip, command, OTP input, toast and upload controls. `packages/operations-ui` contains business forms; it does not own a separate data store.
+`packages/ui` supplies semantic CSS tokens, Radix primitives and shared accessible component APIs: button, card, field/input, alert, skeleton, dialog, sheet/drawer, confirmation, tabs, dropdown/select/combobox, calendar/date picker, data table, pagination, tooltip, command, OTP input, toast and upload controls. `packages/operations-ui` contains business forms; it does not own a separate data store.
 
 next-themes provides class-based light/dark/system preference, persisted locally with hydration-safe selection and root hydration suppression. Styles apply to all three apps. Storefront branding/components remain intact; operational screens prioritize compact usable controls. Tailwind scans shared packages via relative config. New operations forms have loading, errors, empty states and dialog keyboard support; mobile/desktop Playwright runs real forms.
 
 New camera scanner is explicit permission-based with manual fallback and stream cleanup. Native printer dialog is used. A comprehensive manual WCAG audit and physical hardware tests are NOT VERIFIED. Existing storefront branding colors are preserved where a wholesale redesign would be outside scope.
+
+The employee application follows the existing admin visual design by explicit user instruction: the same black/gold palette, square inputs/cards/buttons, uppercase tracked navigation, a 288px desktop sidebar and responsive mobile navigation. Shared primitives retain accessible behavior; the previous green employee theme is removed.
