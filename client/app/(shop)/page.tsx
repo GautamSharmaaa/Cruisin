@@ -6,7 +6,7 @@ import { serverApi } from '@/lib/server-api';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { CmsExperienceDto } from '@/types/dto.types';
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 async function loadCmsHome(): Promise<CmsExperienceDto | null> {
   try {

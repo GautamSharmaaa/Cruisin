@@ -11,6 +11,7 @@ import type { Product } from '@/types/product.types';
 
 export interface CmsHomepageProps {
   sections: CmsSectionDto[];
+  preview?: boolean;
 }
 
 type Content = Record<string, unknown>;
@@ -91,10 +92,10 @@ function LazyVideo({ src, poster, autoplay, muted, loop, className }: { src: str
 const mediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'desktopMedia', section.image ?? asString(content, 'posterImage', asString(content, 'imageOne')));
 const mobileMediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'mobileMedia', section.mobileImage ?? asString(content, 'mobileFallbackImage', mediaFor(section, content)));
 
-export function CmsHomepage({ sections }: CmsHomepageProps): ReactNode {
+export function CmsHomepage({ sections, preview = false }: CmsHomepageProps): ReactNode {
   const seen = new Set<string>();
   const visible = sections.filter((section) => {
-    if (!active(section) || section.status !== 'published') return false;
+    if (!active(section) || (!preview && section.status !== 'published')) return false;
     if (/\bcopy$/i.test(section.title.trim())) return false;
     const key = [section.type, section.title.trim().toLowerCase(), section.sortOrder].join(':');
     if (seen.has(key)) return false;

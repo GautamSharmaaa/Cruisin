@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+const base=process.env.PLAYWRIGHT_API_URL??'http://127.0.0.1:8192/api/v1';
+const shop=process.env.PLAYWRIGHT_STOREFRONT_URL??'http://127.0.0.1:3192';
+test('saved preview uses storefront renderer while publication remains isolated',async({page,request})=>{
+ const login=await request.post(base+'/auth/login',{headers:{Origin:'http://127.0.0.1:3193'},data:{email:'admin@cruisin.local',password:'CruisinAdmin123'}});expect(login.ok()).toBe(true);
+ const headers={Authorization:`Bearer ${(await login.json()).data.accessToken}`,Origin:'http://127.0.0.1:3193'};
+ const slug='publication-'+Date.now();
+ const created=await request.post(base+'/cms/pages',{headers,data:{slug,title:'Release story'}});expect(created.status()).toBe(201);
+ const p=(await created.json()).data;const id=p._id??p.id;
+ const section=await request.post(base+`/cms/pages/${id}/sections`,{headers,data:{type:'brand_story',title:'Unreleased editorial story',content:{},styles:{}}});expect(section.ok()).toBe(true);
+ expect((await request.get(base+`/cms/pages/${slug}/public`)).status()).toBe(404);
+ expect((await request.get(shop+`/cms-preview/${slug}`)).status()).toBe(404);
+ await page.goto(shop+`/cms-preview/${slug}?previewToken=${encodeURIComponent(p.previewToken)}`);
+ await expect(page.getByText('Unreleased editorial story',{exact:true})).toBeVisible();
+ await page.setViewportSize({width:375,height:812});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const publish=await request.post(base+`/cms/pages/${id}/publish`,{headers});expect(publish.ok()).toBe(true);
+ const publicResult=await request.get(base+`/cms/pages/${slug}/public`);expect(publicResult.ok()).toBe(true);expect((await publicResult.json()).data.sections[0].title).toBe('Unreleased editorial story');
+ expect(publicResult.headers()['cache-control']).toContain('no-store');
+ expect((await request.get(base+`/cms/pages/${slug}/public?previewToken=wrong`)).status()).toBe(403);
+});

@@ -298,6 +298,7 @@ function BuilderHeader({ homePage, saveState, onAdd, onSave, onTemplate, onToggl
       <p className={cn('mt-2 text-xs uppercase tracking-[0.12em]', saveState === 'error' ? 'text-danger' : saveState === 'saved' ? 'text-success' : 'text-text-secondary')}>{labels[saveState]}</p>
     </div>
     <div className="flex flex-wrap gap-2 xl:justify-end">
+      {homePage?.previewToken && <a className="ui-button ui-button-secondary" target="_blank" rel="noreferrer" href={`${process.env.NEXT_PUBLIC_STOREFRONT_URL ?? 'http://127.0.0.1:3192'}/cms-preview/${encodeURIComponent(homePage.slug)}?previewToken=${encodeURIComponent(homePage.previewToken)}`}>Preview saved draft</a>}
       <Button type="button" onClick={onTemplate} disabled={!canMutate}><LayoutTemplate size={16} />Use Template</Button>
       <Button type="button" onClick={onAdd} disabled={!canMutate}><Plus size={16} />Add Section</Button>
       <Button type="button" variant="secondary" onClick={onSave} disabled={!canMutate || isSaving}><Save size={16} />Save Draft</Button>

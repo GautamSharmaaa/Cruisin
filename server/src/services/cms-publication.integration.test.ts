@@ -1,0 +1,12 @@
+import {beforeAll,afterAll,it,expect} from 'vitest';
+import mongoose from 'mongoose';
+import {randomUUID} from 'node:crypto';
+import {CmsService} from './cms.service.js';
+import {CMSPageModel,CMSSectionModel,CMSVersionModel} from '../models/cms.model.js';
+const ids:string[]=[];
+beforeAll(async()=>{await mongoose.connect(process.env.MONGODB_URI!);});
+afterAll(async()=>{await CMSSectionModel.deleteMany({pageId:{$in:ids}});await CMSVersionModel.deleteMany({pageId:{$in:ids}});await CMSPageModel.deleteMany({_id:{$in:ids}});await mongoose.disconnect();});
+const fixture=async()=>{const p=await CMSPageModel.create({slug:`cms-${randomUUID()}`,title:'Synthetic campaign',previewToken:randomUUID()});ids.push(p.id);return p;};
+it('never exposes draft-only pages, even if a section claims published',async()=>{const p=await fixture();await CmsService.createSection(p.id,{type:'brand_story',title:'Unreleased story',status:'published'});await expect(CmsService.publicPage(p.slug)).rejects.toMatchObject({statusCode:404});});
+it('keeps an empty published revision authoritative after editing its draft',async()=>{const p=await fixture();await CmsService.publishPage(p.id);await CmsService.createSection(p.id,{type:'brand_story',title:'Unreleased story',status:'published'});expect(await CmsService.publicPage(p.slug)).toMatchObject({sections:[],preview:false});expect(await CmsService.publicPage(p.slug,{previewToken:p.previewToken})).toMatchObject({preview:true,sections:[{title:'Unreleased story'}]});});
+it('rejects invalid preview credentials and public time-travel requests',async()=>{const p=await fixture();await expect(CmsService.publicPage(p.slug,{previewToken:'invalid'})).rejects.toMatchObject({statusCode:403});await expect(CmsService.publicPage(p.slug,{scheduledAt:new Date('2099-01-01')})).rejects.toMatchObject({statusCode:403});});

@@ -244,13 +244,17 @@ export const CmsService = {
     const page = await CMSPageModel.findOne({ slug, status: { $ne: 'archived' } }).lean();
     if (!page) throw new ApiError(404, 'CMS page not found');
     const isPreview = Boolean(options.previewToken && options.previewToken === page.previewToken);
+    if ((options.previewToken || options.includeInactive || options.scheduledAt) && !isPreview)
+      throw new ApiError(403, 'Valid CMS preview credentials required');
+    if (!isPreview && page.status !== 'published') throw new ApiError(404, 'CMS page not found');
     const at = options.scheduledAt ?? new Date();
     if (!isPreview && page.publishedVersionId) {
       const version = await CMSVersionModel.findById(page.publishedVersionId).lean();
       if (version) {
         const sections = await hydrateEmptyProductRails(await hydrateSnapshotSections((version.sectionsSnapshot as Record<string, unknown>[]).filter((section) => sectionIsLiveFromSnapshot(section, at))));
-        if (sections.length > 0) return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
+        return { page: sanitizePublicPage(page), sections: sections.map(sanitizePublicSection), preview: false };
       }
+      throw new ApiError(503, 'Published CMS revision unavailable');
     }
     if (!isPreview) {
       const sections = await hydrateEmptyProductRails(await loadPublishedSections(page._id, at));

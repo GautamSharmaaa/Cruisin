@@ -17,7 +17,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@cruisin/ui'],
-  async headers() { return [{ source: '/(.*)', headers: securityHeaders }]; },
+  async headers() { return [{ source: '/(.*)', headers: securityHeaders }, {source:'/cms-preview/:path*',headers:[{key:'Cache-Control',value:'private, no-store'},{key:'Referrer-Policy',value:'no-referrer'},{key:'X-Robots-Tag',value:'noindex, nofollow'}]}]; },
   async rewrites() {
     return apiProxyTarget ? [{ source: '/api/v1/:path*', destination: `${apiProxyTarget}/api/v1/:path*` }] : [];
   },
