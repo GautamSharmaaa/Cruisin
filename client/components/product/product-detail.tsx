@@ -1,102 +1,34 @@
-// Governed by .rules v1.0
 'use client';
-
-import { Share2 } from 'lucide-react';
+import {useState,type ReactNode} from 'react';
+import {Clock3,Minus,Plus,Share2} from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
-import { AddToCartButton } from '@/components/product/add-to-cart-button';
-import { ImageGallery } from '@/components/product/image-gallery';
-import { ReviewSection } from '@/components/product/review-section';
-import { SizeGuideModal } from '@/components/product/size-guide-modal';
-import { VariantSelector } from '@/components/product/variant-selector';
-import { WishlistButton } from '@/components/product/wishlist-button';
-import { Button } from '@/components/ui/button';
-import { Breadcrumb } from '@/components/shared/breadcrumb';
-import { COPY } from '@/constants/copy';
-import { ROUTES } from '@/constants/routes';
-import { normalizeProductHighlights, parseProductDescription } from '@/lib/product-description';
-import { formatPrice } from '@/lib/utils';
-import type { Product, ProductVariant } from '@/types/product.types';
-
-export interface ProductDetailProps { product: Product; }
-export function ProductDetail({ product }: ProductDetailProps): ReactNode {
-  const [variant, setVariant] = useState<ProductVariant | null>(null);
-  const [colorVariant, setColorVariant] = useState<ProductVariant | null>(product.variants.find((item) => item.enabled !== false && item.stock > 0) ?? product.variants[0] ?? null);
-  const stock = variant?.stock ?? colorVariant?.stock ?? 0;
-  const share = (): void => { void navigator.clipboard.writeText(window.location.href); };
-  const galleryVariant = variant ?? colorVariant;
-  const displayImages = galleryVariant?.images && galleryVariant.images.length > 0 ? galleryVariant.images : product.images;
-  const displayPrice = variant?.price ?? product.basePrice;
-  const showComparePrice = Boolean(product.comparePrice && product.comparePrice > displayPrice);
-  const descriptionBlocks = parseProductDescription(product.richDescription);
-  const productHighlights = normalizeProductHighlights(product.productHighlights ?? []);
-
-  return (
-    <main className="px-6 pb-20 pt-32 lg:px-20">
-      <Breadcrumb items={[{ label: COPY.nav.home, href: ROUTES.home }, { label: COPY.nav.shop, href: ROUTES.shop }, { label: product.title, href: '/product/' + product.slug }]} />
-      <div className="mt-8 grid min-w-0 gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-        <ImageGallery images={displayImages} />
-        {product.videoUrl ? <div className="overflow-hidden border border-border-subtle bg-background-elevated lg:hidden">
-          <video src={product.mobileVideoUrl || product.videoUrl} poster={product.videoPosterImage || product.images[0]?.url} className="aspect-[3/4] w-full object-cover" controls playsInline />
-        </div> : null}
-        <section className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-          <p className="font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{product.brand}</p>
-          <h1 className="mt-3 font-display text-4xl font-light text-text-primary">{product.title}</h1>
-          <p className="mt-4 flex flex-wrap items-baseline gap-3 font-mono text-xl text-accent-gold" aria-live="polite">
-            <span>{formatPrice(displayPrice)}</span>
-            {showComparePrice ? <span className="text-base text-text-muted line-through decoration-text-muted/80">{formatPrice(product.comparePrice!)}</span> : null}
-          </p>
-          {stock > 0 && stock < 5 ? <p className="mt-3 text-sm text-warning">{COPY.product.onlyLeft.replace('{count}', String(stock))}</p> : null}
-          <div className="mt-10">
-            <VariantSelector variants={product.variants} onChange={setVariant} onColorChange={setColorVariant} />
-          </div>
-          {variant ? <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-y border-border py-3 text-xs uppercase tracking-[0.12em] text-text-secondary" aria-live="polite"><span>SKU <strong className="ml-2 font-mono font-normal text-text-primary">{variant.sku}</strong></span><span>Stock <strong className="ml-2 font-mono font-normal text-text-primary">{variant.stock}</strong></span></div> : <p className="mt-5 text-sm text-text-muted">Choose a size to confirm the exact SKU and availability.</p>}
-          <div className="mt-6 flex flex-wrap gap-3">
-            <SizeGuideModal />
-            <WishlistButton product={product} next={'/product/' + product.slug} />
-            <Button variant="ghost" onClick={share}><Share2 size={16} /> {COPY.product.share}</Button>
-          </div>
-          <div className="mt-8">
-            <AddToCartButton product={product} variant={variant} />
-          </div>
-          <details className="mt-10 border-t border-border py-6" open>
-            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.description}</summary>
-            <div className="mt-5 space-y-4 text-text-secondary">
-              {descriptionBlocks.map((block, index) => {
-                if (block.type === 'heading') return <h2 key={`${block.type}-${index}`} className="pt-2 font-accent text-sm uppercase tracking-[0.12em] text-text-primary">{block.text}</h2>;
-                if (block.type === 'list') return <ul key={`${block.type}-${index}`} className="grid list-disc gap-2 pl-5 text-sm leading-6">{block.items.map((item) => <li key={item} className="pl-1">{item}</li>)}</ul>;
-                return <p key={`${block.type}-${index}`} className="text-sm leading-7">{block.text}</p>;
-              })}
-            </div>
-            {productHighlights.length > 0 ? <div className="mt-6 border-t border-border-subtle pt-5"><h2 className="font-accent text-sm uppercase tracking-[0.12em] text-text-primary">Product Highlights</h2><ul className="mt-3 grid list-disc gap-2 pl-5 text-sm leading-6 text-text-secondary">{productHighlights.map((highlight) => <li key={highlight} className="pl-1">{highlight}</li>)}</ul></div> : null}
-          </details>
-          {product.videoUrl ? <div className="mt-8 hidden overflow-hidden border border-border-subtle bg-background-elevated lg:block">
-            <video src={product.videoUrl} poster={product.videoPosterImage || product.images[0]?.url} className="aspect-video w-full object-cover" controls playsInline />
-          </div> : null}
-          {product.materialCare ? <details className="border-t border-border py-6">
-            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">Material & Care</summary>
-            <p className="mt-4 text-text-secondary">{product.materialCare}</p>
-          </details> : null}
-          {product.fitDetails ? <details className="border-t border-border py-6">
-            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">Fit Details</summary>
-            <p className="mt-4 text-text-secondary">{product.fitDetails}</p>
-          </details> : null}
-          <details className="border-t border-border py-6">
-            <summary className="cursor-pointer font-accent text-xs uppercase tracking-[0.15em]">{COPY.product.shipping}</summary>
-            <div className="mt-4 space-y-4 text-sm leading-6 text-text-secondary">
-              <p>Ships with tracking. Delivery timing is shown at checkout and updated in your account after dispatch.</p>
-              <ul className="grid list-disc gap-2 pl-5">
-                <li>Request a return or same-product size/colour exchange within five calendar days of delivery.</li>
-                <li>Items must be unused, unworn, unwashed, and returned with original tags and packaging.</li>
-                <li>Select the issue and upload 1–5 clear photographs from the delivered order in your account.</li>
-                <li>A ₹100 handling fee applies once per return or exchange request; approval follows receipt and quality inspection.</li>
-              </ul>
-              <Link href={ROUTES.returns} className="inline-flex min-h-11 items-center border-b border-accent-gold py-2 text-xs uppercase tracking-[0.12em] text-accent-gold transition hover:text-text-primary">Read the complete returns &amp; exchange policy</Link>
-            </div>
-          </details>
-        </section>
-      </div>
-      <ReviewSection reviews={product.reviews} rating={product.ratings.avg} count={product.ratings.count} />
-    </main>
-  );
+import {useRouter} from 'next/navigation';
+import {ImageGallery} from './image-gallery';
+import {SizeGuideModal} from './size-guide-modal';
+import {VariantSelector} from './variant-selector';
+import {WishlistButton} from './wishlist-button';
+import {ReviewSection} from './review-section';
+import {AddToCartButton} from './add-to-cart-button';
+import {COPY} from '@/constants/copy';
+import {STOREFRONT_COPY as C} from '@/constants/storefront-copy';
+import {ROUTES} from '@/constants/routes';
+import {normalizeProductHighlights,parseProductDescription} from '@/lib/product-description';
+import {addProductToCart} from '@/lib/meta-actions';
+import {formatPrice} from '@/lib/utils';
+import {useCartStore} from '@/store/cartStore';
+import type {Product,ProductVariant} from '@/types/product.types';
+export interface ProductDetailProps {product:Product;}
+export function ProductDetail({product}:ProductDetailProps):ReactNode{
+ const [variant,setVariant]=useState<ProductVariant|null>(null);const [colorVariant,setColorVariant]=useState<ProductVariant|null>(product.variants.find(item=>item.enabled!==false&&item.stock>0)??product.variants[0]??null);const [quantity,setQuantity]=useState(1);const [copied,setCopied]=useState(false);const [error,setError]=useState('');
+ const router=useRouter();const addItem=useCartStore(s=>s.addItem);const closeCart=useCartStore(s=>s.closeCart);
+ const galleryVariant=variant??colorVariant;const displayImages=galleryVariant?.images?.length?galleryVariant.images:product.images;const price=variant?.price??colorVariant?.price??product.basePrice;const stock=variant?.stock??0;
+ const descriptionBlocks=parseProductDescription(product.richDescription);const highlights=normalizeProductHighlights(product.productHighlights??[]);
+ const buy=():void=>{if(!variant||stock<quantity)return;if(addProductToCart({product,variant,quantity,addItem})){closeCart();router.push(ROUTES.checkout);}else setError(C.unavailable);};
+ const share=async():Promise<void>=>{try{await navigator.clipboard.writeText(window.location.href);setCopied(true);}catch{setCopied(false);}};
+ return <main className="pdp-page"><div className="pdp-hero"><ImageGallery images={displayImages}/><section data-scroll-native className="pdp-purchase-card" aria-label={C.productInformation}><div className="pdp-heading"><h1>{product.title}</h1><p aria-live="polite">{formatPrice(price)}{product.comparePrice&&product.comparePrice>price?<del>{formatPrice(product.comparePrice)}</del>:null}</p></div>{product.shortDescription&&<p className="pdp-short-description">{product.shortDescription}</p>}{product.fitDetails&&<div className="pdp-fit-note"><span>{C.fit}</span><p>{product.fitDetails}</p></div>}
+ <div className="pdp-variants"><div className="pdp-size-guide"><SizeGuideModal/></div><VariantSelector variants={product.variants} onChange={next=>{setVariant(next);setQuantity(1);setError('');}} onColorChange={next=>{setColorVariant(next);setQuantity(1);}}/></div>
+ <div className="pdp-stock" role="status"><Clock3 size={17}/><p>{variant?stock>0?C.available:C.unavailable:C.choose}</p>{variant&&<span>{variant.sku}</span>}</div>
+ <div className="pdp-purchase-row"><div className="pdp-quantity" role="group" aria-label={C.quantity}><button type="button" aria-label={C.decrease} disabled={quantity<=1} onClick={()=>setQuantity(current=>current-1)}><Minus size={14}/></button><output aria-live="polite">{quantity}</output><button type="button" aria-label={C.increase} disabled={!variant||quantity>=stock} onClick={()=>setQuantity(current=>current+1)}><Plus size={14}/></button></div><AddToCartButton product={product} variant={variant} quantity={quantity}/></div>
+ <button type="button" className="pdp-buy-now" disabled={!variant||stock<quantity||variant.enabled===false} onClick={buy}>{C.buyNow}</button>{error&&<p role="alert">{error}</p>}<p className="pdp-delivery-note">{C.checkoutDelivery}</p><div className="pdp-secondary-actions"><WishlistButton product={product} next={'/product/'+product.slug}/><button type="button" onClick={()=>void share()}><Share2 size={14}/>{copied?C.copied:C.copyLink}</button></div></section></div>
+ <div className="pdp-information"><details open><summary>{C.details}</summary><div>{descriptionBlocks.map((block,index)=>block.type==='heading'?<h2 key={index}>{block.text}</h2>:block.type==='list'?<ul key={index}>{block.items.map(item=><li key={item}>{item}</li>)}</ul>:<p key={index}>{block.text}</p>)}{highlights.length>0&&<ul>{highlights.map(highlight=><li key={highlight}>{highlight}</li>)}</ul>}</div></details><details><summary>{C.delivery}</summary><div>{product.shippingReturns?<p>{product.shippingReturns}</p>:<p>{C.checkoutDelivery}</p>}<Link href={ROUTES.returns}>{C.returnsLink}</Link></div></details>{product.materialCare&&<details><summary>{C.care}</summary><div><p>{product.materialCare}</p></div></details>}{product.videoUrl&&<video src={product.mobileVideoUrl||product.videoUrl} poster={product.videoPosterImage||product.images[0]?.url} controls playsInline className="pdp-film"/>}</div>{product.ratings.count>0&&<div className="pdp-reviews"><ReviewSection reviews={product.reviews} rating={product.ratings.avg} count={product.ratings.count}/></div>}</main>;
 }

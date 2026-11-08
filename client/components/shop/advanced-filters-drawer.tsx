@@ -1,104 +1,28 @@
-// Governed by .rules v1.0
 'use client';
-
-import type { ReactNode } from 'react';
-import { Drawer } from '@/components/shared/drawer';
-import { Button } from '@/components/ui/button';
-import { COPY } from '@/constants/copy';
-import type { CategoryDto, CollectionDto } from '@/types/dto.types';
-
-export interface AdvancedFilterValues {
-  category: string;
-  collection: string;
-  gender: string;
-  size: string;
-  color: string;
-  priceMin: string;
-  priceMax: string;
-  availability: string;
-  sale: boolean;
-  sort: string;
+import * as Dialog from '@radix-ui/react-dialog';
+import {AnimatePresence,motion} from 'framer-motion';
+import {X} from 'lucide-react';
+import {useState,type ReactNode,type RefObject} from 'react';
+import {z} from 'zod';
+import {storefrontFilterPanel,storefrontBackdrop} from '@/lib/storefront-motion';
+import {STOREFRONT_COPY as C} from '@/constants/storefront-copy';
+import type {CategoryDto,CollectionDto} from '@/types/dto.types';
+export interface AdvancedFilterValues {category:string;collection:string;gender:string;size:string;color:string;priceMin:string;priceMax:string;availability:string;sale:boolean;sort:string;}
+export interface AdvancedFiltersDrawerProps {open:boolean;onOpenChange:(open:boolean)=>void;values:AdvancedFilterValues;onChange:(values:AdvancedFilterValues)=>void;onApply:()=>void;onClear:()=>void;categories:CategoryDto[];collections:CollectionDto[];sizes:string[];colors:{label:string;hex:string}[];resultCount?:number;countLoading?:boolean;triggerRef?:RefObject<HTMLButtonElement|null>;}
+const priceSchema=z.object({priceMin:z.string().refine(v=>v===''||/^\d+(\.\d{0,2})?$/.test(v),C.invalidPrice),priceMax:z.string().refine(v=>v===''||/^\d+(\.\d{0,2})?$/.test(v),C.invalidPrice)}).refine(v=>!v.priceMin||!v.priceMax||Number(v.priceMin)<=Number(v.priceMax),{message:'Minimum price must not exceed maximum price.'});
+export function AdvancedFiltersDrawer({open,onOpenChange,values,onChange,onApply,onClear,categories,collections,sizes,colors,resultCount,countLoading,triggerRef}:AdvancedFiltersDrawerProps):ReactNode{
+ const [error,setError]=useState('');const patch=(key:keyof AdvancedFilterValues,value:string|boolean):void=>{setError('');onChange({...values,[key]:value});};
+ return <Dialog.Root open={open} onOpenChange={onOpenChange}><AnimatePresence>{open&&<Dialog.Portal forceMount><Dialog.Overlay asChild><motion.div className="collection-filter-overlay" variants={storefrontBackdrop} initial="initial" animate="animate" exit="exit"/></Dialog.Overlay><Dialog.Content onCloseAutoFocus={event=>{event.preventDefault();triggerRef?.current?.focus();}} asChild><motion.aside className="collection-filter-panel" variants={storefrontFilterPanel} initial="initial" animate="animate" exit="exit"><header><Dialog.Title>{C.filters}</Dialog.Title><Dialog.Close aria-label="Close filters"><X size={22} strokeWidth={1.3}/></Dialog.Close><Dialog.Description className="sr-only">{C.filterHelp}</Dialog.Description></header><div className="collection-filter-scroll">
+ <FilterGroup title={C.size}>{sizes.map(size=><CheckOption key={size} label={size} checked={values.size.toLowerCase()===size.toLowerCase()} onChange={()=>patch('size',values.size===size?'':size)}/>)}</FilterGroup>
+ <FilterGroup title={C.availability}>{[['in-stock',C.inStock],['out-of-stock',C.outOfStock]].map(([key,label])=><CheckOption key={key} label={label} checked={values.availability===key} onChange={()=>patch('availability',values.availability===key?'all':key)}/>)}</FilterGroup>
+ <FilterGroup title={C.price}><div className="collection-price-track"><input aria-label={C.max} type="range" min="0" max="55000" step="100" value={Math.min(55000,Number(values.priceMax||55000))} onChange={e=>patch('priceMax',e.target.value)}/></div><div className="collection-price-inputs"><label>₹<input aria-label={C.min} inputMode="decimal" value={values.priceMin} placeholder="0" onChange={e=>patch('priceMin',e.target.value)}/></label><span>–</span><label>₹<input aria-label={C.max} inputMode="decimal" value={values.priceMax} placeholder="Any" onChange={e=>patch('priceMax',e.target.value)}/></label></div></FilterGroup>
+ <FilterGroup title={C.type}>{categories.filter(category=>category.showInFilters!==false).map(category=><CheckOption key={category._id??category.slug} label={category.name} checked={values.category===(category.path??category.slug)} onChange={()=>patch('category',values.category===(category.path??category.slug)?'':category.path??category.slug)}/>)}</FilterGroup>
+ <FilterGroup title={C.color}>{colors.map(color=><CheckOption key={color.label} label={color.label} checked={values.color===color.label} onChange={()=>patch('color',values.color===color.label?'':color.label)}/>)}</FilterGroup>
+ {collections.length>0&&<FilterGroup title={C.collection}>{collections.map(collection=><CheckOption key={collection._id??collection.slug} label={collection.title} checked={values.collection===collection.slug} onChange={()=>patch('collection',values.collection===collection.slug?'':collection.slug)}/>)}</FilterGroup>}
+ <FilterGroup title={C.gender}>{['men','women','unisex'].map(gender=><CheckOption key={gender} label={gender} checked={values.gender===gender} onChange={()=>patch('gender',values.gender===gender?'':gender)}/>)}</FilterGroup><CheckOption label={C.sale} checked={values.sale} onChange={()=>patch('sale',!values.sale)}/>
+ </div><footer>{error&&<p role="alert">{error}</p>}<button type="button" className="collection-filter-clear" onClick={()=>{setError('');onClear();}}>{C.clear}</button><button type="button" className="collection-filter-apply" onClick={()=>{const parsed=priceSchema.safeParse(values);if(!parsed.success){setError(parsed.error.issues[0]?.message??C.invalidPrice);return;}setError('');onApply();}}>{countLoading?C.updating:resultCount===undefined?C.apply:C.viewItems.replace('{count}',String(resultCount))}</button></footer></motion.aside></Dialog.Content></Dialog.Portal>}</AnimatePresence></Dialog.Root>;
 }
-
-export interface AdvancedFiltersDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  values: AdvancedFilterValues;
-  onChange: (values: AdvancedFilterValues) => void;
-  onApply: () => void;
-  onClear: () => void;
-  categories: CategoryDto[];
-  collections: CollectionDto[];
-  sizes: string[];
-  colors: Array<{ label: string; hex: string }>;
-}
-
-const sortOptions = [
-  ['newest', 'Latest'],
-  ['price-asc', 'Price Low to High'],
-  ['price-desc', 'Price High to Low'],
-  ['best-selling', 'Bestsellers']
-] as const;
-
-export function AdvancedFiltersDrawer({ open, onOpenChange, values, onChange, onApply, onClear, categories, collections, sizes, colors }: AdvancedFiltersDrawerProps): ReactNode {
-  const patch = (key: keyof AdvancedFilterValues, value: string | boolean): void => onChange({ ...values, [key]: value });
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange} title="Advanced Filters">
-      <div className="grid gap-5">
-        <Select label="Category" value={values.category} onChange={(value) => patch('category', value)}>
-          <option value="">All categories</option>
-          {categories.map((category) => <option key={category._id ?? category.id ?? category.slug} value={category.path ?? category.slug}>{category.name}</option>)}
-        </Select>
-        <Select label="Collection" value={values.collection} onChange={(value) => patch('collection', value)}>
-          <option value="">All collections</option>
-          {collections.map((collection) => <option key={collection._id ?? collection.id ?? collection.slug} value={collection.slug}>{collection.title}</option>)}
-        </Select>
-        <Select label="Gender" value={values.gender} onChange={(value) => patch('gender', value)}>
-          <option value="">All</option>
-          <option value="men">Men</option>
-          <option value="women">Women</option>
-          <option value="unisex">Unisex</option>
-        </Select>
-        <fieldset className="grid gap-3">
-          <legend className="text-[11px] uppercase tracking-[0.14em] text-text-muted">{COPY.product.size}</legend>
-          {sizes.length ? <div className="flex flex-wrap gap-2">{sizes.map((size) => <button type="button" key={size.toLowerCase()} aria-pressed={values.size.toLowerCase() === size.toLowerCase()} onClick={() => patch('size', values.size.toLowerCase() === size.toLowerCase() ? '' : size)} className={'h-11 min-w-11 border px-3 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold ' + (values.size.toLowerCase() === size.toLowerCase() ? 'border-accent-gold bg-accent-gold/5 text-accent-gold' : 'border-border text-text-secondary hover:border-border-strong hover:text-text-primary')}>{size}</button>)}</div> : <p className="text-sm text-text-muted">No published size options are available.</p>}
-        </fieldset>
-        <fieldset className="grid gap-3">
-          <legend className="text-[11px] uppercase tracking-[0.14em] text-text-muted">{COPY.product.color}</legend>
-          {colors.length ? <div className="flex flex-wrap gap-2">{colors.map((color) => {
-            const selected = values.color.toLowerCase() === color.label.toLowerCase();
-            return <button type="button" key={color.label.toLowerCase()} aria-label={`Filter by ${color.label}`} aria-pressed={selected} onClick={() => patch('color', selected ? '' : color.label)} className={'flex min-h-11 items-center border px-3 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-gold ' + (selected ? 'border-accent-gold bg-accent-gold/5 text-accent-gold' : 'border-border text-text-secondary hover:border-border-strong hover:text-text-primary')}><span aria-hidden="true" className="mr-2 h-4 w-4 rounded-full border border-border-strong shadow-inner" style={{ backgroundColor: /^#[0-9a-f]{6}$/i.test(color.hex) ? color.hex : '#777777' }} />{color.label}</button>;
-          })}</div> : <p className="text-sm text-text-muted">No published color options are available.</p>}
-        </fieldset>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Min price" value={values.priceMin} onChange={(value) => patch('priceMin', value)} />
-          <Field label="Max price" value={values.priceMax} onChange={(value) => patch('priceMax', value)} />
-        </div>
-        <Select label="Availability" value={values.availability} onChange={(value) => patch('availability', value)}>
-          <option value="all">All</option>
-          <option value="in-stock">In stock</option>
-          <option value="out-of-stock">Out of stock</option>
-        </Select>
-        <label className="flex min-h-11 items-center gap-3 border border-border px-3 text-sm text-text-secondary">
-          <input type="checkbox" checked={values.sale} onChange={(event) => patch('sale', event.target.checked)} className="h-4 w-4 accent-accent-gold" />
-          Sale only
-        </label>
-        <Select label={COPY.shop.sort} value={values.sort} onChange={(value) => patch('sort', value)}>
-          {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </Select>
-        <div className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-border bg-background-elevated pt-4">
-          <Button type="button" variant="secondary" onClick={onClear}>Clear</Button>
-          <Button type="button" onClick={onApply}>Apply Filters</Button>
-        </div>
-      </div>
-    </Drawer>
-  );
-}
-
-function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }): ReactNode {
-  return <label className="grid gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 border border-border bg-background-input px-3 text-sm normal-case tracking-0 text-text-primary">{children}</select></label>;
-}
-
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }): ReactNode {
-  return <label className="grid gap-2 text-[11px] uppercase tracking-[0.14em] text-text-muted"><span>{label}</span><input value={value} type="number" min="0" onChange={(event) => onChange(event.target.value)} className="h-11 border border-border bg-background-input px-3 text-sm normal-case tracking-0 text-text-primary" /></label>;
-}
+export interface FilterGroupProps {title:string;children:ReactNode;}
+function FilterGroup({title,children}:FilterGroupProps):ReactNode{return <details className="collection-filter-group" open><summary>{title}<span aria-hidden="true"/></summary><div>{children}</div></details>;}
+export interface CheckOptionProps {label:string;checked:boolean;onChange:()=>void;}
+function CheckOption({label,checked,onChange}:CheckOptionProps):ReactNode{return <label className="collection-filter-check"><input type="checkbox" checked={checked} onChange={onChange}/><span>{label}</span></label>;}

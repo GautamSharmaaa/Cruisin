@@ -17,3 +17,12 @@ Verified 2026-11-08 against the isolated V2 checkout. No hosted deployment or pr
 The preceding motion implementation also passed 12 Chromium/mobile Chromium/Firefox/WebKit commerce cases and 6 admin/employee operations cases. Historical logs are `/tmp/cruisin-motion-cross-browser.log` and `/tmp/cruisin-motion-operations-browser.log`. These counts are prior-run evidence, not additional tests in the current five-case editor run. Farak desktop/mobile observations and motion behavior are documented separately. No physical-device performance guarantee is implied by browser emulation.
 
 The broader enterprise CMS migration remains in progress as specified in the implementation report; this evidence covers the implemented editor, storefront and existing regression suite.
+
+## Photographic storefront follow-up (2026-11-08)
+
+- 661 automated tests passed in `/tmp/cruisin-collection-unit.log` (524 server, 92 client, 45 admin).
+- Four app builds passed in `/tmp/cruisin-collection-build.log`; final storefront build, including preserved CMS banner/video consumers, passed in `/tmp/cruisin-collection-cms-build.log`. Four TypeScript checks passed in `/tmp/cruisin-collection-verified-typecheck.log`.
+- 13 focused Chromium acceptance cases passed in `/tmp/cruisin-collection-release-browser.log`. Coverage includes prior CMS and motion checks, eight listing routes, centered responsive identity, seven collection widths, actual filter count/query, invalid price ranges, filter focus restoration, gallery navigation, empty-image fallback, exact SKU and quantity, cart persistence and checkout handoff without order submission, and configured CMS campaign/banner rendering with reduced-motion video behavior.
+- 12 cross-browser cases passed in `/tmp/cruisin-collection-verified-crossbrowser.log`: desktop/mobile Chromium, Firefox and WebKit each exercise storefront commerce, customer login validation and admin analytics authentication.
+- Frontend secret scan passed over 246 built files in `/tmp/cruisin-collection-secrets.log`.
+- Desktop/mobile collection, filter and PDP screenshots are under `docs/qa/screenshots/cruisin-v2-collection-*` and `cruisin-v2-product-*`. They use existing local demo product images. Offscreen product reveal states are visited before full-page screenshot capture.

@@ -35,6 +35,8 @@ export function Navbar(_props: NavbarProps): ReactNode {
   const headerRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const isHomepage = pathname === ROUTES.home;
+  const isProduct = pathname.startsWith('/product/');
+  const isCatalogue = ['/shop','/category','/collections','/sale','/new-featured'].some(route=>pathname===route||pathname.startsWith(route+'/'));
   const navigation = useNavigation();
   const siteSettings = useSiteSettings();
   const isNavigationVisible = siteSettings.data?.isStorefrontNavigationVisible ?? true;
@@ -87,9 +89,9 @@ export function Navbar(_props: NavbarProps): ReactNode {
           {navItems.length > 0 ? <AnimatedMenuButton open={mobile} onClick={openMenu} /> : null}
           <button type="button" aria-label={COPY.nav.search} className="editorial-header-icon" onClick={()=>{setMobile(false);setSearch(true);}}><Search size={18}/></button>
         </div>
-        <Link href={ROUTES.home} className="brand-wordmark-script min-w-0 text-center text-[28px] leading-none text-text-primary transition duration-300 hover:text-accent-gold lg:text-[30px]">
+        <Link href={ROUTES.home} className="cruisin-wordmark">
           <span className="block leading-none">{COPY.brand.name}</span>
-          <span data-testid="animated-brand-tagline" className="brand-tagline-motion mt-1 block font-body text-[8px] uppercase tracking-[0.16em]">{COPY.brand.tagline}</span>
+          <span className="sr-only">{COPY.brand.tagline}</span>
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
           <button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
@@ -103,7 +105,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           </button>
         </div>
       </div>
-      {!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{navItems.filter(item=>item.href!=='/').slice(0,8).map(item=><Link href={item.href} key={navId(item)}>{item.label}</Link>)}</nav>}
+      {!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{navItems.filter(item=>item.href!=='/').slice(0,8).map(item=><Link href={item.href} key={navId(item)}>{item.label}</Link>)}</nav>}
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}

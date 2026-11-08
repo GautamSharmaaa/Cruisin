@@ -12,7 +12,7 @@ import type {Product} from '@/types/product.types';
 export interface EditorialProductCardProps {product:Product;priority?:boolean;quickAdd?:boolean;}
 export function EditorialProductCard({product,priority=false,quickAdd=true}:EditorialProductCardProps):ReactNode{
  const reduced=useStorefrontReducedMotion();
- const image=product.images[0];const hover=product.hoverImage??product.images[1];
+ const image=product.images[0]??{url:'/cruisin-image-fallback.svg',alt:product.title};const hover=product.hoverImage??product.images[1];
  const available=product.variants.some(v=>v.enabled!==false&&v.stock>0);
  const prices=product.variants.filter(v=>v.enabled!==false).map(v=>v.price).filter(Number.isFinite);const price=prices.length?Math.min(...prices):product.basePrice;
  return <motion.article className="editorial-product-card" variants={storefrontReveal} initial={reduced?false:"initial"} whileInView="animate" viewport={{once:true,amount:0.08}}>

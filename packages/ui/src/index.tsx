@@ -27,14 +27,16 @@ export const cn = (...classes: (string | false | null | undefined)[]): string =>
   classes.filter(Boolean).join(" ");
 export interface ThemeProviderProps {
   children: ReactNode;
+  defaultTheme?: string;
+  storageKey?: string;
 }
-export function ThemeProvider({ children }: ThemeProviderProps): ReactNode {
+export function ThemeProvider({ children, defaultTheme = "dark", storageKey = "cruisin-theme" }: ThemeProviderProps): ReactNode {
   return (
     <NextThemeProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme={defaultTheme}
       enableSystem
-      storageKey="cruisin-theme"
+      storageKey={storageKey}
       disableTransitionOnChange
     >
       {children}

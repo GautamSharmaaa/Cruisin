@@ -22,7 +22,8 @@ test.describe('supported cross-browser smoke contract', () => {
     await expect(menu).toHaveCount(0);
 
     await page.goto('/shop', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('combobox', {name:/^Sort/}).selectOption('price-asc');
+    await page.getByRole('button', {name:'Sort by',exact:true}).click();
+    await page.getByRole('button',{name:'Price, low to high',exact:true}).click();
     await expect(page).toHaveURL(/sort=price-asc/);
     await expectNoHorizontalOverflow(page);
     const firstProductLink = page.locator('.editorial-product-card').filter({has:page.getByRole('button',{name:/^Quick add:/})}).locator('.editorial-product-caption').first();

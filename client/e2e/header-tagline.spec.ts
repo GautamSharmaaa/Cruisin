@@ -1,28 +1,7 @@
-import { expect, test } from '@playwright/test';
-
-test.describe('animated header tagline', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-  });
-
-  test('runs a restrained Cruisin tagline sweep on desktop', async ({ page }) => {
-    await page.goto('/');
-
-    const tagline = page.getByTestId('animated-brand-tagline');
-    await expect(tagline).toBeVisible();
-    await expect(tagline).toHaveText('Wear Less. Mean More.');
-    await expect(tagline).toHaveCSS('animation-name', 'brand-tagline-sweep');
-    await expect(tagline).toHaveCSS('animation-duration', '5.4s');
-    await expect(tagline).toHaveCSS('background-image', /linear-gradient/);
-  });
-
-  test('keeps the tagline static when reduced motion is requested', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
-
-    const tagline = page.getByTestId('animated-brand-tagline');
-    await expect(tagline).toBeVisible();
-    await expect(tagline).toHaveCSS('animation-name', 'none');
-    await expect(tagline).toHaveCSS('-webkit-text-fill-color', 'rgb(125, 125, 125)');
-  });
+import {expect,test} from '@playwright/test';
+test.describe('compact Cruisin storefront identity',()=>{
+ test('keeps the centered wordmark and working header controls at desktop and mobile widths',async({page})=>{
+  for(const width of [390,1440]){await page.setViewportSize({width,height:900});await page.goto('/shop');const logo=page.locator('header .cruisin-wordmark');await expect(logo).toBeVisible();await expect(logo).toHaveText(/Cruisin/);await expect(logo).toHaveAttribute('href','/');await expect.poll(()=>logo.evaluate(el=>Math.abs((el.getBoundingClientRect().left+el.getBoundingClientRect().right)/2-document.documentElement.clientWidth/2))).toBeLessThan(2);await expect(page.getByRole('button',{name:'Menu',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Search',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Cart',exact:true})).toBeVisible();}
+ });
+ test('respects reduced motion in the storefront header and route entrance',async({page})=>{await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/shop');await expect(page.locator('header .cruisin-wordmark')).toBeVisible();await expect(page.locator('html')).toHaveAttribute('data-scroll-mode','native');await expect(page.locator('.storefront-route-transition')).toHaveAttribute('data-motion','reduced');});
 });
