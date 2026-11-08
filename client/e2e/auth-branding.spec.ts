@@ -8,8 +8,9 @@ for(const theme of ['light','dark'] as const)for(const width of [390,1440]){
   await mkdir(screenshots,{recursive:true});
   await page.setViewportSize({width,height:width<1024?844:1000});
   await page.route('**/api/v1/auth/otp/request',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({success:true,data:{requestId:'665f6d8403bd2edc93800000',channel:'whatsapp',cooldownSeconds:60,expiresAt:new Date(Date.now()+300000).toISOString()},message:'OTP sent'})}));
+  await page.addInitScript(value=>localStorage.setItem('cruisin-storefront-theme',value),theme);
   await page.goto('/login');
-  await page.getByRole('combobox',{name:'Color theme',exact:true}).selectOption(theme);
+  await expect(page.locator('html')).toHaveClass(new RegExp(theme));
   const auth=page.getByTestId('auth-shell');
   await auth.scrollIntoViewIfNeeded();
   await expect(auth.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
@@ -31,6 +32,7 @@ for(const theme of ['light','dark'] as const)for(const width of [390,1440]){
   await expect(page.getByLabel('Email', {exact:true})).toHaveAttribute('aria-invalid','true');
   await page.getByRole('tab',{name:'Create account',exact:true}).click();
   await expect(page.getByLabel('Confirm Password')).toBeVisible();
+  if(width<1280){await auth.getByRole('button',{name:'Close',exact:true}).click();await expect(page.getByTestId('mobile-auth-overlay')).toBeHidden();}
   await page.getByRole('button',{name:'Menu',exact:true}).click();
   const menu=page.locator('.minimal-menu');
   await menu.getByRole('button',{name:'Men',exact:true}).click();

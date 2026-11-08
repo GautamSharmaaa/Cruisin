@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
+import {compactAuthQuery} from '@/lib/auth-presentation';
 import { useMobileAuthSheet } from '@/components/auth/mobile-auth-sheet-provider';
 import { DeliveryPrice } from '@/components/cart/delivery-price';
 import Link from 'next/link';
@@ -44,7 +45,7 @@ export function CartSummary({ subtotal, discount = 0, freeShipping = false, ship
   }, [user]);
 
   const requestCheckoutAuthentication = (): void => {
-    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    const mobile = window.matchMedia(compactAuthQuery).matches;
     if (!mobile) {
       setPrompt(true);
       return;

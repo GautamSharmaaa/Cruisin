@@ -3,11 +3,12 @@
 
 import { useGoogleOAuth, type CredentialResponse, type GsiButtonConfiguration, type IdConfiguration } from '@react-oauth/google';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { motion } from 'framer-motion';
+import { motion,useDragControls } from 'framer-motion';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {createPortal} from 'react-dom';
 import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { ROUTES } from '@/constants/routes';
 import { useGoogleLogin, useLogin, useRegister, useRequestOtp, useVerifyOtp } from '@/hooks/useAuth';
 import { e164PhoneSchema, loginSchema, registerSchema, otpVerifySchema } from '@/lib/schemas';
 import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
+import {useCompactAuth} from '@/hooks/useCompactAuth';
 import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 import {authSurfaceMotion} from '@/lib/animations';
 import type { User } from '@/types/user.types';
@@ -66,6 +68,13 @@ export interface AuthPageProps {
 }
 
 export function AuthPage({ initialTab, presentation = 'page', initialMethod, redirectTo, onDismiss }: AuthPageProps): ReactNode {
+  const [mounted,setMounted]=useState(false);
+  useEffect(()=>setMounted(true),[]);
+  const compact=useCompactAuth();
+  const surface=presentation==='sheet'||compact?'sheet':'page';
+  const dragControls=useDragControls();
+  const dragged=useRef(false);
+  const [expanded,setExpanded]=useState(false);
   const instance=useId();
   const phoneId=`whatsapp-number-${instance}`;
   const otpId=`whatsapp-otp-${instance}`;
@@ -75,7 +84,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<AuthTab>(initialTab);
-  const [showAlternatives, setShowAlternatives] = useState(() => !IDENTITY_CONFIG.whatsappOtpEnabled || initialMethod === 'alternative' || searchParams.get('method') === 'alternative');
+  const [showAlternatives, setShowAlternatives] = useState(() => !IDENTITY_CONFIG.whatsappOtpEnabled || initialTab==='signup' || initialMethod === 'alternative' || searchParams.get('method') === 'alternative');
   const [countryCode, setCountryCode] = useState('+91');
   const [nationalNumber, setNationalNumber] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -99,7 +108,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   }, [countryCode, nationalNumber]);
 
   useEffect(() => {
-    if (presentation !== 'sheet') return;
+    if (surface !== 'sheet') return;
     const opener=document.activeElement instanceof HTMLElement?document.activeElement:null;
     const releaseScrollLock = acquireBodyScrollLock();
     document.body.classList.add('mobile-auth-open');
@@ -108,14 +117,14 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
       document.body.classList.remove('mobile-auth-open');
       if(opener?.isConnected)opener.focus({preventScroll:true});
     };
-  }, [presentation]);
+  }, [surface]);
 
   useEffect(() => {
-    if(presentation!=='sheet')return;
+    if(surface!=='sheet')return;
     const focusId=requestOtp.data?otpId:showAlternatives?`auth-${tab==='signup'?'name':'email'}-${instance}`:phoneId;
     const focusTimer=window.setTimeout(()=>document.getElementById(focusId)?.focus(),80);
     return () => window.clearTimeout(focusTimer);
-  }, [instance,otpId,phoneId,presentation,requestOtp.data,showAlternatives,tab]);
+  }, [instance,otpId,phoneId,surface,requestOtp.data,showAlternatives,tab]);
 
   useEffect(() => {
     if (secondsRemaining <= 0) return;
@@ -222,11 +231,12 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
   const otpError = verifyForm.formState.errors.otp?.message ?? (verifyOtp.error ? (/invalid otp/i.test(verifyOtp.error.message) ? COPY.auth.whatsapp.incorrectCode : verifyOtp.error.message) : undefined);
   const authError = login.error ?? registerMutation.error ?? googleLogin.error ?? requestOtp.error;
   const whatsappPrimary = IDENTITY_CONFIG.whatsappOtpEnabled && !showAlternatives;
+  const dismiss=():void=>{if(onDismiss)onDismiss();else router.replace(ROUTES.shop);};
   const isOtp=Boolean(requestOtp.data);
   const title=isOtp?COPY.auth.minimal.codeTitle:tab==='signup'?COPY.auth.createAccount:COPY.auth.minimal.welcome;
   const consent=<p className="auth-consent">{COPY.auth.whatsapp.consentPrefix} <Link href={ROUTES.terms}>{COPY.auth.whatsapp.terms}</Link> {COPY.common.and} <Link href={ROUTES.privacy}>{COPY.auth.whatsapp.privacy}</Link>.</p>;
-  const authShell=<div data-testid="auth-shell" className="minimal-auth" data-presentation={presentation}>
-    {presentation==='sheet'?<button className="auth-dismiss" type="button" onClick={onDismiss} aria-label={COPY.common.close}><X size={20} strokeWidth={1.4}/></button>:null}
+  const authShell=<div data-testid="auth-shell" className="minimal-auth" data-presentation={surface} id={`auth-content-${instance}`}>
+    {surface==='sheet'?<button className="auth-dismiss" type="button" onClick={dismiss} aria-label={COPY.common.close}><X size={20} strokeWidth={1.4}/></button>:null}
     <Link href={ROUTES.home} onClick={onDismiss} className="auth-identity brand-wordmark-script">{COPY.brand.name}</Link>
     <div className="auth-heading"><h1 id={titleId}>{title}</h1><p>{isOtp?`${COPY.auth.whatsapp.sentTo} ${formatPhone(countryCode,nationalNumber)}`:COPY.auth.minimal.intro}</p></div>
     {isOtp?<form noValidate onSubmit={verifyForm.handleSubmit(verifyCode)} data-testid="otp-bottom-sheet" className="auth-form auth-otp-form">
@@ -239,7 +249,7 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
       {requestOtp.error?<p className="auth-error" role="alert">{requestOtp.error.message}</p>:null}
     </form>:whatsappPrimary?<div data-testid="whatsapp-primary-auth">
       <form noValidate onSubmit={event=>{event.preventDefault();sendOtp();}} className="auth-form">
-        <div className="auth-phone-row"><Input id={`whatsapp-country-${instance}`} label={COPY.auth.whatsapp.countryCode} inputMode="tel" autoComplete="tel-country-code" value={countryCode} onChange={event=>setCountryCode(event.target.value)}/><Input id={phoneId} label={COPY.auth.whatsapp.phone} type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="send" autoFocus maxLength={10} value={nationalNumber} onChange={event=>setNationalNumber(event.target.value.replace(/\D/g,'').slice(0,10))} placeholder={COPY.auth.whatsapp.phonePlaceholder} error={phoneError}/></div>
+        <div className="auth-phone-row"><Input id={`whatsapp-country-${instance}`} label={COPY.auth.whatsapp.countryCode} inputMode="tel" autoComplete="tel-country-code" value={countryCode} onChange={event=>setCountryCode(event.target.value)}/><Input id={phoneId} label={COPY.auth.whatsapp.phone} type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="send" autoFocus={surface==='page'} maxLength={10} value={nationalNumber} onChange={event=>setNationalNumber(event.target.value.replace(/\D/g,'').slice(0,10))} placeholder={COPY.auth.whatsapp.phonePlaceholder} error={phoneError}/></div>
         <Button type="submit" className="auth-primary" isLoading={requestOtp.isPending}>{COPY.auth.whatsapp.getOtp}<ArrowRight size={16}/></Button>
       </form>
       {authError?<p className="auth-error" role="alert">{authError.message}</p>:null}
@@ -269,17 +279,20 @@ export function AuthPage({ initialTab, presentation = 'page', initialMethod, red
     {consent}
   </div>;
 
-  if(presentation==='sheet')return <motion.div ref={dialogRef} data-testid="mobile-auth-overlay" className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby={titleId} initial="closed" animate="open" exit="closed" onKeyDown={event=>{
-    if(event.key==='Escape'){event.stopPropagation();if(isOtp)resetOtp();else onDismiss?.();}
+  if(surface==='sheet')return mounted?createPortal(<motion.div ref={dialogRef} data-testid="mobile-auth-overlay" className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby={titleId} initial="closed" animate="open" exit="closed" onKeyDown={event=>{
+    if(event.key==='Escape'){event.stopPropagation();if(isOtp)resetOtp();else dismiss();}
     if(event.key!=='Tab'||!dialogRef.current)return;
-    const controls=Array.from(dialogRef.current.querySelectorAll<HTMLElement>('.minimal-auth a[href],.minimal-auth button:not([disabled]),.minimal-auth input:not([type="hidden"]):not([disabled])'));
+    const controls=Array.from(dialogRef.current.querySelectorAll<HTMLElement>('[data-auth-drag-handle],.minimal-auth a[href],.minimal-auth button:not([disabled]),.minimal-auth input:not([type="hidden"]):not([disabled])'));
     const first=controls[0],last=controls[controls.length-1];
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
   }}>
-    <motion.button type="button" data-testid="mobile-auth-backdrop" aria-label={COPY.common.close} onClick={onDismiss} className="auth-backdrop" variants={authSurfaceMotion.backdrop} transition={{duration:reduced?0:authSurfaceMotion.fade}}/>
-    <motion.div className="auth-sheet" variants={reduced?authSurfaceMotion.static:authSurfaceMotion.sheet} transition={{duration:reduced?0:authSurfaceMotion.duration,ease:authSurfaceMotion.ease}}>{authShell}</motion.div>
-  </motion.div>;
+    <motion.button type="button" data-testid="mobile-auth-backdrop" aria-label={COPY.common.close} onClick={dismiss} className="auth-backdrop" variants={authSurfaceMotion.backdrop} transition={{duration:reduced?0:authSurfaceMotion.fade}}/>
+    <motion.div className="auth-sheet" data-expanded={expanded&&compact} drag={compact?'y':false} dragListener={false} dragControls={dragControls} dragConstraints={{top:0,bottom:0}} dragElastic={{top:.1,bottom:.35}} dragMomentum={false} onDragStart={()=>{dragged.current=true;}} onDragEnd={(_,info)=>{if(info.offset.y>authSurfaceMotion.dismissDistance||info.velocity.y>authSurfaceMotion.dismissVelocity)dismiss();else if(info.offset.y < -authSurfaceMotion.expandDistance)setExpanded(true);}} variants={reduced?authSurfaceMotion.static:compact?authSurfaceMotion.bottomSheet:authSurfaceMotion.sheet} transition={{duration:reduced?0:authSurfaceMotion.duration,ease:authSurfaceMotion.ease}}>
+      {compact?<button type="button" className="auth-sheet-handle" data-auth-drag-handle aria-label={expanded?COPY.auth.minimal.collapseForm:COPY.auth.minimal.expandForm} aria-expanded={expanded} aria-controls={`auth-content-${instance}`} onPointerDown={event=>{dragged.current=false;dragControls.start(event);}} onClick={event=>{if(event.detail>0&&dragged.current)return;setExpanded(value=>!value);}}><span/></button>:null}
+      {authShell}
+    </motion.div>
+  </motion.div>,document.body):null;
   return <main className="auth-page">{authShell}</main>;
 }
 

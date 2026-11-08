@@ -71,7 +71,7 @@ export const COPY = {
   },
   fields: { label: 'Label', fullName: 'Full name', phone: 'Phone', whatsapp: 'WhatsApp number', city: 'City', state: 'State', postalCode: 'Postal code', country: 'Country', street: 'Street', landmark: 'Landmark', addressType: 'Address type', defaultCountry: 'India' },
   auth: {
-    minimal: { welcome: 'Welcome back.', intro: 'Your favourites. Your next chapter.', codeTitle: 'Check your WhatsApp.', created: 'Account created. Check your email to verify it, then sign in.', createdLabel: 'Account created' },
+    minimal: { expandForm:'Expand form',collapseForm:'Collapse form',welcome: 'Welcome back.', intro: 'Your favourites. Your next chapter.', codeTitle: 'Check your WhatsApp.', created: 'Account created. Check your email to verify it, then sign in.', createdLabel: 'Account created' },
     login: 'Login',
     register: 'Register',
     signIn: 'Sign in',

@@ -139,8 +139,9 @@ test('opens WhatsApp OTP directly for logged-out mobile checkout', async ({ page
   await expect(page.getByLabel('WhatsApp number')).toBeFocused();
 });
 
-test('hands the mobile cart drawer to authentication without leaving pointer input frozen', async ({ page }) => {
-  await page.setViewportSize({ width: 414, height: 896 });
+for(const width of [414,1024]){
+test(`hands the ${width}px cart drawer to authentication without leaving pointer input frozen`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 896 });
   await page.addInitScript(() => {
     const product = { id: '665f6d8403bd2edc93800010', title: 'Checkout QA Tee', slug: 'checkout-qa-tee', description: 'QA', richDescription: 'QA', brand: 'Cruisin', category: 'qa', categoryIds: [], collections: [], images: [], basePrice: 1, variants: [{ id: '665f6d8403bd2edc93800011', size: 'One', color: 'Black', colorHex: '#000000', sku: 'QA-TEE', price: 1, stock: 2, enabled: true, images: [] }], tags: [], status: 'published', visibility: 'visible', isActive: true, isFeatured: false, ratings: { avg: 0, count: 0 }, seo: { metaTitle: 'QA', metaDesc: 'QA', ogImage: '' }, reviews: [] };
     window.localStorage.setItem('cruisin-cart', JSON.stringify({ state: { items: [{ product, variantId: product.variants[0].id, size: 'One', color: 'Black', quantity: 1, price: 1 }], isOpen: false, couponDiscount: 0, freeShipping: false }, version: 0 }));
@@ -159,6 +160,8 @@ test('hands the mobile cart drawer to authentication without leaving pointer inp
   await phone.fill('9876543210');
   await expect(phone).toHaveValue('9876543210');
 });
+
+}
 
 test('keeps the desktop cart mounted while opening the checkout sign-in prompt', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -218,8 +221,8 @@ test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserve
   const otpSheet = page.getByTestId('otp-bottom-sheet');
   await expect(otpSheet).toBeVisible();
   await expect(page.getByRole('heading',{name:'Check your WhatsApp.'})).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect.poll(async()=>page.evaluate(()=>document.body.style.overflow)).toBe('');
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect.poll(async()=>page.evaluate(()=>document.body.style.overflow)).toBe('hidden');
   const otpInput = page.getByLabel('Verification code');
   await expect(otpInput).toBeFocused();
   await expect(otpInput).toHaveAttribute('autocomplete', 'one-time-code');
@@ -238,7 +241,7 @@ test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserve
 });
 
 test('keeps a sheet opened from the login page separate from its background form',async({page})=>{
-  await page.setViewportSize({width:390,height:844});
+  await page.setViewportSize({width:1440,height:1000});
   await page.goto('/login');
   await openAuthSheet(page);
   const overlay=page.getByTestId('mobile-auth-overlay');

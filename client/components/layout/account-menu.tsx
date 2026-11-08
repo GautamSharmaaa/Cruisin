@@ -5,6 +5,8 @@ import { LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {useCompactAuth} from '@/hooks/useCompactAuth';
+import {useMobileAuthSheet} from '@/components/auth/mobile-auth-sheet-provider';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
@@ -14,6 +16,8 @@ import { useAuthStore } from '@/store/authStore';
 export interface AccountMenuProps { }
 
 export function AccountMenu(_props: AccountMenuProps): ReactNode {
+  const compact=useCompactAuth();
+  const {openMobileAuth}=useMobileAuthSheet();
   const [open, setOpen] = useState(false);
   const [protectedAction, setProtectedAction] = useState<'wishlist' | 'orders' | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +38,7 @@ export function AccountMenu(_props: AccountMenuProps): ReactNode {
 
   return <>
     <div ref={containerRef} className="relative">
-      <button type="button" aria-label={COPY.nav.account} aria-expanded={open} aria-haspopup="menu" className={'flex h-11 items-center justify-center gap-2 text-text-secondary transition hover:bg-background-elevated hover:text-text-primary ' + (user ? 'w-11' : 'px-3')} onClick={() => setOpen((current) => !current)}>
+      <button type="button" aria-label={COPY.nav.account} aria-expanded={compact&&!user?undefined:open} aria-haspopup={compact&&!user?'dialog':'menu'} className={'flex h-11 items-center justify-center gap-2 text-text-secondary transition hover:bg-background-elevated hover:text-text-primary ' + (user ? 'w-11' : 'px-3')} onClick={()=>{if(compact&&!user){setOpen(false);openMobileAuth({next:pathname});return;}setOpen(current=>!current);}}>
         <User size={18} />{!user ? <span className="hidden text-xs uppercase tracking-[0.1em] md:inline">{COPY.auth.signIn}</span> : null}
       </button>
       {open ? <div role="menu" className="minimal-account-menu absolute right-0 top-14 w-64 border border-border bg-background-elevated p-2 shadow-lg">
