@@ -15,3 +15,5 @@ export const footerWaveMotion = { amplitude:60, ripple:18, speed:0.62, pointerEa
 export const authSurfaceMotion={ dismissDistance:72,dismissVelocity:650,expandDistance:40,bottomSheet:{closed:{y:'100%',opacity:1},open:{y:0,opacity:1}},duration:0.4,fade:0.24,ease:[0.22,1,0.36,1] as const,backdrop:{closed:{opacity:0},open:{opacity:1}},sheet:{closed:{y:32,opacity:0},open:{y:0,opacity:1}},static:{closed:{opacity:1},open:{opacity:1}} } as const;
 
 export const menuSurfaceMotion={duration:0.45,fade:0.24,ease:[0.22,1,0.36,1] as const} as const;
+
+export const productCardGalleryMotion={dragStart:6,swipeFraction:0.18,maxSwipeThreshold:64} as const;

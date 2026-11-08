@@ -1,4 +1,4 @@
 export const EDITORIAL_COPY={
- menuSections:'Shopping navigation',explore:'Explore',viewAll:'View all',editorial:'Cruisin editorial',collection:'Collection',desktopMenu:'Cruisin menu',back:'Back',quickAdd:'Quick add',chooseVariant:'Choose size and colour',addToBag:'Add to bag',adding:'Adding…',close:'Close quick add',viewProduct:'View product details',
+ imageCarousel:'image carousel',productImages:'Images of {product}',imagePosition:'Image {current} of {total}',imageProgress:'Product image position',previousProductImage:'Previous image of {product}',nextProductImage:'Next image of {product}',menuSections:'Shopping navigation',explore:'Explore',viewAll:'View all',editorial:'Cruisin editorial',collection:'Collection',desktopMenu:'Cruisin menu',back:'Back',quickAdd:'Quick add',chooseVariant:'Choose size and colour',addToBag:'Add to bag',adding:'Adding…',close:'Close quick add',viewProduct:'View product details',
  unavailable:'This selection is no longer available. Choose another size or refresh.',soldOut:'Sold out',size:'Size',colour:'Colour',campaign:'Campaign',shop:'Shop now',categories:'Shop by category',men:'Men',women:'Women',
 } as const;
