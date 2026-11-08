@@ -221,16 +221,14 @@ test("administrator and employee complete an independently reviewed task", async
   await pagination.getByRole("button",{name:"Next",exact:true}).click();
   await expect(pagination).toContainText("2 / 2");
   await expect(pagination.getByRole("button",{name:"Next",exact:true})).toBeDisabled();
-  const beforeUnread=Number(await employee.locator('.workspace-metric[href="/profile"] strong').innerText());
   const read=notifications.getByRole("button",{name:"Mark read",exact:true}).first();
   const readResponse=employee.waitForResponse(r=>r.url().includes("/notifications/") && r.url().endsWith("/read") && r.request().method()==="POST");
   await read.click(); expect((await readResponse).status()).toBe(200);
-  await expect(employee.locator('.workspace-metric[href="/profile"] strong')).toHaveText(String(beforeUnread-1));
   await employee.route("**/employee/summary",route=>route.abort("failed"));
-  await employee.getByRole("button",{name:"Refresh dashboard",exact:true}).click();
+  await employee.getByRole("button",{name:"Refresh",exact:true}).last().click();
   await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toBeVisible();
   await employee.unroute("**/employee/summary");
-  await employee.getByRole("button",{name:"Refresh dashboard",exact:true}).click();
+  await employee.getByRole("button",{name:"Refresh",exact:true}).last().click();
   await expect(employee.getByText("Orders awaiting packing: 0", {exact:true})).toBeVisible();
   await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toHaveCount(0);
   const categories = (await (await request.get(base + "/categories")).json())
@@ -324,7 +322,6 @@ test("theme and keyboard dialog controls preserve all application shells", async
   page,
 }) => {
   await adminLogin(page);
-  await page.locator(".workspace-profile > summary").click();
   await page
     .getByRole("combobox", { name: "Color theme" })
     .selectOption("light");

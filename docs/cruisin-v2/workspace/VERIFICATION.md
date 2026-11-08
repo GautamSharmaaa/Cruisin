@@ -1,5 +1,7 @@
 # Workspace verification — 2026-11-08
 
+> Dashboard design withdrawn at the user’s request on 2026-11-08. The previous admin and employee dashboards are restored. Footer, cursive storefront branding and window-grid changes remain. Dashboard descriptions/screenshots below are historical.
+
 All checks target the isolated local V2 applications only. No hosted services were started and no deployment was made.
 
 - Full automated regression: **661 tests across 105 files passed** (524 server, 92 storefront, 45 admin), `/tmp/cruisin-workspace-complete-tests.log`.

@@ -1,5 +1,7 @@
 # Cruisin workspace and footer research — 2026-11-08
 
+> Dashboard design withdrawn at the user’s request on 2026-11-08. The previous admin and employee dashboards are restored. Footer, cursive storefront branding and window-grid changes remain. Dashboard descriptions/screenshots below are historical.
+
 The user supplied footer, regular/dense storefront grid and Daylier dashboard images. They asked for research before implementation, black admin/employee dashboards, colorful actions, an animated bottom area, four workspace destinations (Overview/Admin/Employee/Storefront), a window-shaped view toggle and restoration of the cursive Cruisin header.
 
 Primary sources reviewed:

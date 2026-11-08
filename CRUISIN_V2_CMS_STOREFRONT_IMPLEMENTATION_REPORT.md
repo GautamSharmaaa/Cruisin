@@ -60,3 +60,9 @@ Applied the supplied collection/PDP reference layouts to the customer app: compa
 ## Glowing footer and shared workspaces — 2026-11-08
 
 Researched the supplied Daylier design and official accessibility/interaction guidance, then built shared black admin and employee dashboards using actual existing API data. The requested Overview/Admin/Employee/Storefront navigation, module launcher, widget preferences, animated colored dock, ambient lighting and chart/table are implemented. Employee packing/exception signals, notification pagination/read actions and failure recovery remain connected; reading notifications updates the unread metric. The storefront has the restored cursive header, a persistent regular/dense window toggle and a rounded glowing footer with actual contacts, policies and pause controls. Details, sources and verification are in `docs/cruisin-v2/workspace/`.
+
+## Dashboard restoration — 2026-11-08
+
+At the user's explicit request, the new shared dashboard was removed and both admin and employee dashboards/shells were restored from commit `0b2457c`. The existing sidebar, admin KPI/chart overview, employee operational summary and notifications are back. Storefront layout, glowing footer, cursive header and window-grid toggle are retained. The earlier workspace design documentation/screenshots are historical.
+
+Restoration verified: all four production builds passed (`/tmp/cruisin-restore-dashboards-build.log`); browser checks confirmed the original admin overview/sidebar and employee sidebar/operational summary/notifications, including a mobile overflow check. The retained footer/cursive-header/window-grid browser case passed (`/tmp/cruisin-restored-dashboard-storefront-check.log`). Current restored screenshots are `docs/qa/screenshots/cruisin-v2-{admin,employee}-dashboard-restored.png`.

@@ -471,5 +471,3 @@ export function FileUpload({ onFile, accept }: FileUploadProps): ReactNode {
 }
 
 export {renderLogisticsPrintPreview,type LogisticsPrintDocument} from "./logistics-print";
-export {WorkspaceDashboard} from './workspace';
-export type {WorkspaceDashboardProps,WorkspaceMetric,WorkspaceActivity,WorkspaceLink} from './workspace';

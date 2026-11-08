@@ -2,14 +2,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import {usePathname} from 'next/navigation';
 import { useState } from 'react';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { Topbar } from '@/components/dashboard/topbar';
 export interface DashboardShellProps { children: ReactNode; }
 export function DashboardShell({ children }: DashboardShellProps): ReactNode {
-  const pathname=usePathname();
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
-  if(pathname==='/')return <main className="workspace-page-shell">{children}</main>;
   return <div className="min-h-dvh min-w-0 overflow-x-hidden bg-background-primary"><Sidebar isOpen={isNavigationOpen} onClose={() => setIsNavigationOpen(false)} /><div className="min-w-0 lg:pl-72"><Topbar onMenu={() => setIsNavigationOpen(true)} /><main className="mx-auto grid w-full max-w-[1480px] min-w-0 gap-6 px-4 py-6 sm:px-6 lg:px-8">{children}</main></div></div>;
 }

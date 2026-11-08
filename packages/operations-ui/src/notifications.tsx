@@ -50,12 +50,10 @@ import {
 export interface NotificationListProps {
   api: OperationsTransport;
   timezone: string;
-  onRead?:()=>void;
 }
 export function NotificationList({
   api,
   timezone,
-  onRead,
 }: NotificationListProps): ReactNode {
   const [page, setPage] = useState(1);
   const list = useList<{
@@ -66,7 +64,7 @@ export function NotificationList({
     readAt?: string;
   }>(api, "/notifications", "", "", page);
   return (
-    <Card title={C.notifications} tabIndex={0} aria-label={C.notifications}>
+    <Card title={C.notifications}>
       {!list.data && !list.error && <Skeleton />}
       {list.error && <Alert tone="danger">{list.error}</Alert>}
       {list.data?.items.map((n) => (
@@ -80,7 +78,7 @@ export function NotificationList({
               onClick={() => {
                 void api
                   .post(`/notifications/${n._id}/read`, {})
-                  .then(()=>{list.reload();onRead?.();})
+                  .then(list.reload)
                   .catch(fail);
               }}
             >

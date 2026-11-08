@@ -1,5 +1,7 @@
 # Cruisin workspaces, footer and window view
 
+> Dashboard design withdrawn at the user’s request on 2026-11-08. The previous admin and employee dashboards are restored. Footer, cursive storefront branding and window-grid changes remain. Dashboard descriptions/screenshots below are historical.
+
 The shared workspace presentation is `packages/ui/src/workspace.tsx`, styled with scoped rules in `packages/ui/src/styles.css`. It is used by the admin overview and employee portal dashboard; existing management and operational modules keep their authenticated routes and existing workflows.
 
 The dashboard contains the requested Overview, Admin, Employee and Storefront navigation, cursive branding, black rounded panels, amber/blue/mint/rose metric lighting, an actual-data bar chart with an accessible data table, work queue, module launcher, account menu and colored shortcut dock. Customize controls metric visibility; choices persist separately for admin and employee in browser storage. Refresh reads the existing APIs again. Pause stops continuous ambient motion. System reduced-motion removes the entrance and decorative motion.
