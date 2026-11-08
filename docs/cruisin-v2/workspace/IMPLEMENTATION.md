@@ -12,7 +12,7 @@ All original modules remain reachable from the launcher. Employee module links u
 
 The storefront window button switches regular cards (two columns on mobile, four by default on desktop) to a photographic contact sheet (four/ten columns). It preserves filters, sort and product links and stores the view choice locally. Native View Transitions supplies a crossfade where supported; the fallback remains functional and reduced-motion skips it. The custom vector window is native code, not a copied Farak asset. The original cursive header font is restored.
 
-The footer uses an inset rounded black panel, oversized cursive Cruisin mark, slowly moving warm gradient, actual support/social links and retained store policies. It has pause/play and back-to-top controls. The policy strip has its own dark surface to keep text readable over the glow.
+The footer now spans the full viewport width with a rounded panel, oversized translucent sans-serif Cruisin mark, slowly moving warm gradient and a lower-edge blur. The header retains its cursive identity. Light mode uses ivory/peach with dark text; dark mode uses charcoal/amber with light text. Actual support/social links remain sharp above the artwork. Retained policies, theme selector, pause/play and back-to-top controls sit in a separate theme-aware strip below it. The mobile blur starts lower to preserve the smaller wordmark. Current theme previews are `docs/qa/screenshots/cruisin-v2-footer-edge-{light,dark}-{390,1440}.png`; older footer screenshots below are historical.
 
 Local URLs: storefront 3192, admin 3193, employee 3194. Hosted services remain stopped. Research sources and interpretation are in `DESIGN_RESEARCH.md`; verification and screenshots are in `VERIFICATION.md`.
 
