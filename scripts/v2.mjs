@@ -14,6 +14,8 @@ Object.assign(environment, configuration, {
   API_PROXY_TARGET: 'http://127.0.0.1:8192',
   NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3192',
   NEXT_PUBLIC_STOREFRONT_URL: 'http://127.0.0.1:3192',
+  NEXT_PUBLIC_ADMIN_URL:'http://127.0.0.1:3193',
+  NEXT_PUBLIC_EMPLOYEE_URL:'http://127.0.0.1:3194',
   NEXT_PUBLIC_META_PIXEL_ID: '',
   NEXT_PUBLIC_WHATSAPP_OTP_ENABLED: 'false',
   NEXT_PUBLIC_RAZORPAY_KEY_ID: 'rzp_test_v2_placeholder'

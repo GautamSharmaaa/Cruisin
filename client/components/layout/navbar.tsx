@@ -89,7 +89,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           {navItems.length > 0 ? <AnimatedMenuButton open={mobile} onClick={openMenu} /> : null}
           <button type="button" aria-label={COPY.nav.search} className="editorial-header-icon" onClick={()=>{setMobile(false);setSearch(true);}}><Search size={18}/></button>
         </div>
-        <Link href={ROUTES.home} className="cruisin-wordmark">
+        <Link href={ROUTES.home} className="cruisin-wordmark brand-wordmark-script cruisin-wordmark-cursive">
           <span className="block leading-none">{COPY.brand.name}</span>
           <span className="sr-only">{COPY.brand.tagline}</span>
         </Link>

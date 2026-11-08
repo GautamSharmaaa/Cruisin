@@ -13,11 +13,13 @@ import {
   Files, FileCheck2, TriangleAlert, Activity, Image, User, ChevronRight,
   Menu, X, LogOut, RefreshCw, type LucideIcon,
 } from "lucide-react";
-import { EMPLOYEE_COPY as E } from "../constants/copy";
+import { EMPLOYEE_WORKSPACE_COPY as W, EMPLOYEE_COPY as E } from "../constants/copy";
 import { isAxiosError } from "axios";
+import {WorkspaceDashboard,type WorkspaceMetric} from "@cruisin/ui";
 import { Button, ThemeSelect, Skeleton, Alert } from "@cruisin/ui";
 import {
   OPS_COPY as C,
+  NotificationList,
   OperationsPage,
   type OperationsModule,
 } from "@cruisin/operations-ui";
@@ -90,6 +92,7 @@ export function Portal({ children }: PortalProps): ReactNode {
         <Skeleton />
       </main>
     );
+  if(pathname==='/')return <SessionContext.Provider value={session}><main className="workspace-page-shell">{children}</main></SessionContext.Provider>;
   return (
     <SessionContext.Provider value={session}>
       <div className="employee-shell">
@@ -147,6 +150,7 @@ export function EmployeePage({ module }: EmployeePageProps): ReactNode {
   const session = useContext(SessionContext);
   const router = useRouter();
   if (!session) return <Skeleton />;
+  if(module==='dashboard')return <EmployeeWorkspace session={session}/>;
   return (
     <OperationsPage
       module={module}
@@ -158,4 +162,16 @@ export function EmployeePage({ module }: EmployeePageProps): ReactNode {
       }}
     />
   );
+}
+
+interface EmployeeSummary {fulfillment:{awaitingPacking:number;packed:number;readyForHandover:number}|null;tasks:{active:number;overdue:number};pendingApprovals:number;lowStockVariants:number;unitStates:{_id:string;count:number}[];openExceptions:number;unreadNotifications:number;}
+interface WorkspaceTask {_id:string;title:string;status:string;priority:string;dueAt?:string;}
+interface EmployeeWorkspaceProps {session:Session;}
+function EmployeeWorkspace({session}:EmployeeWorkspaceProps):ReactNode{
+ const [summary,setSummary]=useState<EmployeeSummary|null>(null);const [tasks,setTasks]=useState<WorkspaceTask[]>([]);const [error,setError]=useState(false);const [errorMessage,setErrorMessage]=useState('');const [loading,setLoading]=useState(true);const [revision,setRevision]=useState(0);const router=useRouter();const canTasks=session.principal.permissions.includes('tasks.view');const canInventory=session.principal.permissions.includes('inventory.view');
+ useEffect(()=>{let active=true;setLoading(true);setError(false);setErrorMessage('');Promise.all([api.get<EmployeeSummary>('/summary'),canTasks?api.get<{items:WorkspaceTask[]}>('/tasks?limit=12'):Promise.resolve({items:[]})]).then(([next,list])=>{if(active){setSummary(next);setTasks(list.items);}}).catch((failure:unknown)=>{if(active){setError(true);setErrorMessage(failure instanceof Error?failure.message:C.error);}}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[canTasks,revision]);
+ const metrics:WorkspaceMetric[]=[...(canTasks?[{id:'tasks',label:W.tasks,value:String(summary?.tasks.active??0),detail:W.tasksDetail,tone:'blue' as const,href:'/tasks'}]:[]),{id:'approvals',label:W.approvals,value:String(summary?.pendingApprovals??0),detail:W.approvalsDetail,tone:'amber',href:'/approvals'},{id:'notifications',label:W.notifications,value:String(summary?.unreadNotifications??0),detail:W.notificationsDetail,tone:'rose',href:'/profile'},...(canInventory?[{id:'stock',label:W.stock,value:String(summary?.lowStockVariants??0),detail:W.stockDetail,tone:'mint' as const,href:'/inventory'}]:[])];
+ const modules=navigation.filter(item=>!item.permission||session.principal.permissions.includes(item.permission)).map(item=>({label:C[item.module],href:item.module==='dashboard'?'/':'/'+item.module}));
+ const series=canInventory?(summary?.unitStates??[]).map(item=>({label:item._id.replaceAll('_',' '),value:item.count})):Array.from(new Set(tasks.map(task=>task.status))).map(status=>({label:status.replaceAll('_',' '),value:tasks.filter(task=>task.status===status).length}));
+ return <WorkspaceDashboard role="employee" title={W.title} subtitle={W.subtitle} name={session.employee.name} metrics={metrics} series={series} seriesTitle={canInventory?W.inventorySeries:W.taskSeries} activity={tasks.filter(task=>!['COMPLETED','CANCELLED'].includes(task.status)).slice(0,5).map(task=>({id:task._id,title:task.title,detail:task.dueAt?new Intl.DateTimeFormat('en-IN',{day:'numeric',month:'short',timeZone:session.employee.timezone}).format(new Date(task.dueAt)):task.priority+' '+W.priority,status:task.status,href:'/tasks?q='+encodeURIComponent(task.title),tone:task.priority==='urgent'||task.priority==='high'?'rose':'blue'}))} modules={modules} shortcuts={modules.filter(item=>['/tasks','/inventory','/approvals','/sops'].includes(item.href)).map((item,index)=>({...item,tone:['blue','amber','mint','rose'][index]}))} urls={{admin:process.env.NEXT_PUBLIC_ADMIN_URL??'http://127.0.0.1:3193',employee:process.env.NEXT_PUBLIC_EMPLOYEE_URL??'http://127.0.0.1:3194',storefront:process.env.NEXT_PUBLIC_STOREFRONT_URL??'http://127.0.0.1:3192'}} signals={[{label:C.overdueTasks,value:summary?.tasks.overdue??0},{label:C.openExceptions,value:summary?.openExceptions??0},...(summary?.fulfillment?[{label:C.awaitingPacking,value:summary.fulfillment.awaitingPacking},{label:C.packedOrders,value:summary.fulfillment.packed},{label:C.readyForHandover,value:summary.fulfillment.readyForHandover}]:[])]} errorMessage={errorMessage} loading={loading} error={error} timezone={session.employee.timezone} onRefresh={()=>setRevision(value=>value+1)} onLogout={()=>{void api.post('/logout',{}).then(()=>{setEmployeeCsrf('');router.replace('/login');}).catch(()=>setError(true));}}><NotificationList key={revision} api={api} timezone={session.employee.timezone} onRead={()=>{void api.get<EmployeeSummary>('/summary').then(setSummary).catch(()=>setError(true));}}/></WorkspaceDashboard>;
 }
