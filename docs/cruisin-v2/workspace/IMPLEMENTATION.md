@@ -27,3 +27,11 @@ Latest contact/branding previews: `docs/qa/screenshots/cruisin-v2-footer-brand-{
 Latest orange-wave/cursive previews: `docs/qa/screenshots/cruisin-v2-footer-orange-signature-{light,dark}-{390,1440}.png`.
 
 Current final-placement previews: `docs/qa/screenshots/cruisin-v2-footer-final-signature-{light,dark}-{390,1440}.png`. Product cards now include native touch/trackpad image galleries, desktop arrows/dragging, keyboard controls and a slim position indicator.
+
+The floating Cruisin hub now uses the existing `/cruisin-logo.svg` emblem on a black disc with a blue, revolving conic glow ring in both themes. It opens exactly three actions: light/dark mode, the existing Instagram destination, and Stories. The ring stops for reduced motion. The hub stays out of CMS previews and focused cart/checkout screens.
+
+Theme changes from the hub use a native View Transition clipped to a circle expanding from the clicked theme control. Component color transitions are suspended during capture to avoid freezing intermediate grey palettes. Theme preference remains in the existing storefront storage key. Reduced-motion preferences and browsers without View Transitions use the normal immediate theme update.
+
+Stories use the existing published Home CMS endpoint, without a separate hardcoded story collection. Published active campaign, brand/lookbook and media sections with valid image artwork become image stories in CMS order; schedules and device visibility still apply. The portrait viewer prefers mobile artwork, uses CMS titles/subtitles/CTA destinations, and excludes preview/draft/inactive content. Edit/publish the corresponding Home sections to update it. The viewer includes progress, pause/resume, hold-to-pause, touch swipes, keyboard navigation, focus containment/return, retry/empty states and background/reduced-motion suspension.
+
+Hub verification: production build and seven browser cases passed (`/tmp/cruisin-hub-logo-build.log`, `/tmp/cruisin-hub-logo-tests.log`). Current previews are `docs/qa/screenshots/cruisin-v2-hub-logo-ring-{light,dark,mobile}.png`, `cruisin-v2-hub-{desktop-dark,mobile-light}.png`, `cruisin-v2-stories-{desktop,mobile-dark}.png` and `cruisin-v2-theme-circle.png`. The multiple-story swipe screenshot uses a named test fixture. Local storefront remains on port 3192; hosting stays stopped.
