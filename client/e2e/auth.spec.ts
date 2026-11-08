@@ -1,4 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openAuthSheet(page:Page):Promise<void>{
+  await page.getByRole('button',{name:'Menu',exact:true}).click();
+  await page.locator('.minimal-menu').getByRole('button',{name:'Continue with WhatsApp',exact:true}).click();
+}
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/auth/refresh', async (route) => {
@@ -9,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 test('makes WhatsApp OTP primary while keeping email and Google available', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Continue with WhatsApp' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible();
   await expect(page.getByLabel('WhatsApp number')).toBeFocused();
   await expect(page.getByLabel('WhatsApp number')).toHaveAttribute('placeholder', 'xxxxx xxxxx');
   await page.getByRole('button', { name: 'Use email or Google' }).click();
@@ -31,7 +36,7 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
   });
   await page.goto('/terms-and-condition');
 
-  await page.getByRole('button', { name: 'Continue with WhatsApp' }).click();
+  await openAuthSheet(page);
   await expect(page).toHaveURL(/\/terms-and-condition$/);
 
   const overlay = page.getByTestId('mobile-auth-overlay');
@@ -48,7 +53,7 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
   await expect.poll(async () => {
     const box = await sheet.boundingBox();
     return box ? box.height / 844 : 0;
-  }).toBeLessThanOrEqual(0.53);
+  }).toBeLessThanOrEqual(0.9);
 
   await page.getByLabel('WhatsApp number').fill('9876543210');
   await page.getByRole('button', { name: 'Get OTP' }).click();
@@ -56,12 +61,13 @@ test('opens the complete mobile authentication flow as a bottom sheet without le
   await expect.poll(async () => {
     const box = await page.getByTestId('otp-bottom-sheet').boundingBox();
     return box ? box.height / 844 : 0;
-  }).toBeLessThanOrEqual(0.53);
+  }).toBeLessThanOrEqual(0.9);
   await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
-  await expect(page.locator('body')).toHaveClass(/mobile-otp-open/);
+  await expect(page.getByRole('dialog')).toHaveCount(1);
   await expect(page.locator('#main')).not.toHaveCSS('z-index', '160');
-  await expect.poll(async () => page.evaluate(() => Boolean(document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 20)?.closest('[data-testid="otp-bottom-sheet"]')))).toBe(true);
-  await page.getByTestId('otp-bottom-sheet').getByRole('button', { name: 'Use email or Google' }).click();
+  await expect(page.getByLabel('Verification code')).toBeFocused();
+  await page.getByRole('button',{name:'Change number'}).click();
+  await page.getByRole('button', { name: 'Use email or Google' }).click();
   await expect(page.getByTestId('alternative-auth')).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Create Account' })).toBeVisible();
   const closeButton = sheet.getByRole('button', { name: 'Close' });
@@ -83,7 +89,8 @@ test('opens the same WhatsApp sheet when a logged-out shopper tries to use their
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/terms-and-condition');
 
-  await page.getByRole('button', { name: 'Wishlist' }).click();
+  await page.getByRole('button',{name:'Menu',exact:true}).click();
+  await page.locator('.minimal-menu').getByRole('button', { name: 'Wishlist' }).click();
   await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Save this piece' })).toHaveCount(0);
   await expect(page.getByLabel('WhatsApp number')).toBeFocused();
@@ -108,7 +115,7 @@ test('closes a stale mobile auth sheet when the saved session finishes restoring
   });
 
   await page.goto('/terms-and-condition');
-  await page.getByRole('button', { name: 'Continue with WhatsApp' }).click();
+  await openAuthSheet(page);
   await expect(page.getByTestId('mobile-auth-overlay')).toBeVisible();
   await expect(page.locator('body')).toHaveClass(/mobile-auth-open/);
 
@@ -209,19 +216,10 @@ test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserve
   await page.getByLabel('WhatsApp number').fill('9876543210');
   await page.getByRole('button', { name: 'Get OTP' }).click();
   const otpSheet = page.getByTestId('otp-bottom-sheet');
-  const otpBackdrop = page.getByTestId('otp-mobile-backdrop');
   await expect(otpSheet).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Enter OTP' })).toBeVisible();
-  await expect(otpSheet).toHaveCSS('border-top-left-radius', '32px');
-  await expect(otpBackdrop).toHaveCSS('backdrop-filter', /blur/);
-  await expect(page.locator('body')).toHaveClass(/mobile-otp-open/);
-  await expect(page.locator('#main')).toHaveCSS('z-index', '160');
-  await expect.poll(async () => {
-    const box = await otpSheet.boundingBox();
-    return box ? Math.abs(box.y + box.height - 844) <= 1 : false;
-  }).toBe(true);
-  await expect.poll(async () => page.evaluate(() => Boolean(document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 20)?.closest('[data-testid="otp-bottom-sheet"]')))).toBe(true);
-  await expect.poll(async () => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+  await expect(page.getByRole('heading',{name:'Check your WhatsApp.'})).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(async()=>page.evaluate(()=>document.body.style.overflow)).toBe('');
   const otpInput = page.getByLabel('Verification code');
   await expect(otpInput).toBeFocused();
   await expect(otpInput).toHaveAttribute('autocomplete', 'one-time-code');
@@ -234,8 +232,23 @@ test('signs a fresh mobile shopper in through a mocked WhatsApp OTP and preserve
   await expect(page.locator('body')).not.toHaveClass(/mobile-auth-open/);
   await expect(page.locator('body')).not.toHaveClass(/mobile-otp-open/);
   await expect.poll(async () => page.evaluate(() => document.body.style.overflow)).toBe('');
-  const navigation = page.getByRole('navigation', { name: 'Mobile navigation' });
-  await expect(navigation.getByRole('link', { name: 'Account' })).toBeVisible();
-  await navigation.getByRole('link', { name: 'Account' }).click();
+  await page.getByRole('button',{name:'Account',exact:true}).click();
+  await page.getByRole('menuitem',{name:'My account',exact:true}).click();
   await expect(page).toHaveURL(/\/account/);
+});
+
+test('keeps a sheet opened from the login page separate from its background form',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/login');
+  await openAuthSheet(page);
+  const overlay=page.getByTestId('mobile-auth-overlay');
+  const phone=overlay.getByLabel('WhatsApp number');
+  await expect(phone).toBeFocused();
+  await phone.fill('9876543210');
+  await expect(page.locator('.auth-page').getByLabel('WhatsApp number')).toHaveValue('');
+  const identifiers=await page.locator('.minimal-auth input').evaluateAll(elements=>elements.map(element=>element.id));
+  expect(new Set(identifiers).size).toBe(identifiers.length);
+  await page.keyboard.press('Escape');
+  await expect(overlay).toBeHidden();
+  await expect.poll(()=>page.evaluate(()=>document.body.style.overflow)).toBe('');
 });

@@ -1,88 +1,51 @@
-import { expect, test } from '@playwright/test';
-
-test.describe('authentication brand artwork', () => {
-  test('shows the supplied monogram beside both sign-in and sign-up forms on desktop', async ({ page }) => {
-    const googleWarnings: string[] = [];
-    page.on('console', (message) => {
-      if (message.type() === 'warning' && message.text().includes('[GSI_LOGGER]')) googleWarnings.push(message.text());
-    });
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/login');
-
-    const artwork = page.getByTestId('auth-brand-artwork');
-    const imageStage = page.getByTestId('auth-brand-image-stage');
-    const panel = page.getByTestId('auth-brand-panel');
-    const wordmark = page.getByTestId('auth-brand-wordmark');
-    const label = page.getByTestId('auth-brand-label');
-    await expect(artwork).toBeVisible();
-    await expect(imageStage).toBeVisible();
-    await expect(wordmark).toHaveText('Cruisin');
-    await expect(label).toHaveText('Ultra premium streetwear');
-    await expect(wordmark).toHaveClass(/brand-wordmark-script/);
-    await expect(wordmark).toHaveCSS('font-family', /Snell Roundhand/);
-    await expect(wordmark).toHaveCSS('animation-name', 'auth-wordmark-sweep');
-    const wordmarkBox = await wordmark.boundingBox();
-    const labelBox = await label.boundingBox();
-    expect(wordmarkBox).not.toBeNull();
-    expect(labelBox).not.toBeNull();
-    expect(wordmarkBox!.x).toBeLessThan(labelBox!.x);
-    expect(labelBox!.y).toBeGreaterThan(wordmarkBox!.y + wordmarkBox!.height);
-    await expect(artwork.locator('img')).toHaveCount(1);
-    await expect(artwork.locator('img')).toHaveAttribute('src', /cruisin-auth-monogram\.webp/);
-    const panelBox = await panel.boundingBox();
-    const artworkBox = await artwork.boundingBox();
-    expect(panelBox).not.toBeNull();
-    expect(artworkBox).toEqual(panelBox);
-    await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
-    await page.getByRole('button', { name: 'Use email or Google' }).click();
-    const googleFrame = page.getByTestId('google-auth-frame');
-    const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
-    const emailButton = page.getByTestId('alternative-auth').locator('form button[type="submit"]');
-    const googleMethod = await googleFrame.count() ? googleFrame : googleFallback;
-    await expect(googleMethod).toBeVisible();
-    if (await googleFrame.count()) {
-      await expect(googleFrame).toHaveCSS('background-color', 'rgb(32, 33, 36)');
-    } else {
-      await expect(googleFallback).toBeDisabled();
-    }
-    await expect.poll(async () => {
-      const googleBox = await googleMethod.boundingBox();
-      const emailBox = await emailButton.boundingBox();
-      return Boolean(googleBox && emailBox && Math.abs(googleBox.width - emailBox.width) <= 1);
-    }).toBe(true);
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveClass(/sr-only/);
-    const signInImageBox = await imageStage.boundingBox();
-
-    await page.getByRole('tab', { name: 'Create Account' }).click();
-    await expect(page.getByRole('heading', { name: 'Create account' })).toHaveClass(/sr-only/);
-    await expect(artwork).toBeVisible();
-    expect(await imageStage.boundingBox()).toEqual(signInImageBox);
-    expect(googleWarnings).toEqual([]);
-    await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  });
-
-  test('keeps the artwork out of the compact mobile form layout', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/login');
-
-    const header = page.locator('header');
-    const authShell = page.getByTestId('auth-shell');
-    await expect(page.getByTestId('auth-brand-artwork')).toBeHidden();
-    await expect(page.getByTestId('whatsapp-primary-auth')).toBeVisible();
-    await expect(page.locator('img[src*="cruisin-logo.svg"]')).toBeVisible();
-    await expect(authShell).toHaveCSS('border-top-left-radius', '32px');
-    await expect.poll(async () => {
-      const headerBox = await header.boundingBox();
-      const shellBox = await authShell.boundingBox();
-      return headerBox && shellBox ? shellBox.y > headerBox.y + headerBox.height : false;
-    }).toBe(true);
-    await page.getByRole('button', { name: 'Use email or Google' }).click();
-    const googleFrame = page.getByTestId('google-auth-frame');
-    const googleFallback = page.getByRole('button', { name: 'Continue with Google' });
-    await expect(await googleFrame.count() ? googleFrame : googleFallback).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toHaveClass(/sr-only/);
-    await page.getByRole('tab', { name: 'Create Account' }).click();
-    await expect(page.getByRole('heading', { name: 'Create account' })).toHaveClass(/sr-only/);
-    await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  });
-});
+import {expect,test} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import {resolve} from 'node:path';
+import {mkdir} from 'node:fs/promises';
+const screenshots=resolve('../docs/qa/screenshots');
+for(const theme of ['light','dark'] as const)for(const width of [390,1440]){
+ test(`minimal authentication and CMS menu: ${theme}, ${width}px`,async({page})=>{
+  await mkdir(screenshots,{recursive:true});
+  await page.setViewportSize({width,height:width<1024?844:1000});
+  await page.route('**/api/v1/auth/otp/request',route=>route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({success:true,data:{requestId:'665f6d8403bd2edc93800000',channel:'whatsapp',cooldownSeconds:60,expiresAt:new Date(Date.now()+300000).toISOString()},message:'OTP sent'})}));
+  await page.goto('/login');
+  await page.getByRole('combobox',{name:'Color theme',exact:true}).selectOption(theme);
+  const auth=page.getByTestId('auth-shell');
+  await auth.scrollIntoViewIfNeeded();
+  await expect(auth.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await auth.screenshot({path:resolve(screenshots,`cruisin-v2-minimal-login-${theme}-${width}.png`)});
+  expect((await new AxeBuilder({page}).include('.minimal-auth').withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
+  await page.getByLabel('WhatsApp number').fill('9876543210');
+  await page.getByRole('button',{name:'Get OTP',exact:true}).click();
+  await expect(page.getByLabel('Verification code')).toBeFocused();
+  await expect(page.getByRole('button',{name:'Resend in 00:60'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:/Resend in/})).toBeDisabled();
+  await auth.screenshot({path:resolve(screenshots,`cruisin-v2-minimal-otp-${theme}-${width}.png`)});
+  expect((await new AxeBuilder({page}).include('.minimal-auth').withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
+  await page.getByRole('button',{name:'Change number',exact:true}).click();
+  await page.getByRole('button',{name:'Use email or Google',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Email',exact:true})).toBeVisible();
+  await auth.screenshot({path:resolve(screenshots,`cruisin-v2-minimal-email-${theme}-${width}.png`)});
+  expect((await new AxeBuilder({page}).include('.minimal-auth').withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page.getByLabel('Email', {exact:true})).toHaveAttribute('aria-invalid','true');
+  await page.getByRole('tab',{name:'Create account',exact:true}).click();
+  await expect(page.getByLabel('Confirm Password')).toBeVisible();
+  await page.getByRole('button',{name:'Menu',exact:true}).click();
+  const menu=page.locator('.minimal-menu');
+  await menu.getByRole('button',{name:'Men',exact:true}).click();
+  await expect(menu.getByRole('button',{name:'Men',exact:true})).toHaveAttribute('aria-expanded','true');
+  if(width<1024){await menu.getByRole('button',{name:'Clothing',exact:true}).click();await expect(menu.getByRole('link',{name:'T-Shirts',exact:true}).first()).toBeVisible();await menu.getByRole('button',{name:'Clothing',exact:true}).click();await expect(menu.getByRole('link',{name:'T-Shirts',exact:true})).toHaveCount(0);await menu.getByRole('button',{name:'Clothing',exact:true}).click();}
+  await expect(menu.getByRole('link',{name:'T-Shirts',exact:true}).first()).toBeVisible();
+  if(width>=1024)await expect(menu.getByRole('button',{name:'Continue with WhatsApp',exact:true})).toBeInViewport();
+  await menu.screenshot({path:resolve(screenshots,`cruisin-v2-minimal-menu-${theme}-${width}.png`)});
+  expect((await new AxeBuilder({page}).include('.minimal-menu').withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const controls=menu.locator('a[href],button:not([disabled]),input:not([disabled])');
+  await controls.last().focus();await page.keyboard.press('Tab');await expect(menu.getByRole('button',{name:'Close',exact:true})).toBeFocused();
+  if(width<1024){await menu.getByRole('button',{name:'Back',exact:true}).click();await expect(menu.getByRole('button',{name:'Women',exact:true})).toBeVisible();await menu.getByRole('button',{name:'Men',exact:true}).click();}
+  const target=menu.getByRole('link',{name:'T-Shirts',exact:true}).first();const href=await target.getAttribute('href');
+  await target.click();await expect(menu).toBeHidden();await expect(page).toHaveURL(new URL(href??'/',page.url()).toString());
+  await expect.poll(()=>page.evaluate(()=>document.body.style.overflow)).toBe('');
+ });
+}

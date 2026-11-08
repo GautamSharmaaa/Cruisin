@@ -2,9 +2,9 @@
 'use client';
 import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 
-import {storefrontEase} from '@/lib/storefront-motion';
+import {menuSurfaceMotion} from '@/lib/animations';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronDown, Search, X } from 'lucide-react';
+import { ArrowLeft,ArrowRight,ChevronDown,Search,ShoppingBag,X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import {EDITORIAL_COPY as E} from '@/constants/editorial-copy';
 import { COPY } from '@/constants/copy';
 import { useMobileAuthSheet } from '@/components/auth/mobile-auth-sheet-provider';
-import { RevolvingBag } from '@/components/shared/revolving-bag';
 import { ROUTES } from '@/constants/routes';
 import { acquireBodyScrollLock } from '@/lib/body-scroll-lock';
 import { useAuthStore } from '@/store/authStore';
@@ -31,7 +30,7 @@ type AccountLink = { label: string; href: string; action?: 'wishlist' | 'orders'
 const fallbackImage = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85';
 const idOf = (item: { id?: string; _id?: string; slug?: string; title?: string; label?: string }): string => item._id ?? item.id ?? item.slug ?? item.title ?? item.label ?? '';
 const isCollection = (value: MegaMenuCollectionCardDto['collectionId']): value is CollectionDto => Boolean(value && typeof value === 'object');
-const cardTitle = (card: MegaMenuCollectionCardDto): string => card.titleOverride || (isCollection(card.collectionId) ? card.collectionId.menuCardTitleOverride || card.collectionId.title : 'Collection');
+const cardTitle = (card: MegaMenuCollectionCardDto): string => card.titleOverride || (isCollection(card.collectionId) ? card.collectionId.menuCardTitleOverride || card.collectionId.title : E.collection);
 const cardHref = (card: MegaMenuCollectionCardDto): string => {
   const slug = card.slugOverride || (isCollection(card.collectionId) ? card.collectionId.slug : '');
   return slug ? '/collections/' + slug : '/collections';
@@ -105,93 +104,54 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
     }
   };
 
-  return <>
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          ref={drawerRef}
-          key="mobile-luxury-menu"
-          initial={reduced?false:{x:'-100%'}}
-          animate={{x:0}}
-          exit={{x:reduced?0:'-100%'}}
-          transition={{duration:reduced?0:0.55,ease:storefrontEase}}
-          className="editorial-navigation-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label={desktop?E.desktopMenu:COPY.nav.menu}
-          onKeyDown={onKeyDown}
-        >
-          <div className="sticky top-0 z-10 border-b border-border bg-background-primary px-4 pb-4 pt-[max(env(safe-area-inset-top),12px)]">
-            <div className="grid h-16 grid-cols-[48px_1fr_48px] items-center">
-              <button ref={closeRef} type="button" aria-label={COPY.common.close} onClick={close} className="grid h-11 w-11 place-items-center text-text-primary transition hover:text-accent-gold">
-                <X size={23} strokeWidth={1.25} />
-              </button>
-              <Link href={ROUTES.home} onClick={close} className="text-center">
-                <span data-testid="mobile-menu-wordmark" className="brand-wordmark-script block text-[28px] leading-none">{COPY.brand.name}</span>
-                <span className="mt-1 block font-accent text-[9px] uppercase tracking-[0.2em] text-text-muted">{COPY.brand.tagline}</span>
-              </Link>
-              <button type="button" aria-label={COPY.nav.cart} onClick={() => { close(); onCart(); }} className="relative grid h-11 w-11 place-items-center text-text-primary transition hover:text-accent-gold">
-                <RevolvingBag size="icon" />
-                {cartCount > 0 ? <span className="absolute right-1 top-1 grid h-5 min-w-5 place-items-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse">{cartCount}</span> : null}
-              </button>
-            </div>
-            <button type="button" onClick={() => { close(); onSearch(); }} className="mt-3 flex min-h-11 w-full items-center gap-3 border border-white/12 px-4 text-left text-[12px] uppercase tracking-[0.18em] text-text-secondary" aria-label={COPY.nav.search}>
-              <Search size={18} strokeWidth={1.4} />
-              <span>Search Cruisin</span>
-            </button>
-          </div>
-
-          <nav className="grid gap-1 px-5 py-6 pb-[calc(env(safe-area-inset-bottom)+32px)]" aria-label="Mobile menu sections">
-            {expanded&&<button type="button" className="editorial-menu-back" onClick={()=>setExpanded(null)}>{E.back}</button>}
-            {menuItems.filter(item=>!expanded||idOf(item)===expanded).map((item) => {
-              const key = idOf(item);
-              const isOpen = expanded === key;
-              if(!item.isMegaMenuEnabled)return <Link key={key} href={item.href} onClick={close} className="editorial-menu-direct">{item.label}</Link>;
-              return (
-                <section key={key} className="border-b border-white/10">
-                  <button
-                    type="button"
-                    className={(isOpen ? 'text-text-primary' : 'text-text-secondary') + ' relative flex min-h-16 w-full items-center justify-between py-2 pl-4 text-left font-display text-[28px] font-light transition'}
-                    aria-expanded={isOpen}
-                    aria-current={isOpen ? 'page' : undefined}
-                    onClick={() => setExpanded(isOpen ? null : key)}
-                  >
-                    <span className={(isOpen ? 'opacity-100' : 'opacity-0') + ' absolute left-0 h-7 w-px bg-accent-gold transition-opacity'} />
-                    <span>{item.label}</span>
-                    <ChevronDown size={19} strokeWidth={1.25} className={(isOpen ? 'rotate-180 text-accent-gold' : 'text-text-muted') + ' transition'} />
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen ? (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
-                        <MobileMenuContent item={item} expandedColumns={expandedColumns} setExpandedColumns={setExpandedColumns} onClose={close} />
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </section>
-              );
+  const selected=menuItems.find(item=>idOf(item)===expanded)??menuItems.find(item=>item.isMegaMenuEnabled)??null;
+  const accountContent=<div className="minimal-menu-account">{accountLinks.map(link=>{
+    const action=link.action;
+    if(action)return <button key={link.href} type="button" onClick={()=>{close();openMobileAuth({next:action==='orders'?ROUTES.orders:ROUTES.wishlist});}}>{link.label}</button>;
+    if(link.method)return <button key={link.method} type="button" onClick={()=>{close();openMobileAuth({next:pathname,method:link.method});}}>{link.label}</button>;
+    return <Link key={link.href} href={link.href} onClick={close}>{link.label}</Link>;
+  })}</div>;
+  return <AnimatePresence>{open?
+    <motion.button key="menu-backdrop" type="button" className="minimal-menu-backdrop" aria-label={COPY.common.close} onClick={close} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reduced?0:menuSurfaceMotion.fade}}/>:null}{open?<motion.div ref={drawerRef} key="minimal-cruisin-menu" initial={reduced?false:{x:'-100%'}} animate={{x:0}} exit={{x:reduced?0:'-100%'}} transition={{duration:reduced?0:menuSurfaceMotion.duration,ease:menuSurfaceMotion.ease}} className="editorial-navigation-drawer minimal-menu" role="dialog" aria-modal="true" aria-label={desktop?E.desktopMenu:COPY.nav.menu} onKeyDown={onKeyDown}>
+      <div className="minimal-menu-header">
+        <button ref={closeRef} type="button" aria-label={COPY.common.close} onClick={close}><X size={22} strokeWidth={1.3}/></button>
+        <Link href={ROUTES.home} onClick={close} className="brand-wordmark-script" data-testid="mobile-menu-wordmark">{COPY.brand.name}</Link>
+        <button type="button" aria-label={COPY.nav.cart} onClick={()=>{close();onCart();}}><ShoppingBag size={20} strokeWidth={1.3}/>{cartCount>0?<span className="minimal-menu-count">{cartCount}</span>:null}</button>
+      </div>
+      <button type="button" onClick={()=>{close();onSearch();}} className="minimal-menu-search" aria-label={COPY.nav.search}><Search size={18} strokeWidth={1.3}/><span>{COPY.nav.search}</span><ArrowRight size={16}/></button>
+      <div className="minimal-menu-layout">
+        <div className="minimal-menu-primary">
+          <nav aria-label={E.menuSections}>
+            {!desktop&&expanded?<button type="button" className="editorial-menu-back" onClick={()=>setExpanded(null)}><ArrowLeft size={14}/>{E.back}</button>:null}
+            {menuItems.filter(item=>desktop||!expanded||idOf(item)===expanded).map(item=>{
+              const key=idOf(item);
+              const isOpen=desktop?idOf(selected??{})===key:expanded===key;
+              if(!item.isMegaMenuEnabled)return <Link key={key} href={item.href} onClick={close} className="minimal-menu-root">{item.label}<ArrowRight size={18} strokeWidth={1.2}/></Link>;
+              return <section key={key}>
+                <button type="button" className="minimal-menu-root" aria-expanded={isOpen} onClick={()=>setExpanded(desktop?key:isOpen?null:key)}><span>{item.label}</span><ArrowRight size={18} strokeWidth={1.2}/></button>
+                {!desktop?<AnimatePresence initial={false}>{isOpen?<motion.div initial={reduced?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0}} transition={{duration:reduced?0:menuSurfaceMotion.fade}}><MobileMenuContent item={item} expandedColumns={expandedColumns} setExpandedColumns={setExpandedColumns} onClose={close}/></motion.div>:null}</AnimatePresence>:null}
+              </section>;
             })}
-            <div className="mt-6 grid gap-1 border-t border-white/10 pt-4">
-              {accountLinks.map((link) => {
-                const action = link.action;
-                if (action) return <button key={link.href} type="button" onClick={() => { close(); openMobileAuth({ next: action === 'orders' ? ROUTES.orders : ROUTES.wishlist }); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button>;
-                if (link.method) return <button key={link.method} type="button" onClick={() => { close(); openMobileAuth({ next: pathname, method: link.method }); }} className="flex min-h-11 items-center text-left text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</button>;
-                return <Link key={link.href} href={link.href} onClick={close} className="flex min-h-11 items-center text-[12px] uppercase tracking-[0.16em] text-text-secondary">{link.label}</Link>;
-              })}
-            </div>
           </nav>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  </>;
+          {accountContent}
+        </div>
+        {desktop&&selected?<section className="minimal-menu-detail" aria-label={selected.label} key={idOf(selected)}>
+          <Link href={selected.href} onClick={close} className="minimal-menu-all">{E.explore} {selected.label}<ArrowRight size={16}/></Link>
+          <MobileMenuContent item={selected} expandedColumns={expandedColumns} setExpandedColumns={setExpandedColumns} onClose={close} desktop/>
+        </section>:null}
+      </div>
+    </motion.div>
+  :null}</AnimatePresence>;
 }
 
-function MobileMenuContent({ item, expandedColumns, setExpandedColumns, onClose }: { item: NavigationItemDto; expandedColumns: Record<string, string | null>; setExpandedColumns: (value: Record<string, string | null>) => void; onClose: () => void }): ReactNode {
+interface MobileMenuContentProps { item:NavigationItemDto; expandedColumns:Record<string,string|null>; setExpandedColumns:(value:Record<string,string|null>)=>void; onClose:()=>void; desktop?:boolean }
+function MobileMenuContent({item,expandedColumns,setExpandedColumns,onClose,desktop=false}:MobileMenuContentProps):ReactNode {
   if (item.menuLayoutType === 'collection-grid' || item.slug === 'collections') {
     return (
       <div className="pb-7 pt-3">
         <div className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
           {(item.collectionCards ?? []).filter((card) => card.isVisible).slice(0, 6).map((card) => (
-            <Link key={idOf(card) || cardHref(card)} href={cardHref(card)} onClick={onClose} className="group relative aspect-[4/3] overflow-hidden rounded-[6px] bg-background-elevated">
+            <Link key={idOf(card) || cardHref(card)} href={cardHref(card)} onClick={onClose} className="minimal-menu-card group relative aspect-[4/3] overflow-hidden bg-background-elevated">
               <Image src={cardImage(card)} alt={cardTitle(card)} fill sizes="(max-width: 389px) 90vw, 45vw" className="object-cover grayscale transition duration-500 group-hover:scale-105" />
               <span className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/24 to-transparent" />
               <span className="absolute bottom-4 left-4 right-10 font-display text-[20px] font-light">{cardTitle(card)}</span>
@@ -200,26 +160,27 @@ function MobileMenuContent({ item, expandedColumns, setExpandedColumns, onClose 
           ))}
         </div>
         <Link href={item.href || '/collections'} onClick={onClose} className="mt-5 inline-flex min-h-11 items-center gap-4 font-accent text-[11px] uppercase tracking-[0.18em] text-accent-gold">
-          <span>View All {item.label}</span>
+          <span>{E.viewAll} {item.label}</span>
           <ArrowRight size={17} strokeWidth={1.25} />
         </Link>
-        <MobilePromoCard promo={item.promo} onClose={onClose} />
+        <MobilePromoCard promo={item.promo} onClose={onClose} desktop={desktop}/>
       </div>
     );
   }
 
   return (
-    <div className="pb-7 pt-2">
+    <div className="minimal-menu-columns">
       {item.columns.filter((column) => column.isVisible).map((column) => {
         const columnKey = idOf(column) || column.title;
-        const activeColumn = expandedColumns[idOf(item)] ?? idOf(item.columns[0] ?? {});
-        const isOpen = activeColumn === columnKey;
+        const activeColumn = Object.hasOwn(expandedColumns,idOf(item)) ? expandedColumns[idOf(item)] : idOf(item.columns[0] ?? {});
+        const isOpen = desktop || activeColumn === columnKey;
         return (
-          <section key={columnKey} className="border-t border-white/10">
+          <section key={columnKey} className="minimal-menu-column">
             <button
               type="button"
               className="flex min-h-12 w-full items-center justify-between font-accent text-[12px] uppercase tracking-[0.18em] text-accent-gold"
               aria-expanded={isOpen}
+              disabled={desktop}
               onClick={() => setExpandedColumns({ ...expandedColumns, [idOf(item)]: isOpen ? null : columnKey })}
             >
               {column.title}
@@ -238,24 +199,27 @@ function MobileMenuContent({ item, expandedColumns, setExpandedColumns, onClose 
           </section>
         );
       })}
-      <MobilePromoCard promo={item.promo} onClose={onClose} />
+      <MobilePromoCard promo={item.promo} onClose={onClose} desktop={desktop}/>
     </div>
   );
 }
 
-function MobilePromoCard({ promo, onClose }: { promo?: MegaMenuPromoDto | null; onClose: () => void }): ReactNode {
-  if (!promo || !promo.isVisible || !promo.showOnMobile) return null;
+interface MobilePromoCardProps { promo?:MegaMenuPromoDto|null; onClose:()=>void; desktop?:boolean }
+function MobilePromoCard({promo,onClose,desktop=false}:MobilePromoCardProps):ReactNode {
+  const overlay=useRef<HTMLSpanElement>(null);
+  useEffect(()=>{overlay.current?.style.setProperty('--menu-promo-opacity',String(promo?.overlayOpacity??0.5));},[promo,desktop]);
+  if(!promo||!promo.isVisible||(desktop?promo.showOnDesktop===false:!promo.showOnMobile))return null;
   return (
-    <Link href={promo.buttonHref || '/collections'} onClick={onClose} className="relative mt-6 block h-[210px] overflow-hidden rounded-[6px] border border-white/10 bg-background-elevated">
-      <Image src={promoImage(promo)} alt={promo.title || 'Cruisin editorial'} fill sizes="90vw" className="object-cover grayscale" loading="lazy" />
-      <span className="absolute inset-0 bg-black" style={{ opacity: promo.overlayOpacity ?? 0.5 }} />
+    <Link href={promo.buttonHref || '/collections'} onClick={onClose} className="minimal-menu-card relative mt-6 block h-[210px] overflow-hidden bg-background-elevated">
+      <Image src={promoImage(promo)} alt={promo.title || E.editorial} fill sizes="90vw" className="object-cover grayscale" loading="lazy" />
+      <span ref={overlay} className="minimal-menu-promo-overlay absolute inset-0 bg-black"/>
       <span className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/88 to-transparent" />
       <span className="relative flex h-full flex-col justify-end p-5">
         {promo.eyebrow ? <span className="font-accent text-[10px] uppercase tracking-[0.2em] text-accent-gold">{promo.eyebrow}</span> : null}
         <span className="mt-2 font-display text-[28px] font-light leading-tight">{promo.title}</span>
         {promo.subtitle ? <span className="mt-2 max-w-[240px] text-sm leading-6 text-text-secondary">{promo.subtitle}</span> : null}
         <span className="mt-4 inline-flex min-h-11 items-center gap-3 font-accent text-[11px] uppercase tracking-[0.16em] text-text-primary">
-          {promo.buttonLabel || 'Explore'}
+          {promo.buttonLabel || E.explore}
           <ArrowRight size={17} strokeWidth={1.25} />
         </span>
       </span>
