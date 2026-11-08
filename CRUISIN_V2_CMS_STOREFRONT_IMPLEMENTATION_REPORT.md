@@ -108,3 +108,9 @@ The storefront production build passed (`/tmp/cruisin-seamless-footer-build.log`
 Removed the footer phone number and WhatsApp link, including their unused footer copy entries. Email, Instagram and Facebook remain. On mobile, Cruisin is raised above the lower fade, rendered taller and heavier, and given stronger theme-specific colour so it remains prominent within the seamless glow.
 
 The storefront production build passed (`/tmp/cruisin-footer-mobile-brand-build.log`). Browser checks confirmed removal of phone/WhatsApp links and retained email; verified mobile lettering size/weight; and passed light/dark desktop/mobile accessibility, no-overflow, seamless-edge, live-wave, pause and reduced-motion checks (`/tmp/cruisin-footer-brand-verification.log`). Mobile previews were visually reviewed. Current screenshots: `docs/qa/screenshots/cruisin-v2-footer-brand-{light,dark}-{390,1440}.png`. Local only.
+
+## Orange wave and signature typography — 2026-11-08
+
+Changed the footer to a richer orange palette with brighter moving crests, a saturated middle colour, broader irregular waves and a soft blur. Replaced the plain sans-serif footer lettering with the original cursive brand family, oversized and angled slightly upward as a signature. Theme-specific ink preserves mobile visibility, and the page-to-footer fade remains seamless. Phone and WhatsApp remain removed.
+
+The production storefront build passed (`/tmp/cruisin-orange-signature-build.log`). Light/dark mobile/desktop browser checks passed for typography, contact removal, continuous seam pixels, no overflow, scoped WCAG A/AA, live wave/pause and reduced motion (`/tmp/cruisin-orange-signature-verification.log`). Visually reviewed previews: `docs/qa/screenshots/cruisin-v2-footer-orange-signature-{light,dark}-{390,1440}.png`. Local only.

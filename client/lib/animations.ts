@@ -10,7 +10,7 @@ export const fadeInUp: Variants = { initial: { opacity: 0, y: 24 }, animate: { o
 export const cinematicPanel: Variants = { initial: { opacity: 0, y: 32, scale: 0.98, filter: 'blur(10px)' }, animate: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } } };
 export const navReveal: Variants = { initial: { opacity: 0, y: -18 }, animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] } } };
 
-export const footerWaveMotion = { amplitude:46, ripple:15, speed:0.62, pointerEase:0.035 } as const;
+export const footerWaveMotion = { amplitude:60, ripple:18, speed:0.62, pointerEase:0.035 } as const;
 
 export const authSurfaceMotion={ dismissDistance:72,dismissVelocity:650,expandDistance:40,bottomSheet:{closed:{y:'100%',opacity:1},open:{y:0,opacity:1}},duration:0.4,fade:0.24,ease:[0.22,1,0.36,1] as const,backdrop:{closed:{opacity:0},open:{opacity:1}},sheet:{closed:{y:32,opacity:0},open:{y:0,opacity:1}},static:{closed:{opacity:1},open:{opacity:1}} } as const;
 

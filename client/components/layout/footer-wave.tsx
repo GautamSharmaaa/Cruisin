@@ -77,7 +77,7 @@ export function FooterWave({paused}:FooterWaveProps):ReactNode {
   };
  },[paused]);
  return <svg ref={svg} className="cruisin-footer-wave" viewBox="0 0 1440 420" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-  <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop className="cruisin-footer-wave-crest" offset="0%"/><stop className="cruisin-footer-wave-depth" offset="100%"/></linearGradient></defs>
+  <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop className="cruisin-footer-wave-crest" offset="0%"/><stop className="cruisin-footer-wave-core" offset="34%"/><stop className="cruisin-footer-wave-depth" offset="100%"/></linearGradient></defs>
   {[0,1,2].map(layer=><path key={layer} className={`cruisin-footer-wave-layer cruisin-footer-wave-layer-${layer}`} fill={`url(#${gradient})`}/>)}
  </svg>;
 }
