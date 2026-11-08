@@ -2,6 +2,7 @@ import type {z} from 'zod';
 export interface EditorialPresentation {
  schemaVersion:1;captionAlign:'center'|'left';heroHeight:'screen'|'tall';
  focalPoint:'center'|'top'|'bottom'|'left'|'right';mobileFocalPoint:'center'|'top'|'bottom'|'left'|'right';mediaFit:'cover'|'contain';
+ buttons?:{label:string;href:string}[];overlayStrength:number;
  overlay:'none'|'soft'|'strong';desktopColumns:2|4;gap:'tight'|'standard';quickAdd:boolean;shortcuts:{label:string;href:string}[];
 }
 export const editorialPresentationSchema:z.ZodType<EditorialPresentation>;

@@ -692,3 +692,22 @@ html.lenis-smooth { scroll-behavior:auto!important; }
 @media(scripting:none) {
  .storefront-route-transition,.editorial-product-section,.editorial-product-card,.editorial-campaign-caption,.editorial-campaign-media { opacity:1!important; transform:none!important; }
 }
+.editorial-campaign-buttons { display:flex; flex-wrap:wrap; align-items:center; justify-content:inherit; gap:16px; }
+.editorial-campaign[data-overlay-strength] .editorial-campaign-shade { background:rgb(0,0,0); }
+.editorial-campaign[data-overlay-strength="0"] .editorial-campaign-shade { opacity:0; }
+.editorial-campaign[data-overlay-strength="10"] .editorial-campaign-shade { opacity:.1; }
+.editorial-campaign[data-overlay-strength="20"] .editorial-campaign-shade { opacity:.2; }
+.editorial-campaign[data-overlay-strength="30"] .editorial-campaign-shade { opacity:.3; }
+.editorial-campaign[data-overlay-strength="40"] .editorial-campaign-shade { opacity:.4; }
+.editorial-campaign[data-overlay-strength="50"] .editorial-campaign-shade { opacity:.5; }
+.editorial-campaign[data-overlay-strength="60"] .editorial-campaign-shade { opacity:.6; }
+.editorial-campaign[data-overlay-strength="70"] .editorial-campaign-shade { opacity:.7; }
+.editorial-campaign[data-overlay-strength="80"] .editorial-campaign-shade { opacity:.8; }
+:root { --cms-selection:#2375fa; }
+.cms-preview-section { position:relative; }
+.cms-preview-section[data-selected="true"] { outline:2px solid var(--cms-selection); outline-offset:-2px; }
+.cms-preview-select-layer { position:absolute; inset:0; z-index:50; width:100%; height:100%; cursor:pointer; background:transparent; }
+.cms-preview-select-layer:focus-visible { outline:3px solid var(--cms-selection); outline-offset:-3px; }
+.cms-preview-selection-tag { position:absolute; top:0; left:0; z-index:51; background:var(--cms-selection); color:var(--accent-white); padding:4px 8px; font:12px var(--font-body); pointer-events:none; }
+
+.cms-preview-section[data-selected="true"] > .cms-preview-select-layer { box-shadow:inset 0 0 0 3px var(--cms-selection); }

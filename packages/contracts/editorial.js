@@ -11,6 +11,8 @@ export const editorialPresentationSchema=z.object({
  focalPoint:z.enum(['center','top','bottom','left','right']).default('center'),
  mobileFocalPoint:z.enum(['center','top','bottom','left','right']).default('center'),
  mediaFit:z.enum(['cover','contain']).default('cover'),
+ buttons:z.array(z.object({label:z.string().trim().min(1).max(60),href:editorialLinkSchema}).strict()).max(3).optional(),
+ overlayStrength:z.number().int().min(0).max(80).multipleOf(10).default(30),
  overlay:z.enum(['none','soft','strong']).default('soft'),
  desktopColumns:z.union([z.literal(2),z.literal(4)]).default(4),
  gap:z.enum(['tight','standard']).default('tight'),

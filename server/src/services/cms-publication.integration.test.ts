@@ -20,3 +20,20 @@ it('keeps shared products canonical while department pages exclude ineligible pr
  try{await CMSPageModel.updateOne({_id:p._id},{$set:{slug:'women'}});await CmsService.createSection(p.id,{type:'product_carousel',title:'Department edit',products:products.map(r=>r._id)});await CmsService.publishPage(p.id);const result=await CmsService.publicPage('women') as {sections:{products:{_id:unknown;variants:{_id:unknown;stock:number;price:number}[]}[]}[]};expect(result.sections[0].products).toHaveLength(1);expect(String(result.sections[0].products[0]._id)).toBe(products[0].id);expect(result.sections[0].products[0].variants[0]).toMatchObject({stock:3,price:1200});expect(String(result.sections[0].products[0].variants[0]._id)).toBe(String(products[0].variants[0]._id));}
  finally{await CMSPageModel.updateOne({_id:p._id},{$set:{slug:p.slug}});if(original)await CMSPageModel.updateOne({_id:original._id},{$set:{slug:'women'}});await ProductModel.deleteMany({_id:{$in:products.map(r=>r._id)}});await CategoryModel.deleteOne({_id:category._id});}
 });
+it('protects CMS media while referenced by a draft or retained published revision',async()=>{
+ const {MediaService}=await import('./media/media.service.js');const {MediaAssetModel}=await import('../models/media-asset.model.js');
+ const actor={actor:{id:new mongoose.Types.ObjectId().toString(),kind:'admin' as const,name:'Synthetic CMS media administrator',permissions:['media.manage' as const]},correlationId:randomUUID()};
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aB1UAAAAASUVORK5CYII=','base64');
+ const asset=await MediaService.upload(actor,{name:'cms-reference.png',contentType:'image/png',visibility:'public',body:png}) as {id:string};const p=await fixture();
+ try{const section=await CmsService.createSection(p.id,{type:'hero_campaign',title:'Media reference fixture',content:{desktopMedia:`http://127.0.0.1:8192/api/v1/media/${asset.id}/content`}}) as {_id:unknown};await expect(MediaService.remove(actor,asset.id)).rejects.toMatchObject({statusCode:409});await CmsService.publishPage(p.id);await CmsService.updateSection(String(section._id),{content:{desktopMedia:'/replacement.png'}});await expect(MediaService.remove(actor,asset.id)).rejects.toMatchObject({statusCode:409});expect((await MediaAssetModel.findById(asset.id))?.deletedAt).toBeUndefined();}
+ finally{await MediaAssetModel.deleteOne({_id:asset.id});}
+});
+it('restores a retained version into the draft without changing the published release',async()=>{
+ const p=await fixture();const original=await CmsService.createSection(p.id,{type:'brand_story',title:'First release'}) as {_id:unknown};await CmsService.publishPage(p.id);
+ const first=await CMSVersionModel.findOne({pageId:p.id,status:'published'}).lean();expect(first).not.toBeNull();
+ await CmsService.updateSection(String(original._id),{title:'Second release'});await CmsService.publishPage(p.id);
+ await CmsService.restoreVersion(p.id,String(first!._id));
+ expect(await CmsService.publicPage(p.slug)).toMatchObject({preview:false,sections:[{title:'Second release'}]});
+ expect(await CmsService.publicPage(p.slug,{previewToken:p.previewToken})).toMatchObject({preview:true,sections:[{title:'First release'}]});
+ await CmsService.publishPage(p.id);expect(await CmsService.publicPage(p.slug)).toMatchObject({sections:[{title:'First release'}]});
+});

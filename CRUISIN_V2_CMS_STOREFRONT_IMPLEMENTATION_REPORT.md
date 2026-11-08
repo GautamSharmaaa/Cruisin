@@ -46,3 +46,9 @@ Complete typed legacy section migration, independent fit/department eligibility 
 
 ## O. Staging readiness
 All work stays local. No remote push, production write, provider transaction, DNS change or hosted startup. Hosted services remain stopped as requested. Local links: storefront 3192, admin 3193/cms, employee 3194.
+
+## Screenshot-based editor follow-up — 2026-11-08
+
+Implemented the supplied three-column CRUISIN Storefront Editor reference in the existing admin application. It includes compact selectable/reorderable sections; Home/Men/Women pages; an actual desktop/mobile storefront canvas with zoom and selection; content/layout/visibility tabs; separate image upload controls; multiple safe CTA buttons; overlay strength; visibility, duplication/removal and version history; save status, preview and publish confirmation. Existing themes and permissions are retained. Responsive pane navigation replaces simultaneous columns on narrow screens.
+
+A readiness handshake fixes initial canvas selection, and origin/window checks apply in both directions. Text/style saves update the shared preview without reloading its iframe. CMS media references in drafts and retained releases now block deletion. Restore updates draft content and leaves publication separate. New backend and browser checks cover these behaviors. Full evidence and limits are in `docs/cruisin-v2/cms-storefront/VERIFICATION_EVIDENCE.md`; usage details are in `STOREFRONT_EDITOR.md`.

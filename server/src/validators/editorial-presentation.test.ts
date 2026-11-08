@@ -7,3 +7,9 @@ describe('shared editorial presentation controls',()=>{
  it('rejects unsupported presets at the CMS API boundary',()=>{expect(()=>cmsSectionBodySchema.parse({type:'hero_campaign',title:'Campaign',styles:{editorial:{focalPoint:'arbitrary-css'}}})).toThrow();});
  it('preserves independent mobile focal points and valid category destinations',()=>{expect(editorialPresentationSchema.parse({focalPoint:'top',mobileFocalPoint:'left',shortcuts:[{label:'Men',href:'/men'}]})).toMatchObject({focalPoint:'top',mobileFocalPoint:'left',shortcuts:[{label:'Men',href:'/men'}]});});
 });
+it('stores ordered hero buttons with valid destinations and rejects unsafe buttons',()=>{
+ const parsed=editorialPresentationSchema.parse({buttons:[{label:'Shop Men',href:'/men'},{label:'Shop Women',href:'/women'}],overlayStrength:30});
+ expect(parsed).toMatchObject({buttons:[{label:'Shop Men',href:'/men'},{label:'Shop Women',href:'/women'}],overlayStrength:30});
+ expect(editorialPresentationSchema.safeParse({buttons:[{label:'Unsafe',href:'javascript:alert(1)'}]}).success).toBe(false);
+});
+it('rejects out-of-range overlay strength',()=>{expect(editorialPresentationSchema.safeParse({overlayStrength:120}).success).toBe(false);});

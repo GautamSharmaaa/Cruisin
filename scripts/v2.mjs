@@ -25,6 +25,8 @@ const tasks = {
   api: ['npm', ['--workspace', 'server', 'run', 'dev']],
   storefront: ['node', ['node_modules/next/dist/bin/next', 'dev', 'client', '-H', '127.0.0.1', '-p', '3192']],
   'storefront-built': ['node', ['node_modules/next/dist/bin/next', 'start', 'client', '-H', '127.0.0.1', '-p', '3192']],
+  'storefront-build':['npm',['--workspace','client','run','build']],
+  'admin-build':['npm',['--workspace','admin','run','build']],
   'admin-built': ['node', ['node_modules/next/dist/bin/next', 'start', 'admin', '-H', '127.0.0.1', '-p', '3193']],
   'operations-indexes': ['node',['--import','tsx','server/src/scripts/v2-operations-indexes.ts',...(process.argv[3]==='--apply'?['--apply']:[])]],
   'legacy-count-fixture':['node',['--import','tsx','server/src/scripts/v2-legacy-count-fixture.ts',process.argv[3]??'']],
@@ -49,7 +51,7 @@ if (task === 'test') {
   environment.MONGODB_URI = 'mongodb://127.0.0.1:27983/cruisin-sync-order-analytics-tests';
   environment.REDIS_URL = 'redis://127.0.0.1:6392/14';
 }
-if (['build', 'storefront-built', 'admin-built', 'employee-built'].includes(task)) environment.NODE_ENV = 'production';
+if (['build', 'admin-build', 'storefront-build', 'storefront-built', 'admin-built', 'employee-built'].includes(task)) environment.NODE_ENV = 'production';
 const [command, args] = tasks[task];
 const child = spawn(command, args, { cwd: root, env: environment, stdio: 'inherit' });
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));

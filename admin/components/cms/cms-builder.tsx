@@ -1,5 +1,8 @@
 // Governed by .rules v1.0
 'use client';
+import {StorefrontEditor} from './storefront-editor';
+import {CampaignContentFields} from './campaign-content-fields';
+import {CMS_STUDIO_COPY as S} from '@/constants/cms-studio-copy';
 import {EditorialInspector} from './editorial-inspector';
 import {StorefrontPreview} from './storefront-preview';
 import {CMS_EDITORIAL_COPY as E} from '@/constants/editorial-copy';
@@ -99,6 +102,8 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState<CmsSectionDto | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('builder');
+  const [studioLibraryOpen,setStudioLibraryOpen]=useState(false);
+  const [studioHistoryOpen,setStudioHistoryOpen]=useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const selectedRef = useRef(selectedId);
   const canvasRefs = useRef(new Map<string, HTMLElement>());
@@ -158,12 +163,13 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   };
 
   const duplicateSection = (section: CmsSectionDto): void => {
-    const input = sectionDtoToInput(section, section.sortOrder + 1);
+    const input = sectionId(section) === sectionId(selected ?? section) ? {...draft, sortOrder: section.sortOrder + 1} : sectionDtoToInput(section, section.sortOrder + 1);
     createSection.mutate({ ...input, title: input.title + ' Copy', status: 'draft' }, { onSuccess: (next) => selectAndScroll(sectionId(next)) });
   };
 
   const toggleActive = (section: CmsSectionDto): void => {
-    updateSection.mutate({ ...sectionDtoToInput(section), id: sectionId(section), active: !isActive(section), status: 'draft' });
+    const input=sectionId(section)===sectionId(selected??section)?draft:sectionDtoToInput(section);
+    updateSection.mutate({ ...input, id: sectionId(section), active: !input.active, status: 'draft' });
   };
 
   const archiveOne = (section: CmsSectionDto): void => {
@@ -245,38 +251,21 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
 
   return <DndContext onDragEnd={onDragEnd}>
     {toast ? <div className={cn('fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg', toast.tone === 'success' && 'border-success text-success', toast.tone === 'error' && 'border-danger text-danger', toast.tone === 'info' && 'border-accent-gold text-accent-gold')}>{toast.message}</div> : null}
-    <div className="grid gap-5">
-      <BuilderHeader homePage={homePage} saveState={saveState} onAdd={() => addSection()} onSave={saveDraft} onTemplate={() => setTemplateGalleryOpen(true)} onTogglePreview={() => setIncludeInactive((current) => !current)} onPublish={() => setPublishConfirmOpen(true)} canMutate={Boolean(currentPageId)} isSaving={updateSection.isPending} isPublishing={publishPage.isPending} includeInactive={includeInactive} />
-      <div className="flex flex-wrap items-end gap-4"><SelectField label={E.page} options={(pages.data??[]).map(page=>({label:page.title,value:page.slug}))} value={selectedPageSlug} disabled={saveState==='dirty'||saveState==='saving'} onChange={event=>{setSelectedPageSlug(event.target.value);setSelectedId('');setDefaultTemplateSections([]);}}/>{saveState==='dirty'&&<Button type="button" variant="secondary" onClick={()=>{setDraft(toInput(selected));setSaveState('idle');}}>{E.discard}</Button>}</div>
-      <WorkspaceTabs active={workspaceTab} onChange={setWorkspaceTab} />
-
-      {workspaceTab === 'builder' ? <div className="grid min-w-0 gap-5 2xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="grid min-w-0 content-start gap-4">
-          <SectionLibrary onAdd={(type) => addSection(type)} onPreview={setLibraryPreview} onOpenTemplates={() => setTemplateGalleryOpen(true)} />
-        </aside>
-
-        <main className="grid min-w-0 content-start gap-5">
-          <SectionCanvas sectionList={sectionList} selected={selected} refs={canvasRefs} isLoading={sections.isLoading} onSelect={(section) => setSelectedId(sectionId(section))} onDuplicate={duplicateSection} onArchive={archiveOne} onToggle={toggleActive} onQuickAdd={addSection} onTemplate={() => setTemplateGalleryOpen(true)} />
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Metric icon={<Clock size={16} />} value={sectionList.filter((section) => section.status === 'published').length} label="Published" />
-            <Metric icon={<Eye size={16} />} value={sectionList.filter(isActive).length} label="Visible" />
-            <Metric icon={<LayoutTemplate size={16} />} value={sectionList.length} label="Sections" />
-            <Metric icon={<Save size={16} />} value={saveState === 'saved' ? 1 : 0} label={saveState === 'saved' ? 'Saved' : 'Draft'} />
-          </div>
-          <SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={() => setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent} />
-          <div className="grid gap-5 lg:grid-cols-2">
-            <VersionHistory versions={versions.data ?? []} isRestoring={restoreVersion.isPending} onRestore={(id) => restoreVersion.mutate(id)} />
-            <MediaManager media={media.data ?? []} isSaving={createMedia.isPending} onCreate={(input) => createMedia.mutate(input)} />
-          </div>
-        </main>
-      </div> : <div className="grid gap-4"><div className="flex gap-2">{(['desktop','tablet','mobile'] as DevicePreview[]).map(size=><Button key={size} type="button" variant="secondary" onClick={()=>setDevice(size)}>{size}</Button>)}</div><StorefrontPreview page={homePage} selected={selected} draft={draft} device={device} revision={JSON.stringify(sectionList.map(s=>[s._id,s.updatedAt]))}/><SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={()=>setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent}/></div>}
-    </div>
+    <StorefrontEditor page={homePage} pages={pages.data??[]} sections={sectionList} selected={selected} draft={draft} saveState={saveState}
+      onPage={slug=>{if(saveState==='dirty'||saveState==='saving')return;setSelectedPageSlug(slug);setSelectedId('');setDefaultTemplateSections([]);}}
+      onSelect={id=>{if(!sectionList.some(section=>sectionId(section)===id)||id===selectedId||saveState==='saving')return;if(selected&&(saveState==='dirty'||saveState==='error')){setSaveState('saving');updateSection.mutate({...draft,id:sectionId(selected),status:'draft'},{onSuccess:()=>setSelectedId(id),onError:()=>setSaveState('error')});}else setSelectedId(id);}}
+      onAdd={()=>setStudioLibraryOpen(true)} onSave={saveDraft} onPublish={()=>setPublishConfirmOpen(true)} onToggle={toggleActive} onDuplicate={duplicateSection} onArchive={archiveOne} onHistory={()=>setStudioHistoryOpen(true)}
+      onDiscard={()=>{setDraft(toInput(selected));setSaveState('idle');}}
+      onMove={(from,to)=>{if(to<0||to>=sectionList.length)return;const ids=sectionList.map(sectionId);const [moved]=ids.splice(from,1);ids.splice(to,0,moved);reorderSections.mutate(ids);}}
+      inspector={<SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={()=>setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent}/>}/>
+    {studioLibraryOpen&&<ModalShell title={S.add} onClose={()=>setStudioLibraryOpen(false)} wide><SectionLibrary onAdd={type=>{addSection(type);setStudioLibraryOpen(false);}} onPreview={setLibraryPreview} onOpenTemplates={()=>{setStudioLibraryOpen(false);setTemplateGalleryOpen(true);}}/></ModalShell>}
+    {studioHistoryOpen&&<ModalShell title={S.history} onClose={()=>setStudioHistoryOpen(false)}><VersionHistory versions={versions.data??[]} isRestoring={restoreVersion.isPending} onRestore={id=>{restoreVersion.mutate(id);setStudioHistoryOpen(false);}}/></ModalShell>}
 
     {libraryPreview ? <SectionPreviewModal template={libraryPreview} onClose={() => setLibraryPreview(null)} onAdd={(type) => { addSection(type); setLibraryPreview(null); }} /> : null}
     {templateGalleryOpen ? <TemplateGallery templates={homepageTemplates} onClose={() => setTemplateGalleryOpen(false)} onPreview={setTemplatePreview} onUse={setTemplateConfirm} /> : null}
     {templatePreview ? <TemplatePreviewModal template={templatePreview} onClose={() => setTemplatePreview(null)} onUse={(template) => setTemplateConfirm(template)} /> : null}
     {templateConfirm ? <TemplateConfirmModal template={templateConfirm} onClose={() => setTemplateConfirm(null)} onApply={(action) => void applyTemplate(templateConfirm, action)} /> : null}
-    {publishConfirmOpen ? <PublishConfirmModal isPublishing={publishPage.isPending} onClose={() => setPublishConfirmOpen(false)} onPublish={confirmPublish} /> : null}
+    {publishConfirmOpen ? <PublishConfirmModal pageTitle={homePage?.title??'Page'} isPublishing={publishPage.isPending} onClose={() => setPublishConfirmOpen(false)} onPublish={confirmPublish} /> : null}
     {archiveConfirm ? <ArchiveConfirmModal section={archiveConfirm} isArchiving={archiveSection.isPending} onClose={() => setArchiveConfirm(null)} onArchive={confirmArchive} /> : null}
   </DndContext>;
 }
@@ -466,7 +455,8 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
       if (!String(draft.content.image ?? '').trim()) onContent('image', collection.heroImage ?? collection.bannerImage ?? collection.cardImage ?? '');
     }
   };
-  const contentEntries = Object.entries(draft.content).filter(([key]) => !['productIds', 'collectionIds', 'collectionSlug'].includes(key));
+  const isCampaign=['hero_campaign','video_landing'].includes(draft.type);
+  const contentEntries = Object.entries(draft.content).filter(([key]) => !['productIds', 'collectionIds', 'collectionSlug',...(isCampaign?['desktopMedia','mobileMedia','ctaText','ctaLink']:[])].includes(key));
   return <section className="border border-border bg-background-elevated p-5 shadow-lg">
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div><p className="font-mono text-xs uppercase tracking-[0.15em] text-accent-gold">Selected Section Editor</p><h3 className="mt-2 font-display text-2xl">{selected?.title ?? 'No section selected'}</h3></div>
@@ -495,6 +485,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
         </div>
       </InspectorGroup>
       {['hero_campaign','video_landing','product_carousel','trending_now','hot_drop','best_sellers','recently_viewed','featured_collection'].includes(draft.type)&&<EditorialInspector key={selected?sectionId(selected):draft.type} styles={draft.styles??{}} campaign={['hero_campaign','video_landing'].includes(draft.type)} onChange={styles=>onField('styles',styles)}/>}
+      {isCampaign&&<CampaignContentFields content={draft.content} styles={draft.styles??{}} onContent={onContent} onStyles={styles=>onField('styles',styles)}/>}
       <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
         {draft.type === 'mobile_media_landing' ? <div className="mb-4 border border-border-subtle bg-background-input p-4">
           <p className="text-xs uppercase tracking-[0.14em] text-text-secondary">Upload mobile media</p>
@@ -524,7 +515,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
 }
 
 function InspectorGroup({ title, helper, children }: { title: string; helper: string; children: ReactNode }): ReactNode {
-  return <fieldset className="border border-border-subtle bg-background-primary p-4">
+  return <fieldset data-inspector-group={title} className="border border-border-subtle bg-background-primary p-4">
     <legend className="px-2 font-mono text-xs uppercase tracking-[0.14em] text-accent-gold">{title}</legend>
     <p className="mb-4 text-xs leading-5 text-text-muted">{helper}</p>
     {children}
@@ -724,10 +715,10 @@ function TemplateConfirmModal({ template, onClose, onApply }: { template: Homepa
   </ModalShell>;
 }
 
-function PublishConfirmModal({ isPublishing, onClose, onPublish }: { isPublishing: boolean; onClose: () => void; onPublish: () => void; }): ReactNode {
+function PublishConfirmModal({ pageTitle, isPublishing, onClose, onPublish }: { pageTitle:string;isPublishing: boolean; onClose: () => void; onPublish: () => void; }): ReactNode {
   useEscape(onClose);
-  return <ModalShell title="Publish homepage?" onClose={onClose}>
-    <p className="text-sm leading-6 text-text-secondary">This will make the current draft homepage live on the storefront. Review the Live Preview tab first if you want one last look.</p>
+  return <ModalShell title={`Publish ${pageTitle}?`} onClose={onClose}>
+    <p className="text-sm leading-6 text-text-secondary">This will make the selected page’s current draft live on the storefront. Review the Live Preview tab first if you want one last look.</p>
     <div className="mt-5 border border-border-subtle bg-background-primary p-4">
       <p className="text-xs uppercase tracking-[0.14em] text-accent-gold">Before publishing</p>
       <div className="mt-3 grid gap-2 text-sm text-text-secondary">
@@ -738,7 +729,7 @@ function PublishConfirmModal({ isPublishing, onClose, onPublish }: { isPublishin
     </div>
     <div className="mt-6 flex justify-end gap-2">
       <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-      <Button type="button" onClick={onPublish} disabled={isPublishing}><Rocket size={16} />{isPublishing ? 'Publishing' : 'Publish Homepage'}</Button>
+      <Button type="button" onClick={onPublish} disabled={isPublishing}><Rocket size={16} />{isPublishing ? 'Publishing' : 'Publish changes'}</Button>
     </div>
   </ModalShell>;
 }
@@ -805,8 +796,24 @@ function TemplateMockSection({ section, index, large }: { section: CmsSectionInp
 
 function ModalShell({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; }): ReactNode {
   const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { closeRef.current?.focus(); }, []);
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={title}>
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key !== 'Tab') return;
+      const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0);
+      const first = controls[0]; const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('keydown', handleKey); previous?.focus(); };
+  }, []);
+  return <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={title}>
     <div className={cn('max-h-[90vh] overflow-auto border border-accent-gold/40 bg-background-elevated p-5 shadow-gold', wide ? 'w-full max-w-5xl' : 'w-full max-w-2xl')}>
       <div className="flex items-center justify-between gap-3"><h2 className="font-display text-3xl">{title}</h2><button ref={closeRef} type="button" aria-label="Close modal" className="flex h-10 w-10 items-center justify-center border border-border-subtle text-text-secondary hover:text-text-primary" onClick={onClose}><X size={17} /></button></div>
       <div className="mt-5">{children}</div>

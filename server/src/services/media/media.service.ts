@@ -1,3 +1,4 @@
+import {CMSSectionModel,CMSVersionModel,CMSMediaModel} from '../../models/cms.model.js';
 import {ReturnRequestModel} from "../../models/return-request.model.js";
 import {UnitInspectionModel,OperationsExceptionModel} from "../../models/physical-unit.model.js";
 import { PhysicalUnitModel } from "../../models/physical-unit.model.js";
@@ -409,6 +410,12 @@ export const MediaService = {
       throw new ApiError(403, "Media deletion denied");
     if (asset.provider === "cloudinary")
       throw new ApiError(403, "Legacy Cloudinary media is read-only");
+    const mediaPattern=new RegExp(`/media/${asset.id}/content(?:$|[?#|])`);
+    const cmsFields=['desktopMedia','mobileMedia','posterImage','mobileFallbackImage','image','imageOne','imageTwo','craftsmanshipImage','desktopImage','mobileImage','imageUrl','videoUrl','tiles','slides','scenes'];
+    const cmsDraftUsage=await CMSSectionModel.exists({$or:cmsFields.map(field=>({[`content.${field}`]:mediaPattern}))});
+    const cmsVersionUsage=await CMSVersionModel.exists({$or:cmsFields.map(field=>({[`sectionsSnapshot.content.${field}`]:mediaPattern}))});
+    const cmsMediaUsage=await CMSMediaModel.exists({$or:['url','desktopUrl','mobileUrl','posterUrl'].map(field=>({[field]:mediaPattern}))});
+    if(cmsDraftUsage||cmsVersionUsage||cmsMediaUsage) throw new ApiError(409, "Referenced CMS media cannot be deleted");
     if (
       (await PhysicalUnitModel.exists({$or:[{'qc.evidence':id},{'packaging.evidence':id}]}))||
       (await UnitInspectionModel.exists({'snapshot.evidence':id}))||

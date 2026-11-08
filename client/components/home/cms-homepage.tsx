@@ -19,6 +19,8 @@ import type { Product } from '@/types/product.types';
 export interface CmsHomepageProps {
   sections: CmsSectionDto[];
   preview?: boolean;
+  editing?:boolean;
+  selectedId?:string;
 }
 
 type Content = Record<string, unknown>;
@@ -99,7 +101,7 @@ function LazyVideo({ src, poster, autoplay, muted, loop, className }: { src: str
 const mediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'desktopMedia', section.image ?? asString(content, 'posterImage', asString(content, 'imageOne')));
 const mobileMediaFor = (section: CmsSectionDto, content: Content): string => asString(content, 'mobileMedia', section.mobileImage ?? asString(content, 'mobileFallbackImage', mediaFor(section, content)));
 
-export function CmsHomepage({ sections, preview = false }: CmsHomepageProps): ReactNode {
+export function CmsHomepage({ sections, preview = false, editing=false, selectedId='' }: CmsHomepageProps): ReactNode {
   const seen = new Set<string>();
   const visible = sections.filter((section) => {
     if (!active(section) || (!preview && section.status !== 'published')) return false;
@@ -110,9 +112,14 @@ export function CmsHomepage({ sections, preview = false }: CmsHomepageProps): Re
     return true;
   });
   const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar' || section.type === 'marquee_strip');
-  return <div data-testid="cms-homepage" className="relative"><h1 className="sr-only">Cruisin</h1>{visible.map((section, index) => index === announcementIndex
-    ? <div key={sectionKey(section)} data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40"><CmsSectionRenderer section={section} /></div>
-    : <CmsSectionRenderer key={sectionKey(section)} section={section} />)}</div>;
+  return <div data-testid="cms-homepage" className="relative"><h1 className="sr-only">Cruisin</h1>{visible.map((section,index)=>{
+    const id=sectionKey(section);const content=<CmsSectionRenderer section={section}/>;
+    return <div key={id} data-cms-section-id={id} className={editing?'cms-preview-section':''} data-selected={editing&&selectedId===id}>
+      {index===announcementIndex?<div data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40">{content}</div>:content}
+      {editing&&<><button type="button" className="cms-preview-select-layer" aria-label={`Edit section: ${section.title}`} data-select-cms-section={id}/>{selectedId===id&&<span className="cms-preview-selection-tag">{section.type==='hero_campaign'?'Campaign hero':section.title}</span>}</>}
+    </div>;
+  })}</div>;
+
 }
 
 function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode {

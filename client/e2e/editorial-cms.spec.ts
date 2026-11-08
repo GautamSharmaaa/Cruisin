@@ -12,20 +12,20 @@ test('CMS presentation edits reach the actual preview, then the published storef
  const sections=(await (await request.get(api+`/cms/pages/${home._id}/sections`,{headers})).json()).data;
  const hero=sections.find((s:{type:string})=>s.type==='hero_campaign');const title='Studio edit '+Date.now();
  await page.goto(admin+'/login');await page.getByLabel('Email',{exact:true}).fill('admin@cruisin.local');await page.getByLabel('Password',{exact:true}).fill('CruisinAdmin123');await page.getByRole('button',{name:'Enter Dashboard',exact:true}).click();await expect(page).toHaveURL(admin+'/');
- await page.goto(admin+'/cms');await page.getByRole('combobox',{name:'CMS page',exact:true}).selectOption('home');
+ await page.goto(admin+'/cms');await page.getByRole('button',{name:'Edit home page',exact:true}).click();
  try{
- await page.getByRole('button',{name:'Live Preview Review full homepage',exact:true}).click();
  const frame=page.frameLocator('iframe[title="Actual storefront preview"]');
  await expect(frame.getByRole('heading',{name:hero.title,exact:true})).toBeVisible();
  await page.getByLabel('Title',{exact:true}).fill(title);
+ await page.getByRole('tab',{name:'Layout',exact:true}).click();
  await page.getByRole('combobox',{name:'Caption alignment',exact:true}).selectOption('left');
  await expect(frame.getByRole('heading',{name:title,exact:true})).toBeVisible();
  await expect(frame.locator('.editorial-campaign')).toHaveAttribute('data-caption','left');
  const before=(await (await request.get(api+'/cms/home')).json()).data;expect(before.sections[0].title).toBe(hero.title);
- const saved=page.waitForResponse(r=>r.url().includes('/cms/sections/')&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save Draft',exact:true}).last().click();expect((await saved).ok()).toBe(true);
- await page.getByRole('button',{name:'Publish',exact:true}).click();const published=page.waitForResponse(r=>r.url().includes('/publish')&&r.request().method()==='POST');await page.getByRole('button',{name:'Publish Homepage',exact:true}).click();expect((await published).ok()).toBe(true);
+ const saved=page.waitForResponse(r=>r.url().includes('/cms/sections/')&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save draft',exact:true}).last().click();expect((await saved).ok()).toBe(true);
+ await page.getByRole('button',{name:'Publish',exact:true}).click();const published=page.waitForResponse(r=>r.url().includes('/publish')&&r.request().method()==='POST');await page.getByRole('button',{name:'Publish changes',exact:true}).click();expect((await published).ok()).toBe(true);
  const context=await browser.newContext();const publicPage=await context.newPage();await publicPage.goto(shop);await expect(publicPage.getByRole('heading',{name:title,exact:true})).toBeVisible();await context.close();
- await page.getByRole('combobox',{name:'CMS page',exact:true}).selectOption('women');await expect(page.getByRole('heading',{name:'Women',exact:true}).first()).toBeVisible();
+ await page.getByRole('button',{name:'Edit women page',exact:true}).click();await expect(page.locator('.cms-studio-breadcrumb')).toContainText('Women');
  }finally{
  const restored=await request.patch(api+'/cms/sections/'+hero._id,{headers,data:{title:hero.title,subtitle:hero.subtitle,content:hero.content,styles:hero.styles,active:hero.active,status:hero.status}});expect(restored.ok()).toBe(true);expect((await request.post(api+`/cms/pages/${home._id}/publish`,{headers})).ok()).toBe(true);
  }
@@ -48,9 +48,10 @@ test('smooth wheel scrolling and reduced-motion preference both work',async({pag
  await page.emulateMedia({reducedMotion:'no-preference'});await page.goto(shop);
  await expect(page.locator('html')).toHaveAttribute('data-scroll-mode','smooth');
  await expect(page.locator('.storefront-route-transition')).toHaveAttribute('data-motion','full');
+ const target=await page.evaluate(()=>Math.min(600,document.documentElement.scrollHeight-innerHeight));
  await page.mouse.wheel(0,600);
  await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(100);
- await expect.poll(()=>page.evaluate(()=>Math.abs(window.scrollY-600))).toBeLessThan(8);
+ await expect.poll(()=>page.evaluate(expected=>Math.abs(window.scrollY-expected),target)).toBeLessThan(8);
  await page.emulateMedia({reducedMotion:'reduce'});
  await expect(page.locator('html')).toHaveAttribute('data-scroll-mode','native');
  await expect(page.locator('.storefront-route-transition')).toHaveAttribute('data-motion','reduced');
