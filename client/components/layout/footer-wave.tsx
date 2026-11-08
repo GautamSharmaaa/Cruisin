@@ -13,7 +13,7 @@ export function FooterWave({paused}:FooterWaveProps):ReactNode {
  const gradient=useId().replace(/:/g,'');
  useEffect(()=>{
   const element=svg.current;
-  const panel=element?.parentElement;
+  const panel=element?.closest<HTMLElement>('footer');
   if(!element||!panel)return;
   const paths=Array.from(element.querySelectorAll('path'));
   const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
