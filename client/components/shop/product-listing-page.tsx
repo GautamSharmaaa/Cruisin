@@ -272,7 +272,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   if (!hydrated && initialCategory) {
     const initialTitle = initialCategory.heroTitle || initialCategory.name || titleFromSlug(pageSlug);
     const initialSubtitle = editorialSubtitle(initialCategory.heroSubtitle || initialCategory.description || '', initialTitle);
-    return <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20">
+    return <main className="px-4 pb-28 pt-32 sm:px-6 lg:px-20">
       <section className="pb-10">
         <ListingEditorialHeader eyebrow={eyebrow} title={initialTitle} subtitle={initialSubtitle} />
       </section>
@@ -283,7 +283,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   }
 
   return (
-    <main className="px-4 pb-28 pt-24 sm:px-6 lg:px-20">
+    <main className="px-4 pb-28 pt-32 sm:px-6 lg:px-20">
       <section className="relative overflow-hidden border-b border-border-subtle pb-10">
         {heroMediaVisible && (heroVideo || heroImage) ? <div data-testid="listing-hero-media" className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden opacity-20">
           {heroVideo ? <video poster={videoPoster} className="h-full w-full object-cover" autoPlay={categoryData?.videoAutoplay ?? true} muted={categoryData?.videoMuted ?? true} loop={categoryData?.videoLoop ?? true} preload="metadata" playsInline><source media="(max-width: 639px)" src={mobileHeroVideo || heroVideo} /><source src={heroVideo} /></video> : <>

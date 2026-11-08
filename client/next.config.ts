@@ -7,6 +7,7 @@ const publicApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/a
 const apiProxyTarget = process.env.API_PROXY_TARGET?.replace(/\/$/, '');
 const apiOrigin = (() => { try { return new URL(publicApiUrl).origin; } catch { return "'self'"; } })();
 const developmentScriptSource = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
+const cmsAdminOrigin=new URL(process.env.NEXT_PUBLIC_ADMIN_URL??'http://127.0.0.1:3193').origin;
 const securityHeaders = [
   { key: 'Content-Security-Policy', value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline'${developmentScriptSource} https://accounts.google.com https://checkout.razorpay.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: ${apiOrigin} ${mediaDelivery.origin} https://images.unsplash.com https://res.cloudinary.com https://placehold.co https://s3.ap-south-1.amazonaws.com https://*.googleusercontent.com https://www.facebook.com; font-src 'self' data:; connect-src 'self' ${apiOrigin} https://accounts.google.com https://api.razorpay.com https://lumberjack.razorpay.com https://www.facebook.com https://www.facebook.net https://mpc2-prod-21-is5qnl632q-uc.a.run.app https://5z-2b6b7616f94640c2840d1841e1ac24c3.ecs.us-east-1.on.aws; frame-src https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com; media-src 'self' blob: https:; worker-src 'self' blob:` },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -17,7 +18,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@cruisin/ui'],
-  async headers() { return [{ source: '/(.*)', headers: securityHeaders }, {source:'/cms-preview/:path*',headers:[{key:'Cache-Control',value:'private, no-store'},{key:'Referrer-Policy',value:'no-referrer'},{key:'X-Robots-Tag',value:'noindex, nofollow'}]}]; },
+  async headers() { return [{ source: '/(.*)', headers: securityHeaders }, {source:'/cms-preview/:path*',headers:[{key:'Content-Security-Policy',value:securityHeaders[0].value.replace("frame-ancestors 'self'",`frame-ancestors 'self' ${cmsAdminOrigin}`)},{key:'Cache-Control',value:'private, no-store'},{key:'Referrer-Policy',value:'no-referrer'},{key:'X-Robots-Tag',value:'noindex, nofollow'}]}]; },
   async rewrites() {
     return apiProxyTarget ? [{ source: '/api/v1/:path*', destination: `${apiProxyTarget}/api/v1/:path*` }] : [];
   },

@@ -1,5 +1,5 @@
 # Implementation Progress
 
-Updated 2026-11-07. Status: **IN PROGRESS**.
+Updated 2026-11-07. Status: **IMPLEMENTED for described controls; master scope remains IN PROGRESS**.
 
-Completed first publication/preview slice only. Remaining: shared contracts; concurrent editor protection; validated publication dependencies; atomic releases; scheduling; department architecture; editorial storefront; search/collection/campaign controls; full editor; supporting pages; analytics; complete acceptance matrix. No remote deployment or production changes.
+Implemented: reference inspection; constrained shared presentation contract; independent Home/Men/Women CMS editing; actual saved/unsaved storefront preview; responsive editorial campaign and product cards; exact-variant quick add; compact nested navigation; desktop smooth wheel scrolling; live reduced-motion preference; route/reveal/hover/drawer transitions. Existing commerce, warehouse and media boundaries retained. Remaining master scope: complete legacy section contract migration, new department/fit migration, coordinated releases, stale-editor conflicts, durable scheduler, full support/editorial page expansion, broader SEO/redirects/analytics and full acceptance across all legacy features. No production mutation, push or hosted activation.

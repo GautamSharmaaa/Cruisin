@@ -1,0 +1,4 @@
+import {defineConfig,devices} from '@playwright/test';
+const origin=process.env.PLAYWRIGHT_STOREFRONT_URL??'http://127.0.0.1:3192';
+for(const value of [origin,process.env.PLAYWRIGHT_ADMIN_URL??'http://127.0.0.1:3193',process.env.PLAYWRIGHT_API_URL??'http://127.0.0.1:8192'])if(!['127.0.0.1','localhost'].includes(new URL(value).hostname))throw new Error('Editorial acceptance refuses nonlocal targets');
+export default defineConfig({testDir:'./e2e',testMatch:[/editorial-cms\.spec\.ts/,/cms-publication-isolation\.spec\.ts/],workers:1,timeout:120000,retries:0,use:{baseURL:origin,trace:'retain-on-failure',screenshot:'only-on-failure'},projects:[{name:'chromium',use:{...devices['Desktop Chrome'],viewport:{width:1440,height:1000}}}]});

@@ -1,3 +1,4 @@
+import {editorialPresentationSchema} from '@cruisin/contracts/editorial';
 // Governed by .rules v1.0
 import { z } from 'zod';
 import { objectIdSchema, queryBooleanSchema } from './common.validator.js';
@@ -47,7 +48,7 @@ export const cmsSectionBodySchema = z.object({
   subtitle: z.string().max(240).optional().default(''),
   description: z.string().max(1000).optional().default(''),
   content: jsonRecordSchema,
-  styles: jsonRecordSchema,
+  styles: z.object({editorial:editorialPresentationSchema.optional()}).catchall(z.unknown()).default({}),
   products: z.array(objectIdSchema).default([]),
   categories: z.array(objectIdSchema).default([]),
   sortOrder: z.coerce.number().int().min(0).default(0),

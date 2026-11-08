@@ -32,7 +32,7 @@ export function ProductDetail({ product }: ProductDetailProps): ReactNode {
   const productHighlights = normalizeProductHighlights(product.productHighlights ?? []);
 
   return (
-    <main className="px-6 pb-20 pt-24 lg:px-20">
+    <main className="px-6 pb-20 pt-32 lg:px-20">
       <Breadcrumb items={[{ label: COPY.nav.home, href: ROUTES.home }, { label: COPY.nav.shop, href: ROUTES.shop }, { label: product.title, href: '/product/' + product.slug }]} />
       <div className="mt-8 grid min-w-0 gap-12 lg:grid-cols-[1.1fr_0.9fr]">
         <ImageGallery images={displayImages} />

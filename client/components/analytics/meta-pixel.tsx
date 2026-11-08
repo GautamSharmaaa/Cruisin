@@ -19,6 +19,7 @@ export function MetaPixel({ pixelId }: MetaPixelProps): ReactNode {
   }, [pathname, searchParams]);
 
   useEffect(() => {
+    if (pathname.startsWith('/cms-preview/')) return;
     if (!normalizedPixelId) {
       initializeMetaPixel('');
       return;
@@ -30,7 +31,7 @@ export function MetaPixel({ pixelId }: MetaPixelProps): ReactNode {
     window.addEventListener('cruisin-meta-bootstrap-ready', initializeAndTrack);
     initializeAndTrack();
     return () => window.removeEventListener('cruisin-meta-bootstrap-ready', initializeAndTrack);
-  }, [normalizedPixelId, routeKey]);
+  }, [normalizedPixelId, routeKey, pathname]);
 
   return null;
 }

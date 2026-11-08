@@ -1,5 +1,8 @@
 // Governed by .rules v1.0
 'use client';
+import {EditorialInspector} from './editorial-inspector';
+import {StorefrontPreview} from './storefront-preview';
+import {CMS_EDITORIAL_COPY as E} from '@/constants/editorial-copy';
 import {uploadPublicMedia} from '@/lib/media-upload';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, UploadCloud, X } from 'lucide-react';
@@ -66,7 +69,8 @@ const sectionImage = (section: CmsSectionInput, fallbackIndex = 0): string => {
 
 export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const pages = useCmsPages();
-  const homePage = useMemo(() => pages.data?.find((page) => page.slug === 'home') ?? pages.data?.[0], [pages.data]);
+  const [selectedPageSlug,setSelectedPageSlug]=useState('home');
+  const homePage = useMemo(() => pages.data?.find((page) => page.slug === selectedPageSlug), [pages.data,selectedPageSlug]);
   const currentPageId = pageId(homePage);
   const sections = useCmsPageSections(currentPageId);
   const versions = useCmsVersions(currentPageId);
@@ -243,6 +247,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     {toast ? <div className={cn('fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg', toast.tone === 'success' && 'border-success text-success', toast.tone === 'error' && 'border-danger text-danger', toast.tone === 'info' && 'border-accent-gold text-accent-gold')}>{toast.message}</div> : null}
     <div className="grid gap-5">
       <BuilderHeader homePage={homePage} saveState={saveState} onAdd={() => addSection()} onSave={saveDraft} onTemplate={() => setTemplateGalleryOpen(true)} onTogglePreview={() => setIncludeInactive((current) => !current)} onPublish={() => setPublishConfirmOpen(true)} canMutate={Boolean(currentPageId)} isSaving={updateSection.isPending} isPublishing={publishPage.isPending} includeInactive={includeInactive} />
+      <div className="flex flex-wrap items-end gap-4"><SelectField label={E.page} options={(pages.data??[]).map(page=>({label:page.title,value:page.slug}))} value={selectedPageSlug} disabled={saveState==='dirty'||saveState==='saving'} onChange={event=>{setSelectedPageSlug(event.target.value);setSelectedId('');setDefaultTemplateSections([]);}}/>{saveState==='dirty'&&<Button type="button" variant="secondary" onClick={()=>{setDraft(toInput(selected));setSaveState('idle');}}>{E.discard}</Button>}</div>
       <WorkspaceTabs active={workspaceTab} onChange={setWorkspaceTab} />
 
       {workspaceTab === 'builder' ? <div className="grid min-w-0 gap-5 2xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -264,7 +269,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
             <MediaManager media={media.data ?? []} isSaving={createMedia.isPending} onCreate={(input) => createMedia.mutate(input)} />
           </div>
         </main>
-      </div> : <PreviewWorkspace sectionList={sectionList} selected={selected} draft={draft} device={device} includeInactive={includeInactive} onDevice={setDevice} onSelect={(section) => setSelectedId(sectionId(section))} />}
+      </div> : <div className="grid gap-4"><div className="flex gap-2">{(['desktop','tablet','mobile'] as DevicePreview[]).map(size=><Button key={size} type="button" variant="secondary" onClick={()=>setDevice(size)}>{size}</Button>)}</div><StorefrontPreview page={homePage} selected={selected} draft={draft} device={device} revision={JSON.stringify(sectionList.map(s=>[s._id,s.updatedAt]))}/><SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={()=>setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent}/></div>}
     </div>
 
     {libraryPreview ? <SectionPreviewModal template={libraryPreview} onClose={() => setLibraryPreview(null)} onAdd={(type) => { addSection(type); setLibraryPreview(null); }} /> : null}
@@ -471,7 +476,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
       <InspectorGroup title="Basic Info" helper="Name the block and choose where this section appears in the store.">
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField label="Section Type" options={SECTION_TEMPLATES.map((item) => ({ label: item.name, value: item.type }))} value={draft.type} onChange={(event) => { const type = event.target.value as CmsSectionType; onField('type', type); onField('content', { ...getSectionTemplate(type).defaults, ...draft.content }); if (type === 'mobile_media_landing') { onField('hideOnDesktop', true); onField('hideOnMobile', false); } }} />
-          <SelectField label="Page Target" options={targetOptions} value={draft.pageTarget} onChange={(event) => onField('pageTarget', event.target.value)} />
+
           <Input label={COPY.fields.title} value={draft.title} onChange={(event) => onField('title', event.target.value)} placeholder="Customer-facing headline" />
           <Input label={COPY.fields.subtitle} value={draft.subtitle ?? ''} onChange={(event) => onField('subtitle', event.target.value)} placeholder="Short supporting copy" />
           <SelectField label={COPY.fields.status} options={statusOptions} value={draft.status} onChange={(event) => onField('status', event.target.value as CmsStatus)} />
@@ -489,6 +494,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
           <Input label={COPY.fields.endDate} type="date" value={draft.endDate ?? ''} onChange={(event) => onField('endDate', event.target.value)} />
         </div>
       </InspectorGroup>
+      {['hero_campaign','video_landing','product_carousel','trending_now','hot_drop','best_sellers','recently_viewed','featured_collection'].includes(draft.type)&&<EditorialInspector key={selected?sectionId(selected):draft.type} styles={draft.styles??{}} campaign={['hero_campaign','video_landing'].includes(draft.type)} onChange={styles=>onField('styles',styles)}/>}
       <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
         {draft.type === 'mobile_media_landing' ? <div className="mb-4 border border-border-subtle bg-background-input p-4">
           <p className="text-xs uppercase tracking-[0.14em] text-text-secondary">Upload mobile media</p>

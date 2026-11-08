@@ -1,6 +1,13 @@
 'use client';
+import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 // Governed by .rules v1.0
 import Image from 'next/image';
+import {motion} from 'framer-motion';
+import {storefrontReveal} from '@/lib/storefront-motion';
+import {EditorialCampaign} from './editorial-campaign';
+import {EditorialProductCard} from '@/components/shop/editorial-product-card';
+import {editorialPresentation} from '@cruisin/contracts/editorial';
+import {mapProduct,type ApiProduct} from '@/lib/product-mapper';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { formatPrice } from '@/lib/utils';
@@ -96,7 +103,7 @@ export function CmsHomepage({ sections, preview = false }: CmsHomepageProps): Re
   const seen = new Set<string>();
   const visible = sections.filter((section) => {
     if (!active(section) || (!preview && section.status !== 'published')) return false;
-    if (/\bcopy$/i.test(section.title.trim())) return false;
+
     const key = [section.type, section.title.trim().toLowerCase(), section.sortOrder].join(':');
     if (seen.has(key)) return false;
     seen.add(key);
@@ -127,12 +134,12 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
   if (type === 'category_editorial_grid') return <CategoryGrid section={section} content={content} className={visibility} />;
   if (type === 'image_carousel') return <ImageCarousel section={section} content={content} className={visibility} />;
   if (type === 'mobile_media_landing') return <MobileMediaLanding content={content} className={section.hideOnMobile ? 'hidden' : 'lg:hidden'} />;
-  if (type === 'video_landing') return <VideoLanding section={section} content={content} className={visibility} />;
+  if (type === 'video_landing' || type === 'hero_campaign') return <EditorialCampaign section={section} className={visibility}/>;
   if (type === 'lookbook_story' || type === 'brand_story') return <EditorialStory section={section} content={content} className={visibility} />;
   if (type === 'fullscreen_collection_landing') return <FullscreenCollection section={section} content={content} className={visibility} />;
   if (type === 'social_proof') return <section className={visibility + ' px-6 py-20 lg:px-20'}><p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'pressLogos', 'Press')}</p><blockquote className="mt-5 max-w-4xl font-display text-4xl leading-tight text-text-primary">{asString(content, 'quote', section.title)}</blockquote></section>;
   if (type === 'popup_campaign') return <PopupCampaign section={section} content={content} className={visibility} />;
-  return <HeroCampaign section={section} content={content} className={visibility} />;
+  return null;
 }
 
 function HeroCampaign({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
@@ -194,11 +201,17 @@ function CategoryGrid({ section, content, className }: { section: CmsSectionDto;
 }
 
 function ProductRail({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
-  const referencedProducts = ((section.products ?? []) as unknown[]).filter((product): product is Product => typeof product === 'object' && product !== null && 'slug' in product && 'title' in product);
+  const reduced=useStorefrontReducedMotion();
+  const referencedProducts = ((section.products ?? []) as unknown[]).filter((p):p is ApiProduct=>Boolean(p&&typeof p==='object'&&'slug' in p&&'variants' in p));
   const recentProducts = useRecentlyViewedProducts();
-  const products = filterCustomerVisibleProducts(section.type === 'recently_viewed' && recentProducts.length > 0 ? recentProducts : referencedProducts);
-  if (section.type === 'recently_viewed' && products.length === 0) return null;
-  return <section className={className + ' px-6 py-20 lg:px-20'}>{section.type === 'featured_collection' && asString(content, 'image') ? <div className="relative mb-10 min-h-[360px] overflow-hidden bg-background-elevated"><img src={asString(content, 'image')} alt={asString(content, 'collectionLabel', section.title)} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-75" /><div className="absolute inset-0 bg-hero" /><div className="relative flex min-h-[360px] flex-col justify-end p-8"><p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{asString(content, 'collectionLabel', 'Featured Collection')}</p><h2 className="mt-3 font-display text-5xl">{section.title}</h2><Link className="mt-6 inline-flex h-11 w-fit items-center bg-accent-gold px-6 text-xs uppercase tracking-[0.08em] text-text-inverse" href={safeHref(asString(content, 'ctaLink', '/shop'))}>{asString(content, 'ctaText', 'Shop collection')}</Link></div></div> : null}<p className="font-accent text-xs uppercase tracking-[0.18em] text-accent-gold">{displayLabel(asString(content, 'source', section.type ?? 'products'))}</p><h2 className="mt-3 font-display text-4xl">{section.title}</h2>{section.type === 'hot_drop' ? <p className="mt-3 font-mono text-text-secondary">Launches {asString(content, 'launchDate')}</p> : null}<div className="mt-10 grid grid-cols-2 gap-px lg:grid-cols-4">{products.length ? products.slice(0, asNumber(content, 'limit', 8)).map((product, index) => <Link key={productKey(product)} href={'/product/' + product.slug} className="border border-border-subtle bg-background-primary"><div className="aspect-[3/4] bg-background-elevated">{product.images?.[0] ? <img src={product.images[0].url} alt={product.images[0].alt} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}</div><div className="p-4">{section.type === 'best_sellers' ? <p className="mb-2 font-mono text-xs text-accent-gold">#{index + 1}</p> : null}<p className="text-sm text-text-primary">{product.title}</p><p className="mt-2 flex flex-wrap gap-2 font-mono text-sm text-accent-gold">{formatPrice(product.basePrice)}{product.comparePrice ? <span className="text-text-muted line-through">{formatPrice(product.comparePrice)}</span> : null}</p></div></Link>) : Array.from({ length: 4 }).map((_, index) => <div key={index} className="aspect-[3/4] border border-border-subtle bg-background-elevated" />)}</div></section>;
+  const normalized=referencedProducts.map(p=>mapProduct({...p,category:p.category??'',brand:p.brand??'',tags:p.tags??[],description:p.description??'',richDescription:p.richDescription??'',images:p.images??[],isFeatured:p.isFeatured??false}));
+  const products=filterCustomerVisibleProducts(section.type==='recently_viewed'&&recentProducts.length?recentProducts:normalized);
+  const presentation=editorialPresentation(section.styles?.editorial??{});
+  if(!products.length)return null;
+  return <motion.section variants={storefrontReveal} initial={reduced?false:"initial"} whileInView="animate" viewport={{once:true,amount:0.05}} className={`editorial-product-section ${className}`} data-columns={presentation.desktopColumns} data-gap={presentation.gap} data-section-id={section._id??section.id}>
+    <div className="editorial-section-heading"><div><h2>{section.title}</h2>{section.subtitle&&<p>{section.subtitle}</p>}</div>{asString(content,'ctaLink')&&<Link className="editorial-text-link" href={safeHref(asString(content,'ctaLink'))}>{asString(content,'ctaText','Shop now')}</Link>}</div>
+    <div className="editorial-product-grid">{products.slice(0,asNumber(content,'limit',8)).map(product=><EditorialProductCard key={product.id} product={product} quickAdd={presentation.quickAdd}/>)}</div>
+  </motion.section>;
 }
 
 function ShopTheLook({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {

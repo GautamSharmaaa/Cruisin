@@ -30,6 +30,7 @@ const tasks = {
   'legacy-count-fixture':['node',['--import','tsx','server/src/scripts/v2-legacy-count-fixture.ts',process.argv[3]??'']],
   'operations-customer': ['node',['--import','tsx','server/src/scripts/v2-operations-customer.ts',process.argv[3]??'']],
   'operations-e2e': ['npm', ['--workspace', 'employee', 'run', 'test:e2e']],
+  'editorial-e2e':['npm',['--workspace','client','run','test:e2e','--','--config','playwright.editorial.config.ts']],
   e2e: ['npm', ['--workspace', 'client', 'run', 'test:e2e', '--', 'cross-browser.spec.ts']],
   admin: ['node', ['node_modules/next/dist/bin/next', 'dev', 'admin', '-H', '127.0.0.1', '-p', '3193']],
   seed: ['npm', ['--workspace', 'server', 'run', 'seed']],
@@ -42,7 +43,7 @@ const tasks = {
   build: ['npm', ['run', 'build']]
 };
 if (!Object.hasOwn(tasks, task)) throw new Error('Unknown V2 task');
-if (task === 'e2e') Object.assign(environment, { PLAYWRIGHT_API_URL: 'http://127.0.0.1:8192/api/v1', PLAYWRIGHT_STOREFRONT_URL: 'http://127.0.0.1:3192', PLAYWRIGHT_ADMIN_URL: 'http://127.0.0.1:3193', PLAYWRIGHT_REUSE_EXISTING_SERVERS: 'true', PLAYWRIGHT_PRODUCTION_SERVERS: 'true' });
+if (['e2e','editorial-e2e'].includes(task)) Object.assign(environment, { PLAYWRIGHT_API_URL: 'http://127.0.0.1:8192/api/v1', PLAYWRIGHT_STOREFRONT_URL: 'http://127.0.0.1:3192', PLAYWRIGHT_ADMIN_URL: 'http://127.0.0.1:3193', PLAYWRIGHT_REUSE_EXISTING_SERVERS: 'true', PLAYWRIGHT_PRODUCTION_SERVERS: 'true' });
 if (task === 'test') {
   environment.NODE_ENV = 'test';
   environment.MONGODB_URI = 'mongodb://127.0.0.1:27983/cruisin-sync-order-analytics-tests';

@@ -6,6 +6,7 @@ import { AppChrome } from '@/components/layout/app-chrome';
 import { Providers } from '@/components/shared/providers';
 import { COPY } from '@/constants/copy';
 import { SITE_CONFIG } from '@/constants/config';
+import 'lenis/dist/lenis.css';
 import './globals.css';
 import '@cruisin/ui/styles.css';
 

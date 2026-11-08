@@ -1,4 +1,5 @@
 (function (w, d) {
+  if (w.location.pathname.indexOf('/cms-preview/') === 0) return;
   var n = w.fbq;
   if (!n) n = w.fbq = function () {
     n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);

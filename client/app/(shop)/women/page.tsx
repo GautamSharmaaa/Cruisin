@@ -1,3 +1,7 @@
+import {CmsHomepage} from '@/components/home/cms-homepage';
+import {serverApi} from '@/lib/server-api';
+import type {CmsExperienceDto} from '@/types/dto.types';
+import type {ApiEnvelope} from '@/types/api.types';
 // Governed by .rules v1.0
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
@@ -9,7 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return metadataFromSettings(settings, 'Women');
 }
 
+export const dynamic='force-dynamic';
 export default async function WomenPage(): Promise<ReactNode> {
   const settings = await loadPageSettingsServer('landing', 'women');
-  return <ProductListingPage pageType="landing" pageSlug="women" initialSettings={settings} gender="women" />;
+  let cms:CmsExperienceDto|null=null;
+  try{cms=(await serverApi.get<ApiEnvelope<CmsExperienceDto>>('/cms/pages/women/public')).data.data;}catch{/* Keep the real catalog available while the department draft is unpublished. */}
+  return <>{cms?.sections.length?<CmsHomepage sections={cms.sections}/>:null}<div id="collection"><ProductListingPage pageType="landing" pageSlug="women" initialSettings={settings} gender="women" /></div></>;
 }

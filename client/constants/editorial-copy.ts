@@ -1,0 +1,4 @@
+export const EDITORIAL_COPY={
+ desktopMenu:'Cruisin menu',back:'Back',quickAdd:'Quick add',chooseVariant:'Choose size and colour',addToBag:'Add to bag',adding:'Adding…',close:'Close quick add',viewProduct:'View product details',
+ unavailable:'This selection is no longer available. Choose another size or refresh.',soldOut:'Sold out',size:'Size',colour:'Colour',campaign:'Campaign',shop:'Shop now',categories:'Shop by category',men:'Men',women:'Women',
+} as const;

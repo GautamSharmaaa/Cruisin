@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import type { SelectHTMLAttributes, ReactNode } from 'react';
+import {useId,type SelectHTMLAttributes,type ReactNode} from 'react';
 
 export interface SelectOption {
   label: string;

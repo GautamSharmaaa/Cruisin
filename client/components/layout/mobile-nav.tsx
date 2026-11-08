@@ -1,12 +1,15 @@
 // Governed by .rules v1.0
 'use client';
+import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 
+import {storefrontEase} from '@/lib/storefront-motion';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, ChevronDown, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {EDITORIAL_COPY as E} from '@/constants/editorial-copy';
 import { COPY } from '@/constants/copy';
 import { useMobileAuthSheet } from '@/components/auth/mobile-auth-sheet-provider';
 import { RevolvingBag } from '@/components/shared/revolving-bag';
@@ -41,19 +44,22 @@ const cardImage = (card: MegaMenuCollectionCardDto): string => {
 const promoImage = (promo?: MegaMenuPromoDto | null): string => promo?.mobileImage || promo?.image || fallbackImage;
 
 export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCount }: MobileNavProps): ReactNode {
+  const reduced=useStorefrontReducedMotion();
+  const [desktop,setDesktop]=useState(false);
+  useEffect(()=>{const query=window.matchMedia('(min-width:1024px)');const update=():void=>setDesktop(query.matches);update();query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
   const user = useAuthStore((state) => state.user);
   const pathname = usePathname();
   const { openMobileAuth } = useMobileAuthSheet();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
-  const menuItems = useMemo(() => items.filter((item) => item.isVisible && item.isMegaMenuEnabled), [items]);
+  const menuItems = useMemo(() => items.filter((item) => item.isVisible), [items]);
   const defaultId = idOf(menuItems.find((item) => item.isDefaultActive) ?? menuItems[0] ?? {});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedColumns, setExpandedColumns] = useState<Record<string, string | null>>({});
   const close = useCallback((): void => onOpenChange(false), [onOpenChange]);
 
   useEffect(() => {
-    if (open) setExpanded((current) => current ?? defaultId);
+    if (open) setExpanded(null);
   }, [defaultId, open]);
 
   useEffect(() => {
@@ -62,6 +68,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
 
   useEffect(() => {
     if (!open) return;
+    const opener=document.activeElement instanceof HTMLElement?document.activeElement:null;
     const releaseScrollLock = acquireBodyScrollLock();
     const onEscape = (event: globalThis.KeyboardEvent): void => {
       if (event.key === 'Escape') close();
@@ -70,6 +77,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
     window.setTimeout(() => closeRef.current?.focus(), 20);
     return () => {
       releaseScrollLock();
+      if(opener?.isConnected)opener.focus({preventScroll:true});
       window.removeEventListener('keydown', onEscape);
     };
   }, [close, open]);
@@ -103,17 +111,17 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
         <motion.div
           ref={drawerRef}
           key="mobile-luxury-menu"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-          className="fixed inset-0 z-[90] h-dvh overflow-y-auto overflow-x-hidden bg-[#050505] text-text-primary lg:hidden"
+          initial={reduced?false:{x:'-100%'}}
+          animate={{x:0}}
+          exit={{x:reduced?0:'-100%'}}
+          transition={{duration:reduced?0:0.55,ease:storefrontEase}}
+          className="editorial-navigation-drawer"
           role="dialog"
           aria-modal="true"
-          aria-label={COPY.nav.menu}
+          aria-label={desktop?E.desktopMenu:COPY.nav.menu}
           onKeyDown={onKeyDown}
         >
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-[#050505]/95 px-4 pb-4 pt-[max(env(safe-area-inset-top),12px)] backdrop-blur-2xl">
+          <div className="sticky top-0 z-10 border-b border-border bg-background-primary px-4 pb-4 pt-[max(env(safe-area-inset-top),12px)]">
             <div className="grid h-16 grid-cols-[48px_1fr_48px] items-center">
               <button ref={closeRef} type="button" aria-label={COPY.common.close} onClick={close} className="grid h-11 w-11 place-items-center text-text-primary transition hover:text-accent-gold">
                 <X size={23} strokeWidth={1.25} />
@@ -134,9 +142,11 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
           </div>
 
           <nav className="grid gap-1 px-5 py-6 pb-[calc(env(safe-area-inset-bottom)+32px)]" aria-label="Mobile menu sections">
-            {menuItems.map((item) => {
+            {expanded&&<button type="button" className="editorial-menu-back" onClick={()=>setExpanded(null)}>{E.back}</button>}
+            {menuItems.filter(item=>!expanded||idOf(item)===expanded).map((item) => {
               const key = idOf(item);
               const isOpen = expanded === key;
+              if(!item.isMegaMenuEnabled)return <Link key={key} href={item.href} onClick={close} className="editorial-menu-direct">{item.label}</Link>;
               return (
                 <section key={key} className="border-b border-white/10">
                   <button

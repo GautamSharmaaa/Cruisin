@@ -11,6 +11,13 @@
     "./media-config": {
       "types": "./media-config.d.ts",
       "default": "./media-config.js"
+    },
+    "./editorial": {
+      "types": "./editorial.d.ts",
+      "default": "./editorial.js"
     }
+  },
+  "dependencies": {
+    "zod": "4.6.7"
   }
 }

@@ -33,9 +33,9 @@ export function AccountMenu(_props: AccountMenuProps): ReactNode {
   const protectedLink = (action: 'wishlist' | 'orders', label: string): ReactNode => <button role="menuitem" type="button" onClick={() => { setOpen(false); setProtectedAction(action); }} className="flex min-h-11 w-full items-center px-4 text-left text-xs uppercase tracking-[0.1em] text-text-primary transition hover:bg-background-overlay">{label}</button>;
 
   return <>
-    <div ref={containerRef} className="relative hidden md:block">
+    <div ref={containerRef} className="relative">
       <button type="button" aria-label={COPY.nav.account} aria-expanded={open} aria-haspopup="menu" className={'flex h-11 items-center justify-center gap-2 text-text-secondary transition hover:bg-background-elevated hover:text-text-primary ' + (user ? 'w-11' : 'px-3')} onClick={() => setOpen((current) => !current)}>
-        <User size={18} />{!user ? <span className="text-xs uppercase tracking-[0.1em]">{COPY.auth.signIn}</span> : null}
+        <User size={18} />{!user ? <span className="hidden text-xs uppercase tracking-[0.1em] md:inline">{COPY.auth.signIn}</span> : null}
       </button>
       {open ? <div role="menu" className="absolute right-0 top-14 w-64 border border-border bg-background-elevated p-2 shadow-lg">
         <p className="border-b border-border px-4 py-3 font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{user ? user.name : COPY.auth.privateAccess}</p>

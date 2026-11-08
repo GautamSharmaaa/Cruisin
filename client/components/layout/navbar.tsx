@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 
-import { Heart, Search } from 'lucide-react';
+import { Heart, Search, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -45,26 +45,12 @@ export function Navbar(_props: NavbarProps): ReactNode {
     return routeItem ?? navItems.find((item) => item.isDefaultActive && item.isMegaMenuEnabled) ?? navItems.find((item) => item.isMegaMenuEnabled) ?? navItems[0] ?? null;
   }, [navItems, pathname]);
   const items = useCartStore((state) => state.items);
-  const cartCount = items.filter((item) => isCustomerVisibleProduct(item.product)).length;
+  const cartCount = items.filter((item) => isCustomerVisibleProduct(item.product)).reduce((count,item)=>count+item.quantity,0);
   const openCart = useCartStore((state) => state.openCart);
   const wishlistCount = useWishlistStore((state) => state.ids.length);
   const user = useAuthStore((state) => state.user);
 
-  const openMenu = (): void => {
-    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
-      if (activeId) {
-        setActiveId(null);
-        return;
-      }
-      if (defaultMenuItem) setActiveId(navId(defaultMenuItem));
-      return;
-    }
-    if (mobile) {
-      setMobile(false);
-      return;
-    }
-    setMobile(true);
-  };
+  const openMenu = (): void => { setActiveId(null); setMobile(current=>!current); };
 
   useEffect(() => {
     const onScroll = (): void => setScrolled(window.scrollY > 8);
@@ -94,36 +80,30 @@ export function Navbar(_props: NavbarProps): ReactNode {
   }, [pathname]);
 
   return (
-    <motion.header ref={headerRef} variants={navReveal} initial="initial" animate="animate" className={'fixed inset-x-0 top-0 z-[100] transition-all duration-500 ' + (scrolled || activeId || mobile ? 'border-b border-border-subtle bg-background-primary/95 shadow-lg backdrop-blur-2xl' : isHomepage ? 'bg-gradient-to-b from-background-primary/65 via-background-primary/25 to-transparent' : 'bg-gradient-to-b from-background-primary/80 to-background-primary/20 backdrop-blur-sm')}>
+    <motion.header ref={headerRef} variants={navReveal} initial="initial" animate="animate" className="editorial-navbar" data-overlay={(isHomepage||pathname==='/men'||pathname==='/women'||pathname.startsWith('/cms-preview'))&&!scrolled&&!mobile}>
       <a href="#main" className="sr-only focus:not-sr-only">Skip to main content</a>
-      <div className="relative z-[90] grid h-20 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-10">
+      <div className="editorial-navbar-main">
         <div className="flex min-w-0 items-center justify-start gap-2">
-          {navItems.length > 0 ? <AnimatedMenuButton open={Boolean(activeId) || mobile} onClick={openMenu} /> : null}
+          {navItems.length > 0 ? <AnimatedMenuButton open={mobile} onClick={openMenu} /> : null}
+          <button type="button" aria-label={COPY.nav.search} className="editorial-header-icon" onClick={()=>{setMobile(false);setSearch(true);}}><Search size={18}/></button>
         </div>
         <Link href={ROUTES.home} className="brand-wordmark-script min-w-0 text-center text-[28px] leading-none text-text-primary transition duration-300 hover:text-accent-gold lg:text-[30px]">
           <span className="block leading-none">{COPY.brand.name}</span>
-          <span data-testid="animated-brand-tagline" className="brand-tagline-motion mt-1 hidden font-accent text-[9px] uppercase tracking-[0.2em] xl:block">{COPY.brand.tagline}</span>
+          <span data-testid="animated-brand-tagline" className="brand-tagline-motion mt-1 block font-body text-[8px] uppercase tracking-[0.16em]">{COPY.brand.tagline}</span>
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
-          <button aria-label={COPY.nav.search} className="hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-text-primary md:flex" onClick={() => { setActiveId(null); setMobile(false); setSearch(true); }}><Search size={18} /></button>
           <button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
             <Heart size={18} fill={wishlistCount > 0 ? 'currentColor' : 'none'} />
             {wishlistCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{wishlistCount}</span> : null}
           </button>
           <AccountMenu />
           <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
-            <RevolvingBag size="icon" />
+            <ShoppingBag size={19} strokeWidth={1.3}/>
             {cartCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{cartCount}</span> : null}
           </button>
         </div>
       </div>
-      <MegaMenu
-        items={navItems}
-        activeItem={activeItem}
-        activeId={activeId}
-        onActiveChange={setActiveId}
-        onClose={() => setActiveId(null)}
-      />
+      {!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{navItems.filter(item=>item.href!=='/').slice(0,8).map(item=><Link href={item.href} key={navId(item)}>{item.label}</Link>)}</nav>}
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}

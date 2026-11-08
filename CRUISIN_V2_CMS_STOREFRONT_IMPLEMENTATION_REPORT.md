@@ -1,50 +1,48 @@
 # CRUISIN V2 CMS/storefront implementation report
 
-2026-11-07. Status: **IN PROGRESS — first publication/preview slice**.
-
-## Implemented
-
-Extended the existing CMS rather than creating a parallel system. Public reads now respect an empty published snapshot, fail closed when its revision is missing, and reject draft-only pages. Invalid preview credentials and public schedule-time overrides return 403. Added a server-authorized saved-draft preview that uses the same CmsHomepage renderer, plus a link from the existing admin builder. Homepage rendering is dynamic to avoid its previous 60-second static revalidation window. Preview uses no-store/no-referrer/noindex protection.
-
-The existing in-editor miniature preview remains separate and is not described as the final required live preview. Preview capability expiry/revocation and immediate unsaved-edit preview remain unfinished.
-
-## Verification
-
-Three genuine RED→GREEN database tests cover publication isolation. Full regression and the new real-backend browser test results are recorded below after completion. Existing catalog, stock, pricing, cart, checkout, media abstraction and operations services were retained. No product duplication, production mutation, remote push or deployment.
-
-## Outstanding scope
-
-The complete Men/Women editorial storefront has not been implemented in this slice. Shared runtime contracts/section registry; department model/backfill; editor redesign; optimistic concurrency; atomic releases and scheduling; shared navigation; editorial Home/Men/Women; catalog/search merchandising; PDP/quick-add/cart controls; supporting pages; media usage safeguards; SEO/redirects; analytics and the complete responsive/browser acceptance matrix remain required. Existing baseline features have not been relabeled as newly verified requirements.
-
-See [phase and gap matrix](docs/cruisin-v2/cms-storefront/IMPLEMENTATION_PROGRESS.md) and the other 25 scoped documents for implementation boundaries. Live R2/CDN, real payments/shipping and hosted staging remain unverified; hosting stays stopped.
+Reference and motion follow-through, local V2 only. Branch `codex/cruisin-v2`.
 
 ## A. Executive summary
-Publication isolation and saved-preview connectivity implemented; full redesign in progress.
+Implemented the reference-informed customer layout and a connected set of CMS presentation controls. Added smooth desktop scrolling and a shared motion layer, with native touch and live reduced-motion support. The full enterprise CMS master brief remains IN PROGRESS; incomplete scope is explicit below.
+
 ## B. Existing architecture reused
-Existing CmsService, page/section/version models, CMS builder, CmsHomepage, Axios clients and commerce services.
+Existing CmsService, page/section/version models, admin builder, navigation/collection management, catalog queries, cart, PDP, checkout, media resolver and operations modules. No parallel CMS or copied product inventory.
+
 ## C. Admin CMS
-Preview saved draft opens the real storefront renderer. Existing save/publish controls retained; new editor remains outstanding.
+Independent Home/Men/Women selection; constrained campaign/grid presets; actual storefront iframe preview; validated, origin-checked unsaved text/style updates; existing save, publish, reorder, duplicate, visibility and history controls. Product references hydrate on saved preview reload. The existing Storefront admin area retains navigation/collection ownership.
+
 ## D. Storefront
-New authorized preview route and dynamic homepage delivery. Existing pages retained; editorial redesign outstanding.
-## E. Men/Women
-New department eligibility and presentation model not implemented. No inventory copies created.
-## F. Connectivity
-Saved sections load through the real CMS API and renderer; draft and published views remain separate.
-## G. Publication and cache
-Empty snapshots remain authoritative; invalid token/time overrides rejected. Preview no-store/no-referrer/noindex. Atomic releases, concurrency, scheduler and CDN propagation remain unfinished.
-## H. Responsive QA
-Browser desktop rendering and 375px page overflow verified. Full matrix/screenshots and real devices not verified.
+Compact calligraphic Cruisin header and direct mobile search; desktop side/mobile full-screen nested navigation with Back/Escape; full-bleed responsive campaign; restrained captions/actions; 5:7 cards; desktop four/mobile two columns; exact-variant quick-add bottom/right sheet; existing PDP and authoritative cart/checkout. The prior bottom app-style navigation was removed.
+
+## E. Men/Women architecture
+Independent published department content over the existing catalog. Reuses existing men/women/unisex eligibility and canonical product/SKU/price/stock. New tests ensure ineligible products are excluded and an eligible unisex unit retains the same identifiers and stock. A new eligibility/fit migration is not claimed complete.
+
+## F. Field connectivity
+Shared Zod runtime/TypeScript presentation contracts serve API, admin and renderer. See CMS_FIELD_CONSUMER_MAP.md for exact fields, storage and consumers. Actual unsaved preview and publish behavior is exercised against local APIs/MongoDB.
+
+## G. Publishing and caches
+Draft-only pages are private; empty published snapshots stay authoritative; invalid preview/time overrides fail. Dynamic delivery avoids the former homepage revalidation delay. Actual preview is no-store/noindex/no-referrer and accepts messages only from the configured admin origin and parent window. Preview analytics and promotions are suppressed. Multi-page atomic release, optimistic concurrency and durable scheduling remain unfinished.
+
+## H. Responsive/visual QA
+Farak desktop/mobile campaign, menu, catalog and quick-add composition were inspected. Cruisin uses its existing repository assets and wordmark; no Farak photography/artwork or source was copied. Browser tests check eight widths and capture desktop/mobile views. Browser emulation is not physical-device certification.
+
 ## I. TDD
-Three new behavioral failures reproduced before implementation, then all passed. Browser exposed and verified the fix for draft filtering in the shared renderer.
+Shared presentation tests initially failed because the new contract did not exist, then passed. The department test first failed on a fixture validation mistake; after fixing that fixture, the genuine RED showed two products instead of one, followed by GREEN on canonical department filtering. Motion preference unit tests were written before implementation. The real browser test exposed a live reduced-motion update issue, which was corrected with a subscribed media-query hook. Earlier publication RED→GREEN evidence remains in the prior record.
+
 ## J. Regression
-515 server +90 storefront +45 admin =650 passing tests across 103 files. One new Chromium real-backend browser journey passes. Logs: /tmp/cruisin-cms-regression.log and /tmp/cruisin-cms-browser.log. Production builds and full acceptance matrix have not been rerun for this slice.
+Results are recorded in VERIFICATION_EVIDENCE.md after the final run. Earlier integration failures caused by changed card link structure and quick-add opening the existing cart were fixed by targeting the correct UI surfaces, without disabling business assertions. A real admin select ID/label issue was also corrected.
+
 ## K. Security
-Existing server-side preview capability validation reused; invalid credentials rejected. Expiring/revocable preview credentials and full role/link/content validation remain required.
-## L. Performance
-No performance gain claimed. Dynamic home rendering favors publication freshness; cache optimization remains a later measured task.
+Constrained presentation presets and safe shortcut links; explicit server preview authorization; origin/source-checked preview messages; exact configured iframe origins; no cache/referrer/token logging; original API permissions and shared commerce authority retained. Preview capability expiry/revocation and comprehensive publication dependency validation remain master-brief gaps.
+
+## L. Motion and performance
+Lenis 1.3.27 drives desktop wheel interpolation over native coordinates, stops for body locks and preserves native modal/form scrolling. Touch/coarse pointers, preview, checkout and reduced-motion use native scrolling. Shop-route entrances, campaign image/caption reveal, card reveal/hover, menu and quick-add transitions share timing and easing. Live preference changes remove interpolation/movement. No hosted speed/frame-rate improvement is inferred from browser automation.
+
 ## M. Media
-Existing abstraction and legacy fallback retained. No asset migration or deletion performed.
-## N. Outstanding work
-See the scope list above and 26 implementation documents. The complete requested platform is not marked complete.
+Existing V2 media abstraction and Cloudinary fallback retained. Existing Cruisin campaign files were configured through local CMS; the local catalog remains synthetic development data. No new photography/prices/manufacturing claims, source deletion or destructive migration.
+
+## N. Outstanding master scope
+Complete typed legacy section migration, independent fit/department eligibility backfill, atomic releases/CAS/scheduler, complete support/editorial page controls, broader SEO/redirect validation and analytics identities, full live provider/hardware and every-page acceptance remain unfinished. These are not silently marked complete by a new visual layout.
+
 ## O. Staging readiness
-Not release-ready; hosted services remain stopped. Production and operations modules were not modified.
+All work stays local. No remote push, production write, provider transaction, DNS change or hosted startup. Hosted services remain stopped as requested. Local links: storefront 3192, admin 3193/cms, employee 3194.

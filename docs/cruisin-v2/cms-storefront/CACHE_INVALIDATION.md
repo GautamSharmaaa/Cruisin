@@ -1,5 +1,5 @@
 # Cache Invalidation
 
-Updated 2026-11-07. Status: **IN PROGRESS**.
+Updated 2026-11-07. Status: **IMPLEMENTED for described controls; master scope remains IN PROGRESS**.
 
-Homepage now renders dynamically; preview page and public content API prohibit caching. Distributed propagation acknowledgments and CDN invalidation are not implemented.
+Public pages render dynamically; saved previews are private/no-store and noindex/no-referrer. Unsaved preview patches are browser-memory-only and do not alter the public revision. The browser acceptance test verifies public content before and after an actual CMS publication. Coordinated CDN invalidation/propagation acknowledgments remain unfinished.
