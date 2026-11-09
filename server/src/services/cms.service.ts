@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import {readOrbitContent} from '@cruisin/contracts/orbit-cards';
 import { randomUUID } from 'node:crypto';
 import { Types } from 'mongoose';
 import { BannerModel } from '../models/banner.model.js';
@@ -189,11 +190,15 @@ export const CmsService = {
   },
 
   async createSection(pageId: string, input: CmsSectionInput): Promise<unknown> {
+    if(input.type==='orbit_cards'&&!readOrbitContent((input.content??{}) as Record<string,unknown>))throw new ApiError(400,'Orbit cards require 3–12 valid images, labels and destinations, and a cycle between 16 and 120 seconds.');
     const count = await CMSSectionModel.countDocuments({ pageId, status: { $ne: 'archived' } });
     return CMSSectionModel.create({ ...input, pageId, sortOrder: input.sortOrder ?? count, pageTarget: input.pageTarget ?? 'home' });
   },
 
   async updateSection(id: string, input: CmsSectionInput): Promise<unknown> {
+    const current=await CMSSectionModel.findById(id).lean();
+    if(!current)throw new ApiError(404,'CMS section not found');
+    if((input.type??current.type)==='orbit_cards'&&!readOrbitContent((input.content??current.content??{}) as Record<string,unknown>))throw new ApiError(400,'Invalid orbit card configuration');
     const section = await CMSSectionModel.findByIdAndUpdate(id, input, { new: true, runValidators: true }).lean();
     if (!section) throw new ApiError(404, 'CMS section not found');
     return section;

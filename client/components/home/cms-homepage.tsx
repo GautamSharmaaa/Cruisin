@@ -4,6 +4,7 @@ import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 import Image from 'next/image';
 import {motion} from 'framer-motion';
 import {storefrontReveal} from '@/lib/storefront-motion';
+import {OrbitCards} from './orbit-cards';
 import {EditorialCampaign} from './editorial-campaign';
 import {EditorialProductCard} from '@/components/shop/editorial-product-card';
 import {editorialPresentation} from '@cruisin/contracts/editorial';
@@ -138,6 +139,7 @@ function CmsSectionRenderer({ section }: { section: CmsSectionDto }): ReactNode 
   if (type === 'newsletter') return <NewsletterSection section={section} content={content} className={visibility} source="homepage-newsletter" />;
   if (type === 'product_carousel' || type === 'trending_now' || type === 'hot_drop' || type === 'featured_collection' || type === 'recently_viewed' || type === 'best_sellers') return <ProductRail section={section} content={content} className={visibility} />;
   if (type === 'shop_the_look') return <ShopTheLook section={section} content={content} className={visibility} />;
+  if(type==='orbit_cards')return <div className={visibility}><OrbitCards section={section}/></div>;
   if (type === 'category_editorial_grid') return <CategoryGrid section={section} content={content} className={visibility} />;
   if (type === 'image_carousel') return <ImageCarousel section={section} content={content} className={visibility} />;
   if (type === 'mobile_media_landing') return <MobileMediaLanding content={content} className={section.hideOnMobile ? 'hidden' : 'lg:hidden'} />;

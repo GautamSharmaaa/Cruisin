@@ -6,7 +6,7 @@ import { requireAdmin, requireRole } from '../../middleware/admin.middleware.js'
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { idParamSchema, objectIdSchema, slugParamSchema } from '../../validators/common.validator.js';
-import { bannerBodySchema, cmsMediaBodySchema, cmsPageBodySchema, cmsPreviewQuerySchema, cmsReorderBodySchema, cmsRestoreBodySchema, cmsSectionBodySchema } from '../../validators/cms.validator.js';
+import { bannerBodySchema, cmsMediaBodySchema, cmsPageBodySchema, cmsPreviewQuerySchema, cmsReorderBodySchema, cmsRestoreBodySchema, cmsSectionBodySchema, cmsSectionUpdateSchema } from '../../validators/cms.validator.js';
 
 export const cmsRouter = Router();
 const pageIdParamSchema = z.object({ pageId: objectIdSchema });
@@ -21,7 +21,7 @@ cmsRouter.post('/pages/:pageId/reorder', requireAuth, requireAdmin, requireRole(
 cmsRouter.post('/pages/:pageId/publish', requireAuth, requireAdmin, requireRole(['manager', 'admin', 'superadmin']), validate({ params: pageIdParamSchema }), CmsController.publishPage);
 cmsRouter.get('/pages/:pageId/versions', requireAuth, requireAdmin, validate({ params: pageIdParamSchema }), CmsController.listVersions);
 cmsRouter.post('/pages/:pageId/restore', requireAuth, requireAdmin, requireRole(['manager', 'admin', 'superadmin']), validate({ params: pageIdParamSchema, body: cmsRestoreBodySchema }), CmsController.restoreVersion);
-cmsRouter.patch('/sections/:id', requireAuth, requireAdmin, requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema, body: cmsSectionBodySchema.partial() }), CmsController.updateSection);
+cmsRouter.patch('/sections/:id', requireAuth, requireAdmin, requireRole(['manager', 'admin', 'superadmin']), validate({ params: idParamSchema, body: cmsSectionUpdateSchema }), CmsController.updateSection);
 cmsRouter.delete('/sections/:id', requireAuth, requireAdmin, requireRole(['admin', 'superadmin']), validate({ params: idParamSchema }), CmsController.archiveSection);
 cmsRouter.get('/media', requireAuth, requireAdmin, CmsController.listMedia);
 cmsRouter.post('/media', requireAuth, requireAdmin, requireRole(['manager', 'admin', 'superadmin']), validate({ body: cmsMediaBodySchema }), CmsController.createMedia);

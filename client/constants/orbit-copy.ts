@@ -1,0 +1,1 @@
+export const ORBIT_COPY={previous:'Previous orbit card',next:'Next orbit card',pause:'Pause orbit rotation',play:'Play orbit rotation',explore:'Explore this edit',help:'Drag to explore. Choose an edit to discover more.',position:'Edit {current} of {total}',choose:'Choose edit: '} as const;

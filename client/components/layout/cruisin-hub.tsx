@@ -27,13 +27,13 @@ export function CruisinHub({ onStoriesChange }: CruisinHubProps): ReactNode {
     <Popover.Root open={menu} onOpenChange={setMenu}><Popover.Trigger asChild><button ref={trigger} type="button" className="cruisin-hub-trigger" style={variables} aria-label={menu ? C.close : C.open} data-open={menu}>
       <span aria-hidden="true" className="cruisin-hub-halo"/><span aria-hidden="true" className="cruisin-hub-orbit"/>
       <span aria-hidden="true" className="cruisin-hub-logo"><Image src="/cruisin-logo.svg" alt="" width={44} height={28} unoptimized/></span><X aria-hidden="true" className="cruisin-hub-cross" size={22} />
-    </button></Popover.Trigger><Popover.Portal><Popover.Content className="cruisin-hub-menu" style={variables} side="top" align="end" sideOffset={12} collisionPadding={16} aria-label={C.menu} onCloseAutoFocus={event => { if (stories) event.preventDefault(); }}>
+    </button></Popover.Trigger><Popover.Portal><Popover.Content className="cruisin-hub-menu" data-story-open={stories} style={variables} side="top" align="end" sideOffset={12} collisionPadding={16} aria-label={C.menu} onCloseAutoFocus={event => { if (stories) event.preventDefault(); }}>
       <p className="cruisin-hub-heading">{C.brand}</p>
       <button type="button" onClick={event => { void toggle(event.currentTarget); }} aria-label={dark ? C.light : C.dark}>{dark ? <Sun size={18} /> : <Moon size={18} />}<span>{dark ? C.lightLabel : C.darkLabel}</span><span className="cruisin-hub-theme-dot" aria-hidden="true" /></button>
       <a href={FOOTER_COPY.instagram} target="_blank" rel="noopener noreferrer" aria-label={C.instagramLabel} onClick={() => setMenu(false)}><Instagram size={18} /><span>{C.instagram}</span><ArrowUpRight size={14} /></a>
       <button type="button" onClick={() => { setMenu(false); openStories(true); }}><GalleryVerticalEnd size={18} /><span>{C.stories}</span><span className="cruisin-hub-story-dot" aria-hidden="true" /></button>
       <Popover.Arrow className="cruisin-hub-arrow" />
     </Popover.Content></Popover.Portal></Popover.Root>
-    {stories && <CruisinStories opener={trigger} onClose={() => openStories(false)} />}
+    <CruisinStories open={stories} opener={trigger} onClose={() => openStories(false)} />
   </>;
 }

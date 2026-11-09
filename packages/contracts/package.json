@@ -23,6 +23,10 @@
     "./storefront-experience": {
       "types": "./storefront-experience.d.ts",
       "default": "./storefront-experience.js"
+    },
+    "./orbit-cards": {
+      "types": "./orbit-cards.d.ts",
+      "default": "./orbit-cards.js"
     }
   },
   "dependencies": {

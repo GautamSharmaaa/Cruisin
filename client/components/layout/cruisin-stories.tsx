@@ -14,9 +14,9 @@ const subscribeMobile = (notify: () => void): (() => void) => {
   const query = matchMedia(mobileQuery); query.addEventListener('change', notify);
   return () => query.removeEventListener('change', notify);
 };
-export interface CruisinStoriesProps { onClose: () => void; opener: RefObject<HTMLButtonElement | null>; }
-export function CruisinStories({ onClose, opener }: CruisinStoriesProps): ReactNode {
-  const query = useStorefrontStories(true);
+export interface CruisinStoriesProps { open:boolean; onClose: () => void; opener: RefObject<HTMLButtonElement | null>; }
+export function CruisinStories({ open, onClose, opener }: CruisinStoriesProps): ReactNode {
+  const query = useStorefrontStories(open);
   const mobile = useSyncExternalStore(subscribeMobile, () => matchMedia(mobileQuery).matches, () => false);
   const stories = (query.data ?? []).filter(story => mobile ? !story.hideOnMobile : !story.hideOnDesktop);
   const [index, setIndex] = useState(0), [paused, setPaused] = useState(false), [hidden, setHidden] = useState(false);
@@ -27,18 +27,20 @@ export function CruisinStories({ onClose, opener }: CruisinStoriesProps): ReactN
   // The viewer is portrait on every device; prefer the CMS portrait/mobile artwork.
   const asset = story?.mobile || story?.desktop || '';
   const readyKey = story ? story.id + asset : '';
-  const stopped = paused || held || hidden || reduced || loaded !== readyKey;
+  const stopped = !open || paused || held || hidden || reduced || loaded !== readyKey;
   const move = (direction: number): void => { setIndex(Math.max(0, Math.min(stories.length - 1, position + direction))); setHeld(false); };
   useEffect(() => {
     const update = (): void => setHidden(document.hidden); update();
     document.addEventListener('visibilitychange', update);
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
-  const variables = { '--hub-menu-ms': M.menuMs + 'ms', '--story-ms': M.storyMs + 'ms' } as CSSProperties;
-  return <Dialog.Root open onOpenChange={open => { if (!open) onClose(); }}><Dialog.Portal>
+  useEffect(()=>{if(open){setIndex(0);setPaused(false);setHeld(false);setLoaded('');}},[open]);
+  const variables = { '--hub-menu-ms': M.menuMs + 'ms', '--story-ms': M.storyMs + 'ms', '--story-exit-ms':M.storyExitMs+'ms' } as CSSProperties;
+  return <Dialog.Root open={open} onOpenChange={open => { if (!open) onClose(); }}><Dialog.Portal>
     <Dialog.Overlay className="cruisin-stories-overlay" style={variables} />
     <Dialog.Content className="cruisin-stories" style={variables} aria-describedby={undefined} data-lenis-prevent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }}
-      onKeyDown={event => {
+      onKeyDownCapture={event => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
         if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
         if (event.key === 'ArrowLeft') { event.preventDefault(); move(-1); }
       }}>

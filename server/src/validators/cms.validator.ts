@@ -1,3 +1,4 @@
+import {patchObject} from './patch-object.js';
 import {editorialPresentationSchema} from '@cruisin/contracts/editorial';
 // Governed by .rules v1.0
 import { z } from 'zod';
@@ -8,6 +9,7 @@ export const cmsSectionTypeSchema = z.enum([
   'hero_campaign',
   'video_landing',
   'mobile_media_landing',
+  'orbit_cards',
   'image_carousel',
   'product_carousel',
   'hot_drop',
@@ -59,6 +61,8 @@ export const cmsSectionBodySchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional()
 });
+
+export const cmsSectionUpdateSchema=patchObject(cmsSectionBodySchema);
 
 export const cmsReorderBodySchema = z.object({ ids: z.array(objectIdSchema).min(1) });
 export const cmsRestoreBodySchema = z.object({ versionId: objectIdSchema });

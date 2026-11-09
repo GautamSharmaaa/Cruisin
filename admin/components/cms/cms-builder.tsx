@@ -2,6 +2,7 @@
 'use client';
 import {EXPERIENCE_COPY as EXPERIENCE} from '@/constants/storefront-experience-copy';
 import {StorefrontEditor} from './storefront-editor';
+import {OrbitContentFields} from './orbit-content-fields';
 import {CampaignContentFields} from './campaign-content-fields';
 import {CMS_STUDIO_COPY as S} from '@/constants/cms-studio-copy';
 import {EditorialInspector} from './editorial-inspector';
@@ -490,6 +491,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
         </div>
       </InspectorGroup>
       {['hero_campaign','video_landing','product_carousel','trending_now','hot_drop','best_sellers','recently_viewed','featured_collection'].includes(draft.type)&&<EditorialInspector key={selected?sectionId(selected):draft.type} styles={draft.styles??{}} campaign={['hero_campaign','video_landing'].includes(draft.type)} onChange={styles=>onField('styles',styles)}/>}
+      {draft.type==='orbit_cards'&&<OrbitContentFields content={draft.content} onChange={onContent}/>}
       {isCampaign&&<CampaignContentFields content={draft.content} styles={draft.styles??{}} onContent={onContent} onStyles={styles=>onField('styles',styles)}/>}
       <InspectorGroup title="Content, Media & CTA" helper="Edit the storefront copy, media URLs, CTA links, timers, slides, and tracking fields supported by this block.">
         {draft.type === 'mobile_media_landing' ? <div className="mb-4 border border-border-subtle bg-background-input p-4">
@@ -500,7 +502,7 @@ function SectionInspector({ selected, draft, saveState, onSave, onPreview, onDup
           </label>
           {mediaUploadMessage ? <p className="mt-3 text-xs text-text-secondary" role="status">{mediaUploadMessage}</p> : null}
         </div> : null}
-        <div className="grid gap-4 md:grid-cols-2">{contentEntries.map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
+        <div className="grid gap-4 md:grid-cols-2">{(draft.type==='orbit_cards'?[]:contentEntries).map(([key, value]) => <ContentInput key={key} name={key} value={contentValue(value)} onChange={(next) => onContent(key, next)} />)}</div>
       </InspectorGroup>
       <InspectorGroup title="Products / Categories / Collections" helper={draft.type === 'shop_the_look' ? 'Select the product shown in the image. Its direct product-page link is filled automatically; you can also edit CTA Link above.' : 'Search by product, category, or collection name. Selections are saved as CMS references for storefront hydration.'}>
         <div className="grid gap-4 xl:grid-cols-3">
