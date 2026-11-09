@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {storefrontNavigation,storefrontDepartments} from '@/lib/storefront-navigation';
 
 import { Heart, Search, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -40,7 +41,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
   const navigation = useNavigation();
   const siteSettings = useSiteSettings();
   const isNavigationVisible = siteSettings.data?.isStorefrontNavigationVisible ?? true;
-  const navItems = useMemo(() => (isNavigationVisible ? (navigation.data ?? []).filter((item) => item.isVisible) : []), [isNavigationVisible, navigation.data]);
+  const navItems = useMemo(() => (isNavigationVisible ? storefrontNavigation(navigation.data ?? []) : []), [isNavigationVisible, navigation.data]);
   const activeItem = navItems.find((item) => navId(item) === activeId) ?? null;
   const defaultMenuItem = useMemo(() => {
     const routeItem = navItems.find((item) => item.href !== '/' && pathname.startsWith(item.href) && item.isMegaMenuEnabled);
@@ -105,7 +106,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           </button>
         </div>
       </div>
-      {!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{navItems.filter(item=>item.href!=='/').slice(0,8).map(item=><Link href={item.href} key={navId(item)}>{item.label}</Link>)}</nav>}
+      {!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(isHomepage?storefrontDepartments.slice(0,2):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}
@@ -120,40 +121,4 @@ export function Navbar(_props: NavbarProps): ReactNode {
   );
 }
 
-function AnimatedMenuButton({ open, onClick }: { open: boolean; onClick: () => void }): ReactNode {
-  return (
-    <button
-      type="button"
-      aria-label={COPY.nav.menu}
-      aria-expanded={open}
-      onClick={onClick}
-      className="group relative flex h-11 w-11 items-center justify-center text-text-primary transition duration-300 hover:text-accent-gold"
-    >
-      <span className="sr-only">{COPY.nav.menu}</span>
-      <span data-testid="sleek-menu-mark" className="relative block h-[18px] w-7">
-        <motion.span
-          aria-hidden="true"
-          data-menu-line="top"
-          className="absolute left-0 top-0.5 h-px w-7 origin-center rounded-full bg-current"
-          animate={open ? { x: 2, y: 7, rotate: 45, width: 24, opacity: 1 } : { x: 0, y: 0, rotate: 0, width: 28, opacity: 1 }}
-          transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-        />
-        <motion.span
-          aria-hidden="true"
-          data-menu-line="middle"
-          className="absolute left-1 top-2 h-px w-5 rounded-full bg-current"
-          animate={open ? { opacity: 0, x: 10, width: 0 } : { opacity: 0.78, x: 0, width: 20 }}
-          transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-        />
-        <motion.span
-          aria-hidden="true"
-          data-menu-line="bottom"
-          className="absolute bottom-0.5 left-2 h-px w-3 origin-center rounded-full bg-current"
-          animate={open ? { x: -6, y: -7, rotate: -45, width: 24, opacity: 1 } : { x: 0, y: 0, rotate: 0, width: 12, opacity: 0.56 }}
-          transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-        />
-      </span>
-      <span aria-hidden="true" className="pointer-events-none absolute inset-2 scale-75 rounded-full bg-accent-gold/0 blur-md transition duration-300 group-hover:scale-100 group-hover:bg-accent-gold/10" />
-    </button>
-  );
-}
+function AnimatedMenuButton({open,onClick}:{open:boolean;onClick:()=>void}):ReactNode{return <button type="button" aria-label={COPY.nav.menu} aria-expanded={open} onClick={onClick} className="cruisin-menu-control" data-open={open}><span/><span/></button>;}
