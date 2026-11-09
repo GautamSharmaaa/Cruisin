@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {ExperienceSettings} from './experience-settings';
 import { HubAppearanceSettings } from './hub-appearance-settings';
 
 import { Archive, Check, Columns3, Eye, EyeOff, Layers3, Pencil, Plus, Save, Settings, Tags, Trash2, Truck, X } from 'lucide-react';
@@ -54,6 +55,7 @@ export function StorefrontManager({ initialTab = 'navigation' }: StorefrontManag
   const site = useAdminSiteSettings();
   const me = useAdminMe();
   const [tab, setTab] = useState<Tab>(initialTab);
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get('panel')==='experience')setTab('settings');},[]);
   const [toast, setToast] = useState<Toast>(null);
   const [editingNav, setEditingNav] = useState<NavigationItemDto | null>(null);
   const [editingColumn, setEditingColumn] = useState<MegaMenuColumnDto | null>(null);
@@ -735,7 +737,7 @@ function SettingsPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patc
       <Toggle label="Listing hero backgrounds" value={site.isListingHeroMediaEnabled ?? true} onChange={(value) => onSave({ isListingHeroMediaEnabled: value })} />
       <Toggle label="Storefront navigation" value={site.isStorefrontNavigationVisible} onChange={(value) => onSave({ isStorefrontNavigationVisible: value })} />
     </div>
-    <HubAppearanceSettings site={site} />
+    <ExperienceSettings site={site}/><HubAppearanceSettings site={site} />
   </Panel>;
 }
 

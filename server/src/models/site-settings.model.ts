@@ -31,6 +31,7 @@ const promotionExperienceSchema = new Schema(
 
 const siteSettingsSchema = new Schema(
   {
+    storefrontExperience: {type:new Schema({scrollBehavior:{type:String,enum:['smooth','native'],default:'smooth'},pageTransitionsEnabled:{type:Boolean,default:true},galleryArrowsEnabled:{type:Boolean,default:true},galleryProgressEnabled:{type:Boolean,default:true},imageGradientEnabled:{type:Boolean,default:true},wishlistEnabled:{type:Boolean,default:true},wishlistAnimation:{type:String,enum:['pulse','none'],default:'pulse'},menuAnimation:{type:String,enum:['slide','fade'],default:'slide'},pageLoader:{type:String,enum:['brand','none'],default:'brand'},motionPace:{type:String,enum:['calm','quick'],default:'calm'}},{_id:false}),default:()=>({})},
     singletonKey: { type: String, required: true, default: 'global', unique: true },
     cruisinRingColorLight: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorLight },
     cruisinRingColorDark: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorDark },

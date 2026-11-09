@@ -1,0 +1,3 @@
+import {z} from 'zod';
+export const storefrontExperienceSchema=z.object({scrollBehavior:z.enum(['smooth','native']).default('smooth'),pageTransitionsEnabled:z.boolean().default(true),galleryArrowsEnabled:z.boolean().default(true),galleryProgressEnabled:z.boolean().default(true),imageGradientEnabled:z.boolean().default(true),wishlistEnabled:z.boolean().default(true),wishlistAnimation:z.enum(['pulse','none']).default('pulse'),menuAnimation:z.enum(['slide','fade']).default('slide'),pageLoader:z.enum(['brand','none']).default('brand'),motionPace:z.enum(['calm','quick']).default('calm')}).strict();
+export const DEFAULT_STOREFRONT_EXPERIENCE=storefrontExperienceSchema.parse({});

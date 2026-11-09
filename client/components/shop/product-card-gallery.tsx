@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {useStorefrontExperience} from '@/hooks/useStorefrontExperience';
 import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {SafeImage} from '@/components/shared/safe-image';
@@ -13,7 +14,7 @@ export interface ProductCardGalleryProps { product:Product; priority?:boolean }
 interface MouseDrag { pointer:number; x:number; y:number; left:number; index:number; active:boolean }
 
 export function ProductCardGallery({product,priority=false}:ProductCardGalleryProps):ReactNode {
- const reduced=useStorefrontReducedMotion();
+ const experience=useStorefrontExperience();const reduced=useStorefrontReducedMotion();
  const viewport=useRef<HTMLDivElement>(null);
  const drag=useRef<MouseDrag|null>(null);
  const suppressClick=useRef(false);
@@ -52,8 +53,8 @@ export function ProductCardGallery({product,priority=false}:ProductCardGalleryPr
   return()=>{observer.disconnect();cancelAnimationFrame(scrollFrame.current);clearTimeout(snapTimer.current);};
  },[goTo]);
  const position=C.imagePosition.replace('{current}',String(current+1)).replace('{total}',String(images.length));
- return <div className="product-card-gallery" role="group" aria-roledescription={images.length>1?C.imageCarousel:undefined} aria-label={C.productImages.replace('{product}',product.title)} data-image-count={images.length} data-active-image={current+1}>
-  <div ref={viewport} className="product-card-gallery-viewport" data-dragging={dragging} tabIndex={images.length>1?0:undefined} data-lenis-prevent
+ return <div className="product-card-gallery" data-gradient={experience.imageGradientEnabled} role="group" aria-roledescription={images.length>1?C.imageCarousel:undefined} aria-label={C.productImages.replace('{product}',product.title)} data-image-count={images.length} data-active-image={current+1}>
+  <div ref={viewport} className="product-card-gallery-viewport" data-dragging={dragging} tabIndex={images.length>1?0:undefined} data-gallery-scroll
    onScroll={()=>{cancelAnimationFrame(scrollFrame.current);scrollFrame.current=requestAnimationFrame(()=>{const element=viewport.current;if(!element?.clientWidth)return;if(Math.abs(element.clientWidth-measuredWidth.current)>.5){measuredWidth.current=element.clientWidth;goTo(currentRef.current,true);return;}const index=Math.max(0,Math.min(images.length-1,Math.round(element.scrollLeft/element.clientWidth)));currentRef.current=index;setCurrent(index);setVisited(previous=>previous.has(index)?previous:new Set([...previous,index]));});}}
    onKeyDown={event=>{if(images.length<2||event.altKey||event.ctrlKey||event.metaKey)return;const next=event.key==='ArrowRight'?currentRef.current+1:event.key==='ArrowLeft'?currentRef.current-1:event.key==='Home'?0:event.key==='End'?images.length-1:null;if(next!==null){event.preventDefault();goTo(next);}}}
    onDragStart={event=>event.preventDefault()}
@@ -71,8 +72,8 @@ export function ProductCardGallery({product,priority=false}:ProductCardGalleryPr
    </div>)}
   </div>
   {images.length>1&&<>
-   <div className="product-card-gallery-arrows"><button type="button" onClick={()=>goTo(currentRef.current-1)} disabled={current===0} aria-label={C.previousProductImage.replace('{product}',product.title)}><ChevronLeft size={18} strokeWidth={1.3}/></button><button type="button" onClick={()=>goTo(currentRef.current+1)} disabled={current===images.length-1} aria-label={C.nextProductImage.replace('{product}',product.title)}><ChevronRight size={18} strokeWidth={1.3}/></button></div>
-   <div className="product-card-gallery-progress" role="progressbar" aria-label={C.imageProgress} aria-valuemin={1} aria-valuemax={images.length} aria-valuenow={current+1} aria-valuetext={position} style={{'--gallery-count':images.length,'--gallery-index':current} as CSSProperties}>{images.map((image,index)=><span key={image.url} data-active={index===current}/>)}</div>
+   {experience.galleryArrowsEnabled&&<div className="product-card-gallery-arrows"><button type="button" onClick={()=>goTo(currentRef.current-1)} disabled={current===0} aria-label={C.previousProductImage.replace('{product}',product.title)}><ChevronLeft size={18} strokeWidth={1.3}/></button><button type="button" onClick={()=>goTo(currentRef.current+1)} disabled={current===images.length-1} aria-label={C.nextProductImage.replace('{product}',product.title)}><ChevronRight size={18} strokeWidth={1.3}/></button></div>}
+   {experience.galleryProgressEnabled&&<div className="product-card-gallery-progress" role="progressbar" aria-label={C.imageProgress} aria-valuemin={1} aria-valuemax={images.length} aria-valuenow={current+1} aria-valuetext={position} style={{'--gallery-count':images.length,'--gallery-index':current} as CSSProperties}>{images.map((image,index)=><span key={image.url} data-active={index===current}/>)}</div>}
    <span className="sr-only" aria-live="polite" aria-atomic="true">{position}</span>
   </>}
  </div>;

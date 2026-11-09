@@ -1,0 +1,1 @@
+export const EXPERIENCE_COPY={add:'Add to wishlist',remove:'Remove from wishlist',added:'Saved to your wishlist',removed:'Removed from your wishlist',failed:'Could not update your wishlist. Please try again.',loading:'Loading Cruisin'} as const;

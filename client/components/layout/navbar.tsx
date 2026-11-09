@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {useStorefrontExperience} from '@/hooks/useStorefrontExperience';
 import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 import {DEPARTMENT_COPY} from '@/constants/department-copy';
 import {storefrontNavigation,storefrontDepartments} from '@/lib/storefront-navigation';
@@ -31,6 +32,7 @@ const navId = (item: NavigationItemDto): string => item._id ?? item.id ?? item.s
 
 export function Navbar(_props: NavbarProps): ReactNode {
   const reducedMotion=useStorefrontReducedMotion();
+  const experience=useStorefrontExperience();
   const [scrolled, setScrolled] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -98,10 +100,10 @@ export function Navbar(_props: NavbarProps): ReactNode {
           <span className="sr-only">{COPY.brand.tagline}</span>
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
-          <button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
+          {experience.wishlistEnabled&&<button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
             <Heart size={18} fill={wishlistCount > 0 ? 'currentColor' : 'none'} />
             {wishlistCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{wishlistCount}</span> : null}
-          </button>
+          </button>}
           <AccountMenu />
           <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
             <ShoppingBag size={19} strokeWidth={1.3}/>
@@ -109,7 +111,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           </button>
         </div>
       </div>
-      {!isHomepage&&!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(pathname==='/men'||pathname==='/women'?DEPARTMENT_COPY.categories.map(category=>({label:category.label,href:'/category/'+pathname.slice(1)+'/'+category.slug})):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
+      {!isHomepage&&!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(pathname==='/men'||pathname==='/women'?DEPARTMENT_COPY.categories.map(category=>({label:category.label,href:'/category/'+pathname.slice(1)+'/'+(pathname==='/women'?category.womenSlug:category.slug)})):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}

@@ -84,7 +84,7 @@ export interface ApiProduct {
 }
 
 const mapImage = (image: ApiProductImage): ProductImage => ({
-  url: image.url,
+  url: image.url.replace(/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(\/images\/catalog-demo\/)/,'$1'),
   alt: image.alt,
   width: image.width,
   height: image.height

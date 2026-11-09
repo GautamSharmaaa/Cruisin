@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {useStorefrontExperience} from '@/hooks/useStorefrontExperience';
 import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 
 import {menuSurfaceMotion} from '@/lib/animations';
@@ -43,7 +44,8 @@ const cardImage = (card: MegaMenuCollectionCardDto): string => {
 const promoImage = (promo?: MegaMenuPromoDto | null): string => promo?.mobileImage || promo?.image || fallbackImage;
 
 export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCount }: MobileNavProps): ReactNode {
-  const reduced=useStorefrontReducedMotion();
+  const reduced=useStorefrontReducedMotion();const experience=useStorefrontExperience();const duration=experience.motionPace==='quick'?menuSurfaceMotion.fade:menuSurfaceMotion.duration;
+  const closed=experience.menuAnimation==='fade'?{x:0,opacity:0}:{x:'-100%',opacity:1};
   const [desktop,setDesktop]=useState(false);
   useEffect(()=>{const query=window.matchMedia('(min-width:1024px)');const update=():void=>setDesktop(query.matches);update();query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
   const user = useAuthStore((state) => state.user);
@@ -112,7 +114,7 @@ export function MobileNav({ open, onOpenChange, items, onSearch, onCart, cartCou
     return <Link key={link.href} href={link.href} onClick={close}>{link.label}</Link>;
   })}</div>;
   return <AnimatePresence>{open?
-    <motion.button key="menu-backdrop" type="button" className="minimal-menu-backdrop" aria-label={COPY.common.close} onClick={close} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reduced?0:menuSurfaceMotion.fade}}/>:null}{open?<motion.div ref={drawerRef} key="minimal-cruisin-menu" initial={reduced?false:{x:'-100%'}} animate={{x:0}} exit={{x:reduced?0:'-100%'}} transition={{duration:reduced?0:menuSurfaceMotion.duration,ease:menuSurfaceMotion.ease}} className="editorial-navigation-drawer minimal-menu" role="dialog" aria-modal="true" aria-label={desktop?E.desktopMenu:COPY.nav.menu} onKeyDown={onKeyDown}>
+    <motion.button key="menu-backdrop" type="button" className="minimal-menu-backdrop" aria-label={COPY.common.close} onClick={close} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:reduced?0:menuSurfaceMotion.fade}}/>:null}{open?<motion.div ref={drawerRef} key="minimal-cruisin-menu" initial={reduced?false:closed} animate={{x:0,opacity:1}} exit={reduced?{opacity:0}:closed} transition={{duration:reduced?0:duration,ease:menuSurfaceMotion.ease}} className="editorial-navigation-drawer minimal-menu" role="dialog" aria-modal="true" aria-label={desktop?E.desktopMenu:COPY.nav.menu} onKeyDown={onKeyDown}>
       <div className="minimal-menu-header">
         <button ref={closeRef} type="button" aria-label={COPY.common.close} onClick={close}><X size={22} strokeWidth={1.3}/></button>
         <Link href={ROUTES.home} onClick={close} className="brand-wordmark-script" data-testid="mobile-menu-wordmark">{COPY.brand.name}</Link>

@@ -19,6 +19,10 @@
     "./editorial": {
       "types": "./editorial.d.ts",
       "default": "./editorial.js"
+    },
+    "./storefront-experience": {
+      "types": "./storefront-experience.d.ts",
+      "default": "./storefront-experience.js"
     }
   },
   "dependencies": {

@@ -47,3 +47,15 @@ describe('storefront ring color configuration', () => {
     expect(siteSettingsBodySchema.partial().safeParse({ cruisinRingColorDark: color }).success).toBe(false);
   });
 });
+
+describe('storefront experience settings',()=>{
+ it('applies safe defaults only when the experience object is supplied',()=>{
+  expect(siteSettingsBodySchema.partial().parse({isStorefrontNavigationVisible:true})).toEqual({isStorefrontNavigationVisible:true});
+  expect(siteSettingsBodySchema.partial().parse({storefrontExperience:{}})).toMatchObject({storefrontExperience:{wishlistEnabled:true,wishlistAnimation:'pulse',menuAnimation:'slide',pageLoader:'brand',motionPace:'calm'}});
+ });
+ it('preserves disabled options and validates animation choices',()=>{
+  expect(siteSettingsBodySchema.partial().parse({storefrontExperience:{wishlistEnabled:false,wishlistAnimation:'none',menuAnimation:'fade',pageLoader:'none',motionPace:'quick'}})).toMatchObject({storefrontExperience:{wishlistEnabled:false,pageLoader:'none'}});
+  expect(siteSettingsBodySchema.partial().safeParse({storefrontExperience:{menuAnimation:'javascript:evil'}}).success).toBe(false);
+  expect(siteSettingsBodySchema.partial().safeParse({storefrontExperience:{unknown:'value'}}).success).toBe(false);
+ });
+});

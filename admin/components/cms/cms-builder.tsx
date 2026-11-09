@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import {EXPERIENCE_COPY as EXPERIENCE} from '@/constants/storefront-experience-copy';
 import {StorefrontEditor} from './storefront-editor';
 import {CampaignContentFields} from './campaign-content-fields';
 import {CMS_STUDIO_COPY as S} from '@/constants/cms-studio-copy';
@@ -7,7 +8,7 @@ import {EditorialInspector} from './editorial-inspector';
 import {StorefrontPreview} from './storefront-preview';
 import {CMS_EDITORIAL_COPY as E} from '@/constants/editorial-copy';
 import {uploadPublicMedia} from '@/lib/media-upload';
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, closestCenter, useSensor, useSensors, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, UploadCloud, X } from 'lucide-react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -71,6 +72,8 @@ const sectionImage = (section: CmsSectionInput, fallbackIndex = 0): string => {
 };
 
 export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
+  const sensors=useSensors(useSensor(MouseSensor,{activationConstraint:{distance:6}}),useSensor(TouchSensor,{activationConstraint:{delay:150,tolerance:8}}),useSensor(KeyboardSensor));
+  const [dragLabel,setDragLabel]=useState('');
   const pages = useCmsPages();
   const [selectedPageSlug,setSelectedPageSlug]=useState('home');
   const homePage = useMemo(() => pages.data?.find((page) => page.slug === selectedPageSlug), [pages.data,selectedPageSlug]);
@@ -230,6 +233,8 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   };
 
   const onDragEnd = (event: DragEndEvent): void => {
+    setDragLabel('');
+    if(saveState==='dirty'||saveState==='saving'||saveState==='error'||reorderSections.isPending){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}
     if (!event.over) return;
     const activeId = String(event.active.id);
     const overId = String(event.over.id);
@@ -249,14 +254,14 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     reorderSections.mutate(nextIds);
   };
 
-  return <DndContext onDragEnd={onDragEnd}>
+  return <DndContext onDragStart={event=>{const id=String(event.active.id);setDragLabel(sectionList.find(section=>sectionId(section)===id)?.title??S.add);}} onDragCancel={()=>setDragLabel('')} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
     {toast ? <div className={cn('fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg', toast.tone === 'success' && 'border-success text-success', toast.tone === 'error' && 'border-danger text-danger', toast.tone === 'info' && 'border-accent-gold text-accent-gold')}>{toast.message}</div> : null}
-    <StorefrontEditor page={homePage} pages={pages.data??[]} sections={sectionList} selected={selected} draft={draft} saveState={saveState}
+    <StorefrontEditor reordering={reorderSections.isPending} page={homePage} pages={pages.data??[]} sections={sectionList} selected={selected} draft={draft} saveState={saveState}
       onPage={slug=>{if(saveState==='dirty'||saveState==='saving')return;setSelectedPageSlug(slug);setSelectedId('');setDefaultTemplateSections([]);}}
       onSelect={id=>{if(!sectionList.some(section=>sectionId(section)===id)||id===selectedId||saveState==='saving')return;if(selected&&(saveState==='dirty'||saveState==='error')){setSaveState('saving');updateSection.mutate({...draft,id:sectionId(selected),status:'draft'},{onSuccess:()=>setSelectedId(id),onError:()=>setSaveState('error')});}else setSelectedId(id);}}
       onAdd={()=>setStudioLibraryOpen(true)} onSave={saveDraft} onPublish={()=>setPublishConfirmOpen(true)} onToggle={toggleActive} onDuplicate={duplicateSection} onArchive={archiveOne} onHistory={()=>setStudioHistoryOpen(true)}
       onDiscard={()=>{setDraft(toInput(selected));setSaveState('idle');}}
-      onMove={(from,to)=>{if(to<0||to>=sectionList.length)return;const ids=sectionList.map(sectionId);const [moved]=ids.splice(from,1);ids.splice(to,0,moved);reorderSections.mutate(ids);}}
+      onMove={(from,to)=>{if(saveState==='dirty'||saveState==='saving'||saveState==='error'||reorderSections.isPending){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}if(to<0||to>=sectionList.length)return;const ids=sectionList.map(sectionId);const [moved]=ids.splice(from,1);ids.splice(to,0,moved);reorderSections.mutate(ids);}}
       inspector={<SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={()=>setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent}/>}/>
     {studioLibraryOpen&&<ModalShell title={S.add} onClose={()=>setStudioLibraryOpen(false)} wide><SectionLibrary onAdd={type=>{addSection(type);setStudioLibraryOpen(false);}} onPreview={setLibraryPreview} onOpenTemplates={()=>{setStudioLibraryOpen(false);setTemplateGalleryOpen(true);}}/></ModalShell>}
     {studioHistoryOpen&&<ModalShell title={S.history} onClose={()=>setStudioHistoryOpen(false)}><VersionHistory versions={versions.data??[]} isRestoring={restoreVersion.isPending} onRestore={id=>{restoreVersion.mutate(id);setStudioHistoryOpen(false);}}/></ModalShell>}
@@ -267,7 +272,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     {templateConfirm ? <TemplateConfirmModal template={templateConfirm} onClose={() => setTemplateConfirm(null)} onApply={(action) => void applyTemplate(templateConfirm, action)} /> : null}
     {publishConfirmOpen ? <PublishConfirmModal pageTitle={homePage?.title??'Page'} isPublishing={publishPage.isPending} onClose={() => setPublishConfirmOpen(false)} onPublish={confirmPublish} /> : null}
     {archiveConfirm ? <ArchiveConfirmModal section={archiveConfirm} isArchiving={archiveSection.isPending} onClose={() => setArchiveConfirm(null)} onArchive={confirmArchive} /> : null}
-  </DndContext>;
+  <DragOverlay dropAnimation={null}>{dragLabel?<div className="cms-studio-drag-preview">{dragLabel}</div>:null}</DragOverlay></DndContext>;
 }
 
 function WorkspaceTabs({ active, onChange }: { active: WorkspaceTab; onChange: (tab: WorkspaceTab) => void; }): ReactNode {

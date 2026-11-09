@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 
+import {StorefrontExperienceProvider} from '@/hooks/useStorefrontExperience';
 import { ThemeProvider } from '@cruisin/ui';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,7 +14,7 @@ export interface ProvidersProps { children: ReactNode; }
 
 export function Providers({ children }: ProvidersProps): ReactNode {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: 1 }, mutations: { retry: 0 } } }));
-  const content = <QueryClientProvider client={queryClient}><AuthBootstrap><CartBootstrap>{children}</CartBootstrap></AuthBootstrap></QueryClientProvider>;
+  const content = <QueryClientProvider client={queryClient}><StorefrontExperienceProvider><AuthBootstrap><CartBootstrap>{children}</CartBootstrap></AuthBootstrap></StorefrontExperienceProvider></QueryClientProvider>;
   const themed = <ThemeProvider defaultTheme="light" storageKey="cruisin-storefront-theme">{content}</ThemeProvider>;
   return IDENTITY_CONFIG.googleClientId ? <GoogleOAuthProvider clientId={IDENTITY_CONFIG.googleClientId}>{themed}</GoogleOAuthProvider> : themed;
 }

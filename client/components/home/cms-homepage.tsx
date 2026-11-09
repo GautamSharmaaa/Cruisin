@@ -204,7 +204,7 @@ function ImageCarousel({ section, content, className }: { section: CmsSectionDto
 
 function CategoryGrid({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {
   const tiles = rows(asString(content, 'tiles')).slice(0, 4);
-  return <section className={className + ' px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={optimizedImageUrl(image, 900)} alt={label || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
+  return <section className={className + ' cms-category-editorial px-6 py-20 lg:px-20'}><h2 className="mb-10 font-display text-4xl">{section.title}</h2><div className="grid gap-px md:grid-cols-4">{tiles.map((tile) => { const [label, image, href] = tile.split('|'); return <Link key={tile} href={safeHref(href ?? '/shop')} className="relative aspect-[3/4] overflow-hidden bg-background-elevated"><img src={optimizedImageUrl(image, 900)} alt={label || section.title} loading="lazy" decoding="async" className="h-full w-full object-cover opacity-80" /><p className="absolute bottom-5 left-5 font-display text-2xl">{label}</p></Link>; })}</div></section>;
 }
 
 function ProductRail({ section, content, className }: { section: CmsSectionDto; content: Content; className: string; }): ReactNode {

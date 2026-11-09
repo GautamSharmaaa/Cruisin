@@ -1,3 +1,4 @@
+import type {StorefrontExperience} from '@cruisin/contracts/storefront-experience';
 // Governed by .rules v1.0
 export interface UserDto {
   id: string;
@@ -296,6 +297,7 @@ export interface PageSettingsDto {
 }
 
 export interface SiteSettingsDto {
+  storefrontExperience?:StorefrontExperience;
   cruisinRingColorLight?: string;
   cruisinRingColorDark?: string;
   id?: string;
