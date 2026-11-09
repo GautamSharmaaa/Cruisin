@@ -12,6 +12,10 @@
       "types": "./media-config.d.ts",
       "default": "./media-config.js"
     },
+    "./storefront-appearance": {
+      "types": "./storefront-appearance.d.ts",
+      "default": "./storefront-appearance.js"
+    },
     "./editorial": {
       "types": "./editorial.d.ts",
       "default": "./editorial.js"

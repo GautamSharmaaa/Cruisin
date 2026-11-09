@@ -1055,15 +1055,16 @@ html.dark .auth-page,html.dark .minimal-auth,html.dark .minimal-menu { --auth-li
 .collection-product-grid[data-density="dense"] .product-card-gallery-arrows { display:none; }
 
 /* Cruisin quick hub — the same controls on touch and desktop. */
-:root { --hub-backdrop:rgb(0 0 0 / .8); --hub-progress:rgb(255 255 255 / .32); --hub-control:var(--accent-white); --hub-ring:#387dff; --hub-ring-bright:#b5d5ff; --hub-ring-dim:#1545a4; --hub-ring-glow:rgb(56 125 255 / .5); --hub-disc:#080808; }
-.cruisin-hub-trigger { position:fixed; z-index:104; right:16px; bottom:calc(20px + env(safe-area-inset-bottom)); display:grid; place-items:center; width:56px; height:56px; border-radius:50%; border:0; background:var(--hub-disc); color:var(--accent-white); box-shadow:var(--shadow-md); isolation:isolate; transition:transform var(--hub-menu-ms) var(--storefront-ease),box-shadow var(--hub-menu-ms) var(--storefront-ease); }
+:root { --hub-backdrop:rgb(0 0 0 / .8); --hub-progress:rgb(255 255 255 / .32); --hub-control:var(--accent-white); --hub-orange-light:#f58032; --hub-orange-dark:#f86a1b; }
+.cruisin-hub-trigger { --hub-ring:var(--hub-ring-light,var(--hub-orange-light)); --hub-ring-bright:color-mix(in srgb,var(--hub-ring) 50%,white); --hub-ring-dim:color-mix(in srgb,var(--hub-ring) 72%,black); --hub-ring-glow:color-mix(in srgb,var(--hub-ring) 40%,transparent); --hub-disc:var(--bg-primary); --hub-logo-filter:invert(1); --hub-halo-opacity:.32; position:fixed; z-index:104; right:16px; bottom:calc(20px + env(safe-area-inset-bottom)); display:grid; place-items:center; width:56px; height:56px; border-radius:50%; border:0; background:var(--hub-disc); color:var(--text-primary); box-shadow:var(--shadow-md); isolation:isolate; transition:transform var(--hub-menu-ms) var(--storefront-ease),box-shadow var(--hub-menu-ms) var(--storefront-ease); }
+html.dark .cruisin-hub-trigger { --hub-ring:var(--hub-ring-dark,var(--hub-orange-dark)); --hub-logo-filter:none; --hub-halo-opacity:.6; }
 .cruisin-hub-trigger:hover { transform:translateY(-3px); box-shadow:0 0 24px var(--hub-ring-glow); }
 .cruisin-hub-trigger::before { content:''; position:absolute; z-index:1; inset:4px; border:1px solid var(--hub-disc); background:var(--hub-disc); border-radius:inherit; pointer-events:none; }
 .cruisin-hub-orbit,.cruisin-hub-halo { position:absolute; inset:0; z-index:0; border-radius:inherit; pointer-events:none; background:conic-gradient(from 0deg,var(--hub-ring-dim),var(--hub-ring) 28%,var(--hub-ring-bright) 46%,var(--hub-ring) 58%,var(--hub-ring-dim) 82%,var(--hub-ring-dim)); animation:cruisin-hub-orbit var(--hub-orbit-ms) linear infinite; }
-.cruisin-hub-halo { inset:-2px; filter:blur(7px); opacity:.6; }
+.cruisin-hub-halo { inset:-2px; filter:blur(7px); opacity:var(--hub-halo-opacity); }
 @keyframes cruisin-hub-orbit { to { transform:rotate(360deg); } }
 .cruisin-hub-logo { position:relative; z-index:2; display:grid; place-items:center; width:40px; height:32px; transition:opacity var(--hub-menu-ms) var(--storefront-ease),transform var(--hub-menu-ms) var(--storefront-ease); }
-.cruisin-hub-logo img { width:100%; height:auto; object-fit:contain; }
+.cruisin-hub-logo img { width:100%; height:auto; object-fit:contain; filter:var(--hub-logo-filter); }
 .cruisin-hub-cross { position:absolute; z-index:2; opacity:0; transform:rotate(-60deg) scale(.7); transition:opacity var(--hub-menu-ms) var(--storefront-ease),transform var(--hub-menu-ms) var(--storefront-ease); }
 .cruisin-hub-trigger[data-open=true] .cruisin-hub-logo { opacity:0; transform:scale(.7); }
 .cruisin-hub-trigger[data-open=true] .cruisin-hub-cross { opacity:1; transform:rotate(0) scale(1); }
@@ -1081,8 +1082,9 @@ html.dark .auth-page,html.dark .minimal-auth,html.dark .minimal-menu { --auth-li
 @keyframes cruisin-hub-out { to { opacity:0; transform:translateY(8px) scale(.96); } }
 html[data-theme-reveal=active]::view-transition-old(root),html[data-theme-reveal=active]::view-transition-new(root) { animation:none; mix-blend-mode:normal; }
 html[data-theme-reveal=active]::view-transition-old(root) { z-index:1; }
-html[data-theme-reveal=active]::view-transition-new(root) { z-index:2; }
+html[data-theme-reveal=active]::view-transition-new(root) { z-index:2; will-change:clip-path; backface-visibility:hidden; }
 html[data-theme-reveal=active]::view-transition-group(root) { animation-duration:0s; }
+html[data-theme-reveal=active] .cruisin-hub-orbit,html[data-theme-reveal=active] .cruisin-hub-halo,html[data-theme-reveal=active] .cruisin-footer-glow { animation-play-state:paused!important; }
 /* Capture the final palette; component color transitions must not be frozen halfway through. */
 html[data-theme-reveal=active],html[data-theme-reveal=active] *,html[data-theme-reveal=active] *::before,html[data-theme-reveal=active] *::after { transition:none!important; }
 .cruisin-stories-overlay { position:fixed; inset:0; z-index:160; background:var(--hub-backdrop); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); animation:cruisin-story-fade var(--hub-menu-ms) var(--storefront-ease); }

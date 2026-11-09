@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 'use client';
+import { HubAppearanceSettings } from './hub-appearance-settings';
 
 import { Archive, Check, Columns3, Eye, EyeOff, Layers3, Pencil, Plus, Save, Settings, Tags, Trash2, Truck, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -734,6 +735,7 @@ function SettingsPanel({ site, onSave }: { site?: SiteSettingsDto; onSave: (patc
       <Toggle label="Listing hero backgrounds" value={site.isListingHeroMediaEnabled ?? true} onChange={(value) => onSave({ isListingHeroMediaEnabled: value })} />
       <Toggle label="Storefront navigation" value={site.isStorefrontNavigationVisible} onChange={(value) => onSave({ isStorefrontNavigationVisible: value })} />
     </div>
+    <HubAppearanceSettings site={site} />
   </Panel>;
 }
 

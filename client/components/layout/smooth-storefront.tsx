@@ -19,8 +19,8 @@ export function SmoothStorefront({children}:SmoothStorefrontProps):ReactNode{
    document.documentElement.dataset.scrollMode='smooth';
    checkLock();
   };
-  const checkLock=():void=>{if(!lenis)return;if(getComputedStyle(document.body).overflow==='hidden')lenis.stop();else lenis.start();};
-  sync();const observer=new MutationObserver(checkLock);observer.observe(document.body,{attributes:true,attributeFilter:['style','class']});
+  const checkLock=():void=>{if(!lenis)return;if(getComputedStyle(document.body).overflow==='hidden'||document.documentElement.dataset.themeReveal==='active')lenis.stop();else lenis.start();};
+  sync();const observer=new MutationObserver(checkLock);observer.observe(document.body,{attributes:true,attributeFilter:['style','class']});observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-reveal']});
   reduced.addEventListener('change',sync);coarse.addEventListener('change',sync);
   return()=>{lenis?.destroy();observer.disconnect();reduced.removeEventListener('change',sync);coarse.removeEventListener('change',sync);delete document.documentElement.dataset.scrollMode;};
  },[pathname]);

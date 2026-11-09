@@ -50,7 +50,7 @@ export function FooterWave({paused}:FooterWaveProps):ReactNode {
   const sync=():void=>{
    cancelAnimationFrame(frame);
    last=0;
-   if(visible&&!paused&&!preference.matches&&!document.hidden)frame=requestAnimationFrame(tick);
+   if(visible&&!paused&&!preference.matches&&!document.hidden&&document.documentElement.dataset.themeReveal!=='active')frame=requestAnimationFrame(tick);
    else draw();
   };
   const move=(event:PointerEvent):void=>{
@@ -62,6 +62,8 @@ export function FooterWave({paused}:FooterWaveProps):ReactNode {
   const leave=():void=>{targetX=0;targetY=0;};
   const observer=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??false;sync();});
   observer.observe(element);
+  const transitionObserver=new MutationObserver(sync);
+  transitionObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme-reveal']});
   preference.addEventListener('change',sync);
   document.addEventListener('visibilitychange',sync);
   panel.addEventListener('pointermove',move,{passive:true});
@@ -70,6 +72,7 @@ export function FooterWave({paused}:FooterWaveProps):ReactNode {
   return ()=>{
    cancelAnimationFrame(frame);
    observer.disconnect();
+   transitionObserver.disconnect();
    preference.removeEventListener('change',sync);
    document.removeEventListener('visibilitychange',sync);
    panel.removeEventListener('pointermove',move);

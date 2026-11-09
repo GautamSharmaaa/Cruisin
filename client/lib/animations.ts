@@ -18,4 +18,4 @@ export const menuSurfaceMotion={duration:0.45,fade:0.24,ease:[0.22,1,0.36,1] as 
 
 export const productCardGalleryMotion={dragStart:6,swipeFraction:0.18,maxSwipeThreshold:64} as const;
 
-export const cruisinHubMotion = { revealMs: 850, revealEase: 'cubic-bezier(.22,1,.36,1)', menuMs: 280, orbitMs: 4800, storyMs: 7000, swipeDistance: 48 } as const;
+export const cruisinHubMotion = { revealMs: 960, revealEase: 'cubic-bezier(.35,0,.2,1)', menuMs: 280, orbitMs: 4800, swipeDistance: 48, storyMs: 7000 } as const;

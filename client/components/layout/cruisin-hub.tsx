@@ -8,13 +8,20 @@ import { CRUISIN_HUB_COPY as C } from '@/constants/cruisin-hub-copy';
 import { FOOTER_COPY } from '@/constants/footer-copy';
 import { useCircularTheme } from '@/hooks/useCircularTheme';
 import { cruisinHubMotion } from '@/lib/animations';
+import { useSiteSettings } from '@/hooks/useMerchandising';
+import { DEFAULT_STOREFRONT_APPEARANCE, storefrontColorSchema } from '@cruisin/contracts/storefront-appearance';
 
 export interface CruisinHubProps { onStoriesChange?: (open: boolean) => void; }
 export function CruisinHub({ onStoriesChange }: CruisinHubProps): ReactNode {
   const [menu, setMenu] = useState(false), [stories, setStories] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const { dark, toggle } = useCircularTheme();
-  const variables = { '--hub-menu-ms': cruisinHubMotion.menuMs + 'ms', '--hub-orbit-ms': cruisinHubMotion.orbitMs + 'ms' } as CSSProperties;
+  const settings = useSiteSettings();
+  const light = storefrontColorSchema.safeParse(settings.data?.cruisinRingColorLight);
+  const night = storefrontColorSchema.safeParse(settings.data?.cruisinRingColorDark);
+  const variables = { '--hub-menu-ms': cruisinHubMotion.menuMs + 'ms', '--hub-orbit-ms': cruisinHubMotion.orbitMs + 'ms',
+    '--hub-ring-light': light.success ? light.data : DEFAULT_STOREFRONT_APPEARANCE.cruisinRingColorLight,
+    '--hub-ring-dark': night.success ? night.data : DEFAULT_STOREFRONT_APPEARANCE.cruisinRingColorDark } as CSSProperties;
   const openStories = (open: boolean): void => { setStories(open); onStoriesChange?.(open); };
   return <>
     <Popover.Root open={menu} onOpenChange={setMenu}><Popover.Trigger asChild><button ref={trigger} type="button" className="cruisin-hub-trigger" style={variables} aria-label={menu ? C.close : C.open} data-open={menu}>

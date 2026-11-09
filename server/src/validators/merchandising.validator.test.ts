@@ -37,3 +37,13 @@ describe('siteSettingsBodySchema delivery configuration', () => {
     expect(() => siteSettingsBodySchema.partial().parse({ freeStandardShippingThreshold: 1_000_001 })).toThrow();
   });
 });
+
+describe('storefront ring color configuration', () => {
+  it('normalizes approved hex colors without resetting unrelated settings', () => {
+    expect(siteSettingsBodySchema.partial().parse({ cruisinRingColorLight: ' #ABCDEF ' })).toEqual({ cruisinRingColorLight: '#abcdef' });
+    expect(siteSettingsBodySchema.partial().parse({ isStorefrontNavigationVisible: false })).toEqual({ isStorefrontNavigationVisible: false });
+  });
+  it.each(['orange', '#fff', '#12345678', 'url(javascript:alert(1))', '#f58032; color:red', '', null, 123])('rejects unsafe or malformed color %s', color => {
+    expect(siteSettingsBodySchema.partial().safeParse({ cruisinRingColorDark: color }).success).toBe(false);
+  });
+});

@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import { z } from 'zod';
+import { storefrontColorSchema } from '@cruisin/contracts/storefront-appearance';
 import { objectIdSchema, paginationQuerySchema } from './common.validator.js';
 
 const optionalUrlSchema = z.union([z.string().url(), z.literal('')]).optional();
@@ -156,6 +157,8 @@ export const pageSettingsParamSchema = z.object({
 });
 
 export const siteSettingsBodySchema = z.object({
+  cruisinRingColorLight: storefrontColorSchema.optional(),
+  cruisinRingColorDark: storefrontColorSchema.optional(),
   defaultGridView: gridViewSchema,
   isFlashlightEnabled: z.boolean(),
   isCollectionCarouselEnabled: z.boolean(),

@@ -45,6 +45,9 @@ export const usePageSettings = (pageType: string, pageSlug = 'index') => useQuer
 
 export const useSiteSettings = () => useQuery({
   queryKey: ['site-settings'],
+  staleTime: 10_000,
+  refetchInterval: 30_000,
+  refetchOnWindowFocus: true,
   queryFn: async (): Promise<SiteSettingsDto> => {
     const response = await api.get<ApiEnvelope<SiteSettingsDto>>('/site-settings');
     return response.data.data;

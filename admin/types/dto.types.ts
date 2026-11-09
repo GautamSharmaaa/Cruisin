@@ -296,6 +296,8 @@ export interface PageSettingsDto {
 }
 
 export interface SiteSettingsDto {
+  cruisinRingColorLight?: string;
+  cruisinRingColorDark?: string;
   id?: string;
   _id?: string;
   defaultGridView: 1 | 2 | 4;

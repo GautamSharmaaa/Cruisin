@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import { Schema, model, type InferSchemaType } from 'mongoose';
+import { DEFAULT_STOREFRONT_APPEARANCE as appearance } from '@cruisin/contracts/storefront-appearance';
 
 const promotionExperienceSchema = new Schema(
   {
@@ -31,6 +32,8 @@ const promotionExperienceSchema = new Schema(
 const siteSettingsSchema = new Schema(
   {
     singletonKey: { type: String, required: true, default: 'global', unique: true },
+    cruisinRingColorLight: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorLight },
+    cruisinRingColorDark: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorDark },
     defaultGridView: { type: Number, enum: [1, 2, 4], default: 4 },
     isFlashlightEnabled: { type: Boolean, default: true },
     isCollectionCarouselEnabled: { type: Boolean, default: true },
