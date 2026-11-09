@@ -1,5 +1,7 @@
 // Governed by .rules v1.0
 'use client';
+import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
+import {DEPARTMENT_COPY} from '@/constants/department-copy';
 import {storefrontNavigation,storefrontDepartments} from '@/lib/storefront-navigation';
 
 import { Heart, Search, ShoppingBag } from 'lucide-react';
@@ -28,6 +30,7 @@ export interface NavbarProps { }
 const navId = (item: NavigationItemDto): string => item._id ?? item.id ?? item.slug;
 
 export function Navbar(_props: NavbarProps): ReactNode {
+  const reducedMotion=useStorefrontReducedMotion();
   const [scrolled, setScrolled] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -83,7 +86,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
   }, [pathname]);
 
   return (
-    <motion.header ref={headerRef} variants={navReveal} initial="initial" animate="animate" className="editorial-navbar" data-overlay={(isHomepage||pathname==='/men'||pathname==='/women'||pathname.startsWith('/cms-preview'))&&!scrolled&&!mobile}>
+    <motion.header ref={headerRef} variants={navReveal} initial={reducedMotion?false:"initial"} animate="animate" className="editorial-navbar" data-overlay={(isHomepage||pathname.startsWith('/cms-preview'))&&!scrolled&&!mobile}>
       <a href="#main" className="sr-only focus:not-sr-only">Skip to main content</a>
       <div className="editorial-navbar-main">
         <div className="flex min-w-0 items-center justify-start gap-2">
@@ -106,7 +109,7 @@ export function Navbar(_props: NavbarProps): ReactNode {
           </button>
         </div>
       </div>
-      {!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(isHomepage?storefrontDepartments.slice(0,2):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
+      {!isHomepage&&!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(pathname==='/men'||pathname==='/women'?DEPARTMENT_COPY.categories.map(category=>({label:category.label,href:'/category/'+pathname.slice(1)+'/'+category.slug})):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}

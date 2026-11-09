@@ -1136,3 +1136,11 @@ html[data-theme-reveal=active],html[data-theme-reveal=active] *,html[data-theme-
 
 @keyframes catalog-card-arrive { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:none; } }
 @media(prefers-reduced-motion:reduce) { .collection-product-grid .editorial-product-card { animation:none; } .product-card-gallery-progress::after,.cruisin-menu-control span,.collection-window-toggle { transition:none; } }
+.department-gateway { position:relative;min-height:100svh;background:#080808; }
+.department-gateway .editorial-campaign-caption { display:none; }
+.department-gateway-choices { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:32px;color:var(--accent-white);z-index:3;pointer-events:none; }
+.department-gateway-choices a { pointer-events:auto;font-size:clamp(26px,4vw,56px);letter-spacing:-.04em;line-height:1.2;padding:16px 8px;text-shadow:0 2px 16px rgb(0 0 0 / .35);transition:opacity .3s var(--storefront-ease),transform .3s var(--storefront-ease); }
+.department-gateway-choices a:hover { transform:translateY(-4px);opacity:.8; }
+.department-gateway-choices span { width:1px;height:40px;background:currentColor;opacity:.55; }
+.department-gateway-choices a:focus-visible { outline:2px solid currentColor;outline-offset:8px; }
+@media(prefers-reduced-motion:reduce) { .department-gateway-choices a { transition:none; } }

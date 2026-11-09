@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('minimal departments, menu, catalog and footer on desktop and phone',async({page})=>{
  for(const width of [1440,390]){
-  await page.setViewportSize({width,height:900});await page.goto('/');const departments=page.getByRole('navigation',{name:'Shopping departments'});await expect(departments.getByRole('link')).toHaveText(['Men','Women']);
+  await page.setViewportSize({width,height:900});await page.goto('/');const departments=page.getByRole('navigation',{name:'Choose your Cruisin edit'});await expect(departments.getByRole('link')).toHaveText(['Men','Women']);
   await departments.getByRole('link',{name:'Men',exact:true}).click();await expect(page).toHaveURL(/\/men$/);await expect(page.getByRole('navigation',{name:'Product categories'})).toBeVisible();
   await expect(page.locator('[data-testid="listing-hero-media"],.collection-banner,.collection-carousel')).toHaveCount(0);
   await expect(page.locator('footer select,footer button')).toHaveCount(0);

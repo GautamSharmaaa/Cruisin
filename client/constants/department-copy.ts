@@ -1,0 +1,1 @@
+export const DEPARTMENT_COPY={choose:'Choose your Cruisin edit',men:'Men',women:'Women',categories:[{label:'Tops',slug:'t-shirts'},{label:'Bottoms',slug:'pants'},{label:'Outerwear',slug:'jackets'},{label:'Accessories',slug:'accessories'}]} as const;
