@@ -5,7 +5,9 @@ const mediaDelivery=mediaDeliveryConfig(process.env.NEXT_PUBLIC_MEDIA_DELIVERY_O
 
 const publicApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
 const apiProxyTarget = process.env.API_PROXY_TARGET?.replace(/\/$/, '');
-const apiOrigin = (() => { try { return new URL(publicApiUrl).origin; } catch { return "'self'"; } })();
+const externalApiUrl = URL.canParse(publicApiUrl) ? new URL(publicApiUrl) : null;
+const apiOrigin = externalApiUrl?.origin ?? "'self'";
+const usesLoopbackApi = externalApiUrl !== null && ['localhost', '127.0.0.1'].includes(externalApiUrl.hostname);
 const developmentScriptSource = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
 const cmsAdminOrigin=new URL(process.env.NEXT_PUBLIC_ADMIN_URL??'http://127.0.0.1:3193').origin;
 const securityHeaders = [
@@ -23,7 +25,7 @@ const nextConfig: NextConfig = {
     return apiProxyTarget ? [{ source: '/api/v1/:path*', destination: `${apiProxyTarget}/api/v1/:path*` }] : [];
   },
   images: {
-    unoptimized: process.env.NODE_ENV !== 'production' || ['localhost', '127.0.0.1'].includes(new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1').hostname),
+    unoptimized: process.env.NODE_ENV !== 'production' || usesLoopbackApi,
     qualities: [60, 75, 85, 92],
     remotePatterns: [...mediaDelivery.patterns,...(() => { try { const u = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8192/api/v1'); return [{ protocol: u.protocol.replace(':','') as 'http' | 'https', hostname: u.hostname, port: u.port, pathname: '/api/v1/media/**' }]; } catch { return []; } })(),
       { protocol: 'https', hostname: 'images.unsplash.com' },
