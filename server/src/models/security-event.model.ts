@@ -14,6 +14,7 @@ const securityEventSchema = new Schema(
   { timestamps: true }
 );
 
+securityEventSchema.index({ type: 1, createdAt: -1 });
 securityEventSchema.index({ user: 1, createdAt: -1 });
 securityEventSchema.index({ ipAddress: 1, createdAt: -1 });
 

@@ -4,16 +4,16 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import {
   Button,
-  Card,
   Field,
   Input,
   Alert,
   ThemeSelect,
   OTPInput,
 } from "@cruisin/ui";
+import { EMPLOYEE_COPY as E } from "../../constants/copy";
 import { OPS_COPY as C } from "@cruisin/operations-ui";
 import { employeeTransport as api, setEmployeeCsrf } from "../../lib/api";
-const phoneSchema = z.string().regex(/^\+[1-9]\d{7,14}$/);
+const phoneSchema = z.string().transform(value => value.replace(/\s+/g, "")).pipe(z.string().regex(/^\+[1-9]\d{7,14}$/));
 const codeSchema = z.string().regex(/^\d{6}$/);
 export default function Login(): ReactNode {
   const [phone, setPhone] = useState("");
@@ -31,8 +31,8 @@ export default function Login(): ReactNode {
     setBusy(true);
     try {
       if (!challenge) {
-        phoneSchema.parse(phone);
-        setChallenge(await api.post("/auth/request-otp", { phone }));
+        const registeredPhone = phoneSchema.parse(phone);
+        setChallenge(await api.post("/auth/request-otp", { phone: registeredPhone }));
       } else {
         codeSchema.parse(code);
         const result = await api.post<{ csrf: string }>("/auth/verify-otp", {
@@ -45,7 +45,7 @@ export default function Login(): ReactNode {
     } catch (err) {
       setError(
         err instanceof z.ZodError
-          ? C.formInvalid
+          ? (challenge ? E.invalidCode : E.invalidPhone)
           : err instanceof Error
             ? err.message
             : C.error,
@@ -56,8 +56,9 @@ export default function Login(): ReactNode {
   };
   return (
     <main className="ops-login">
-      <p className="ops-eyebrow">{C.brand}</p>
-      <Card title={C.otpTitle}>
+      <header className="employee-login-brand"><p className="ops-eyebrow">{E.eyebrow}</p><p className="employee-wordmark">{C.brand}</p></header>
+      <section className="employee-login-panel" aria-labelledby="employee-login-title">
+        <h1 id="employee-login-title">{C.otpTitle}</h1>
         <p>{C.otpDescription}</p>
         <form className="ui-stack" onSubmit={(e) => void submit(e)}>
           {!challenge ? (
@@ -75,6 +76,7 @@ export default function Login(): ReactNode {
             <>
               <Field label={C.code}>
                 <OTPInput
+                  autoFocus
                   maxLength={6}
                   value={code}
                   onChange={setCode}
@@ -82,7 +84,7 @@ export default function Login(): ReactNode {
                   autoComplete="one-time-code"
                   aria-label={C.code}
                   render={({ slots }) => (
-                    <div className="ui-row">
+                    <div className="ops-otp-row">
                       {slots.map((slot, index) => (
                         <span className="ui-input ops-otp-slot" key={index}>
                           {slot.char ?? "·"}
@@ -111,10 +113,10 @@ export default function Login(): ReactNode {
           )}
           {error && <Alert tone="danger">{error}</Alert>}
           <Button type="submit" disabled={busy}>
-            {challenge ? C.verify : C.sendCode}
+            {busy ? E.loginPending : challenge ? C.verify : C.sendCode}
           </Button>
         </form>
-      </Card>
+      </section>
       <ThemeSelect />
     </main>
   );

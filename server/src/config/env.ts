@@ -38,6 +38,15 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8000),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   CLIENT_URL: z.string().url().default('http://localhost:3000'),
+  STOREFRONT_ORIGIN_ALIAS: optionalString.refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && value === url.origin;
+    } catch {
+      return false;
+    }
+  }, 'STOREFRONT_ORIGIN_ALIAS must be an HTTPS origin'),
   ADMIN_URL: z.string().url().default('http://localhost:3001'),
   EMPLOYEE_URL: z.string().url().default('http://127.0.0.1:3194'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
@@ -48,9 +57,14 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 256 bits'),
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
-  CLOUDINARY_CLOUD_NAME: z.string().min(1, 'CLOUDINARY_CLOUD_NAME is required'),
-  CLOUDINARY_API_KEY: z.string().min(1, 'CLOUDINARY_API_KEY is required'),
-  CLOUDINARY_API_SECRET: z.string().min(1, 'CLOUDINARY_API_SECRET is required'),
+  META_PIXEL_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().trim().regex(/^\d{5,32}$/).optional()),
+  META_CAPI_ENABLED: envBoolean(false).optional(),
+  META_CAPI_ACCESS_TOKEN: optionalSecret,
+  META_GRAPH_API_VERSION: z.string().regex(/^v[1-9]\d*\.0$/).default('v27.0'),
+  META_TEST_EVENT_CODE: z.preprocess((value) => value === '' ? undefined : value, z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/).optional()),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
   RAZORPAY_KEY_ID: z.string().min(1, 'RAZORPAY_KEY_ID is required'),
   RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET is required'),
   RAZORPAY_WEBHOOK_SECRET: optionalSecret,
@@ -76,6 +90,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: optionalSecret,
   TWILIO_AUTH_TOKEN: optionalSecret,
   TWILIO_WHATSAPP_FROM: optionalSecret,
+  TWILIO_ADMIN_ALERT_CONTENT_SID: optionalSecret,
   TWILIO_WHATSAPP_CONTENT_SID: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^HX[0-9a-fA-F]{32}$/, 'TWILIO_WHATSAPP_CONTENT_SID must be a Twilio HX Content SID').optional()),
   TWILIO_SMS_FROM: optionalSecret,
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
@@ -118,7 +133,10 @@ const envSchema = z.object({
   LOGISTICS_CUSTOMER_FREE_SHIPPING: envBoolean(false),
   LOGISTICS_WORKER_ENABLED: envBoolean(false),
   LOGISTICS_WORKER_POLL_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000)
-}).superRefine((value, context) => {
+}).transform(value => ({
+  ...value,
+  META_CAPI_ENABLED: value.META_CAPI_ENABLED ?? Boolean(value.META_PIXEL_ID && value.META_CAPI_ACCESS_TOKEN)
+})).superRefine((value, context) => {
   const mongo = mongoDetails(value.MONGODB_URI);
   if (!mongo || !['mongodb:', 'mongodb+srv:'].includes(mongo.protocol)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['MONGODB_URI'], message: 'MONGODB_URI must be a valid mongodb:// or mongodb+srv:// connection string' });
@@ -165,6 +183,17 @@ const envSchema = z.object({
   }
   if (value.LOGISTICS_SMS_NOTIFICATIONS_ENABLED && !value.TWILIO_SMS_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_SMS_FROM'], message: 'TWILIO_SMS_FROM is required when logistics SMS notifications are enabled' });
   if (value.LOGISTICS_WHATSAPP_NOTIFICATIONS_ENABLED && !value.TWILIO_WHATSAPP_FROM) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TWILIO_WHATSAPP_FROM'], message: 'TWILIO_WHATSAPP_FROM is required when logistics WhatsApp notifications are enabled' });
+  if (value.META_CAPI_ENABLED) {
+    if (!value.META_PIXEL_ID || !value.META_CAPI_ACCESS_TOKEN) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['META_CAPI_ENABLED'], message: 'Set META_PIXEL_ID and META_CAPI_ACCESS_TOKEN to enable Meta CAPI' });
+    }
+    if (value.APP_ENV === 'staging' && !value.META_TEST_EVENT_CODE) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['META_TEST_EVENT_CODE'], message: 'Staging Meta CAPI requires a Meta Test Events code' });
+    }
+    if (value.APP_ENV === 'production' && value.META_TEST_EVENT_CODE) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['META_TEST_EVENT_CODE'], message: 'Keep the Meta Test Events code out of production' });
+    }
+  }
   if (value.APP_ENV !== 'production') return;
   if (value.NODE_ENV !== 'production') context.addIssue({ code: z.ZodIssueCode.custom, path: ['NODE_ENV'], message: 'NODE_ENV must be production outside local development' });
   if (value.TRUST_PROXY < 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ['TRUST_PROXY'], message: 'TRUST_PROXY must be at least 1 behind Railway proxying' });

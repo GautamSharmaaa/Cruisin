@@ -48,14 +48,33 @@ export function ProductCardGallery({product,priority=false}:ProductCardGalleryPr
  },[product.id,identity]);
  useEffect(()=>{
   const element=viewport.current;if(!element)return;
-  let width=element.clientWidth;measuredWidth.current=width;
-  const observer=new ResizeObserver(()=>{const next=element.clientWidth;if(next>0&&Math.abs(next-width)>.5){width=next;measuredWidth.current=next;goTo(currentRef.current,true);}});observer.observe(element);
+  measuredWidth.current=element.clientWidth;
+  const observer=new ResizeObserver(()=>{
+   const width=element.clientWidth;
+   if(width>0&&width!==measuredWidth.current){measuredWidth.current=width;goTo(currentRef.current,true);}
+  });
+  observer.observe(element);
   return()=>{observer.disconnect();cancelAnimationFrame(scrollFrame.current);clearTimeout(snapTimer.current);};
  },[goTo]);
  const position=C.imagePosition.replace('{current}',String(current+1)).replace('{total}',String(images.length));
- return <div className="product-card-gallery" data-gradient={experience.imageGradientEnabled} role="group" aria-roledescription={images.length>1?C.imageCarousel:undefined} aria-label={C.productImages.replace('{product}',product.title)} data-image-count={images.length} data-active-image={current+1}>
+ return <div className="product-card-gallery" role="group" aria-roledescription={images.length>1?C.imageCarousel:undefined} aria-label={C.productImages.replace('{product}',product.title)} data-image-count={images.length} data-active-image={current+1}>
   <div ref={viewport} className="product-card-gallery-viewport" data-dragging={dragging} tabIndex={images.length>1?0:undefined} data-gallery-scroll
-   onScroll={()=>{cancelAnimationFrame(scrollFrame.current);scrollFrame.current=requestAnimationFrame(()=>{const element=viewport.current;if(!element?.clientWidth)return;if(Math.abs(element.clientWidth-measuredWidth.current)>.5){measuredWidth.current=element.clientWidth;goTo(currentRef.current,true);return;}const index=Math.max(0,Math.min(images.length-1,Math.round(element.scrollLeft/element.clientWidth)));currentRef.current=index;setCurrent(index);setVisited(previous=>previous.has(index)?previous:new Set([...previous,index]));});}}
+   onScroll={()=>{
+    if(scrollFrame.current)return;
+    scrollFrame.current=requestAnimationFrame(()=>{
+     scrollFrame.current=0;
+     const element=viewport.current;
+     if(!element)return;
+     const width=element.clientWidth;
+     // Native snap can scroll a resized gallery before ResizeObserver delivers its new width.
+     if(!width||width!==measuredWidth.current)return;
+     const index=Math.max(0,Math.min(images.length-1,Math.round(element.scrollLeft/width)));
+     if(index===currentRef.current)return;
+     currentRef.current=index;
+     setCurrent(index);
+     setVisited(previous=>previous.has(index)?previous:new Set([...previous,index]));
+    });
+   }}
    onKeyDown={event=>{if(images.length<2||event.altKey||event.ctrlKey||event.metaKey)return;const next=event.key==='ArrowRight'?currentRef.current+1:event.key==='ArrowLeft'?currentRef.current-1:event.key==='Home'?0:event.key==='End'?images.length-1:null;if(next!==null){event.preventDefault();goTo(next);}}}
    onDragStart={event=>event.preventDefault()}
    onPointerDown={event=>{suppressClick.current=false;if(images.length<2||event.pointerType!=='mouse'||event.button!==0)return;const element=event.currentTarget;drag.current={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:element.scrollLeft,index:currentRef.current,active:false};}}
@@ -66,8 +85,8 @@ export function ProductCardGallery({product,priority=false}:ProductCardGalleryPr
    onClickCapture={event=>{if(suppressClick.current&&event.detail!==0){event.preventDefault();event.stopPropagation();suppressClick.current=false;}}}
   >
    {images.map((image,index)=><div className="product-card-gallery-slide" key={image.url} aria-hidden={index!==current}>
-    <Link href={`/product/${product.slug}`} aria-label={product.title} tabIndex={index===current?0:-1} draggable={false}>
-     {(Math.abs(index-current)<=2||visited.has(index))&&<SafeImage src={image.url} alt={image.alt||product.title} fill sizes="(min-width:1024px) 25vw, 50vw" priority={priority&&index===0} loading={index===0?(priority?undefined:'lazy'):'eager'} className="editorial-product-image" draggable={false}/>}
+    <Link href={`/product/${product.slug}`} prefetch={false} aria-label={product.title} tabIndex={index===current?0:-1} draggable={false}>
+     {(Math.abs(index-current)<=2||visited.has(index))&&<SafeImage src={image.url} alt={image.alt||product.title} fill sizes="(min-width:1024px) 25vw, 50vw" priority={priority&&index===0} loading={priority&&index===0?undefined:index===current&&index>0?'eager':'lazy'} className="editorial-product-image" draggable={false}/>}
     </Link>
    </div>)}
   </div>

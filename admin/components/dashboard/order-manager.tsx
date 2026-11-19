@@ -4,8 +4,9 @@
 import { Archive, Eye, PackageCheck, RotateCcw, Search, Trash2, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
-import { AdminCard, AdminDataTable, AdminFilters, AdminStat, AdminStatsGrid } from '@/components/dashboard/admin-ui';
+import { AdminCard, AdminDataTable, AdminDisclosure, AdminFilters, AdminStat, AdminStatsGrid } from '@/components/dashboard/admin-ui';
 import { DateRangeFilter, isInDateRange, type DateRange } from '@/components/dashboard/date-range-filter';
+import { OrderItemImage } from '@/components/dashboard/order-item-image';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,16 +85,6 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
     });
   };
 
-  const stats = useMemo(() => ({
-    total: orders.length,
-    paid: orders.filter(isCollectedOrder).length,
-    pending: orders.filter((order) => ['pending', 'placed'].includes(order.orderStatus)).length,
-    shipped: orders.filter((order) => ['shipped', 'delivered'].includes(order.orderStatus)).length,
-    cancelled: orders.filter((order) => order.orderStatus === 'cancelled').length,
-    refundAction: orders.filter((order) => ['required', 'failed'].includes(order.cancellation?.refundStatus ?? '')).length,
-    revenue: orders.filter(isCollectedOrder).reduce((sum, order) => sum + order.total, 0)
-  }), [orders]);
-
   const filteredOrders = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return orders.filter((order) => {
@@ -101,6 +92,16 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
       return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || order.orderStatus === statusFilter) && (paymentFilter === 'all' || order.paymentStatus === paymentFilter) && (paymentModeFilter === 'all' || order.paymentMode === paymentModeFilter) && isInDateRange(order.createdAt, dateRange);
     });
   }, [dateRange, orders, paymentFilter, paymentModeFilter, query, statusFilter]);
+
+  const stats = useMemo(() => ({
+    total: filteredOrders.length,
+    paid: filteredOrders.filter(isCollectedOrder).length,
+    pending: filteredOrders.filter((order) => ['pending', 'placed'].includes(order.orderStatus)).length,
+    shipped: filteredOrders.filter((order) => ['shipped', 'delivered'].includes(order.orderStatus)).length,
+    cancelled: filteredOrders.filter((order) => order.orderStatus === 'cancelled').length,
+    refundAction: filteredOrders.filter((order) => ['required', 'failed'].includes(order.cancellation?.refundStatus ?? '')).length,
+    revenue: filteredOrders.filter(isCollectedOrder).reduce((sum, order) => sum + order.total, 0)
+  }), [filteredOrders]);
 
   const onUpdate = (order: OrderDto): void => {
     const id = orderId(order);
@@ -135,23 +136,22 @@ export function OrderManager({ orders, isLoading, view, onViewChange }: OrderMan
       <SelectField label="Payment mode" value={paymentModeFilter} onChange={(event) => setPaymentModeFilter(event.target.value as (typeof paymentModes)[number])} options={paymentModes.map((value) => ({ value, label: value === 'all' ? 'All methods' : value }))} />
     </AdminFilters>
 
-    <AdminDataTable minWidth={1180}>
-      <thead className="text-xs uppercase tracking-[0.12em] text-text-secondary"><tr><th className="border-b border-border p-4">Order</th><th className="border-b border-border p-4">Customer</th><th className="border-b border-border p-4">Items</th><th className="border-b border-border p-4">Payment</th><th className="border-b border-border p-4">Fulfilment</th><th className="border-b border-border p-4">Value</th><th className="border-b border-border p-4">Update</th><th className="border-b border-border p-4">Actions</th></tr></thead>
-      <tbody>{isLoading ? <tr><td className="p-4 text-text-secondary" colSpan={8}>{COPY.common.loading}</td></tr> : filteredOrders.map((order) => {
+    <AdminDataTable minWidth={990}>
+      <thead className="text-xs uppercase tracking-[0.12em] text-text-secondary"><tr><th className="border-b border-border p-4">Order</th><th className="border-b border-border p-4">Customer</th><th className="border-b border-border p-4">Items</th><th className="border-b border-border p-4">Payment</th><th className="border-b border-border p-4">Fulfilment</th><th className="border-b border-border p-4">Value</th><th className="border-b border-border p-4">Actions</th></tr></thead>
+      <tbody>{isLoading ? <tr><td className="p-4 text-text-secondary" colSpan={7}>{COPY.common.loading}</td></tr> : filteredOrders.map((order) => {
         const id = orderId(order);
         const status = statusesById[id] ?? order.orderStatus;
         const itemCount = order.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
         return <tr key={id} className="border-b border-border-subtle align-top transition hover:bg-background-overlay/60">
           <td className="p-4">{order.archivedAt ? <span className="mb-2 inline-flex border border-warning/60 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-warning">Archived</span> : null}<Link className="block break-all font-mono text-text-primary hover:text-accent-gold" href={'/orders/' + id}>{orderLabel(order)}</Link><p className="mt-2 text-xs text-text-muted">{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : 'No date'}</p></td>
           <td className="p-4 text-text-secondary"><p className="text-text-primary">{order.shippingAddress?.fullName ?? 'Guest'}</p><p className="mt-1 text-xs">{order.shippingAddress?.phone ?? 'No phone'}</p><p className="mt-1 text-xs">{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(', ')}</p></td>
-          <td className="p-4 text-text-secondary"><p className="text-text-primary">{itemCount} items</p><p className="mt-1 max-w-72 truncate text-xs">{order.items?.map((item) => item.title + ' x' + item.quantity).join(', ') || 'No items'}</p>{order.couponCode ? <p className="mt-1 font-mono text-xs text-accent-gold">{order.couponCode}</p> : null}</td>
+          <td className="p-4 text-text-secondary"><p className="text-text-primary">{itemCount} items</p><p className="mt-1 max-w-72 truncate text-xs">{order.items?.map((item) => item.title + ' x' + item.quantity).join(', ') || 'No items'}</p>{order.items?.length ? <div className="mt-2 flex flex-wrap gap-1">{order.items.map((item, index) => <OrderItemImage key={index} image={item.image} title={[item.title, item.color].filter(Boolean).join(' · ')} catalogue={item.imageSource === 'catalogue'} />)}</div> : null}{order.couponCode ? <p className="mt-1 font-mono text-xs text-accent-gold">{order.couponCode}</p> : null}</td>
           <td className="p-4"><StatusPill tone={isCollectedOrder(order) ? 'success' : order.paymentStatus === 'failed' ? 'danger' : 'warning'}>{order.paymentStatus.replaceAll('_', ' ')}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.paymentMode ?? order.paymentMethod ?? 'payment'} · paid {formatPrice(order.amountPaid ?? 0)} · due {formatPrice(order.orderStatus === 'cancelled' ? 0 : order.amountDue ?? order.total)}</p><p className="mt-1 max-w-48 truncate font-mono text-[10px] text-text-muted">{order.razorpayPaymentId ?? ''}</p></td>
           <td className="p-4"><StatusPill tone={order.orderStatus === 'cancelled' ? 'danger' : order.orderStatus === 'delivered' ? 'success' : 'warning'}>{order.orderStatus}</StatusPill><p className="mt-2 text-xs text-text-muted">{order.trackingNumber ?? 'No tracking'}</p>{order.cancellation ? <div className="mt-3 max-w-52 border-l-2 border-danger pl-2 text-xs"><p className="text-text-primary">{order.cancellation.reason}</p>{order.cancellation.details ? <p className="mt-1 line-clamp-2 text-text-muted">{order.cancellation.details}</p> : null}<p className="mt-1 uppercase tracking-[0.08em] text-danger">Refund {order.cancellation.refundStatus.replaceAll('_', ' ')}</p></div> : null}</td>
           <td className="p-4 font-mono text-accent-gold">{formatPrice(order.total)}<p className="mt-1 text-xs text-text-muted">Discount {formatPrice(order.discount ?? 0)}</p></td>
-          <td className="p-4"><div className="grid min-w-56 gap-2"><SelectField label={'Status for order ' + id} options={statusOptionsFor(order.orderStatus as OrderStatus)} value={status} onChange={(event) => setStatusesById((current) => ({ ...current, [id]: event.target.value as OrderStatus }))} /><Input label={'Tracking for order ' + id} value={tracking[id] ?? order.trackingNumber ?? ''} onChange={(event) => setTracking((current) => ({ ...current, [id]: event.target.value }))} /><Input label={'Admin note for order ' + id} value={notes[id] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div></td>
-          <td className="p-4"><div className="grid gap-2"><Button aria-label={'Update order ' + id} onClick={() => onUpdate(order)} disabled={updateStatus.isPending}><PackageCheck size={15} className="mr-2" />Update</Button><Link aria-label={'View order ' + id} href={'/orders/' + id} className="inline-flex h-11 items-center justify-center border border-border px-6 text-xs font-medium uppercase tracking-[0.08em] text-text-primary transition hover:border-border-strong"><Eye size={15} className="mr-2" />View</Link>{order.archivedAt ? <Button aria-label={'Restore order ' + id} variant="secondary" onClick={() => restoreOrder(order)} disabled={management.isPending}><RotateCcw size={15} className="mr-2" />Restore</Button> : <Button aria-label={'Archive order ' + id} variant="secondary" onClick={() => archiveOrder(order)} disabled={management.isPending}><Archive size={15} className="mr-2" />Archive</Button>}<Button aria-label={'Delete order ' + id} variant="danger" onClick={() => void inspectDelete(order)} disabled={management.isPending}><Trash2 size={15} className="mr-2" />Delete</Button><Button aria-label={'Details for order ' + id} variant="secondary" onClick={() => setSelectedOrder(order)}><Eye size={15} className="mr-2" />Quick details</Button></div></td>
+          <td className="min-w-48 p-4"><AdminDisclosure label="Order actions" accessibleLabel={`Order actions for ${orderLabel(order)}`}><div className="grid min-w-52 gap-2"><SelectField label={'Status for order ' + id} options={statusOptionsFor(order.orderStatus as OrderStatus)} value={status} onChange={(event) => setStatusesById((current) => ({ ...current, [id]: event.target.value as OrderStatus }))} /><Input label={'Tracking for order ' + id} value={tracking[id] ?? order.trackingNumber ?? ''} onChange={(event) => setTracking((current) => ({ ...current, [id]: event.target.value }))} /><Input label={'Admin note for order ' + id} value={notes[id] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [id]: event.target.value }))} /></div><div className="grid gap-2"><Button aria-label={'Update order ' + id} onClick={() => onUpdate(order)} disabled={updateStatus.isPending}><PackageCheck size={15} className="mr-2" />Update</Button><Link aria-label={'View order ' + id} href={'/orders/' + id} className="inline-flex h-11 items-center justify-center border border-border px-6 text-xs font-medium uppercase tracking-[0.08em] text-text-primary transition hover:border-border-strong"><Eye size={15} className="mr-2" />View</Link>{order.archivedAt ? <Button aria-label={'Restore order ' + id} variant="secondary" onClick={() => restoreOrder(order)} disabled={management.isPending}><RotateCcw size={15} className="mr-2" />Restore</Button> : <Button aria-label={'Archive order ' + id} variant="secondary" onClick={() => archiveOrder(order)} disabled={management.isPending}><Archive size={15} className="mr-2" />Archive</Button>}<Button aria-label={'Delete order ' + id} variant="danger" onClick={() => void inspectDelete(order)} disabled={management.isPending}><Trash2 size={15} className="mr-2" />Delete</Button><Button aria-label={'Details for order ' + id} variant="secondary" onClick={() => setSelectedOrder(order)}><Eye size={15} className="mr-2" />Quick details</Button></div></AdminDisclosure></td>
         </tr>;
-      })}{!isLoading && filteredOrders.length === 0 ? <tr><td colSpan={8} className="p-8 text-center text-text-muted">{orders.length === 0 ? COPY.orders.empty : 'No orders match these filters.'}</td></tr> : null}</tbody>
+      })}{!isLoading && filteredOrders.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-text-muted">{orders.length === 0 ? COPY.orders.empty : 'No orders match these filters.'}</td></tr> : null}</tbody>
     </AdminDataTable>
 
     {selectedOrder ? <OrderDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} /> : null}
@@ -169,7 +169,7 @@ function OrderDrawer({ order, onClose }: { order: OrderDto; onClose: () => void 
           <AdminCard compact><h3 className="text-text-primary">Payment</h3><p className="mt-3 text-sm text-text-secondary">{order.paymentMethod} · {order.paymentStatus}</p><p className="mt-2 font-mono text-accent-gold">{formatPrice(order.total)}</p><p className="mt-1 text-xs text-text-muted">Subtotal {formatPrice(order.subtotal ?? 0)} · Tax {formatPrice(order.tax ?? 0)} · Shipping {formatPrice(order.shipping ?? 0)}</p></AdminCard>
         </div>
         {order.cancellation ? <AdminCard className="mt-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-[0.14em] text-danger">Cancellation request</p><h3 className="mt-2 text-text-primary">{order.cancellation.reason}</h3></div><StatusPill tone={['required', 'failed'].includes(order.cancellation.refundStatus) ? 'danger' : order.cancellation.refundStatus === 'refunded' || order.cancellation.refundStatus === 'not_required' ? 'success' : 'warning'}>Refund {order.cancellation.refundStatus.replaceAll('_', ' ')}</StatusPill></div>{order.cancellation.details ? <p className="mt-3 text-sm leading-6 text-text-secondary">{order.cancellation.details}</p> : null}<p className="mt-3 text-xs text-text-muted">Requested by {order.cancellation.requestedBy} · {new Date(order.cancellation.cancelledAt).toLocaleString('en-IN')}</p><Link href={'/orders/' + orderId(order)} className="mt-4 inline-flex h-10 items-center border border-border px-4 text-xs uppercase tracking-[0.1em] text-text-primary transition hover:border-accent-gold">Review & refund</Link></AdminCard> : null}
-        <AdminCard className="mt-4"><h3 className="text-text-primary">Items</h3><div className="mt-4 grid gap-3">{order.items?.map((item) => <div key={item.sku + item.title} className="grid gap-3 border border-border bg-background-elevated p-3 sm:grid-cols-[56px_1fr_auto]"><img src={item.image} alt={`${item.title}${item.color ? ` — ${item.color}` : ''}`} className="h-14 w-14 object-cover" /><div><p className="text-sm text-text-primary">{item.title}</p><p className="mt-1 text-xs text-text-secondary">{[item.color, item.size].filter(Boolean).join(' / ') || 'Legacy order'}</p><p className="font-mono text-xs text-text-muted">{item.sku}</p></div><p className="font-mono text-sm text-accent-gold">{item.quantity} x {formatPrice(item.price)}</p></div>)}</div></AdminCard>
+        <AdminCard className="mt-4"><h3 className="text-text-primary">Items</h3><div className="mt-4 grid gap-3">{order.items?.map((item) => <div key={item.sku + item.title} className="grid gap-3 border border-border bg-background-elevated p-3 sm:grid-cols-[56px_1fr_auto]"><OrderItemImage image={item.image} title={[item.title, item.color].filter(Boolean).join(' · ')} catalogue={item.imageSource === 'catalogue'} /><div><p className="text-sm text-text-primary">{item.title}</p><p className="mt-1 text-xs text-text-secondary">{[item.color, item.size].filter(Boolean).join(' / ') || 'Legacy order'}</p><p className="font-mono text-xs text-text-muted">{item.sku}</p></div><p className="font-mono text-sm text-accent-gold">{item.quantity} x {formatPrice(item.price)}</p></div>)}</div></AdminCard>
         <AdminCard className="mt-4"><h3 className="flex items-center gap-2 text-text-primary"><Truck size={16} />Timeline</h3><div className="mt-4 grid gap-3">{(order.timeline ?? []).map((event, index) => <div key={index} className="border-l border-accent-gold pl-4"><p className="text-sm text-text-primary">{event.status}</p><p className="text-xs text-text-muted">{new Date(event.timestamp).toLocaleString('en-IN')}</p>{event.note ? <p className="mt-1 text-sm text-text-secondary">{event.note}</p> : null}</div>)}</div></AdminCard>
       </div>
     </div>

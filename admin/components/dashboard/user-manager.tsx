@@ -5,6 +5,7 @@ import { Eye, Search, ShieldCheck, ShoppingBag, UserRound, X } from 'lucide-reac
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { AdminCard, AdminDataTable, AdminFilters, AdminStat, AdminStatsGrid } from '@/components/dashboard/admin-ui';
+import { CustomerAccess } from '@/components/dashboard/customer-access';
 import { EmptyPanel } from '@/components/dashboard/empty-panel';
 import { StatusPill } from '@/components/dashboard/status-pill';
 import { Button } from '@/components/ui/button';
@@ -169,6 +170,7 @@ function UserDetailDrawer({ user, onClose }: { user: UserDto; onClose: () => voi
           <DetailCard label="Last login" value={formatDate(user.lastLogin)} helper={user.isVerified ? 'Email verified' : 'Email not verified'} />
           <DetailCard label="Latest payment" value={user.lastPaymentStatus ?? 'None'} helper={user.lastOrderTotal ? formatCurrency(user.lastOrderTotal) : 'No paid order recorded'} />
         </div>
+        {user.role === 'customer' && user.isActive && user.phone && <CustomerAccess key={userId(user)} customerId={userId(user)} />}
         <AdminCard className="mt-5">
           <h3 className="font-display text-xl text-text-primary">Customer operations</h3>
           <dl className="mt-4 grid gap-3 text-sm">

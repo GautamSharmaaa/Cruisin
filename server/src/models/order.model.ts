@@ -65,6 +65,22 @@ const cancellationSchema = new Schema({
   refundAmount: { type: Number, min: 0, default: 0 }
 }, { _id: false });
 
+const metaAttributionSchema = new Schema({
+  pixelId: { type: String, required: true },
+  consentRef: { type: String, required: true },
+  expiresAt: { type: Date, required: true },
+  clientUserAgent: { type: String, required: true },
+  clientIp: String,
+  fbp: String,
+  fbc: String
+}, { _id: false });
+
+const metaPurchaseSchema = new Schema({
+  eventId: { type: String, required: true },
+  pixelId: { type: String, required: true },
+  confirmedAt: { type: Date, required: true }
+}, { _id: false });
+
 const orderSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
@@ -77,6 +93,9 @@ const orderSchema = new Schema(
     checkoutIdempotencyKey: { type: String, trim: true },
     checkoutRequestHash: { type: String, trim: true },
     checkoutCartVersion: { type: Number, min: 0 },
+    metaAttribution: { type: metaAttributionSchema, select: false },
+    metaPurchase: { type: metaPurchaseSchema },
+    metaPurchasePending: { type: Boolean, select: false },
     metaCheckoutEventId: { type: String, trim: true, sparse: true, index: true },
     paymentMethod: { type: String, enum: ['razorpay', 'stripe', 'cod'], required: true },
     paymentMode: { type: String, enum: ['online', 'cod', 'partial'], default: 'online', index: true },
@@ -126,6 +145,14 @@ const orderSchema = new Schema(
   { timestamps: true }
 );
 
+const removePrivateMeta = (_document: unknown, result: Record<string, unknown>): Record<string, unknown> => {
+  delete result.metaAttribution;
+  delete result.metaPurchasePending;
+  return result;
+};
+orderSchema.set('toJSON', { transform: removePrivateMeta });
+orderSchema.set('toObject', { transform: removePrivateMeta });
+
 orderSchema.index({ createdAt: -1, orderStatus: 1 });
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ createdAt: -1, paymentStatus: 1, orderStatus: 1 });
@@ -135,6 +162,15 @@ orderSchema.index(
   { unique: true, partialFilterExpression: { checkoutIdempotencyKey: { $type: 'string' } } }
 );
 orderSchema.index({ stockReserved: 1, stockReservationExpiresAt: 1, paymentStatus: 1 });
+
+orderSchema.index(
+  { 'metaPurchase.pixelId': 1, 'metaPurchase.confirmedAt': 1 },
+  { partialFilterExpression: { metaPurchasePending: true } }
+);
+orderSchema.index(
+  { 'metaAttribution.expiresAt': 1 },
+  { partialFilterExpression: { 'metaAttribution.expiresAt': { $exists: true } } }
+);
 
 orderSchema.index({stockReserved:1,orderStatus:1,"items.variant":1});
 

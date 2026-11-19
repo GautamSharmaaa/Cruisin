@@ -1,3 +1,5 @@
+import type { StorefrontLinks } from '@cruisin/contracts/storefront-links';
+import type { FooterAppearance } from '@cruisin/contracts/footer-appearance';
 import type {StorefrontExperience} from '@cruisin/contracts/storefront-experience';
 // Governed by .rules v1.0
 export interface UserDto {
@@ -298,6 +300,9 @@ export interface PageSettingsDto {
 
 export interface SiteSettingsDto {
   storefrontExperience?:StorefrontExperience;
+  footerAppearance?: FooterAppearance;
+  storefrontLinks?: StorefrontLinks;
+  cruisinRingFinish?: 'chrome' | 'color';
   cruisinRingColorLight?: string;
   cruisinRingColorDark?: string;
   id?: string;
@@ -395,7 +400,7 @@ export interface OrderDto {
   orderNumber?: string;
   user?: string;
   sessionId?: string;
-  items?: Array<{ title: string; sku: string; size?: string; color?: string; quantity: number; price: number; unitCostBreakdown?: { manufacturing?: number; packaging?: number; marketing?: number; handling?: number; other?: number }; unitCostTotal?: number; image?: string }>;
+  items?: Array<{ title: string; sku: string; size?: string; color?: string; quantity: number; price: number; unitCostBreakdown?: { manufacturing?: number; packaging?: number; marketing?: number; handling?: number; other?: number }; unitCostTotal?: number; image?: string; imageSource?: 'catalogue' }>;
   shippingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   billingAddress?: { fullName?: string; phone?: string; line1?: string; line2?: string; city?: string; state?: string; postalCode?: string; country?: string };
   paymentMethod?: 'razorpay' | 'stripe' | 'cod';
@@ -628,6 +633,19 @@ export interface AdminAnalyticsPointDto {
   prepaidOrders: number;
 }
 
+export interface AdminSalesTrendPointDto {
+  period: string;
+  pendingCod: number;
+  paidValue: number;
+  totalRevenue: number;
+  unitsSold: number;
+}
+
+export interface AdminSalesTrendDto {
+  granularity: 'hour' | 'day' | 'month';
+  points: AdminSalesTrendPointDto[];
+}
+
 export interface AdminAnalyticsSummaryDto {
   range: {
     startDate: string;
@@ -638,6 +656,7 @@ export interface AdminAnalyticsSummaryDto {
     includeTestOrders?: boolean;
   };
   generatedAt: string;
+  salesTrend: AdminSalesTrendDto;
   summary: {
     totalOrders: number;
     paidOrders: number;
@@ -707,4 +726,16 @@ export interface ProfitabilityAnalyticsDto {
   generatedAt: string; filenameLabel: string;
   summary: { orders: number; lines: number; collectedRevenue: number; pendingCod: number; codFees: number; returnFees: number; exchangeFees: number; productCosts: number; logisticsCosts: number; refunds: number; netProfit: number; missingCostLines: number };
   rows: ProfitabilityRowDto[];
+}
+
+export interface AdminStorefrontActivityDto {
+  startDate: string;
+  endDate: string;
+  granularity: 'hour' | 'day' | 'month';
+  visits: number;
+  customersSignedIn: number;
+  bagVisitors: number;
+  mobileVisits: number;
+  desktopVisits: number;
+  series: Array<{ bucket: string; mobileVisits: number; desktopVisits: number; bagVisitors: number }>;
 }

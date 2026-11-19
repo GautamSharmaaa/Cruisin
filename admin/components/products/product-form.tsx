@@ -37,6 +37,7 @@ import {
 } from "@/components/dashboard/admin-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductSizeChartEditor } from "./product-size-chart-editor";
 import { SelectField } from "@/components/ui/select-field";
 import { PRODUCT_FORM_DEFAULTS } from "@/constants/config";
 import { COPY } from "@/constants/copy";
@@ -47,6 +48,7 @@ import {
 } from "@/hooks/useAdminMutations";
 import {
   useAdminCategories,
+  useAdminProducts,
   useAdminCollections,
   useAdminTags,
 } from "@/hooks/useAdminResources";
@@ -68,7 +70,7 @@ export interface ProductFormProps {
 
 type ProductFormValues = z.infer<typeof adminProductSchema>;
 type FormTab =
-  "basic" | "media" | "pricing" | "inventory" | "taxonomy" | "shipping" | "seo";
+  "basic" | "media" | "pricing" | "inventory" | "taxonomy" | "size-guide" | "shipping" | "seo";
 interface CloudinaryUploadResponse {
   secure_url?: string;
 }
@@ -79,6 +81,7 @@ const tabs: Array<{ value: FormTab; label: string; helper?: string }> = [
   { value: "pricing", label: "Pricing", helper: "MRP and sale" },
   { value: "inventory", label: "Inventory", helper: "SKU and stock" },
   { value: "taxonomy", label: "Categorization", helper: "Categories and tags" },
+  { value: "size-guide", label: "Size guide", helper: "Measurements and chart link" },
   { value: "shipping", label: "Shipping", helper: "Package data" },
   { value: "seo", label: "SEO", helper: "Search preview" },
 ];
@@ -241,6 +244,10 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
   const collections = useAdminCollections();
   const tags = useAdminTags();
   const [activeTab, setActiveTab] = useState<FormTab>("basic");
+  useEffect(() => {
+    if (window.location.hash === "#product-variants") setActiveTab("inventory");
+  }, []);
+
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -1056,7 +1063,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
                       <div className="flex items-center gap-3">
                         <span
                           aria-hidden="true"
-                          className="h-10 w-10 rounded-full border border-border shadow-inner"
+                          className="h-10 w-10 border border-border shadow-inner"
                           style={{ backgroundColor: color.hex }}
                         />
                         <div>
@@ -1206,7 +1213,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
             </div>
           ) : null}
 
-          <div className="grid gap-4">
+          <div id="product-variants" className="grid scroll-mt-24 gap-4">
             {variantFields.map((field, index) => {
               const current = watchedVariants[index];
               const variantError = formState.errors.variants?.[index];
@@ -1228,7 +1235,7 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
                     <div className="flex min-w-0 items-center gap-3">
                       <span
                         aria-hidden="true"
-                        className="h-10 w-10 shrink-0 rounded-full border border-border shadow-inner"
+                        className="h-10 w-10 shrink-0 border border-border shadow-inner"
                         style={{
                           backgroundColor:
                             current?.colorHex || PRODUCT_FORM_DEFAULTS.colorHex,
@@ -1463,6 +1470,12 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
         </AdminFormSection>
       ) : null}
 
+      {activeTab === "size-guide" && <AdminFormSection title="Product size guide" description="Edit the measurement table for this product. Put units in the column headings.">
+        <ProductSizeChartEditor value={watch("sizeGuide") ?? ""} error={formState.errors.sizeGuide?.message}
+          onChange={guide => setValue("sizeGuide", guide, { shouldDirty: true, shouldValidate: true })} />
+        <SimilarSizeGuide category={watch("category")} productId={productId} onCopy={guide => setValue("sizeGuide", guide, { shouldDirty: true, shouldValidate: true })} />
+      </AdminFormSection>}
+
       {activeTab === "shipping" ? (
         <AdminFormSection
           title="Shipping & Attributes"
@@ -1544,11 +1557,6 @@ export function ProductForm({ product }: ProductFormProps): ReactNode {
             label="Shipping & returns"
             error={formState.errors.shippingReturns?.message}
             {...register("shippingReturns")}
-          />
-          <Input
-            label="Size guide"
-            error={formState.errors.sizeGuide?.message}
-            {...register("sizeGuide")}
           />
         </AdminFormSection>
       ) : null}
@@ -1689,4 +1697,31 @@ function SelectorGroup({
       </div>
     </div>
   );
+}
+
+interface SimilarSizeGuideProps {
+  category: string;
+  productId?: string;
+  onCopy: (guide: string) => void;
+}
+
+function SimilarSizeGuide({ category, productId, onCopy }: SimilarSizeGuideProps): ReactNode {
+  if (!category) return <p className="text-sm text-text-secondary">Choose a primary category to copy a guide from a similar product.</p>;
+  return <SimilarSizeGuidePicker key={category} category={category} productId={productId} onCopy={onCopy} />;
+}
+
+function SimilarSizeGuidePicker({ category, productId, onCopy }: SimilarSizeGuideProps): ReactNode {
+  const products = useAdminProducts({ category, limit: 100 });
+  const [source, setSource] = useState("");
+  const [copied, setCopied] = useState(false);
+  const candidates = (products.data?.items ?? []).filter(item => (item.id ?? item._id) !== productId && item.sizeGuide?.trim());
+  const guide = candidates.find(item => (item.id ?? item._id) === source)?.sizeGuide;
+  return <div className="grid gap-2">
+    <SelectField label="Copy from a product in this category" value={source} onChange={event => { setSource(event.target.value); setCopied(false); }}
+      options={[{ label: products.isLoading ? "Loading similar products…" : candidates.length ? "Choose a product" : "No size guides found in this category", value: "" },
+        ...candidates.map(item => ({ label: item.title, value: item.id ?? item._id ?? "" }))]} />
+    <Button type="button" variant="secondary" disabled={!guide} onClick={() => { if (guide) { onCopy(guide); setCopied(true); } }}>Copy size guide</Button>
+    {copied && <p role="status" className="text-sm text-text-secondary">Guide copied into this product. Save the product to apply it.</p>}
+    {products.isError && <p role="alert" className="text-sm text-danger">Similar products could not be loaded.</p>}
+  </div>;
 }

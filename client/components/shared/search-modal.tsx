@@ -25,7 +25,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps): ReactNode
   const trackCompletedSearch = (): void => {
     const searchString = query.trim();
     if (!searchString) return;
-    trackSearch({ search_string: searchString, content_ids: results.flatMap((product) => { const variant = defaultCommerceVariant(product); return variant ? [variant.id] : []; }), num_results: results.length }, generateEventId('search'));
+    trackSearch({ content_ids: results.flatMap((product) => { const variant = defaultCommerceVariant(product); return variant ? [variant.id] : []; }), num_results: results.length }, generateEventId('search'));
   };
 
   const onSubmit = (event: FormEvent<HTMLFormElement>): void => {

@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import { DEFAULT_STOREFRONT_LINKS, storefrontLinksSchema } from '@cruisin/contracts/storefront-links';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { ApiEnvelope, PaginatedResult } from '@/types/api.types';
@@ -53,6 +54,11 @@ export const useSiteSettings = () => useQuery({
     return response.data.data;
   }
 });
+
+export function useStorefrontLinks() {
+  const settings = useSiteSettings();
+  return storefrontLinksSchema.safeParse(settings.data?.storefrontLinks ?? {}).data ?? DEFAULT_STOREFRONT_LINKS;
+}
 
 export const usePromotionExperience = () => useQuery({
   queryKey: ['promotion-experience'],

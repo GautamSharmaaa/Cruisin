@@ -38,8 +38,8 @@ export function AccountMenu(_props: AccountMenuProps): ReactNode {
 
   return <>
     <div ref={containerRef} className="relative">
-      <button type="button" aria-label={COPY.nav.account} aria-expanded={compact&&!user?undefined:open} aria-haspopup={compact&&!user?'dialog':'menu'} className={'flex h-11 items-center justify-center gap-2 text-text-secondary transition hover:bg-background-elevated hover:text-text-primary ' + (user ? 'w-11' : 'px-3')} onClick={()=>{if(compact&&!user){setOpen(false);openMobileAuth({next:pathname});return;}setOpen(current=>!current);}}>
-        <User size={18} />{!user ? <span className="hidden text-xs uppercase tracking-[0.1em] md:inline">{COPY.auth.signIn}</span> : null}
+      <button type="button" aria-label={COPY.nav.account} aria-expanded={compact&&!user?undefined:open} aria-haspopup={compact&&!user?'dialog':'menu'} className={'flex h-11 items-center justify-center gap-2 text-current hover:bg-background-elevated ' + (user ? 'w-11' : 'px-3')} onClick={()=>{if(compact&&!user){setOpen(false);openMobileAuth({next:pathname});return;}setOpen(current=>!current);}}>
+        <User className="storefront-header-glyph" size={24} strokeWidth={1.5} />{!user ? <span className="hidden text-xs uppercase tracking-[0.1em] md:inline">{COPY.auth.signIn}</span> : null}
       </button>
       {open ? <div role="menu" className="minimal-account-menu absolute right-0 top-14 w-64 border border-border bg-background-elevated p-2 shadow-lg">
         <p className="border-b border-border px-4 py-3 font-accent text-xs uppercase tracking-[0.15em] text-accent-gold">{user ? user.name : COPY.auth.privateAccess}</p>

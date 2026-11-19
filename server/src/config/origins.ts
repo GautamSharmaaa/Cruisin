@@ -13,7 +13,15 @@ const expandLoopbackOrigin = (origin: string): string[] => {
   }
 };
 
-export const allowedBrowserOrigins = Array.from(new Set([env.CLIENT_URL, env.ADMIN_URL, env.EMPLOYEE_URL].flatMap(expandLoopbackOrigin)));
 export const adminBrowserOrigins = Array.from(new Set(expandLoopbackOrigin(env.ADMIN_URL)));
 
 export const employeeBrowserOrigins = expandLoopbackOrigin(env.EMPLOYEE_URL);
+
+export const storefrontBrowserOrigins = expandLoopbackOrigin(new URL(env.CLIENT_URL).origin);
+
+export const allowedBrowserOrigins = Array.from(new Set([
+  ...expandLoopbackOrigin(env.CLIENT_URL),
+  ...adminBrowserOrigins,
+  ...employeeBrowserOrigins,
+  ...(env.STOREFRONT_ORIGIN_ALIAS ? [env.STOREFRONT_ORIGIN_ALIAS] : [])
+]));

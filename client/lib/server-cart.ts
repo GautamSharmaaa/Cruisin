@@ -89,7 +89,8 @@ export const enqueueCartMutation = (
   mutation: CartMutation,
   getVersion: () => number,
   apply: (cart: ServerCart) => void,
-  setSyncState: (state: 'syncing' | 'idle' | 'error', error?: string) => void
+  setSyncState: (state: 'syncing' | 'idle' | 'error', error?: string) => void,
+  onConfirmed?: () => void
 ): void => {
   mutationTail = mutationTail.then(async () => {
     setSyncState('syncing');
@@ -106,6 +107,7 @@ export const enqueueCartMutation = (
       apply(result);
       latestMutationError = undefined;
       setSyncState('idle');
+      try { onConfirmed?.(); } catch { /* Reporting cannot change a confirmed bag. */ }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bag could not be synchronized';
       latestMutationError = error instanceof Error ? error : new Error(message);

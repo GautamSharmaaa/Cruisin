@@ -4,6 +4,10 @@
   "private": true,
   "exports": {
     ".": "./src/index.tsx",
+    "./metallic-paint": {
+      "types": "./src/metallic-paint/metallic-paint.d.ts",
+      "default": "./src/metallic-paint/metallic-paint.js"
+    },
     "./styles.css": "./src/styles.css",
     "./copy": "./src/constants/copy.ts"
   },

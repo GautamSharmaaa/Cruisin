@@ -28,9 +28,23 @@ export interface AnalyticsSummaryRange {
   includeTestOrders?: boolean;
 }
 
+export interface SalesTrendPoint {
+  period: string;
+  pendingCod: number;
+  paidValue: number;
+  totalRevenue: number;
+  unitsSold: number;
+}
+
+export interface SalesTrend {
+  granularity: 'hour' | 'day' | 'month';
+  points: SalesTrendPoint[];
+}
+
 export interface AnalyticsSummary {
   range: AnalyticsSummaryRange;
   generatedAt: string;
+  salesTrend: SalesTrend;
   summary: {
     totalOrders: number;
     paidOrders: number;
@@ -139,6 +153,14 @@ export const isBusinessOrder = (order: OrderLike): boolean => {
   return ['confirmed', 'processing', 'shipped', 'delivered', 'returned'].includes(order.orderStatus);
 };
 
+const bookedRevenueFor = (orders: readonly OrderLike[]): number =>
+  roundMoney(orders.reduce((sum, order) => sum + order.total - refundFor(order), 0));
+
+const unitsSoldFor = (orders: readonly OrderLike[]): number =>
+  orders.reduce((sum, order) => isRevenueEligible(order)
+    ? sum + order.items.reduce((quantity, item) => quantity + item.quantity, 0)
+    : sum, 0);
+
 const outstandingFor = (orders: OrderLike[]): { cod: number; partial: number; total: number } => {
   const cod = codCollectionSummary(orders).pendingAmount;
   const partial = roundMoney(orders.filter((order) => order.paymentMode === 'partial' && order.paymentStatus === 'partially_paid').reduce((sum, order) => sum + (order.amountDue ?? Math.max(0, order.total - (order.amountPaid ?? 0))), 0));
@@ -184,7 +206,7 @@ const summarizeOrders = (orders: OrderLike[], users: AnalyticsUserLike[], start:
     customers: orderUsers.size,
     newCustomers: relevantUsers.filter((user) => user.createdAt >= start && user.createdAt <= end).length,
     returningCustomers: relevantUsers.filter((user) => (orderCountsByUser.get(objectId(user._id)) ?? 0) > 1 || user.createdAt < start).length,
-    unitsSold: businessOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.items.reduce((lineSum, item) => lineSum + item.quantity, 0), 0),
+    unitsSold: unitsSoldFor(businessOrders),
     refunds: roundMoney(businessOrders.reduce((sum, order) => sum + refundFor(order), 0))
   };
   summary.averageOrderValue = summary.paidOrders > 0 ? roundMoney(summary.grossRevenue / summary.paidOrders) : 0;
@@ -193,14 +215,21 @@ const summarizeOrders = (orders: OrderLike[], users: AnalyticsUserLike[], start:
 
 const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): AnalyticsSummary['revenueByDay'] => {
   const rows: AnalyticsSummary['revenueByDay'] = [];
+  const ordersByDay = new Map<string, OrderLike[]>();
+  for (const order of orders.filter(isBusinessOrder)) {
+    const day = formatIstDay(order.createdAt);
+    const bucket = ordersByDay.get(day);
+    if (bucket) bucket.push(order);
+    else ordersByDay.set(day, [order]);
+  }
   for (let day = startDate; day <= endDate; day = addIstDays(day, 1)) {
-    const dayOrders = orders.filter((order) => isBusinessOrder(order) && formatIstDay(order.createdAt) === day);
+    const dayOrders = ordersByDay.get(day) ?? [];
     const codOrders = dayOrders.filter((order) => order.paymentMode === 'cod');
     rows.push({
       day,
       grossRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + collectedFor(order), 0)),
       netRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + netRevenueFor(order), 0)),
-      totalRevenue: roundMoney(dayOrders.reduce((sum, order) => sum + order.total - refundFor(order), 0)),
+      totalRevenue: bookedRevenueFor(dayOrders),
       discounts: roundMoney(dayOrders.filter(isRevenueEligible).reduce((sum, order) => sum + order.discount, 0)),
       refunds: roundMoney(dayOrders.reduce((sum, order) => sum + refundFor(order), 0)),
       orders: dayOrders.length,
@@ -213,12 +242,59 @@ const dailyRevenue = (orders: OrderLike[], startDate: string, endDate: string): 
   return rows;
 };
 
+const buildSalesTrend = (orders: readonly OrderLike[], range: AnalyticsSummaryRange, now = new Date()): SalesTrend => {
+  const hourMs = 3_600_000;
+  const start = startOfIstDay(range.startDate).getTime();
+  const days = (endOfIstDay(range.endDate).getTime() + 1 - start) / 86_400_000;
+  const granularity = range.preset === 'today' ? 'hour' : range.preset === 'thisYear' || days > 62 ? 'month' : 'day';
+  const hourLabel = (hour: number): string => String(hour).padStart(2, '0') + ':00';
+  const byPeriod = new Map<string, OrderLike[]>();
+
+  for (const order of orders) {
+    const day = granularity === 'hour' ? '' : formatIstDay(order.createdAt);
+    const period = granularity === 'hour' ? hourLabel(Math.floor((order.createdAt.getTime() - start) / hourMs))
+      : granularity === 'month' ? day.slice(0, 7) : day;
+    const bucket = byPeriod.get(period);
+    if (bucket) bucket.push(order);
+    else byPeriod.set(period, [order]);
+  }
+
+  const periods: string[] = [];
+  if (granularity === 'hour') {
+    const latestHour = Math.min(23, Math.max(0, Math.floor((now.getTime() - start) / hourMs)));
+    for (let hour = 0; hour <= latestHour; hour += 1) periods.push(hourLabel(hour));
+  } else if (granularity === 'month') {
+    const month = new Date(range.startDate.slice(0, 7) + '-01T00:00:00Z');
+    const last = range.endDate.slice(0, 7);
+    while (month.toISOString().slice(0, 7) <= last) {
+      periods.push(month.toISOString().slice(0, 7));
+      month.setUTCMonth(month.getUTCMonth() + 1);
+    }
+  } else {
+    for (let day = range.startDate; day <= range.endDate; day = addIstDays(day, 1)) periods.push(day);
+  }
+
+  return {
+    granularity,
+    points: periods.map(period => {
+      const bucket = byPeriod.get(period) ?? [];
+      return {
+        period,
+        pendingCod: codCollectionSummary(bucket).pendingAmount,
+        paidValue: roundMoney(bucket.reduce((sum, order) => sum + netRevenueFor(order), 0)),
+        totalRevenue: bookedRevenueFor(bucket),
+        unitsSold: unitsSoldFor(bucket)
+      };
+    })
+  };
+};
+
 const parseIsoDay = (value: unknown, field: string): string => {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new ApiError(400, field + ' must be YYYY-MM-DD');
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value || value < '2000-01-01' || value > '2100-12-31') throw new ApiError(400, field + ' must be YYYY-MM-DD');
   return value;
 };
 
-const analyticsRange = (query: Record<string, unknown>): AnalyticsSummaryRange => {
+export const analyticsRange = (query: Record<string, unknown>): AnalyticsSummaryRange => {
   const now = new Date();
   const today = formatIstDay(now);
   const preset = typeof query.preset === 'string' ? query.preset : 'last30';
@@ -232,6 +308,11 @@ const analyticsRange = (query: Record<string, unknown>): AnalyticsSummaryRange =
   const analyticsTestBatchId = typeof query.analyticsTestBatchId === 'string' && query.analyticsTestBatchId.trim() ? query.analyticsTestBatchId.trim() : undefined;
   const includeTestOrders = query.includeTestOrders === true || query.includeTestOrders === 'true';
   const base = { timezone: 'Asia/Kolkata' as const, preset, analyticsTestBatchId, includeTestOrders };
+  if (preset === 'thisWeek') {
+    const mondayOffset = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7;
+    return { startDate: addIstDays(today, -mondayOffset), endDate: today, ...base };
+  }
+  if (preset === 'thisYear') return { startDate: today.slice(0, 4) + '-01-01', endDate: today, ...base };
   if (preset === 'last7') return { startDate: addIstDays(today, -6), endDate: today, ...base };
   if (preset === 'today') return { startDate: today, endDate: today, ...base };
   if (preset === 'last30') return { startDate: addIstDays(today, -29), endDate: today, ...base };
@@ -374,6 +455,7 @@ export const AdminService = {
     return {
       range,
       generatedAt: new Date().toISOString(),
+      salesTrend: buildSalesTrend(businessOrders, range),
       summary,
       revenueByDay,
       comparison: { range: previousRange, summary: previousSummary, revenueByDay: previousRevenueByDay, outstanding: previousOutstanding },

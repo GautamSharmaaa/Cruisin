@@ -7,4 +7,5 @@ export interface AccessTokenPayload {
   userId: string;
   email: string;
   role: UserRole;
+  assisted?: { actorId: string; id: string };
 }

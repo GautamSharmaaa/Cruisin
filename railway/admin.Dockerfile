@@ -8,22 +8,27 @@ COPY package.json package-lock.json ./
 COPY admin/package.json ./admin/package.json
 COPY client/package.json ./client/package.json
 COPY server/package.json ./server/package.json
+COPY employee/package.json ./employee/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/operations-ui/package.json ./packages/operations-ui/package.json
 
 # The Next.js build requires development dependencies even when the deployed
 # service itself runs with NODE_ENV=production.
 RUN npm ci --include=dev
 
 COPY admin ./admin
+COPY packages ./packages
 
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_STOREFRONT_URL
-ARG NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-ARG NEXT_PUBLIC_CLOUDINARY_API_KEY
+ARG NEXT_PUBLIC_EMPLOYEE_URL
+ARG NEXT_PUBLIC_MEDIA_DELIVERY_ORIGIN
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_STOREFRONT_URL=$NEXT_PUBLIC_STOREFRONT_URL \
-    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=$NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME \
-    NEXT_PUBLIC_CLOUDINARY_API_KEY=$NEXT_PUBLIC_CLOUDINARY_API_KEY
+    NEXT_PUBLIC_EMPLOYEE_URL=$NEXT_PUBLIC_EMPLOYEE_URL \
+    NEXT_PUBLIC_MEDIA_DELIVERY_ORIGIN=$NEXT_PUBLIC_MEDIA_DELIVERY_ORIGIN
 
 RUN npm --workspace admin run build
 

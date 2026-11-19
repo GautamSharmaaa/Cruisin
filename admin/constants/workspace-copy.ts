@@ -1,0 +1,22 @@
+// Governed by .rules v1.0
+export const WORKSPACE_COPY = {
+  brand: 'Cruisin',
+  admin: 'Admin',
+  employee: 'Employee',
+  tabs: 'Cruisin workspaces',
+  navigation: 'Workspace navigation',
+  welcome: 'Welcome back',
+  operator: 'Cruisin team',
+  search: 'Search workspace',
+  searchPlaceholder: 'Search pages, products, orders…',
+  employeeSearchPlaceholder: 'Search employee tools…',
+  noResults: 'No matching results.',
+  notifications: 'Notifications',
+  emptyNotifications: 'You’re caught up.',
+  notificationsError: 'Notifications couldn’t load.',
+  markRead: 'Mark read',
+  allActivity: 'Employee activity',
+  openPortal: 'Open employee portal',
+  loading: 'Loading…',
+  close: 'Close',
+} as const;

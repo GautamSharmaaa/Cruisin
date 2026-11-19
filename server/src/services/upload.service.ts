@@ -20,7 +20,7 @@ const safeEqual = (left: string, right: string): boolean => {
   return crypto.timingSafeEqual(Buffer.from(left), Buffer.from(right));
 };
 
-const uploadBuffer = async (buffer: Buffer, customerId: string, file: Express.Multer.File): Promise<{publicId:string;version:number;format:string}> => {const asset=await MediaService.uploadCustomerEvidence({...file,buffer},customerId);return {publicId:`cruisin/returns/${customerId}/media_${asset.id}`,version:1,format:file.mimetype.split('/')[1]??'jpg'};};
+const uploadBuffer = async (buffer: Buffer, customerId: string, file: Express.Multer.File): Promise<{publicId:string;version:number;format:string;url:string}> => {const asset=await MediaService.uploadCustomerEvidence({...file,buffer},customerId);return {publicId:`cruisin/returns/${customerId}/media_${asset.id}`,version:1,format:file.mimetype.split('/')[1]??'jpg',url:returnEvidenceMediaUrl(asset.id)};};
 
 export const UploadService = {
   signature(_folder: string): {timestamp:number;signature:string;folder:string} {throw new ApiError(410,'Cloudinary uploads are read-only in V2; use the media API'); },
@@ -29,14 +29,16 @@ export const UploadService = {
     if (!file) throw new ApiError(400, 'Select a return photo to upload');
     if (!customerId) throw new ApiError(401, 'Sign in is required');
     const asset = env.NODE_ENV === 'test' && env.CLOUDINARY_CLOUD_NAME === 'logistics-e2e'
-      ? { publicId: `cruisin/returns/${customerId}/${crypto.randomUUID()}`, version: 1, format: file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg' }
+      ? {
+          publicId: `cruisin/returns/${customerId}/${crypto.randomUUID()}`,
+          version: 1,
+          format: file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg',
+          url: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+        }
       : await uploadBuffer(file.buffer, customerId, file);
     return {
       ...asset,
-      token: evidenceToken(customerId, asset.publicId, asset.version),
-      url: env.NODE_ENV === 'test' && env.CLOUDINARY_CLOUD_NAME === 'logistics-e2e'
-        ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
-        : this.returnEvidenceUrl(asset)
+      token: evidenceToken(customerId, asset.publicId, asset.version)
     };
   },
 
@@ -46,9 +48,10 @@ export const UploadService = {
     return { publicId: input.publicId, version: input.version, format: input.format };
   },
 
-  returnEvidenceUrl(input: { publicId: string; version: number; format: string }): string {
+  returnEvidenceUrl(input: { publicId: string; version: number; format: string }): string | null {
     const match = input.publicId.match(/\/media_([a-f0-9]{24})$/);
     if (match) return returnEvidenceMediaUrl(match[1]);
+    if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) return null;
     return cloudinary.url(input.publicId, { type: 'authenticated', sign_url: true, secure: true, version: input.version, format: input.format });
   }
 };

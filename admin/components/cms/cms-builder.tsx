@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 'use client';
 import {EXPERIENCE_COPY as EXPERIENCE} from '@/constants/storefront-experience-copy';
+import { sectionSuggestions, type SectionSuggestion } from './section-suggestions';
 import {StorefrontEditor} from './storefront-editor';
 import {OrbitContentFields} from './orbit-content-fields';
 import {CampaignContentFields} from './campaign-content-fields';
@@ -9,7 +10,7 @@ import {EditorialInspector} from './editorial-inspector';
 import {StorefrontPreview} from './storefront-preview';
 import {CMS_EDITORIAL_COPY as E} from '@/constants/editorial-copy';
 import {uploadPublicMedia} from '@/lib/media-upload';
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, closestCenter, useSensor, useSensors, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, closestCenter, pointerWithin, useSensor, useSensors, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Archive, CalendarClock, Clock, Copy, Eye, GripVertical, History, LayoutTemplate, Monitor, Plus, Rocket, Save, Search, Smartphone, ToggleLeft, ToggleRight, Trash2, UploadCloud, X } from 'lucide-react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -75,6 +76,7 @@ const sectionImage = (section: CmsSectionInput, fallbackIndex = 0): string => {
 export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const sensors=useSensors(useSensor(MouseSensor,{activationConstraint:{distance:6}}),useSensor(TouchSensor,{activationConstraint:{delay:150,tolerance:8}}),useSensor(KeyboardSensor));
   const [dragLabel,setDragLabel]=useState('');
+  const [suggestionVersion, setSuggestionVersion] = useState(0);
   const pages = useCmsPages();
   const [selectedPageSlug,setSelectedPageSlug]=useState('home');
   const homePage = useMemo(() => pages.data?.find((page) => page.slug === selectedPageSlug), [pages.data,selectedPageSlug]);
@@ -99,6 +101,9 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [draft, setDraft] = useState<CmsSectionInput>(() => toInput(selected));
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const suggestions = sectionSuggestions(homePage, sectionList, suggestionVersion);
+  const busy = createSection.isPending || reorderSections.isPending;
+  const editing = saveState === 'dirty' || saveState === 'saving' || saveState === 'error';
   const [libraryPreview, setLibraryPreview] = useState<SectionTemplate | null>(null);
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
   const [templatePreview, setTemplatePreview] = useState<HomepageTemplate | null>(null);
@@ -150,15 +155,21 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     window.setTimeout(() => canvasRefs.current.get(id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 120);
   };
 
-  const addSection = (type: CmsSectionType = 'hero_campaign', index = sectionList.length): void => {
-    createSection.mutate(createDefaultSectionInput(type, index), {
+  const addSection = (type: CmsSectionType, index = sectionList.length, suggestion?: SectionSuggestion): void => {
+    if (!homePage || busy || editing) {
+      if (editing) setToast({ tone: 'info', message: EXPERIENCE.saveFirst });
+      return;
+    }
+    const sortOrder = (sectionList.at(-1)?.sortOrder ?? -1) + 1;
+    const overrides = suggestion ? { ...suggestion.input, title: suggestion.title, startDate: undefined, endDate: undefined } : {};
+    createSection.mutate(createDefaultSectionInput(type, sortOrder, { ...overrides, pageTarget: homePage.slug }), {
       onSuccess: (section) => {
         const id = sectionId(section);
         selectAndScroll(id);
         if (index < sectionList.length) {
           const ids = sectionList.map(sectionId);
           ids.splice(index, 0, id);
-          reorderSections.mutate(ids);
+          reorderSections.mutate(ids, { onError: (error) => setToast({ tone: 'error', message: 'Section was added at the end. ' + error.message }) });
         }
         setToast({ tone: 'success', message: getSectionTemplate(type).name + ' added to draft.' });
       },
@@ -206,7 +217,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
   const confirmPublish = (): void => {
     setPublishConfirmOpen(false);
     publishPage.mutate(undefined, {
-      onSuccess: () => setToast({ tone: 'success', message: 'Homepage published.' }),
+      onSuccess: () => setToast({ tone: 'success', message: (homePage?.title ?? 'Page') + ' published.' }),
       onError: (error) => setToast({ tone: 'error', message: error.message })
     });
   };
@@ -221,7 +232,7 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
       const start = action === 'append' ? sectionList.length : 0;
       const created = [] as CmsSectionDto[];
       for (const [index, section] of template.sections.entries()) {
-        created.push(await createSection.mutateAsync({ ...section, sortOrder: start + index, status: 'draft' }));
+        created.push(await createSection.mutateAsync({ ...section, sortOrder: start + index, status: 'draft', pageTarget: homePage?.slug ?? section.pageTarget }));
       }
       const first = created[0];
       if (first) selectAndScroll(sectionId(first));
@@ -235,13 +246,19 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
 
   const onDragEnd = (event: DragEndEvent): void => {
     setDragLabel('');
-    if(saveState==='dirty'||saveState==='saving'||saveState==='error'||reorderSections.isPending){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}
+    if(editing || busy){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}
     if (!event.over) return;
     const activeId = String(event.active.id);
     const overId = String(event.over.id);
-    const overIndex = overId === 'canvas-dropzone' ? sectionList.length : Math.max(0, sectionList.map(sectionId).indexOf(overId));
+    const overIndex = overId === 'canvas-dropzone' ? sectionList.length : sectionList.map(sectionId).indexOf(overId);
+    if (overIndex < 0) return;
+    const suggestion = suggestions.find(item => activeId === 'suggestion:' + item.type);
+    if (suggestion) {
+      addSection(suggestion.type, overIndex, suggestion);
+      return;
+    }
     if (activeId.startsWith('template:')) {
-      addSection(activeId.replace('template:', '') as CmsSectionType, overIndex < 0 ? sectionList.length : overIndex);
+      addSection(activeId.replace('template:', '') as CmsSectionType, overIndex);
       return;
     }
     if (activeId === overId) return;
@@ -252,17 +269,17 @@ export function CmsBuilder(_props: CmsBuilderProps): ReactNode {
     const [moved] = nextIds.splice(activeIndex, 1);
     if (!moved) return;
     nextIds.splice(overIndex, 0, moved);
-    reorderSections.mutate(nextIds);
+    reorderSections.mutate(nextIds, { onError: error => setToast({ tone: 'error', message: error.message }) });
   };
 
-  return <DndContext onDragStart={event=>{const id=String(event.active.id);setDragLabel(sectionList.find(section=>sectionId(section)===id)?.title??S.add);}} onDragCancel={()=>setDragLabel('')} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+  return <DndContext onDragStart={event=>{const id=String(event.active.id);setDragLabel(sectionList.find(section=>sectionId(section)===id)?.title??suggestions.find(item=>'suggestion:'+item.type===id)?.title??S.add);}} onDragCancel={()=>setDragLabel('')} sensors={sensors} autoScroll={{ threshold: { x: 0.08, y: 0.08 }, acceleration: 4 }} collisionDetection={args => args.pointerCoordinates ? pointerWithin(args) : closestCenter(args)} onDragEnd={onDragEnd}>
     {toast ? <div className={cn('fixed right-5 top-5 z-50 border bg-background-elevated px-4 py-3 text-sm shadow-lg', toast.tone === 'success' && 'border-success text-success', toast.tone === 'error' && 'border-danger text-danger', toast.tone === 'info' && 'border-accent-gold text-accent-gold')}>{toast.message}</div> : null}
-    <StorefrontEditor reordering={reorderSections.isPending} page={homePage} pages={pages.data??[]} sections={sectionList} selected={selected} draft={draft} saveState={saveState}
-      onPage={slug=>{if(saveState==='dirty'||saveState==='saving')return;setSelectedPageSlug(slug);setSelectedId('');setDefaultTemplateSections([]);}}
+    <StorefrontEditor reordering={busy} dragging={Boolean(dragLabel)} suggestions={suggestions} onRefreshSuggestions={()=>setSuggestionVersion(value=>value+1)} onAddSuggestion={suggestion=>addSection(suggestion.type, sectionList.length, suggestion)} page={homePage} pages={pages.data??[]} sections={sectionList} selected={selected} draft={draft} saveState={saveState}
+      onPage={slug=>{if(editing||busy)return;setSuggestionVersion(0);setSelectedPageSlug(slug);setSelectedId('');setDefaultTemplateSections([]);}}
       onSelect={id=>{if(!sectionList.some(section=>sectionId(section)===id)||id===selectedId||saveState==='saving')return;if(selected&&(saveState==='dirty'||saveState==='error')){setSaveState('saving');updateSection.mutate({...draft,id:sectionId(selected),status:'draft'},{onSuccess:()=>setSelectedId(id),onError:()=>setSaveState('error')});}else setSelectedId(id);}}
       onAdd={()=>setStudioLibraryOpen(true)} onSave={saveDraft} onPublish={()=>setPublishConfirmOpen(true)} onToggle={toggleActive} onDuplicate={duplicateSection} onArchive={archiveOne} onHistory={()=>setStudioHistoryOpen(true)}
       onDiscard={()=>{setDraft(toInput(selected));setSaveState('idle');}}
-      onMove={(from,to)=>{if(saveState==='dirty'||saveState==='saving'||saveState==='error'||reorderSections.isPending){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}if(to<0||to>=sectionList.length)return;const ids=sectionList.map(sectionId);const [moved]=ids.splice(from,1);ids.splice(to,0,moved);reorderSections.mutate(ids);}}
+      onMove={(from,to)=>{if(saveState==='dirty'||saveState==='saving'||saveState==='error'||reorderSections.isPending){setToast({tone:'info',message:EXPERIENCE.saveFirst});return;}if(to<0||to>=sectionList.length)return;const ids=sectionList.map(sectionId);const [moved]=ids.splice(from,1);if(!moved)return;ids.splice(to,0,moved);reorderSections.mutate(ids,{onError:error=>setToast({tone:'error',message:error.message})});}}
       inspector={<SectionInspector selected={selected} draft={draft} saveState={saveState} onSave={saveDraft} onPreview={()=>setWorkspaceTab('live-preview')} onDuplicate={duplicateSection} onArchive={archiveOne} onField={updateField} onContent={updateContent}/>}/>
     {studioLibraryOpen&&<ModalShell title={S.add} onClose={()=>setStudioLibraryOpen(false)} wide><SectionLibrary onAdd={type=>{addSection(type);setStudioLibraryOpen(false);}} onPreview={setLibraryPreview} onOpenTemplates={()=>{setStudioLibraryOpen(false);setTemplateGalleryOpen(true);}}/></ModalShell>}
     {studioHistoryOpen&&<ModalShell title={S.history} onClose={()=>setStudioHistoryOpen(false)}><VersionHistory versions={versions.data??[]} isRestoring={restoreVersion.isPending} onRestore={id=>{restoreVersion.mutate(id);setStudioHistoryOpen(false);}}/></ModalShell>}

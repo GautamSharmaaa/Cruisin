@@ -1,8 +1,8 @@
 // Governed by .rules v1.0
-import { isOrderPaymentConfirmed } from '@/lib/payment-status';
+import { isMetaPurchaseConfirmed, metaPurchaseEventId, META_EVENT_LIFETIME_MS } from '@cruisin/contracts/meta-commerce';
+import { getMarketingConsentId, getMetaPixelId } from '@/lib/meta-consent';
 import {
   generateEventId,
-  purchaseEventId,
   trackAddToCart,
   trackAddPaymentInfo,
   trackAddToWishlist,
@@ -20,12 +20,13 @@ interface CheckoutAttemptRecord {
   fingerprint: string;
   eventId: string;
   sent: boolean;
+  paymentMethods: CheckoutPaymentCategory[];
+  expiresAt: number;
 }
 
 export interface CheckoutMetaInput {
   items: CartItem[];
   value: number;
-  coupon?: string;
 }
 
 export type CheckoutPaymentCategory = 'cod' | 'online' | 'online_partial';
@@ -64,7 +65,7 @@ export const productCommerce = (product: Product, variant = defaultCommerceVaria
 
 export const cartContents = (items: CartItem[]): MetaContentInput[] => items.flatMap((item) => {
   const variant = item.product.variants.find((candidate) => candidate.id === item.variantId);
-  const content = productContent(item.product, variant, item.quantity);
+  const content = productContent(item.product, variant ? { ...variant, price: item.price } : undefined, item.quantity);
   return content ? [content] : [];
 });
 
@@ -80,7 +81,7 @@ export const trackProductView = (product: Product): boolean => {
   const payload = productCommerce(product);
   if (!payload) return false;
   const contentId = payload.contents[0]?.id;
-  const viewKey = `${product.slug}:${contentId}`;
+  const viewKey = `${getMarketingConsentId()}:${product.slug}:${contentId}`;
   if (viewKey === lastProductViewKey) return false;
   const sent = trackViewContent(payload, generateEventId('view-content'));
   if (sent) lastProductViewKey = viewKey;
@@ -92,74 +93,84 @@ export const trackProductWishlistAdded = (product: Product, variant = defaultCom
   return payload ? trackAddToWishlist(payload, generateEventId('wishlist')) : false;
 };
 
-export const trackProductCartAdded = (product: Product, variant: ProductVariant, quantity: number): boolean => {
-  const payload = productCommerce(product, variant, quantity);
+export const trackProductCartAdded = (product: Product, variant: ProductVariant, quantity: number, confirmedPrice = variant.price): boolean => {
+  const payload = productCommerce(product, { ...variant, price: confirmedPrice }, quantity);
   return payload ? trackAddToCart(payload, generateEventId('cart')) : false;
 };
 
-const checkoutFingerprint = ({ items, value, coupon }: CheckoutMetaInput): string => JSON.stringify({
-  items: cartContents(items).map((item) => [item.id, item.quantity, item.item_price]).sort((left, right) => String(left[0]).localeCompare(String(right[0]))),
-  coupon: coupon?.trim() ?? ''
+const checkoutFingerprint = (items: CartItem[], consentId: string): string => JSON.stringify({
+  consentId,
+  items: items.map(item => [item.variantId, item.quantity]).sort((left, right) => String(left[0]).localeCompare(String(right[0])))
 });
 
-const readCheckoutAttempt = (): CheckoutAttemptRecord | null => {
+let memoryAttempt: CheckoutAttemptRecord | undefined;
+const readCheckoutAttempt = (): CheckoutAttemptRecord | undefined => {
   try {
-    const parsed = JSON.parse(safeStorage('sessionStorage')?.getItem(checkoutAttemptStorageKey) ?? 'null') as Partial<CheckoutAttemptRecord> | null;
-    return parsed?.fingerprint && parsed.eventId ? { fingerprint: parsed.fingerprint, eventId: parsed.eventId, sent: parsed.sent === true } : null;
-  } catch { return null; }
+    const raw = safeStorage('sessionStorage')?.getItem(checkoutAttemptStorageKey);
+    if (!raw) return memoryAttempt;
+    const parsed = JSON.parse(raw) as Partial<CheckoutAttemptRecord>;
+    if (parsed.fingerprint && parsed.eventId && parsed.expiresAt && Array.isArray(parsed.paymentMethods)) {
+      return { fingerprint: parsed.fingerprint, eventId: parsed.eventId, sent: parsed.sent === true,
+        paymentMethods: parsed.paymentMethods, expiresAt: parsed.expiresAt };
+    }
+  } catch { /* The in-memory attempt also covers disabled storage. */ }
+  return memoryAttempt;
 };
 
 const writeCheckoutAttempt = (attempt: CheckoutAttemptRecord): void => {
-  try { safeStorage('sessionStorage')?.setItem(checkoutAttemptStorageKey, JSON.stringify(attempt)); } catch { /* Analytics storage is best-effort. */ }
+  memoryAttempt = attempt;
+  try { safeStorage('sessionStorage')?.setItem(checkoutAttemptStorageKey, JSON.stringify(attempt)); } catch { /* Storage is optional. */ }
 };
 
-export const getOrCreateCheckoutEventId = (input: CheckoutMetaInput): string => {
-  const fingerprint = checkoutFingerprint(input);
+const checkoutAttempt = (input: CheckoutMetaInput): CheckoutAttemptRecord | undefined => {
+  const consentId = getMarketingConsentId();
+  if (!consentId || !input.items.length) return undefined;
+  const fingerprint = checkoutFingerprint(input.items, consentId);
   const stored = readCheckoutAttempt();
-  if (stored?.fingerprint === fingerprint) return stored.eventId;
-  const eventId = generateEventId('checkout');
-  writeCheckoutAttempt({ fingerprint, eventId, sent: false });
-  return eventId;
+  if (stored?.fingerprint === fingerprint && stored.expiresAt > Date.now()) return stored;
+  const created = { fingerprint, eventId: generateEventId('checkout'), sent: false, paymentMethods: [], expiresAt: Date.now() + 60 * 60_000 };
+  writeCheckoutAttempt(created);
+  return created;
 };
+
+export const getOrCreateCheckoutEventId = (input: CheckoutMetaInput): string | undefined =>
+  checkoutAttempt(input)?.eventId;
 
 export const trackCheckoutStarted = (input: CheckoutMetaInput): boolean => {
   const contents = cartContents(input.items);
-  if (contents.length === 0) return false;
-  const fingerprint = checkoutFingerprint(input);
-  const eventId = getOrCreateCheckoutEventId(input);
-  const stored = readCheckoutAttempt();
-  if (stored?.fingerprint === fingerprint && stored.eventId === eventId && stored.sent) return false;
-  const sent = trackInitiateCheckout({
-    contents,
-    value: input.value,
-    num_items: contents.reduce((sum, content) => sum + content.quantity, 0),
-    coupon: input.coupon
-  }, eventId);
-  if (sent) writeCheckoutAttempt({ fingerprint, eventId, sent: true });
+  if (!contents.length) return false;
+  const attempt = checkoutAttempt(input);
+  if (!attempt || attempt.sent) return false;
+  const sent = trackInitiateCheckout({ contents, value: input.value }, attempt.eventId);
+  if (sent) writeCheckoutAttempt({ ...attempt, sent: true });
   return sent;
 };
 
 export const trackCheckoutPaymentSelected = (input: CheckoutMetaInput, paymentMethod: CheckoutPaymentCategory): boolean => {
   const contents = cartContents(input.items);
-  if (contents.length === 0) return false;
-  return trackAddPaymentInfo({
-    contents,
-    value: input.value,
-    num_items: contents.reduce((sum, content) => sum + content.quantity, 0),
-    payment_method: paymentMethod
-  }, generateEventId('payment-info'));
+  if (!contents.length) return false;
+  const attempt = checkoutAttempt(input);
+  if (!attempt || attempt.paymentMethods.includes(paymentMethod)) return false;
+  const sent = trackAddPaymentInfo({ contents, value: input.value, payment_method: paymentMethod }, 'payment:' + attempt.eventId + ':' + paymentMethod);
+  if (sent) writeCheckoutAttempt({ ...attempt, paymentMethods: [...attempt.paymentMethods, paymentMethod] });
+  return sent;
 };
 
 export const clearMetaCheckoutAttempt = (): void => {
+  memoryAttempt = undefined;
   try { safeStorage('sessionStorage')?.removeItem(checkoutAttemptStorageKey); } catch { /* Analytics storage is best-effort. */ }
 };
 
 const orderId = (order: Pick<Order, 'id' | '_id'>): string => (order.id ?? order._id ?? '').trim();
 
 export const trackConfirmedOrderPurchase = (order: Order): boolean => {
-  if (!isOrderPaymentConfirmed(order)) return false;
-  if ((order.orderStatus ?? order.status) === 'cancelled') return false;
+  if (!getMarketingConsentId() || !isMetaPurchaseConfirmed({ ...order, orderStatus: order.orderStatus ?? order.status })) return false;
   const id = orderId(order);
+  const receipt = order.metaPurchase;
+  const confirmedAt = receipt ? Date.parse(receipt.confirmedAt) : Number.NaN;
+  const age = Date.now() - confirmedAt;
+  if (!receipt || receipt.pixelId !== getMetaPixelId() || receipt.eventId !== metaPurchaseEventId(id) ||
+      !Number.isFinite(age) || age >= META_EVENT_LIFETIME_MS || age < -5 * 60_000) return false;
   const contents = orderContents(order.items);
   if (!id || contents.length === 0 || !Number.isFinite(order.total) || order.total < 0) return false;
   if (trackedPurchases.has(id)) return false;
@@ -173,10 +184,8 @@ export const trackConfirmedOrderPurchase = (order: Order): boolean => {
   const sent = trackPurchase({
     order_id: id,
     contents,
-    value: order.total,
-    num_items: contents.reduce((sum, content) => sum + content.quantity, 0),
-    coupon: order.couponCode
-  }, purchaseEventId(id));
+    value: order.total
+  }, receipt.eventId);
   if (!sent) return false;
   trackedPurchases.add(id);
   try { storage?.setItem(purchaseStoragePrefix + id, 'sent'); } catch { /* The event was still queued successfully. */ }
@@ -186,4 +195,5 @@ export const trackConfirmedOrderPurchase = (order: Order): boolean => {
 export const resetMetaEcommerceStateForTests = (): void => {
   lastProductViewKey = undefined;
   trackedPurchases.clear();
+  memoryAttempt = undefined;
 };

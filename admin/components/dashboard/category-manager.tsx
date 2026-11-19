@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Archive, Check, ImageIcon, Pencil, Power, RotateCcw, Save, X } from 'lucide-react';
+import { Archive, Check, Copy, ImageIcon, Pencil, Power, RotateCcw, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -95,6 +95,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
   const updateCategory = useUpdateCategory();
   const archiveCategory = useArchiveCategory();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [toast, setToast] = useState<Toast>(null);
   const selectedCategory = useMemo(() => categories.find((category) => categoryId(category) === editingId), [categories, editingId]);
@@ -104,7 +105,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
   const categoryVideo = watch('categoryVideo');
 
   useEffect(() => {
-    reset(categoryValues(selectedCategory));
+    if (selectedCategory) reset(categoryValues(selectedCategory));
   }, [reset, selectedCategory]);
 
   const visibleCategories = useMemo(() => {
@@ -127,6 +128,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
         {
           onSuccess: () => {
             setEditingId(null);
+            setEditorOpen(false);
             setToast({ tone: 'success', message: 'Category updated.' });
             window.setTimeout(() => setToast(null), 2600);
           },
@@ -138,6 +140,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
     createCategory.mutate(payload, {
       onSuccess: () => {
         reset(emptyCategoryValues);
+        setEditorOpen(false);
         setToast({ tone: 'success', message: COPY.categories.created });
         window.setTimeout(() => setToast(null), 2600);
       },
@@ -145,8 +148,17 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
     });
   };
 
-  const onEdit = (category: CategoryDto): void => setEditingId(categoryId(category));
-  const onCancel = (): void => { setEditingId(null); reset(emptyCategoryValues); };
+  const onEdit = (category: CategoryDto): void => { setEditingId(categoryId(category)); setEditorOpen(true); };
+  const onCopy = (category: CategoryDto): void => {
+    const base = category.slug + '-copy';
+    let slug = base;
+    for (let suffix = 2; categories.some(item => item.slug === slug); suffix++) slug = base + '-' + suffix;
+    setEditingId(null);
+    setEditorOpen(true);
+    reset({ ...categoryValues(category), name: category.name.slice(0, 73) + ' (copy)', slug, canonicalSlug: '',
+      isActive: false, isVisible: false, isPublished: false });
+  };
+  const onCancel = (): void => { setEditingId(null); setEditorOpen(false); reset(emptyCategoryValues); };
   const onArchive = (id: string): void => {
     if (window.confirm(COPY.common.confirmArchive)) {
       archiveCategory.mutate(id, {
@@ -173,8 +185,8 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
       <StatCard label="Hidden categories" value={stats.hidden} tone="neutral" />
     </div>
 
-    <div className="grid gap-6 xl:grid-cols-[minmax(440px,520px)_1fr]">
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 border border-border bg-background-elevated p-5 shadow-lg">
+    <div className={editorOpen ? "grid gap-6 xl:grid-cols-[minmax(360px,460px)_1fr]" : "grid gap-6"}>
+      {editorOpen ? <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 border border-border bg-background-elevated p-5 shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent-gold">{mode === 'edit' ? 'Edit Category' : 'New Category'}</p>
@@ -255,20 +267,19 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
 
         <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap gap-3 border-t border-border bg-background-elevated/95 px-5 py-4 backdrop-blur">
           <Button type="submit" disabled={createCategory.isPending || updateCategory.isPending}><Save size={15} className="mr-2" />{createCategory.isPending || updateCategory.isPending ? COPY.common.loading : mode === 'edit' ? 'Save Category' : COPY.common.save}</Button>
-          {mode === 'edit' ? <Button type="button" variant="secondary" onClick={onCancel}><RotateCcw size={15} className="mr-2" />Cancel</Button> : null}
+          <Button type="button" variant="secondary" onClick={onCancel}><RotateCcw size={15} className="mr-2" />Cancel</Button>
         </div>
-      </form>
+      </form> : null}
 
       <div className="min-w-0 border border-border bg-background-elevated shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <div>
-            <h2 className="font-display text-2xl text-text-primary">Category Library</h2>
-            <p className="mt-1 text-sm text-text-secondary">Manage storefront navigation, CMS category grids, and product filtering from one place.</p>
+            <h2 className="font-display text-2xl text-text-primary">Categories</h2>
           </div>
-          <label className="relative w-full sm:w-72">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto"><label className="relative min-w-40 flex-1 sm:w-64">
             <span className="sr-only">Search categories</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search categories..." className="h-11 w-full border border-border bg-background-input px-3 text-sm text-text-primary outline-none transition focus:border-accent-gold" />
-          </label>
+          </label><Button type="button" disabled={editorOpen} onClick={() => setEditorOpen(true)}>New category</Button></div>
         </div>
 
         {!isLoading && categories.length === 0 ? <div className="p-5"><EmptyPanel title={COPY.categories.title} message={COPY.categories.empty} /></div> : <div className="overflow-x-auto">
@@ -299,6 +310,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
                   <td className="p-4"><StatusPill tone={category.isActive ? 'success' : 'neutral'}>{category.isActive ? COPY.table.active : COPY.table.inactive}</StatusPill></td>
                   <td className="p-4">
                     <div className="flex justify-end gap-2">
+                      <IconAction label="Copy category" onClick={() => onCopy(category)}><Copy size={15} /></IconAction>
                       <IconAction label="Edit category" onClick={() => onEdit(category)}><Pencil size={15} /></IconAction>
                       <IconAction label={category.isActive ? 'Hide category' : 'Show category'} onClick={() => onToggle(category)} disabled={updateCategory.isPending}><Power size={15} /></IconAction>
                       <IconAction label="Archive category" tone="danger" onClick={() => onArchive(id)} disabled={archiveCategory.isPending}><Archive size={15} /></IconAction>
@@ -314,7 +326,7 @@ export function CategoryManager({ categories, isLoading }: CategoryManagerProps)
   </section>;
 }
 
-function CategoryFormGroup({ title, helper, children, open = true }: { title: string; helper: string; children: ReactNode; open?: boolean }): ReactNode {
+function CategoryFormGroup({ title, helper, children, open = false }: { title: string; helper: string; children: ReactNode; open?: boolean }): ReactNode {
   return <details open={open} className="group border border-border bg-background-primary">
     <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-4 marker:hidden">
       <span>

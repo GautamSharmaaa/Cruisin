@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.NODE_ENV = 'test';
 process.env.CLIENT_URL = 'http://localhost:3000';
+process.env.STOREFRONT_ORIGIN_ALIAS = 'https://cruisin.in';
 process.env.ADMIN_URL = 'http://localhost:3001';
 process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/cruisin-sync-order-analytics-tests';
 process.env.REDIS_URL ??= 'redis://localhost:6379';
@@ -88,6 +89,18 @@ describe('auth API routes', () => {
     expect(response.status).toBe(200);
     expect(authService.refresh).toHaveBeenCalledWith('current-admin-refresh-token', expect.any(Object));
     expect(response.headers['set-cookie']?.[0]).toContain('adminRefreshToken=next-admin-refresh-token');
+  });
+
+  it('uses the customer refresh cookie on the configured storefront alias', async () => {
+    authService.refresh.mockResolvedValue({ accessToken: 'access-token', refreshToken: 'next-refresh-token' });
+    const response = await request(app)
+      .post('/auth/refresh')
+      .set('Origin', 'https://cruisin.in')
+      .set('Cookie', ['refreshToken=current-refresh-token', 'adminRefreshToken=admin-refresh-token'])
+      .send({});
+    expect(response.status).toBe(200);
+    expect(authService.refresh).toHaveBeenCalledWith('current-refresh-token', expect.any(Object));
+    expect(response.headers['set-cookie']?.[0]).toContain('refreshToken=next-refresh-token');
   });
 
   it('uses the admin-only Google login flow and admin refresh cookie', async () => {

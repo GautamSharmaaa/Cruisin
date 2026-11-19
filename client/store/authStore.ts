@@ -6,7 +6,8 @@ export interface AuthState {
   user: User | null;
   accessToken: string | null;
   isInitialized: boolean;
-  setSession: (user: User, accessToken: string) => void;
+  assistedUntil: number | null;
+  setSession: (user: User, accessToken: string, assistedUntil?: number) => void;
   clearSession: () => void;
 }
 
@@ -14,6 +15,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: null,
   isInitialized: false,
-  setSession: (user, accessToken) => set({ user, accessToken, isInitialized: true }),
-  clearSession: () => set({ user: null, accessToken: null, isInitialized: true })
+  assistedUntil: null,
+  setSession: (user, accessToken, assistedUntil) => set({ user, accessToken, isInitialized: true, assistedUntil: assistedUntil ?? null }),
+  clearSession: () => set({ user: null, accessToken: null, isInitialized: true, assistedUntil: null })
 }));

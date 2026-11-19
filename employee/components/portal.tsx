@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -34,19 +35,28 @@ const navigationIcons: Partial<Record<OperationsModule, LucideIcon>> = {
   media: Image, profile: User,
 };
 const SessionContext = createContext<Session | null>(null);
-const navigation: { module: OperationsModule; permission?: Permission }[] = [
-  { module: "dashboard" },
-  { module: "tasks", permission: "tasks.view" },
-  { module: "orders", permission: "orders.view" },
-  { module: "inventory", permission: "inventory.view" },
-  { module: "units", permission: "inventory.view" },
-  { module: "scanner", permission: "inventory.view" },
-  { module: "sops", permission: "sop.view" },
-  { module: "approvals" },
-  { module: "exceptions", permission: "tasks.view" },
-  { module: "activity" },
-  { module: "media" },
-  { module: "profile" },
+const navigation: {
+  group: keyof typeof E.navigationGroups;
+  links: { module: OperationsModule; permission?: Permission }[];
+}[] = [
+  { group: "work", links: [
+    { module: "dashboard" },
+    { module: "tasks", permission: "tasks.view" },
+    { module: "orders", permission: "orders.view" },
+    { module: "approvals" },
+    { module: "exceptions", permission: "tasks.view" },
+  ] },
+  { group: "stock", links: [
+    { module: "inventory", permission: "inventory.view" },
+    { module: "units", permission: "inventory.view" },
+    { module: "scanner", permission: "inventory.view" },
+  ] },
+  { group: "resources", links: [
+    { module: "sops", permission: "sop.view" },
+    { module: "activity" },
+    { module: "media" },
+    { module: "profile" },
+  ] },
 ];
 export interface PortalProps {
   children: ReactNode;
@@ -55,6 +65,9 @@ export function Portal({ children }: PortalProps): ReactNode {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState("");
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
+  const navigationDialog = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   const bootstrap = (): void => {
@@ -72,10 +85,23 @@ export function Portal({ children }: PortalProps): ReactNode {
       });
   };
   useEffect(bootstrap, []);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = (): void => { if (desktop.matches) navigationDialog.current?.close(); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
   const logout = async (): Promise<void> => {
-    await api.post("/logout", {});
-    setEmployeeCsrf("");
-    router.replace("/login");
+    setLogoutError("");
+    setLoggingOut(true);
+    try {
+      await api.post("/logout", {});
+      setEmployeeCsrf("");
+      router.replace("/login");
+    } catch (failure) {
+      setLogoutError(failure instanceof Error ? failure.message : C.error);
+      setLoggingOut(false);
+    }
   };
   if (error)
     return (
@@ -90,51 +116,77 @@ export function Portal({ children }: PortalProps): ReactNode {
         <Skeleton />
       </main>
     );
-  return (
-    <SessionContext.Provider value={session}>
-      <div className="employee-shell">
-        <aside className="employee-sidebar" data-open={navigationOpen}>
-          <div className="employee-brand">
-            <p className="ops-eyebrow">{E.eyebrow}</p>
-            <Link href="/" className="employee-wordmark" onClick={() => setNavigationOpen(false)}>{C.brand}</Link>
-            <p className="employee-tagline">{E.tagline}</p>
-          </div>
-          <nav id="employee-navigation" aria-label={C.eyebrow}>
-            {navigation
-              .filter((n) => !n.permission || session.principal.permissions.includes(n.permission))
-              .map((n) => {
-                const href = n.module === "dashboard" ? "/" : `/${n.module}`;
-                const Icon = navigationIcons[n.module] ?? LayoutDashboard;
-                const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+  const closeNavigation = (): void => navigationDialog.current?.close();
+  const activeModule = navigation.flatMap(group => group.links).find(({ module }) =>
+    module === "dashboard" ? pathname === "/" : pathname.split("/")[1] === module
+  )?.module ?? "dashboard";
+  const sidebar = (
+    <>
+      <div className="employee-brand">
+        <p className="ops-eyebrow">{E.eyebrow}</p>
+        <Link href="/" className="employee-wordmark" onClick={closeNavigation}>{C.brand}</Link>
+        <p className="employee-tagline">{E.tagline}</p>
+      </div>
+      <nav className="employee-navigation" aria-label={C.eyebrow}>
+        {navigation.map(({ group, links }) => {
+          const available = links.filter(({ permission }) => !permission || session.principal.permissions.includes(permission));
+          if (!available.length) return null;
+          return (
+            <div className="employee-nav-group" key={group}>
+              <p className="employee-nav-label">{E.navigationGroups[group]}</p>
+              {available.map(({ module }) => {
+                const Icon = navigationIcons[module] ?? LayoutDashboard;
                 return (
-                  <Link href={href} aria-current={active ? "page" : undefined} key={n.module} onClick={() => setNavigationOpen(false)}>
-                    <span><Icon size={17} aria-hidden="true" />{C[n.module]}</span>
+                  <Link href={module === "dashboard" ? "/" : `/${module}`} aria-current={activeModule === module ? "page" : undefined} key={module} onClick={closeNavigation}>
+                    <span><Icon size={17} aria-hidden="true" />{C[module]}</span>
                     <ChevronRight size={15} aria-hidden="true" />
                   </Link>
                 );
               })}
-          </nav>
-          <div className="employee-identity">
-            <p className="ops-eyebrow">{E.workspace}</p>
-            <p>{session.employee.name}</p>
-            <span>{session.employee.role.replaceAll("_", " ")}</span>
+            </div>
+          );
+        })}
+      </nav>
+      <div className="employee-identity">
+        <div className="employee-avatar" aria-hidden="true">{session.employee.name.trim().charAt(0).toUpperCase()}</div>
+        <div>
+          <p className="ops-eyebrow">{E.workspace}</p>
+          <p className="employee-name">{session.employee.name}</p>
+          <span>{session.employee.role.replaceAll("_", " ")}</span>
+        </div>
+      </div>
+    </>
+  );
+  return (
+    <SessionContext.Provider value={session}>
+      <div className="employee-shell">
+        <a className="employee-skip" href="#employee-content">{E.skip}</a>
+        <aside className="employee-sidebar employee-sidebar-desktop">{sidebar}</aside>
+        <dialog ref={navigationDialog} id="employee-navigation" className="employee-nav-dialog" aria-label={C.eyebrow} onClose={() => setNavigationOpen(false)} onClick={event => { if (event.target === event.currentTarget) closeNavigation(); }}>
+          <div className="employee-sidebar">
+            <button type="button" className="employee-menu employee-nav-close" aria-label={E.closeNavigation} onClick={closeNavigation}><X size={18} /></button>
+            {sidebar}
           </div>
-        </aside>
+        </dialog>
         <div className="employee-main">
           <header className="employee-topbar">
             <div className="employee-topbar-row">
-              <button type="button" className="employee-menu" aria-label={navigationOpen ? E.closeNavigation : E.openNavigation} aria-expanded={navigationOpen} aria-controls="employee-navigation" onClick={() => setNavigationOpen(!navigationOpen)}>
-                {navigationOpen ? <X size={18} /> : <Menu size={18} />}
-              </button>
-              <p className="employee-breadcrumb"><span>{C.brand}</span><ChevronRight size={14} aria-hidden="true" />{C[navigation.find((n) => (n.module === "dashboard" ? pathname === "/" : pathname.startsWith(`/${n.module}`)))?.module ?? "dashboard"]}</p>
+              <button type="button" className="employee-menu" aria-label={E.openNavigation} aria-expanded={navigationOpen} aria-controls="employee-navigation" onClick={() => {
+                navigationDialog.current?.showModal();
+                setNavigationOpen(true);
+              }}><Menu size={18} /></button>
+              <p className="employee-breadcrumb"><span>{E.workspace}</span><ChevronRight size={14} aria-hidden="true" />{C[activeModule]}</p>
               <div className="employee-tools">
                 <ThemeSelect />
                 <Button variant="ghost" aria-label={C.refresh} onClick={() => window.location.reload()}><RefreshCw size={16} /></Button>
-                <Button variant="secondary" aria-label={C.logout} onClick={() => void logout()}><LogOut size={16} /><span>{C.logout}</span></Button>
+                <Button variant="secondary" aria-label={C.logout} disabled={loggingOut} onClick={() => void logout()}><LogOut size={16} /><span>{C.logout}</span></Button>
               </div>
             </div>
           </header>
-          <main className="ops-content">{children}</main>
+          <main id="employee-content" className="ops-content" tabIndex={-1}>
+            {logoutError && <Alert tone="danger">{logoutError}</Alert>}
+            {children}
+          </main>
         </div>
       </div>
     </SessionContext.Provider>
@@ -150,6 +202,7 @@ export function EmployeePage({ module }: EmployeePageProps): ReactNode {
   return (
     <OperationsPage
       module={module}
+      description={module in E.descriptions ? E.descriptions[module as keyof typeof E.descriptions] : undefined}
       principal={session.principal}
       timezone={session.employee.timezone}
       transport={api}

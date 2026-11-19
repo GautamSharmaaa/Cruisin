@@ -12,17 +12,21 @@ import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { useProduct } from '@/hooks/useProduct';
 import { filterCustomerVisibleProducts, isCustomerVisibleProduct } from '@/lib/customer-state';
+import { useMarketingConsentId } from '@/lib/meta-consent';
 import { trackProductView } from '@/lib/meta-ecommerce';
+import type { Product } from '@/types/product.types';
 
 export interface ProductPageClientProps {
   slug: string;
+  initialProduct?: Product;
 }
 
-export function ProductPageClient({ slug }: ProductPageClientProps): ReactNode {
-  const product = useProduct(slug);
+export function ProductPageClient({ slug, initialProduct }: ProductPageClientProps): ReactNode {
+  const product = useProduct(slug, initialProduct);
+  const marketingConsent = useMarketingConsentId();
   useEffect(() => {
     if (product.data) trackProductView(product.data);
-  }, [product.data]);
+  }, [marketingConsent, product.data]);
   useEffect(() => {
     if (!product.data) return;
     try {

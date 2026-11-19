@@ -34,6 +34,7 @@ const sopSchema = new Schema(
       default: [],
     },
     sections: { type: [{ title: String, body: String }], default: [] },
+    flowLabels: { type: new Schema({ start: String, end: String }, { _id: false }) },
     title: { type: String, required: true },
     category: { type: String, required: true },
     body: { type: String, required: true },

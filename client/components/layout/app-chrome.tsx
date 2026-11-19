@@ -12,6 +12,7 @@ import { CruisinHub } from '@/components/layout/cruisin-hub';
 import { Navbar } from '@/components/layout/navbar';
 import { PromotionRuntime } from '@/components/promotion/promotion-runtime';
 import { SearchModal } from '@/components/shared/search-modal';
+import { trackStorefrontActivity } from '@/lib/storefront-activity';
 import { useCartStore } from '@/store/cartStore';
 
 export interface AppChromeProps { children: ReactNode; }
@@ -24,5 +25,12 @@ export function AppChrome({ children }: AppChromeProps): ReactNode {
   const preview=pathname.startsWith('/cms-preview/');
   const focusedCommerce = pathname === '/cart' || pathname === '/checkout';
   useEffect(() => { closeCart(); }, [closeCart, pathname]);
+  useEffect(() => {
+    if (preview) return;
+    const trackVisit = () => trackStorefrontActivity('visit');
+    trackVisit();
+    document.addEventListener('visibilitychange', trackVisit);
+    return () => document.removeEventListener('visibilitychange', trackVisit);
+  }, [pathname, preview]);
   return <SmoothStorefront><MobileAuthSheetProvider><div className="editorial-storefront">{focusedCommerce ? <div className="hidden md:block"><Navbar /></div> : <Navbar />}<div id="main" tabIndex={-1} className="relative z-10 min-h-dvh">{children}</div>{focusedCommerce ? <div className="hidden md:block"><Footer /></div> : <Footer />}<CartDrawer /><SearchModal open={search} onOpenChange={setSearch} />{!preview&&!focusedCommerce&&<CruisinHub onStoriesChange={setStories}/>}{!preview&&<PromotionRuntime blocked={search || cartOpen || stories} />}</div></MobileAuthSheetProvider></SmoothStorefront>;
 }

@@ -5,7 +5,7 @@ import { AlertTriangle, Archive, BadgeIndianRupee, Check, ChevronLeft, ChevronRi
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { AdminCard, AdminSectionHeader, AdminTabs, EmptyState } from '@/components/dashboard/admin-ui';
+import { AdminCard, AdminDisclosure, AdminSectionHeader, AdminTabs, EmptyState } from '@/components/dashboard/admin-ui';
 import { Button } from '@/components/ui/button';
 import { COPY } from '@/constants/copy';
 import { useArchiveProduct, useDuplicateProduct, usePatchProduct } from '@/hooks/useAdminMutations';
@@ -246,7 +246,7 @@ export function ProductManager(): ReactNode {
   };
 
   const shareProduct = async (product: ProductDto): Promise<void> => {
-    const url = window.location.origin.replace('3001', '3000') + '/product/' + product.slug;
+    const url = new URL('/product/' + encodeURIComponent(product.slug), process.env.NEXT_PUBLIC_STOREFRONT_URL ?? 'http://localhost:3000').href;
     if (navigator.share) {
       try {
         await navigator.share({ title: product.title, url });
@@ -447,7 +447,7 @@ export function ProductManager(): ReactNode {
           </div>
         </div>
 
-        {products.isLoading ? <div className="grid gap-0">{skeletonRows.map((row) => <div key={row} className="grid gap-4 border-b border-border p-4 lg:grid-cols-[1.2fr_1fr_320px]"><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /></div>)}</div> : null}
+        {products.isLoading ? <div className="grid gap-0">{skeletonRows.map((row) => <div key={row} className="grid gap-4 border-b border-border p-4 lg:grid-cols-3"><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /><div className="h-32 animate-pulse bg-background-overlay" /></div>)}</div> : null}
         {!products.isLoading && productItems.length === 0 ? <div className="p-6"><EmptyState title="No products found" message={activeFilterCount ? 'No products found for these filters. Clear filters or create a new product.' : COPY.products.empty} /></div> : null}
         {!products.isLoading ? <div className="grid">
           {productItems.map((product) => {
@@ -459,7 +459,7 @@ export function ProductManager(): ReactNode {
             const stockDraft = stockDrafts[id] ?? {};
             const isStockDirty = Object.keys(stockDraft).length > 0;
             const draft = getQuickDraft(product);
-            return <article key={id} className="grid gap-5 border-b border-border p-4 transition hover:bg-background-overlay/45 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)_minmax(300px,320px)]">
+            return <article key={id} className="grid gap-5 border-b border-border p-4 transition hover:bg-background-overlay/45 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
               <div className="grid min-w-0 gap-4 sm:grid-cols-[auto_132px_minmax(0,1fr)]">
                 <input type="checkbox" checked={selected.has(id)} onChange={() => toggleSelected(id)} aria-label={'Select ' + product.title} className="mt-3 h-4 w-4 accent-[var(--accent-gold)]" />
                 <div className="aspect-[4/5] overflow-hidden border border-border bg-background-primary">
@@ -484,19 +484,20 @@ export function ProductManager(): ReactNode {
                     <p>Lifetime Sales: <span className="text-accent-gold">{product.lifetimeSales ?? 0}</span> · Rating: {product.ratings?.avg ? product.ratings.avg.toFixed(1) : '--'} · Variants: {(product.variants ?? []).length} · Total Stock: {stock}</p>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">Selling Price<input value={draft.basePrice} onChange={(event) => setQuickDraft(product, { basePrice: event.target.value })} inputMode="numeric" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-accent-gold" /></label>
+                    <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">Selling Price<input id={`product-price-${id}`} value={draft.basePrice} onChange={(event) => setQuickDraft(product, { basePrice: event.target.value })} inputMode="numeric" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-accent-gold" /></label>
                     <label className="grid gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">MRP<input value={draft.comparePrice} onChange={(event) => setQuickDraft(product, { comparePrice: event.target.value })} inputMode="numeric" placeholder="None" className="h-10 border border-border bg-background-input px-3 font-mono text-sm normal-case text-text-primary placeholder:text-text-muted" /></label>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {quickDirty(product) ? <><Button onClick={() => void saveQuickDraft(product)} disabled={patchProduct.isPending}><Check size={15} className="mr-2" />Save</Button><Button variant="secondary" onClick={() => setQuickDrafts((current) => { const next = { ...current }; delete next[id]; return next; })}>Cancel</Button></> : null}
                     <IconButton label="Copy product link" onClick={() => void copyProductLink(product)}><LinkIcon size={16} /></IconButton>
-                    <IconButton label="Open storefront product page" onClick={() => window.open(window.location.origin.replace('3001', '3000') + '/product/' + product.slug, '_blank', 'noopener,noreferrer')}><ExternalLink size={16} /></IconButton>
+                    <IconButton label="Open storefront product page" onClick={() => window.open(new URL('/product/' + encodeURIComponent(product.slug), process.env.NEXT_PUBLIC_STOREFRONT_URL ?? 'http://localhost:3000').href, '_blank', 'noopener,noreferrer')}><ExternalLink size={16} /></IconButton>
                     <IconButton label="Preview mobile" onClick={() => setModal({ title: 'Mobile preview', body: 'A dedicated admin mobile preview route is not available yet. Open the storefront product page and use responsive preview for now.' })}><Eye size={16} /></IconButton>
                   </div>
                 </div>
               </div>
 
-              <div className="grid min-w-0 content-start gap-4 overflow-hidden">
+              <div className="grid min-w-0 content-start gap-3">
+              <AdminDisclosure label={`SKU inventory · ${product.variants?.length ?? 0} variants`} accessibleLabel={`SKU inventory for ${product.title}`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-text-primary">SKU Inventory</p>
@@ -514,19 +515,19 @@ export function ProductManager(): ReactNode {
                       <span className="flex min-w-0 items-center justify-between gap-2"><span className="shrink-0">{variant.size}</span><span className="min-w-0 flex-1 truncate text-right font-mono normal-case tracking-[0.02em]" title={variant.sku}>{variant.sku}</span></span>
                       <span className={cn('flex h-11 min-w-0 border bg-background-input transition focus-within:border-accent-gold', isLow && 'border-warning', isOut && 'border-danger', !isLow && !isOut && 'border-border', variant.enabled === false && 'opacity-50')}>
                         <input value={value} disabled={variant.enabled === false} onChange={(event: ChangeEvent<HTMLInputElement>) => updateStockDraft(product, variant, event.target.value)} onKeyDown={(event) => handleStockKey(event, product)} inputMode="numeric" className="min-w-0 flex-1 bg-transparent px-3 font-mono text-sm normal-case text-text-primary outline-none disabled:cursor-not-allowed" />
-                        <button type="button" aria-label={'View ' + variant.sku} className="grid w-11 shrink-0 place-items-center border-l border-border text-accent-gold"><Eye size={15} /></button>
+                        <button type="button" aria-label={'View ' + variant.sku} onClick={() => setModal({ title: variant.sku, body: [product.title, variant.color, variant.size, variant.stock + ' in stock'].filter(Boolean).join(' · ') })} className="grid w-11 shrink-0 place-items-center border-l border-border text-accent-gold"><Eye size={15} /></button>
                       </span>
                     </label>;
                   })}
                 </div>}
-              </div>
+              </AdminDisclosure>
 
-              <div className="grid min-w-0 content-start gap-3">
+              <AdminDisclosure label="Product actions" accessibleLabel={`Product actions for ${product.title}`}>
                 <Link href={'/products/' + id} className="inline-flex h-11 items-center justify-center bg-accent-gold px-4 text-xs font-medium uppercase tracking-[0.08em] text-text-inverse transition hover:brightness-110 active:scale-[0.98]"><Pencil size={15} className="mr-2" />Edit Product</Link>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="secondary" onClick={() => setQuickDraft(product, {})}><BadgeIndianRupee size={15} className="mr-2" />Edit Price</Button>
-                  <Button variant="secondary" onClick={() => setModal({ title: 'Manage variants', body: 'Variants can be edited inline here for stock. Full SKU creation and image association stay in the product edit form until a dedicated variant manager is added.' })}><PackagePlus size={15} className="mr-2" />Variants</Button>
-                  <Button variant="secondary" onClick={() => window.open(window.location.origin.replace('3001', '3000') + '/product/' + product.slug, '_blank', 'noopener,noreferrer')}><Eye size={15} className="mr-2" />Preview</Button>
+                  <Button variant="secondary" onClick={() => document.getElementById(`product-price-${id}`)?.focus()}><BadgeIndianRupee size={15} className="mr-2" />Edit Price</Button>
+                  <Link href={'/products/' + id + '#product-variants'} className="inline-flex min-h-11 items-center justify-center border border-border px-3 text-xs uppercase tracking-[0.08em] hover:border-accent-gold"><PackagePlus size={15} className="mr-2" />Variants</Link>
+                  <Button variant="secondary" onClick={() => window.open(new URL('/product/' + encodeURIComponent(product.slug), process.env.NEXT_PUBLIC_STOREFRONT_URL ?? 'http://localhost:3000').href, '_blank', 'noopener,noreferrer')}><Eye size={15} className="mr-2" />Preview</Button>
                   <Button variant="secondary" onClick={() => void copyProductLink(product)}><Copy size={15} className="mr-2" />Copy</Button>
                   <Button variant="secondary" onClick={() => void shareProduct(product)}><Share2 size={15} className="mr-2" />Share</Button>
                   <Button variant="secondary" onClick={() => void duplicateOne(product)} disabled={duplicateProduct.isPending}><FileStack size={15} className="mr-2" />Duplicate</Button>
@@ -542,7 +543,7 @@ export function ProductManager(): ReactNode {
                   <Button variant="danger" onClick={() => setModal({ title: 'Delete unavailable', body: 'This project archives products instead of hard deleting them. Archive is the safer destructive action for preserving orders and analytics.' })}><Trash2 size={15} className="mr-2" />Delete</Button>
                 </div>
                 {health.missing.length ? <details className="border border-border p-3 text-sm text-text-secondary"><summary className="cursor-pointer text-warning"><AlertTriangle size={15} className="mr-2 inline" />Health issues</summary><ul className="mt-2 grid gap-1">{health.missing.map((item) => <li key={item}>- {item}</li>)}</ul></details> : null}
-              </div>
+              </AdminDisclosure></div>
             </article>;
           })}
         </div> : null}

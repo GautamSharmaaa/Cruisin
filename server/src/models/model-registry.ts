@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import { AdminAlertDeliveryModel, AdminAlertPreferencesModel } from './admin-alert.model.js';
 import { AddressModel } from './address.model.js';
 import { AuthProviderModel } from './auth-provider.model.js';
 import { BannerModel } from './banner.model.js';
@@ -32,6 +33,7 @@ import {
 } from './navigation.model.js';
 import { NewsletterSubscriberModel } from './newsletter-subscriber.model.js';
 import { NotificationModel } from './notification.model.js';
+import { MetaConsentModel, MetaConversionModel } from './meta-conversion.model.js';
 import { OrderModel } from './order.model.js';
 import { OrderDeleteTombstoneModel } from './order-delete-tombstone.model.js';
 import { OtpModel } from './otp.model.js';
@@ -42,6 +44,7 @@ import { ProductModel } from './product.model.js';
 import { ReturnRequestModel } from './return-request.model.js';
 import { ReviewModel } from './review.model.js';
 import { SecurityEventModel } from './security-event.model.js';
+import { StorefrontActivityModel } from './storefront-activity.model.js';
 import { SiteSettingsModel } from './site-settings.model.js';
 import { ShipmentModel } from './shipment.model.js';
 import { TagModel } from './tag.model.js';
@@ -52,6 +55,8 @@ import { WishlistModel } from './wishlist.model.js';
 import { WalletModel } from './wallet.model.js';
 
 export const applicationModels = [
+  AdminAlertDeliveryModel,
+  AdminAlertPreferencesModel,
   AddressModel,
   AuthProviderModel,
   BannerModel,
@@ -87,6 +92,8 @@ export const applicationModels = [
   NewsletterSubscriberModel,
   NotificationModel,
   OrderModel,
+  MetaConsentModel,
+  MetaConversionModel,
   OrderDeleteTombstoneModel,
   OtpModel,
   PackagePresetModel,
@@ -97,6 +104,7 @@ export const applicationModels = [
   ReviewModel,
   SecurityEventModel,
   SiteSettingsModel,
+  StorefrontActivityModel,
   ShipmentModel,
   TagModel,
   UserPreferenceModel,

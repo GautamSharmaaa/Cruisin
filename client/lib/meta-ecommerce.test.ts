@@ -9,9 +9,24 @@ import {
   trackProductView
 } from '@/lib/meta-ecommerce';
 import { resetMetaPixelStateForTests, type MetaFbq } from '@/lib/meta-pixel';
+import { enqueueCartMutation } from '@/lib/server-cart';
 import { useCartStore } from '@/store/cartStore';
 import type { Order } from '@/types/order.types';
 import type { Product } from '@/types/product.types';
+
+const pixelId = '100000000000001';
+const consentId = '00000000-0000-4000-8000-000000000001';
+vi.mock('@/lib/meta-consent', () => ({
+  getMetaAttribution: () => ({ pixelId, consentId }),
+  getMetaPixelId: () => pixelId,
+  getMarketingConsentId: () => consentId
+}));
+vi.mock('@/lib/meta-capi', () => ({ mirrorMetaEvent: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('@/lib/storefront-activity', () => ({ trackStorefrontActivity: vi.fn() }));
+vi.mock(import('@/lib/server-cart'), async (importOriginal) => ({
+  ...await importOriginal(),
+  enqueueCartMutation: vi.fn()
+}));
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -53,6 +68,8 @@ const order = (paymentStatus: string, paymentMode: Order['paymentMode'] = 'onlin
   orderNumber: 'CR-123',
   paymentMode,
   paymentStatus,
+  orderStatus: paymentMode === 'cod' ? 'placed' : 'confirmed',
+  metaPurchase: { eventId: 'purchase:order-123', pixelId, confirmedAt: new Date().toISOString() },
   total: 5088,
   subtotal: 4998,
   shipping: 90,
@@ -64,7 +81,7 @@ const order = (paymentStatus: string, paymentMode: Order['paymentMode'] = 'onlin
 });
 
 const installWindow = (): void => {
-  Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: { fbq, localStorage, sessionStorage } });
+  Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: { fbq, localStorage, sessionStorage, location: new URL("https://storefront.example/") } });
 };
 
 const removeWindow = (): void => {
@@ -75,7 +92,9 @@ const removeWindow = (): void => {
 describe('Meta ecommerce action mapping', () => {
   beforeEach(() => {
     installWindow();
+    vi.stubGlobal('localStorage', localStorage);
     vi.mocked(fbq).mockClear();
+    vi.mocked(enqueueCartMutation).mockClear();
     localStorage.clear();
     sessionStorage.clear();
     resetMetaPixelStateForTests();
@@ -83,24 +102,33 @@ describe('Meta ecommerce action mapping', () => {
     useCartStore.setState({ items: [], isOpen: false, coupon: undefined, couponDiscount: 0, freeShipping: false });
   });
 
-  afterEach(removeWindow);
+  afterEach(() => {
+    removeWindow();
+    vi.unstubAllGlobals();
+  });
 
   it('tracks ViewContent once with the default backend variant ID', () => {
     expect(trackProductView(product)).toBe(true);
     expect(trackProductView(product)).toBe(false);
-    expect(fbq).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(fbq).mock.calls[0]?.[2]).toMatchObject({ content_ids: ['variant-1'], value: 2499, currency: 'INR' });
+    const views = vi.mocked(fbq).mock.calls.filter(call => call[2] === 'ViewContent');
+    expect(views).toHaveLength(1);
+    expect(views[0]?.[3]).toMatchObject({ content_ids: ['variant-1'], value: 2499, currency: 'INR' });
   });
 
-  it('fires AddToCart only after the real cart state accepts the item', () => {
+  it('fires AddToCart after the server confirms the add and never on optimistic state alone', () => {
     const variant = product.variants[0]!;
     const addItem = useCartStore.getState().addItem;
     expect(addProductToCart({ product, variant, quantity: 1, addItem })).toBe(true);
     expect(useCartStore.getState().items).toHaveLength(1);
     expect(addProductToCart({ product, variant, quantity: 1, addItem })).toBe(false);
-    const addCalls = vi.mocked(fbq).mock.calls.filter((call) => call[1] === 'AddToCart');
+    expect(vi.mocked(fbq).mock.calls.filter(call => call[2] === 'AddToCart')).toHaveLength(0);
+    const mutation = vi.mocked(enqueueCartMutation).mock.calls[0];
+    expect(mutation?.[4]).toBeTypeOf('function');
+    mutation?.[2]({ items: [{ product: product.id, variant: variant.id, quantity: 1, price: 2499 }], version: 1 });
+    mutation?.[4]?.();
+    const addCalls = vi.mocked(fbq).mock.calls.filter(call => call[2] === 'AddToCart');
     expect(addCalls).toHaveLength(1);
-    expect(addCalls[0]?.[2]).toMatchObject({ contents: [{ id: 'variant-1', quantity: 1, item_price: 2499 }], value: 2499 });
+    expect(addCalls[0]?.[3]).toMatchObject({ contents: [{ id: 'variant-1', quantity: 1, item_price: 2499 }], value: 2499 });
   });
 
   it('does not track wishlist prompts, removals, or failed API requests', async () => {
@@ -110,14 +138,14 @@ describe('Meta ecommerce action mapping', () => {
     expect(await performWishlistToggle({ authenticated: true, product, isWishlisted: false, toggle, request: async () => { throw new Error('failed'); } })).toBe('failed');
     expect(toggle).toHaveBeenCalledTimes(2);
     expect(await performWishlistToggle({ authenticated: true, product, isWishlisted: true, toggle, request: async () => undefined })).toBe('removed');
-    expect(vi.mocked(fbq).mock.calls.filter((call) => call[1] === 'AddToWishlist')).toHaveLength(0);
+    expect(vi.mocked(fbq).mock.calls.filter((call) => call[2] === 'AddToWishlist')).toHaveLength(0);
   });
 
   it('tracks wishlist only after a successful add response', async () => {
     expect(await performWishlistToggle({ authenticated: true, product, isWishlisted: false, toggle: vi.fn(), request: async () => undefined })).toBe('added');
-    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[1] === 'AddToWishlist');
+    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[2] === 'AddToWishlist');
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.[2]).toMatchObject({ content_ids: ['variant-1'], value: 2499, currency: 'INR' });
+    expect(calls[0]?.[3]).toMatchObject({ content_ids: ['variant-1'], value: 2499, currency: 'INR' });
   });
 
   it('does not initiate checkout for an empty cart and reuses one attempt ID', () => {
@@ -128,18 +156,18 @@ describe('Meta ecommerce action mapping', () => {
     expect(trackCheckoutStarted(input)).toBe(true);
     expect(trackCheckoutStarted(input)).toBe(false);
     expect(getOrCreateCheckoutEventId({ ...input, value: 2699 })).toBe(firstId);
-    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[1] === 'InitiateCheckout');
+    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[2] === 'InitiateCheckout');
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.[3]).toEqual({ eventID: firstId });
+    expect(calls[0]?.[4]).toEqual({ eventID: firstId });
   });
 
   it('sends only a payment-method category for AddPaymentInfo', () => {
     const item = { product, variantId: 'variant-1', size: 'M', color: 'Black', quantity: 1, price: 2499 };
     expect(trackCheckoutPaymentSelected({ items: [item], value: 2589 }, 'online')).toBe(true);
-    const call = vi.mocked(fbq).mock.calls.find((candidate) => candidate[1] === 'AddPaymentInfo');
-    expect(call?.[2]).toMatchObject({ payment_method: 'online', value: 2589, currency: 'INR' });
-    expect(call?.[2]).not.toHaveProperty('email');
-    expect(call?.[2]).not.toHaveProperty('phone');
+    const call = vi.mocked(fbq).mock.calls.find((candidate) => candidate[2] === 'AddPaymentInfo');
+    expect(call?.[3]).toMatchObject({ payment_method: 'online', value: 2589, currency: 'INR' });
+    expect(call?.[3]).not.toHaveProperty('email');
+    expect(call?.[3]).not.toHaveProperty('phone');
   });
 
   it('fires Purchase only for a confirmed order and uses the final rupee total', () => {
@@ -147,10 +175,11 @@ describe('Meta ecommerce action mapping', () => {
     expect(trackConfirmedOrderPurchase(order('failed'))).toBe(false);
     expect(trackConfirmedOrderPurchase(order('cancelled'))).toBe(false);
     expect(trackConfirmedOrderPurchase({ ...order('paid'), orderStatus: 'cancelled' })).toBe(false);
+    expect(trackConfirmedOrderPurchase({ ...order('paid'), metaPurchase: undefined })).toBe(false);
     expect(trackConfirmedOrderPurchase(order('paid'))).toBe(true);
-    const call = vi.mocked(fbq).mock.calls.find((candidate) => candidate[1] === 'Purchase');
-    expect(call?.[2]).toMatchObject({ content_ids: ['variant-1'], value: 5088, currency: 'INR', order_id: 'order-123', num_items: 2 });
-    expect(call?.[3]).toEqual({ eventID: 'purchase:order-123' });
+    const call = vi.mocked(fbq).mock.calls.find((candidate) => candidate[2] === 'Purchase');
+    expect(call?.[3]).toMatchObject({ content_ids: ['variant-1'], value: 5088, currency: 'INR', order_id: 'order-123', num_items: 2 });
+    expect(call?.[4]).toEqual({ eventID: 'purchase:order-123' });
   });
 
   it('prevents duplicate Purchase on rerender and refresh while preserving a stable event ID', () => {
@@ -159,8 +188,8 @@ describe('Meta ecommerce action mapping', () => {
     expect(trackConfirmedOrderPurchase(confirmed)).toBe(false);
     resetMetaEcommerceStateForTests();
     expect(trackConfirmedOrderPurchase(confirmed)).toBe(false);
-    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[1] === 'Purchase');
+    const calls = vi.mocked(fbq).mock.calls.filter((call) => call[2] === 'Purchase');
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.[3]).toEqual({ eventID: 'purchase:order-123' });
+    expect(calls[0]?.[4]).toEqual({ eventID: 'purchase:order-123' });
   });
 });

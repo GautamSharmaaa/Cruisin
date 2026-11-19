@@ -16,6 +16,7 @@ export interface AddressBottomSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addresses: AddressBookEntry[];
+  readOnly?: boolean;
   selectedAddressId?: string;
   customerName?: string;
   customerPhone?: string;
@@ -42,7 +43,7 @@ const bookToDraft = (address: AddressBookEntry): AddressDraft => ({
 const fieldClass = 'mt-2 h-12 w-full border border-border-subtle bg-background-input px-4 text-base text-text-primary outline-none transition focus:border-accent-gold disabled:cursor-not-allowed disabled:opacity-70';
 const labelClass = 'block text-[10px] uppercase tracking-[0.16em] text-text-secondary';
 
-export function AddressBottomSheet({ open, onOpenChange, addresses, selectedAddressId, customerName, customerPhone, onAddressSelected }: AddressBottomSheetProps): ReactNode {
+export function AddressBottomSheet({ open, onOpenChange, addresses, readOnly = false, selectedAddressId, customerName, customerPhone, onAddressSelected }: AddressBottomSheetProps): ReactNode {
   const reduceMotion = useReducedMotion();
   const createAddress = useCreateAddress();
   const updateAddress = useUpdateAddress();
@@ -156,9 +157,9 @@ export function AddressBottomSheet({ open, onOpenChange, addresses, selectedAddr
                 <p className="mb-4 text-[10px] uppercase tracking-[0.18em] text-text-muted">Saved addresses</p>
                 <div className="grid gap-3">{addresses.map((address) => <article key={address._id} className={'border p-5 transition ' + (address._id === selectedAddressId ? 'border-accent-gold bg-background-elevated' : 'border-border-subtle')}>
                   <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] uppercase tracking-[0.16em] text-accent-gold">{address.type}</p><p className="mt-3 font-medium text-text-primary">{address.fullName}</p><p className="mt-2 text-sm leading-6 text-text-secondary">{address.street}{address.landmark ? `, ${address.landmark}` : ''}<br />{address.city}, {address.state} · {address.pincode}</p></div>{address._id === selectedAddressId ? <Check className="mt-1 h-5 w-5 shrink-0 text-success" /> : null}</div>
-                  <div className="mt-5 flex items-center gap-5"><button type="button" onClick={() => choose(address)} className="min-h-11 text-xs font-semibold uppercase tracking-[0.13em] text-accent-gold">Deliver here →</button><button type="button" onClick={() => edit(address)} className="min-h-11 text-[10px] uppercase tracking-[0.13em] text-text-secondary">Edit</button></div>
+                  <div className="mt-5 flex items-center gap-5"><button type="button" onClick={() => choose(address)} className="min-h-11 text-xs font-semibold uppercase tracking-[0.13em] text-accent-gold">Deliver here →</button>{!readOnly && <button type="button" onClick={() => edit(address)} className="min-h-11 text-[10px] uppercase tracking-[0.13em] text-text-secondary">Edit</button>}</div>
                 </article>)}</div>
-                <button type="button" onClick={() => { setDraftTouched(false); setEditingId(undefined); setDraft(emptyDraft(customerName, customerPhone)); setShowForm(true); }} className="mt-5 min-h-12 w-full border border-border px-5 text-xs uppercase tracking-[0.14em] text-text-primary">+ Add new address</button>
+                {!readOnly && <button type="button" onClick={() => { setDraftTouched(false); setEditingId(undefined); setDraft(emptyDraft(customerName, customerPhone)); setShowForm(true); }} className="mt-5 min-h-12 w-full border border-border px-5 text-xs uppercase tracking-[0.14em] text-text-primary">+ Add new address</button>}
               </div> : <div className="space-y-5">
                 {addresses.length ? <button type="button" onClick={() => setShowForm(false)} className="min-h-11 text-[10px] uppercase tracking-[0.15em] text-accent-gold">← Saved addresses</button> : null}
                 <div className="border-b border-border-subtle pb-5">

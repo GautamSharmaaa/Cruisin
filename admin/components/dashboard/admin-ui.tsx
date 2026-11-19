@@ -1,6 +1,6 @@
 // Governed by .rules v1.0
 import type { ReactNode } from "react";
-import { AlertTriangle, Inbox, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Inbox, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AdminCard({
@@ -303,4 +303,14 @@ export function LoadingInline({
       {label}
     </span>
   );
+}
+
+export function AdminDisclosure({ label, accessibleLabel, children }: { label: ReactNode; accessibleLabel?: string; children: ReactNode }): ReactNode {
+  return <details className="group/disclosure min-w-0 border border-border bg-background-primary">
+    <summary aria-label={accessibleLabel} className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium text-text-primary hover:bg-background-overlay [&::-webkit-details-marker]:hidden">
+      {label}
+      <ChevronDown size={15} aria-hidden="true" className="shrink-0 transition-transform group-open/disclosure:rotate-180 motion-reduce:transition-none" />
+    </summary>
+    <div className="grid gap-3 border-t border-border p-3">{children}</div>
+  </details>;
 }

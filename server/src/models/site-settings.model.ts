@@ -31,8 +31,11 @@ const promotionExperienceSchema = new Schema(
 
 const siteSettingsSchema = new Schema(
   {
-    storefrontExperience: {type:new Schema({scrollBehavior:{type:String,enum:['smooth','native'],default:'smooth'},pageTransitionsEnabled:{type:Boolean,default:true},galleryArrowsEnabled:{type:Boolean,default:true},galleryProgressEnabled:{type:Boolean,default:true},imageGradientEnabled:{type:Boolean,default:true},wishlistEnabled:{type:Boolean,default:true},wishlistAnimation:{type:String,enum:['pulse','none'],default:'pulse'},menuAnimation:{type:String,enum:['slide','fade'],default:'slide'},pageLoader:{type:String,enum:['brand','none'],default:'brand'},motionPace:{type:String,enum:['calm','quick'],default:'calm'}},{_id:false}),default:()=>({})},
+    storefrontExperience: {type:new Schema({scrollBehavior:{type:String,enum:['smooth','native'],default:'smooth'},pageTransitionsEnabled:{type:Boolean,default:true},galleryArrowsEnabled:{type:Boolean,default:true},galleryProgressEnabled:{type:Boolean,default:true},imageGradientEnabled:{type:Boolean,default:true},wishlistEnabled:{type:Boolean,default:true},wishlistAnimation:{type:String,enum:['pulse','none'],default:'pulse'},menuAnimation:{type:String,enum:['slide','fade'],default:'slide'},pageLoader:{type:String,enum:['brand','none'],default:'brand'},loaderMark:{type:String,enum:['wordmark','diamond'],default:'wordmark'},loaderText:{type:String,default:''},loaderTone:{type:String,enum:['theme','light','dark'],default:'theme'},loaderAccent:{type:String},collectionAutoLoad:{type:Boolean,default:true},collectionSortVisible:{type:Boolean,default:true},collectionWindowVisible:{type:Boolean,default:true},collectionFilters:{type:[String],default:undefined},motionPace:{type:String,enum:['calm','quick'],default:'calm'}},{_id:false}),default:()=>({})},
+    storefrontLinks: { type: Schema.Types.Mixed },
+    footerAppearance: { type: Schema.Types.Mixed },
     singletonKey: { type: String, required: true, default: 'global', unique: true },
+    cruisinRingFinish: { type: String, enum: ['chrome', 'color'], default: appearance.cruisinRingFinish },
     cruisinRingColorLight: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorLight },
     cruisinRingColorDark: { type: String, trim: true, lowercase: true, match: /^#[0-9a-f]{6}$/, default: appearance.cruisinRingColorDark },
     defaultGridView: { type: Number, enum: [1, 2, 4], default: 4 },

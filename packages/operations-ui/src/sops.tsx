@@ -1,5 +1,6 @@
 "use client";
 import { DETAIL_COPY as D } from "./constants/detail-copy";
+import { CRUISIN_PACKAGING_REQUIREMENTS, SOP_FLOW_COPY as F } from "./constants/packaging-sop";
 import {
   useCallback,
   useEffect,
@@ -243,8 +244,11 @@ export function SopEditor({ sop, api, onSaved }: SopEditorProps): ReactNode {
         <p>{D.enterApprovedSpecificationsQcCannotPassOutsideThese}</p>
       </Card>
       <Card title={D.verifiedSopRequirements}>
+        <ol className="ops-sop-flow ops-sop-editor-flow" aria-label={F.title}>
         {requirements.map((r, i) => (
-          <div className="ui-stack" key={r.key}>
+          <li key={r.key}>
+            <div className="ops-sop-node ui-stack">
+            <p className="ops-eyebrow">{F.step} {i + 1}</p>
             <Field label={D.stepInstruction}>
               <Input
                 required
@@ -320,8 +324,10 @@ export function SopEditor({ sop, api, onSaved }: SopEditorProps): ReactNode {
             >
               {D.removeStep}
             </Button>
-          </div>
+            </div>
+          </li>
         ))}
+        </ol>
         <Button
           type="button"
           variant="secondary"
@@ -343,28 +349,10 @@ export function SopEditor({ sop, api, onSaved }: SopEditorProps): ReactNode {
         <Button
           type="button"
           variant="secondary"
-          onClick={() =>
-            setRequirements(
-              [
-                "Verify finished product",
-                "Cut loose threads",
-                "Inspect stitching",
-                "Check labels and tags",
-                "Add thank-you card",
-                "Optional fragrance",
-                "Complete inner packaging",
-                "Verify unique inventory QR",
-                "Attach correct individual label",
-                "Final packaging inspection",
-              ].map((label, i) => ({
-                key: `pack-${i + 1}`,
-                label,
-                mandatory: i !== 5,
-                photo: false,
-                scan: i === 7 || i === 8,
-              })),
-            )
-          }
+          onClick={() => {
+            setKind("PACKAGING");
+            setRequirements(CRUISIN_PACKAGING_REQUIREMENTS);
+          }}
         >
           {D.loadCruisinPackagingDefaults}
         </Button>
@@ -459,13 +447,13 @@ export function SopPanel({
       <article className="ops-prose">
         <ReactMarkdown skipHtml>{sop.body}</ReactMarkdown>
       </article>
-      <ol>
-        {sop.steps.map((step, i) => (
-          <li key={i}>
-            {i + 1}. {step}
-          </li>
-        ))}
-      </ol>
+      {sop.kind === "PACKAGING" && Boolean(sop.requirements?.length) ? (
+        <SopFlow requirements={sop.requirements ?? []} labels={sop.flowLabels} />
+      ) : (
+        <ol>
+          {sop.steps.map((step, i) => <li key={i}>{i + 1}. {step}</li>)}
+        </ol>
+      )}
       <AttachmentList ids={sop.attachments} api={api} />
       <div className="ui-row">
         {sop.status === "PUBLISHED" && (
@@ -552,5 +540,37 @@ export function SopPanel({
         </form>
       </Dialog>
     </div>
+  );
+}
+
+
+export interface SopFlowProps {
+  requirements: NonNullable<Sop["requirements"]>;
+  labels?: Sop["flowLabels"];
+}
+
+export function SopFlow({ requirements, labels }: SopFlowProps): ReactNode {
+  return (
+    <section className="ui-stack" aria-label={F.title}>
+      <h3>{F.title}</h3>
+      <div className="ops-sop-chart">
+        <p className="ops-sop-terminal ops-sop-start">{labels?.start ?? F.start}</p>
+        <ol className="ops-sop-diagram">
+        {requirements.map(step => (
+          <li key={step.key}>
+            <div className="ops-sop-node">
+              <p>{step.label}</p>
+              <div className="ui-row">
+                <Status>{step.mandatory ? F.required : F.optional}</Status>
+                {step.scan && <Status>{F.scan}</Status>}
+                {step.photo && <Status>{F.photo}</Status>}
+              </div>
+            </div>
+          </li>
+        ))}
+        </ol>
+        <p className="ops-sop-terminal ops-sop-end">{labels?.end ?? F.end}</p>
+      </div>
+    </section>
   );
 }

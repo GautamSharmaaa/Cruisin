@@ -1,4 +1,5 @@
 "use client";
+import { INVENTORY_COPY as I } from "./constants/inventory-copy";
 import {
   useCallback,
   useEffect,
@@ -154,6 +155,8 @@ export function InventoryActions({
     null,
   );
   const [history, setHistory] = useState<unknown>(null);
+  const [labelPending, setLabelPending] = useState(false);
+  const [labelError, setLabelError] = useState("");
   return (
     <div className="ui-row">
       {principal.permissions.includes("inventory.adjust.request") && (
@@ -166,11 +169,14 @@ export function InventoryActions({
       )}
       {principal.permissions.includes("inventory.count") && (
         <Dialog
-          title={C.label}
+          title={I.qrLabel}
           trigger={
             <Button
               variant="secondary"
               onClick={() => {
+                setLabel(null);
+                setLabelError("");
+                setLabelPending(true);
                 void api
                   .post<{
                     svg: string;
@@ -180,15 +186,18 @@ export function InventoryActions({
                     variant: row.variant,
                   })
                   .then(setLabel)
-                  .catch(fail);
+                  .catch((error: unknown) => setLabelError(error instanceof Error ? error.message : C.error))
+                  .finally(() => setLabelPending(false));
               }}
             >
               {C.label}
             </Button>
           }
         >
+          {labelPending && <Skeleton />}
+          {labelError && <Alert tone="danger">{labelError}</Alert>}
           {label && (
-            <div className="ops-print-label">
+            <div className="ops-print-label ops-inventory-qr">
               <img
                 src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(label.svg)}`}
                 alt={row.sku}

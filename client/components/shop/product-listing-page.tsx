@@ -4,9 +4,11 @@
 import {editorialLinkSchema} from '@cruisin/contracts/editorial';
 import { SlidersHorizontal } from 'lucide-react';
 import Image from 'next/image';
-import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
-import {flushSync} from 'react-dom';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { BrandLoader } from '@/components/shared/brand-loader';
+import { useCollectionGridDensity } from '@/hooks/useCollectionGridDensity';
+import { useStorefrontExperience } from '@/hooks/useStorefrontExperience';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AdvancedFiltersDrawer, type AdvancedFilterValues } from '@/components/shop/advanced-filters-drawer';
 import { CollectionCarousel } from '@/components/collections/collection-carousel';
@@ -19,8 +21,8 @@ import { STOREFRONT_COPY as C } from '@/constants/storefront-copy';
 import { SortSelect } from '@/components/shop/sort-select';
 import { COPY } from '@/constants/copy';
 import { useCategoryByPath, useCategories } from '@/hooks/useCategories';
-import { useCollections, usePageSettings, useSiteSettings, useTags } from '@/hooks/useMerchandising';
-import { useProducts, type UseProductsInput } from '@/hooks/useProducts';
+import { useCollections, usePageSettings, useSiteSettings, useStorefrontLinks, useTags } from '@/hooks/useMerchandising';
+import { useInfiniteProducts, useProducts, type UseProductsInput } from '@/hooks/useProducts';
 import { compareSizes } from '@/lib/variant-utils';
 import type { CategoryDto, CollectionDto, PageSettingsDto } from '@/types/dto.types';
 
@@ -63,12 +65,7 @@ const defaultGridView = (settings?: { defaultGridView?: GridView } | null, siteD
 const titleFromSlug = (slug: string): string => slug.split('/').at(-1)?.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') ?? slug;
 
 export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eyebrow, title, subtitle, gender, sale, featured, bestseller, latestDrop, categoryPath, collectionSlug, selectedCollection = null, initialCategory = null, initialSettings = null, showCollectionCarousel = false }: ProductListingPageProps): ReactNode {
-  const router = useRouter();
-  const reducedMotion=useStorefrontReducedMotion();
   const filterTrigger=useRef<HTMLButtonElement>(null);
-  const [dense,setDense]=useState(false);
-  useEffect(()=>{setDense(localStorage.getItem('cruisin_collection_density')==='dense');},[]);
-  const toggleDensity=():void=>{const update=():void=>{flushSync(()=>setDense(current=>{const next=!current;localStorage.setItem('cruisin_collection_density',next?'dense':'regular');return next;}));};if(!reducedMotion&&document.startViewTransition)document.startViewTransition(update);else update();};
   const pathname = usePathname();
   const params = useSearchParams();
   const categories = useCategories();
@@ -78,7 +75,10 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const pageSettings = usePageSettings(pageType, pageSlug);
   const tags = useTags();
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [limit, setLimit] = useState(24);
+  const experience = useStorefrontExperience();
+  const { dense, gridRef, toggleDensity } = useCollectionGridDensity(experience.motionPace === 'quick');
+  const links = useStorefrontLinks();
+  const moreRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<GridView>(4);
   const settings = pageSettings.data ?? initialSettings;
   const categoryData = initialCategory ?? category.data;
@@ -94,7 +94,9 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const activeCollection = collectionSlug ?? params.get('collection') ?? undefined;
   const activeTags = params.get('tags') ?? undefined;
   const activeQuery = params.get('q')?.trim() || undefined;
-  const activeGender = (params.get('gender') as 'men' | 'women' | 'unisex' | null) ?? gender;
+  const activeGender = gender ?? (params.get('gender') as UseProductsInput['gender'] | null) ?? undefined;
+  const department = gender === 'men' || gender === 'women' ? gender : categoryPath?.split('/')[0];
+  const departmentLinks = department === 'men' || department === 'women' ? links[department] : undefined;
   const activeSale = sale || params.get('sale') === 'true';
 
   const [draft, setDraft] = useState<AdvancedFilterValues>(emptyValues);
@@ -120,7 +122,7 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
     });
   }, [params, sort]);
 
-  const products = useProducts({
+  const products = useInfiniteProducts({
     q: activeQuery,
     category: activeCategory,
     collection: activeCollection,
@@ -136,10 +138,11 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
     priceMax: params.get('priceMax') ? Number(params.get('priceMax')) : undefined,
     availability: (params.get('availability') as UseProductsInput['availability']) ?? 'all',
     sort,
-    limit
+    limit: 24
   });
 
   const facetProducts = useProducts({
+    enabled: advancedOpen,
     q: activeQuery,
     category: activeCategory,
     collection: activeCollection,
@@ -158,12 +161,39 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
 
   const [countDraft,setCountDraft]=useState(draft);
   useEffect(()=>{const timer=window.setTimeout(()=>setCountDraft(draft),250);return()=>window.clearTimeout(timer);},[draft]);
-  const filterPreview=useProducts({enabled:advancedOpen,q:activeQuery,category:categoryPath||countDraft.category||undefined,collection:collectionSlug||countDraft.collection||undefined,tags:activeTags,gender:(countDraft.gender||gender||undefined) as UseProductsInput['gender'],sale:sale||countDraft.sale||undefined,featured:featured||undefined,bestseller:bestseller||undefined,latestDrop:latestDrop||undefined,size:countDraft.size||undefined,color:countDraft.color||undefined,priceMin:countDraft.priceMin&&Number.isFinite(Number(countDraft.priceMin))?Number(countDraft.priceMin):undefined,priceMax:countDraft.priceMax&&Number.isFinite(Number(countDraft.priceMax))?Number(countDraft.priceMax):undefined,availability:countDraft.availability as UseProductsInput['availability'],sort:countDraft.sort,limit:1});
-  const items = products.data?.items ?? [];
-  const total = products.data?.total ?? items.length;
+  const filterPreview=useProducts({enabled:advancedOpen,q:activeQuery,category:categoryPath||countDraft.category||undefined,collection:collectionSlug||countDraft.collection||undefined,tags:activeTags,gender:(gender||countDraft.gender||undefined) as UseProductsInput['gender'],sale:sale||countDraft.sale||undefined,featured:featured||undefined,bestseller:bestseller||undefined,latestDrop:latestDrop||undefined,size:countDraft.size||undefined,color:countDraft.color||undefined,priceMin:countDraft.priceMin&&Number.isFinite(Number(countDraft.priceMin))?Number(countDraft.priceMin):undefined,priceMax:countDraft.priceMax&&Number.isFinite(Number(countDraft.priceMax))?Number(countDraft.priceMax):undefined,availability:countDraft.availability as UseProductsInput['availability'],sort:countDraft.sort,limit:1});
+  const items = useMemo(() => {
+    const byId = new Map((products.data?.pages ?? []).flatMap(page => page.items.map(product => [product.id, product] as const)));
+    return Array.from(byId.values());
+  }, [products.data]);
+  const { fetchNextPage, hasNextPage, isFetching, isFetchNextPageError } = products;
+  useEffect(() => {
+    const sentinel = moreRef.current;
+    if (!experience.collectionAutoLoad || !sentinel || !hasNextPage || isFetching || isFetchNextPageError ||
+        typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) {
+        observer.disconnect();
+        void fetchNextPage({ cancelRefetch: false });
+      }
+    }, { rootMargin: '0px 0px 240px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [experience.collectionAutoLoad, fetchNextPage, hasNextPage, isFetching, isFetchNextPageError]);
   const facetVariants = (facetProducts.data?.items ?? []).flatMap((product) => product.variants.filter((variant) => variant.enabled !== false));
   const sizeFacets = Array.from(new Map(facetVariants.filter((variant) => variant.size.trim()).map((variant) => [variant.size.trim().toLowerCase(), variant.size.trim()])).values()).sort(compareSizes);
-  const colorFacets = Array.from(new Map(facetVariants.filter((variant) => variant.color.trim()).map((variant) => [variant.color.trim().toLowerCase(), { label: variant.color.trim(), hex: variant.colorHex }])).values()).sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
+  const colorFacets = useMemo(() => {
+    const colors = new Map<string, { label: string; hex: string }>();
+    for (const product of facetProducts.data?.items ?? []) {
+      for (const variant of product.variants) {
+        const label = variant.color.trim();
+        const key = label.toLowerCase();
+        if (variant.enabled === false || !label || colors.get(key)?.hex) continue;
+        colors.set(key, { label, hex: variant.colorHex ?? '' });
+      }
+    }
+    return Array.from(colors.values()).sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
+  }, [facetProducts.data]);
   const appliedVariantFilters = [
     activeQuery ? { key: 'q', label: `Search: ${activeQuery}` } : null,
     params.get('color') ? { key: 'color', label: `Color: ${params.get('color')}` } : null,
@@ -189,7 +219,8 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
   const rawPageSubtitle = selectedCollection?.heroSubtitle || selectedCollection?.description || categoryData?.heroSubtitle || categoryData?.description || settings?.subtitle || subtitle || '';
   const heroMediaVisible = siteSettings.isSuccess && (siteSettings.data?.isListingHeroMediaEnabled ?? true);
   const filtersVisible = browsingSettings.areFiltersVisible;
-  const advancedVisible = browsingSettings.isAdvancedFilterEnabled && (siteSettings.data?.isAdvancedFilterEnabled ?? true);
+  const filterGroups = experience.collectionFilters.filter(group => group !== 'gender' || !gender);
+  const advancedVisible = filtersVisible && filterGroups.length > 0 && browsingSettings.isAdvancedFilterEnabled && (siteSettings.data?.isAdvancedFilterEnabled ?? true);
   const chips = useMemo<FilterChip[]>(() => {
     const sourceTags: FilterChip[] = (tags.data ?? []).filter((tag) => tag.isVisible).map((tag) => ({ label: tag.name, value: tag.slug, kind: tag.slug === 'view-all' ? 'clear' : 'tag' }));
     if ((categories.data?.length??0) === 0 && sourceTags.length > 0) return sourceTags;
@@ -202,7 +233,11 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
       if (!value) next.delete(key); else next.set(key, value);
     });
     const query = next.toString();
-    router.push(query ? pathname + '?' + query : pathname,{scroll:false});
+    // The catalogue queries consume these parameters on the client.
+    // Keep the current page and its scroll position while they fetch.
+    if (query !== params.toString()) {
+      window.history.pushState(null, '', pathname + (query ? '?' + query : '') + window.location.hash);
+    }
   };
 
   const selectChip = (chip: FilterChip): void => {
@@ -236,15 +271,35 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
     setAdvancedOpen(false);
   };
 
+  const drawerCategories = (categories.data ?? []).filter(item => departmentLinks === undefined || (item.path ?? '').startsWith(department + '/'));
+
   return <main className="collection-page">
     <h1 className="sr-only">{pageTitle}</h1>
-    {filtersVisible&&<nav className="collection-categories" aria-label="Product categories">{chips.map(chip=><button type="button" key={chip.kind+chip.value} aria-pressed={activeCategory===chip.value||activeTags===chip.value||(chip.kind==='clear'&&!activeCategory&&!activeTags)} onClick={()=>selectChip(chip)}>{chip.label}</button>)}</nav>}
-    <div className="collection-toolbar" data-testid="listing-toolbar"><button type="button" ref={filterTrigger} className="collection-filter-trigger" onClick={()=>setAdvancedOpen(true)} disabled={!advancedVisible}><SlidersHorizontal size={18} strokeWidth={1.2}/>{C.filters}</button><button type="button" className="collection-window-toggle" aria-label={dense?C.regularGrid:C.denseGrid} aria-pressed={dense} title={dense?C.regularGrid:C.denseGrid} onClick={toggleDensity}><svg viewBox="0 0 32 32" aria-hidden="true"><path className="view-depth" d="m6 7 3-2h18v20l-3 2"/><rect x="5" y="7" width="20" height="20" rx="3"/><path d={dense?'M10 7v20m5-20v20m5-20v20M5 12h20M5 17h20M5 22h20':'M15 7v20M5 17h20'}/></svg></button><SortSelect value={sort} onChange={updateSort}/></div>
+    <div className="collection-controls">
+      <div className="collection-controls-surface">
+      {filtersVisible && (departmentLinks ? departmentLinks.length > 0 && <nav className="collection-categories" aria-label={C.categories}>
+        <Link className="collection-department" href={department==='women'?'/women?view=all':'/men?view=all'}>{links.landing[department==='women'?1:0]?.label}</Link><span className="collection-category-divider" aria-hidden="true">/</span>
+        {departmentLinks.map((link, index) => <Link href={link.href} key={link.href + index} aria-current={pathname === link.href ? 'page' : undefined}>{link.label}</Link>)}
+      </nav> : <nav className="collection-categories" aria-label={C.categories}>{chips.map(chip =>
+        <button type="button" key={chip.kind + chip.value} aria-pressed={activeCategory === chip.value || activeTags === chip.value || (chip.kind === 'clear' && !activeCategory && !activeTags)} onClick={() => selectChip(chip)}>{chip.label}</button>
+      )}</nav>)}
+      {(advancedVisible || experience.collectionWindowVisible || experience.collectionSortVisible) && <div className="collection-toolbar" data-testid="listing-toolbar">
+        {advancedVisible && <button type="button" ref={filterTrigger} className="collection-filter-trigger" onClick={() => setAdvancedOpen(true)}><SlidersHorizontal size={18} strokeWidth={1.2} />{C.filters}</button>}
+        {experience.collectionWindowVisible && <button type="button" className="collection-window-toggle" aria-label={dense ? C.regularGrid : C.denseGrid} aria-pressed={dense} title={dense ? C.regularGrid : C.denseGrid} onClick={event => toggleDensity(event.currentTarget)}><Image src="/images/ui/shop-window.png" alt="" width={84} height={84} unoptimized /></button>}
+        {experience.collectionSortVisible && <SortSelect value={sort} onChange={updateSort}/>}
+      </div>}
+      </div>
+    </div>
     {appliedVariantFilters.length>0&&<div className="collection-applied" aria-label="Applied product filters">{appliedVariantFilters.map(filter=><button type="button" key={filter.key} onClick={()=>pushParams({[filter.key]:null})} aria-label={`Remove ${filter.label}`}>{filter.label} ×</button>)}<button type="button" onClick={clearAdvanced}>{C.clear}</button></div>}
     <section aria-label={pageTitle} aria-busy={products.isFetching}>
-      {products.isLoading?<div className="collection-product-grid" aria-label={C.loading}>{[0,1,2,3].map(index=><SkeletonCard key={index}/>)}</div>:products.isError?<div className="collection-empty" role="alert"><h2>{C.loadError}</h2><button type="button" onClick={()=>void products.refetch()}>{C.retry}</button></div>:items.length>0?<div className="collection-product-grid" data-view={view} data-density={dense?'dense':'regular'}>{items.map((product,index)=><EditorialProductCard key={product.id} product={product} showWishlist={!dense} priority={index<4}/>)}</div>:<EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href={pathname}/>}
-      {!products.isError&&<div className="collection-load-more">{items.length<total?<button type="button" onClick={()=>setLimit(current=>current+24)}>{C.loadMore}</button>:items.length>0?<p>{C.allViewed}</p>:null}</div>}
+      {products.isLoading?<div className="collection-product-grid" data-view={view} data-density={dense?'dense':'regular'} aria-label={C.loading}>{[0,1,2,3].map(index=><SkeletonCard key={index}/>)}</div>:(products.isError&&!products.data)?<div className="collection-empty" role="alert"><h2>{C.loadError}</h2><button type="button" onClick={()=>void products.refetch()}>{C.retry}</button></div>:items.length>0?<div ref={gridRef} className="collection-product-grid" data-view={view} data-density={dense?'dense':'regular'}>{items.map((product,index)=><EditorialProductCard key={product.id} product={product} showWishlist={!dense} priority={index<4}/>)}</div>:<EmptyState title={COPY.shop.emptyTitle} body={COPY.cart.emptyBody} cta={COPY.shop.emptyCta} href={pathname}/>}
+      {products.data && <div className="collection-load-more" ref={moreRef}>
+        {products.isFetchingNextPage ? <BrandLoader inline label={C.loadingMore} /> : isFetchNextPageError ?
+          <><p role="alert">{C.moreError}</p><button type="button" onClick={() => void fetchNextPage({ cancelRefetch: false })}>{C.retry}</button></> :
+          hasNextPage ? <button type="button" onClick={() => void fetchNextPage({ cancelRefetch: false })}>{C.loadMore}</button> :
+          items.length > 0 ? <p>{C.allViewed}</p> : null}
+      </div>}
     </section>
-    <AdvancedFiltersDrawer triggerRef={filterTrigger} open={advancedOpen} onOpenChange={setAdvancedOpen} values={draft} onChange={setDraft} onApply={applyAdvanced} onClear={clearAdvanced} categories={categories.data??[]} collections={collections.data??[]} sizes={sizeFacets} colors={colorFacets} resultCount={filterPreview.data?.total} countLoading={filterPreview.isFetching}/>
+    <AdvancedFiltersDrawer triggerRef={filterTrigger} open={advancedOpen} onOpenChange={setAdvancedOpen} values={draft} onChange={setDraft} onApply={applyAdvanced} onClear={clearAdvanced} groups={filterGroups} categories={drawerCategories} collections={collections.data??[]} sizes={sizeFacets} colors={colorFacets} resultCount={filterPreview.data?.total} countLoading={filterPreview.isFetching}/>
   </main>;
 }

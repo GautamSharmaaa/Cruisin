@@ -1,129 +1,164 @@
 // Governed by .rules v1.0
 'use client';
 import {useStorefrontExperience} from '@/hooks/useStorefrontExperience';
-import {useStorefrontReducedMotion} from '@/hooks/useStorefrontMotion';
 import {DEPARTMENT_COPY} from '@/constants/department-copy';
-import {storefrontNavigation,storefrontDepartments} from '@/lib/storefront-navigation';
+import {storefrontNavigation} from '@/lib/storefront-navigation';
 
-import { Heart, Search, ShoppingBag } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { createLucideIcon, Heart, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MegaMenu } from '@/components/layout/mega-menu';
+import { usePathname, useRouter } from 'next/navigation';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { AccountMenu } from '@/components/layout/account-menu';
 import { LoginRequiredModal } from '@/components/auth/login-required-modal';
 import { SearchModal } from '@/components/shared/search-modal';
-import { RevolvingBag } from '@/components/shared/revolving-bag';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
-import { useNavigation, useSiteSettings } from '@/hooks/useMerchandising';
-import { navReveal } from '@/lib/animations';
+import { useNavigation, useSiteSettings, useStorefrontLinks } from '@/hooks/useMerchandising';
+import { headerScrollMotion } from '@/lib/animations';
+import { storefrontLayoutScrollEvent } from '@/lib/storefront-motion';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { useCartStore } from '@/store/cartStore';
 import { useWishlistStore } from '@/store/wishlistStore';
 import { useAuthStore } from '@/store/authStore';
-import type { NavigationItemDto } from '@/types/dto.types';
 
 export interface NavbarProps { }
 
-const navId = (item: NavigationItemDto): string => item._id ?? item.id ?? item.slug;
+const StorefrontBag = createLucideIcon('StorefrontBag', [
+  ['path', { d: 'M6 8.5h12l1.65 11.6a1.5 1.5 0 0 1-1.49 1.7H5.84a1.5 1.5 0 0 1-1.49-1.7L6 8.5Z', key: 'body' }],
+  ['path', { d: 'M8.8 11V6a3.2 3.2 0 0 1 6.4 0v5', key: 'handle' }],
+]);
+const StorefrontMenu = createLucideIcon('StorefrontMenu', [
+  ['path', { d: 'M3 8h18M3 16h18', key: 'lines' }],
+]);
 
 export function Navbar(_props: NavbarProps): ReactNode {
-  const reducedMotion=useStorefrontReducedMotion();
   const experience=useStorefrontExperience();
-  const [scrolled, setScrolled] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [scrollState, setScrollState] = useState({ scrolled: false, hidden: false });
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
   const [wishlistPrompt, setWishlistPrompt] = useState(false);
-  const headerRef = useRef<HTMLElement | null>(null);
+  const router = useRouter();
   const pathname = usePathname();
   const isHomepage = pathname === ROUTES.home;
-  const isProduct = pathname.startsWith('/product/');
-  const isCatalogue = ['/shop','/category','/collections','/sale','/new-featured'].some(route=>pathname===route||pathname.startsWith(route+'/'));
   const navigation = useNavigation();
   const siteSettings = useSiteSettings();
+  const links = useStorefrontLinks();
+  const showDepartmentLinks=links.headerDepartmentLinksVisibility==='all'||(links.headerDepartmentLinksVisibility==='home'&&isHomepage);
   const isNavigationVisible = siteSettings.data?.isStorefrontNavigationVisible ?? true;
   const navItems = useMemo(() => (isNavigationVisible ? storefrontNavigation(navigation.data ?? []) : []), [isNavigationVisible, navigation.data]);
-  const activeItem = navItems.find((item) => navId(item) === activeId) ?? null;
-  const defaultMenuItem = useMemo(() => {
-    const routeItem = navItems.find((item) => item.href !== '/' && pathname.startsWith(item.href) && item.isMegaMenuEnabled);
-    return routeItem ?? navItems.find((item) => item.isDefaultActive && item.isMegaMenuEnabled) ?? navItems.find((item) => item.isMegaMenuEnabled) ?? navItems[0] ?? null;
-  }, [navItems, pathname]);
   const items = useCartStore((state) => state.items);
   const cartCount = items.filter((item) => isCustomerVisibleProduct(item.product)).reduce((count,item)=>count+item.quantity,0);
   const openCart = useCartStore((state) => state.openCart);
   const wishlistCount = useWishlistStore((state) => state.ids.length);
   const user = useAuthStore((state) => state.user);
 
-  const openMenu = (): void => { setActiveId(null); setMobile(current=>!current); };
+  const headerHidden = experience.hideHeaderOnScroll && scrollState.hidden && !mobile && !search && !wishlistPrompt;
 
   useEffect(() => {
-    const onScroll = (): void => setScrolled(window.scrollY > 8);
+    let previousY = Math.max(0, window.scrollY);
+    let distance = 0;
+    let frame = 0;
+    let scrolled = previousY > 8;
+    let hidden = false;
+    setScrollState({ scrolled, hidden });
+
+    const commit = (y: number, nextHidden: boolean): void => {
+      const nextScrolled = y > 8;
+      if (nextScrolled !== scrolled || nextHidden !== hidden) {
+        scrolled = nextScrolled;
+        hidden = nextHidden;
+        setScrollState({ scrolled, hidden });
+      }
+    };
+    const update = (): void => {
+      frame = 0;
+      const y = Math.max(0, window.scrollY);
+      const delta = y - previousY;
+      previousY = y;
+      if (delta === 0) return;
+
+      distance = Math.sign(delta) === Math.sign(distance) ? distance + delta : delta;
+      let nextHidden = hidden;
+      if (y <= headerScrollMotion.hideAfter || distance <= -headerScrollMotion.upDistance) nextHidden = false;
+      else if (distance >= headerScrollMotion.downDistance) nextHidden = true;
+      commit(y, nextHidden);
+    };
+
+    const syncLayoutScroll = (): void => {
+      previousY = Math.max(0, window.scrollY);
+      distance = 0;
+      commit(previousY, hidden && previousY > headerScrollMotion.hideAfter);
+    };
+    const schedule = (): void => { if (!frame) frame = window.requestAnimationFrame(update); };
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener(storefrontLayoutScrollEvent, syncLayoutScroll);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener(storefrontLayoutScrollEvent, syncLayoutScroll);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setActiveId(null);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
+        setMobile(false);
         setSearch(true);
       }
     };
-    const onPointer = (event: MouseEvent): void => {
-      if (headerRef.current && !headerRef.current.contains(event.target as Node)) setActiveId(null);
-    };
-    window.addEventListener('scroll', onScroll);
     window.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onPointer);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onPointer);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  useEffect(() => {
-    setActiveId(null);
-    setMobile(false);
-  }, [pathname]);
+  useEffect(() => setMobile(false), [pathname]);
 
   return (
-    <motion.header ref={headerRef} variants={navReveal} initial={reducedMotion?false:"initial"} animate="animate" className="editorial-navbar" data-overlay={(isHomepage||pathname.startsWith('/cms-preview'))&&!scrolled&&!mobile}>
+    <header className="editorial-navbar" data-hidden={headerHidden} data-landing={isHomepage} data-department-links={showDepartmentLinks && isNavigationVisible} data-overlay={(isHomepage || pathname.startsWith('/cms-preview')) && !scrollState.scrolled && !mobile}>
       <a href="#main" className="sr-only focus:not-sr-only">Skip to main content</a>
       <div className="editorial-navbar-main">
         <div className="flex min-w-0 items-center justify-start gap-2">
-          {navItems.length > 0 ? <AnimatedMenuButton open={mobile} onClick={openMenu} /> : null}
-          <button type="button" aria-label={COPY.nav.search} className="editorial-header-icon" onClick={()=>{setMobile(false);setSearch(true);}}><Search size={18}/></button>
+          {navItems.length > 0 ? <MenuButton open={mobile} onClick={() => setMobile(current => !current)} /> : null}
+          <button type="button" aria-label={COPY.nav.search} className="editorial-header-icon" onClick={()=>{setMobile(false);setSearch(true);}}><Search className="storefront-header-glyph" size={24} strokeWidth={1.5}/></button>
         </div>
-        <Link href={ROUTES.home} className="cruisin-wordmark brand-wordmark-script cruisin-wordmark-cursive">
+        <Link href={links.brandHref} className="cruisin-wordmark brand-wordmark-script cruisin-wordmark-cursive">
           <span className="block leading-none">{COPY.brand.name}</span>
           <span className="sr-only">{COPY.brand.tagline}</span>
         </Link>
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
-          {experience.wishlistEnabled&&<button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? window.location.assign(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-text-secondary transition hover:bg-background-elevated hover:text-accent-gold md:flex">
-            <Heart size={18} fill={wishlistCount > 0 ? 'currentColor' : 'none'} />
+          {experience.wishlistEnabled&&<button type="button" aria-label={COPY.nav.wishlist} onClick={() => user ? router.push(ROUTES.wishlist) : setWishlistPrompt(true)} className="relative hidden h-11 w-11 shrink-0 items-center justify-center text-current hover:bg-background-elevated md:flex">
+            <Heart className="storefront-header-glyph" size={24} strokeWidth={1.5} fill={wishlistCount > 0 ? 'currentColor' : 'none'} />
             {wishlistCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{wishlistCount}</span> : null}
           </button>}
           <AccountMenu />
-          <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-text-primary transition hover:bg-background-elevated hover:text-accent-gold" onClick={() => { setActiveId(null); setMobile(false); openCart(); }}>
-            <ShoppingBag size={19} strokeWidth={1.3}/>
+          <button aria-label={COPY.nav.cart} className="relative flex h-11 w-11 shrink-0 items-center justify-center text-current hover:bg-background-elevated" onClick={() => { setMobile(false); openCart(); }}>
+            <StorefrontBag className="storefront-header-glyph" aria-hidden="true" />
             {cartCount > 0 ? <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center bg-accent-gold px-1 font-mono text-[10px] text-text-inverse shadow-gold">{cartCount}</span> : null}
           </button>
         </div>
       </div>
-      {!isHomepage&&!isProduct&&!isCatalogue&&!mobile&&isNavigationVisible&&<nav className="editorial-header-links" aria-label="Shopping departments">{(pathname==='/men'||pathname==='/women'?DEPARTMENT_COPY.categories.map(category=>({label:category.label,href:'/category/'+pathname.slice(1)+'/'+(pathname==='/women'?category.womenSlug:category.slug)})):navItems).map(item=><Link href={item.href} key={item.href}>{item.label}</Link>)}</nav>}
+      {showDepartmentLinks&&isNavigationVisible&&<nav className="editorial-header-links editorial-department-entry" aria-label={DEPARTMENT_COPY.choose}>
+        {links.landing.map((link, index) => <Fragment key={index}>
+          {index > 0 && <span className="collection-category-divider" aria-hidden="true">/</span>}
+          <Link href={link.href}>{link.label}</Link>
+        </Fragment>)}
+      </nav>}
+
       <MobileNav
         open={mobile}
         onOpenChange={setMobile}
         items={navItems}
-        onSearch={() => setSearch(true)}
-        onCart={openCart}
-        cartCount={cartCount}
       />
       <SearchModal open={search} onOpenChange={setSearch} />
       <LoginRequiredModal open={wishlistPrompt} onOpenChange={setWishlistPrompt} next={ROUTES.wishlist} action="wishlist" />
-    </motion.header>
+    </header>
   );
 }
 
-function AnimatedMenuButton({open,onClick}:{open:boolean;onClick:()=>void}):ReactNode{return <button type="button" aria-label={COPY.nav.menu} aria-expanded={open} onClick={onClick} className="cruisin-menu-control" data-open={open}><span/><span/></button>;}
+function MenuButton({ open, onClick }: { open: boolean; onClick: () => void }): ReactNode {
+  const Icon = open ? X : StorefrontMenu;
+  return <button type="button" aria-label={COPY.nav.menu} aria-expanded={open} onClick={onClick} className="editorial-header-icon">
+    <Icon className="storefront-header-glyph" aria-hidden="true" />
+  </button>;
+}

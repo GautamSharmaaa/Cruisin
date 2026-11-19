@@ -12,6 +12,18 @@
       "types": "./media-config.d.ts",
       "default": "./media-config.js"
     },
+    "./storefront-links": {
+      "types": "./storefront-links.d.ts",
+      "default": "./storefront-links.js"
+    },
+    "./product-size-chart": {
+      "types": "./product-size-chart.d.ts",
+      "default": "./product-size-chart.js"
+    },
+    "./footer-appearance": {
+      "types": "./footer-appearance.d.ts",
+      "default": "./footer-appearance.js"
+    },
     "./storefront-appearance": {
       "types": "./storefront-appearance.d.ts",
       "default": "./storefront-appearance.js"
@@ -27,6 +39,10 @@
     "./orbit-cards": {
       "types": "./orbit-cards.d.ts",
       "default": "./orbit-cards.js"
+    },
+    "./meta-commerce": {
+      "types": "./meta-commerce.d.ts",
+      "default": "./meta-commerce.js"
     }
   },
   "dependencies": {

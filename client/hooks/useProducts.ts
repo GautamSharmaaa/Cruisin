@@ -1,5 +1,5 @@
 // Governed by .rules v1.0
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { mapProduct, type ApiProduct } from '@/lib/product-mapper';
 import type { ApiEnvelope, PaginatedResult } from '@/types/api.types';
@@ -40,3 +40,19 @@ export const useProducts = (input: UseProductsInput = {}) => {
   enabled
 });
 };
+
+export const useInfiniteProducts = (input: Omit<UseProductsInput, 'page' | 'enabled'>) =>
+  useInfiniteQuery({
+    queryKey: ['products', 'collection-pages', input],
+    initialPageParam: 1,
+    placeholderData: keepPreviousData,
+    queryFn: async ({ pageParam, signal }): Promise<PaginatedResult<Product>> => {
+      const response = await api.get<ApiEnvelope<PaginatedResult<ApiProduct>>>('/products', {
+        params: { ...input, page: pageParam },
+        signal
+      });
+      const page = response.data.data;
+      return { ...page, items: page.items.map(mapProduct) };
+    },
+    getNextPageParam: (page) => page.items.length > 0 && page.page < page.pages ? page.page + 1 : undefined
+  });

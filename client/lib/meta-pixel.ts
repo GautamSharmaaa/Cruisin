@@ -1,79 +1,41 @@
 // Governed by .rules v1.0
+import {
+  isMetaStorefrontPath, metaPurchaseEventId, type MetaBrowserAttribution, type MetaCommerceEventName
+} from '@cruisin/contracts/meta-commerce';
+import { mirrorMetaEvent } from '@/lib/meta-capi';
+import { getMetaAttribution, getMetaPixelId } from '@/lib/meta-consent';
 
 export const META_CURRENCY = 'INR' as const;
 
-export interface MetaContentInput {
-  id: string;
-  quantity: number;
-  item_price: number;
-}
-
+export interface MetaContentInput { id: string; quantity: number; item_price: number; }
 export interface MetaCommerceInput {
   contents: MetaContentInput[];
   value: number;
   content_name?: string;
   content_category?: string;
 }
+export interface MetaSearchInput { content_ids?: string[]; num_results: number; }
+export interface MetaCheckoutInput extends MetaCommerceInput { num_items?: number; }
+export interface MetaPaymentInput extends MetaCheckoutInput { payment_method: 'cod' | 'online' | 'online_partial'; }
+export interface MetaPurchaseInput extends MetaCheckoutInput { order_id: string; }
 
-export interface MetaSearchInput {
-  search_string: string;
-  content_ids?: string[];
-  num_results?: number;
-}
-
-export interface MetaCheckoutInput extends MetaCommerceInput {
-  num_items?: number;
-  coupon?: string;
-}
-
-export interface MetaPaymentInput extends MetaCheckoutInput {
-  payment_method: 'cod' | 'online' | 'online_partial';
-}
-
-export interface MetaPurchaseInput extends MetaCheckoutInput {
-  order_id: string;
-}
-
-export interface MetaEventOptions {
-  eventID?: string;
-}
-
-export interface MetaCommerceParameters {
+interface MetaCommerceParameters extends MetaCommerceInput {
   content_ids: string[];
   content_type: 'product';
-  contents: MetaContentInput[];
   currency: typeof META_CURRENCY;
-  value: number;
-  content_name?: string;
-  content_category?: string;
-  num_items?: number;
-  coupon?: string;
+  num_items: number;
   payment_method?: MetaPaymentInput['payment_method'];
   order_id?: string;
 }
 
-export interface MetaSearchParameters {
-  search_string: string;
-  content_ids?: string[];
-  num_results?: number;
-}
-
-export type MetaStandardEventName = 'PageView' | 'ViewContent' | 'Search' | 'AddToWishlist' | 'AddToCart' | 'InitiateCheckout' | 'AddPaymentInfo' | 'Purchase';
-
 export interface MetaFbq {
-  (command: 'init', pixelId: string): void;
-  (command: 'track', eventName: 'PageView'): void;
-  (command: 'track', eventName: 'Search', parameters: MetaSearchParameters, options?: MetaEventOptions): void;
-  (command: 'track', eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>, parameters: MetaCommerceParameters, options?: MetaEventOptions): void;
-  (command: 'trackSingle', pixelId: string, eventName: 'PageView'): void;
-  (command: 'trackSingle', pixelId: string, eventName: 'Search', parameters: MetaSearchParameters, options?: MetaEventOptions): void;
-  (command: 'trackSingle', pixelId: string, eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>, parameters: MetaCommerceParameters, options?: MetaEventOptions): void;
-  (command: 'trackCustom', eventName: string, parameters?: Record<string, string | number | boolean>): void;
-  (command: 'trackSingleCustom', pixelId: string, eventName: string, parameters?: Record<string, string | number | boolean>): void;
+  (...args: unknown[]): void;
   callMethod?: (...args: unknown[]) => void;
   queue?: unknown[][];
+  push?: MetaFbq;
   loaded?: boolean;
   version?: string;
+  disablePushState?: boolean;
 }
 
 declare global {
@@ -84,221 +46,169 @@ declare global {
   }
 }
 
-let missingPixelWarningIssued = false;
-let lastPageViewRoute: string | undefined;
+const libraryUrl = 'https://connect.facebook.net/en_US/fbevents.js';
+let pixelHasConsent = false;
+let lastPageView: string | undefined;
 let eventCounter = 0;
 
-const isBrowser = (): boolean => typeof window !== 'undefined';
-const isDevelopment = (): boolean => process.env.NODE_ENV !== 'production';
-const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
-const cleanId = (value: string): string => value.trim();
-const markDispatch = (eventName: MetaStandardEventName | 'Init', status: string): void => {
-  if (!isBrowser() || typeof document === 'undefined') return;
-  document.documentElement.setAttribute('data-cruisin-meta-last-event', eventName);
-  document.documentElement.setAttribute('data-cruisin-meta-last-status', status);
-};
-const dispatchStatus = (): string => window.fbq?.callMethod ? 'sent-ready' : 'queued-awaiting-library';
-
-const warnMissingPixelOnce = (): void => {
-  if (!isDevelopment() || missingPixelWarningIssued) return;
-  missingPixelWarningIssued = true;
-  console.warn('Meta Pixel is disabled because NEXT_PUBLIC_META_PIXEL_ID is not configured.');
-};
-
-export const getMetaPixelId = (): string => process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() ?? '';
-
-export const initializeMetaPixel = (pixelId = getMetaPixelId()): boolean => {
-  if (!isBrowser()) return false;
-  const normalizedPixelId = pixelId.trim();
-  if (!normalizedPixelId) {
-    markDispatch('Init', 'blocked-missing-pixel-id');
-    warnMissingPixelOnce();
+const isSafePixelUrl = (url: { pathname: string; search: string; hash: string }): boolean => {
+  if (!isMetaStorefrontPath(url.pathname) || (url.hash && url.hash !== '#main')) return false;
+  for (const [key, value] of new URLSearchParams(url.search)) {
+    if (key === 'order' && url.pathname === '/checkout/success' && /^[a-f0-9]{24}$/i.test(value)) continue;
+    if (key === 'fbclid' && /^[A-Za-z0-9_-]{1,460}$/.test(value)) continue;
+    if (/^(utm_(source|medium|campaign|content|id)|sort|view|category|collection|tags|size|color|sale|priceMin|priceMax|gender|availability)$/.test(key)
+        && /^[A-Za-z0-9_.-]{1,80}$/.test(value)) continue;
     return false;
   }
-  if (!window.fbq) {
-    markDispatch('Init', 'blocked-fbq-unavailable');
-    return false;
-  }
-  const initialized = window.__cruisinMetaPixelIds ??= {};
-  if (!initialized[normalizedPixelId]) {
-    window.fbq('init', normalizedPixelId);
-    initialized[normalizedPixelId] = true;
-  }
-  markDispatch('Init', dispatchStatus());
   return true;
 };
 
-const eventOptions = (eventID?: string): MetaEventOptions | undefined => {
-  const normalized = eventID?.trim();
-  return normalized ? { eventID: normalized } : undefined;
-};
-
-const configuredPixelId = (): string | undefined => getMetaPixelId() || undefined;
-
-const validContents = (contents: MetaContentInput[]): MetaContentInput[] => contents.flatMap((content) => {
-  const id = cleanId(content.id);
-  const quantity = Math.floor(content.quantity);
-  const itemPrice = roundMoney(content.item_price);
-  if (!id || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(itemPrice) || itemPrice < 0) return [];
-  return [{ id, quantity, item_price: itemPrice }];
-});
-
-const commerceParameters = (input: MetaCommerceInput): MetaCommerceParameters | null => {
-  const contents = validContents(input.contents);
-  const value = roundMoney(input.value);
-  if (contents.length === 0 || !Number.isFinite(value) || value < 0) return null;
-  const contentName = input.content_name?.trim();
-  const contentCategory = input.content_category?.trim();
-  return {
-    content_ids: contents.map((content) => content.id),
-    content_type: 'product',
-    contents,
-    currency: META_CURRENCY,
-    value,
-    ...(contentName ? { content_name: contentName } : {}),
-    ...(contentCategory ? { content_category: contentCategory } : {})
+function installPixel(): MetaFbq | undefined {
+  if (window.fbq) return window.fbq;
+  if (typeof document === 'undefined') return undefined;
+  const queue: MetaFbq = (...args) => {
+    if (queue.callMethod) queue.callMethod.apply(queue, args);
+    else queue.queue?.push(args);
   };
+  queue.queue = [];
+  queue.push = queue;
+  queue.loaded = true;
+  queue.version = '2.0';
+  window.fbq = queue;
+  window._fbq ??= queue;
+  const script = document.createElement('script');
+  script.id = 'cruisin-meta-pixel-library';
+  script.async = true;
+  script.src = libraryUrl;
+  document.head.append(script);
+  document.documentElement.setAttribute('data-cruisin-meta-bootstrap', 'ready');
+  return queue;
+}
+
+export const suspendMetaPixel = (): void => {
+  if (typeof window === 'undefined' || !pixelHasConsent) return;
+  const fbq = window.fbq;
+  if (fbq?.queue && !fbq.callMethod) {
+    // Keep setup commands for a subsequent allowed route, drop unsent events.
+    fbq.queue = fbq.queue.filter(args => args[0] === 'init' || args[0] === 'set');
+  }
+  fbq?.('consent', 'revoke');
+  pixelHasConsent = false;
 };
 
-const sendCommerceEvent = (
-  eventName: Exclude<MetaStandardEventName, 'PageView' | 'Search'>,
-  parameters: MetaCommerceParameters | null,
-  eventID?: string
+export const initializeMetaPixel = (pixelId = getMetaPixelId()): boolean => {
+  const attribution = getMetaAttribution();
+  if (!attribution || attribution.pixelId !== pixelId || !isSafePixelUrl(window.location)) {
+    suspendMetaPixel();
+    return false;
+  }
+  const fbq = installPixel();
+  if (!fbq) return false;
+  fbq.disablePushState = true;
+  if (!pixelHasConsent) fbq('consent', 'grant');
+  pixelHasConsent = true;
+  const initialized = window.__cruisinMetaPixelIds ??= {};
+  if (!initialized[pixelId]) {
+    fbq('set', 'autoConfig', false, pixelId);
+    fbq('init', pixelId);
+    initialized[pixelId] = true;
+  }
+  return true;
+};
+
+const browserEvent = (
+  attribution: MetaBrowserAttribution, name: MetaCommerceEventName | 'PageView' | 'Search' | 'Purchase',
+  parameters: Record<string, unknown>, id: string
 ): boolean => {
-  if (!isBrowser()) return false;
-  if (!window.fbq) {
-    markDispatch(eventName, 'blocked-fbq-unavailable');
-    return false;
-  }
-  if (!parameters) {
-    markDispatch(eventName, 'blocked-invalid-payload');
-    return false;
-  }
-  const options = eventOptions(eventID);
-  const pixelId = configuredPixelId();
-  if (pixelId) {
-    if (options) window.fbq('trackSingle', pixelId, eventName, parameters, options);
-    else window.fbq('trackSingle', pixelId, eventName, parameters);
-  } else if (options) window.fbq('track', eventName, parameters, options);
-  else window.fbq('track', eventName, parameters);
-  markDispatch(eventName, dispatchStatus());
+  if (!initializeMetaPixel(attribution.pixelId)) return false;
+  window.fbq?.('trackSingle', attribution.pixelId, name, parameters, { eventID: id });
   return true;
 };
 
 export const trackPageView = (routeKey: string): boolean => {
-  if (!isBrowser()) return false;
-  if (!window.fbq) {
-    markDispatch('PageView', 'blocked-fbq-unavailable');
+  const attribution = getMetaAttribution();
+  if (!attribution || !routeKey) {
+    lastPageView = undefined;
+    suspendMetaPixel();
     return false;
   }
-  const normalizedRoute = routeKey.trim();
-  if (!normalizedRoute || normalizedRoute === lastPageViewRoute) {
-    markDispatch('PageView', 'blocked-duplicate-or-empty-route');
-    return false;
-  }
-  const pixelId = configuredPixelId();
-  if (pixelId) window.fbq('trackSingle', pixelId, 'PageView');
-  else window.fbq('track', 'PageView');
-  lastPageViewRoute = normalizedRoute;
-  markDispatch('PageView', dispatchStatus());
+  const key = attribution.consentId + ':' + routeKey;
+  if (key === lastPageView) return false;
+  lastPageView = key;
+  const id = generateEventId('page');
+  browserEvent(attribution, 'PageView', {}, id);
+  void mirrorMetaEvent(attribution, id, window.location.pathname, { name: 'PageView' });
   return true;
 };
 
-export const trackViewContent = (input: MetaCommerceInput, eventID?: string): boolean => sendCommerceEvent('ViewContent', commerceParameters(input), eventID);
-
-export const trackSearch = (input: MetaSearchInput, eventID?: string): boolean => {
-  if (!isBrowser()) return false;
-  if (!window.fbq) {
-    markDispatch('Search', 'blocked-fbq-unavailable');
-    return false;
-  }
-  const searchString = input.search_string.trim();
-  if (!searchString) {
-    markDispatch('Search', 'blocked-invalid-payload');
-    return false;
-  }
-  const ids = Array.from(new Set((input.content_ids ?? []).map(cleanId).filter(Boolean)));
-  const resultCount = typeof input.num_results === 'number' && Number.isFinite(input.num_results) && input.num_results >= 0 ? Math.floor(input.num_results) : undefined;
-  const parameters: MetaSearchParameters = {
-    search_string: searchString,
-    ...(ids.length > 0 ? { content_ids: ids } : {}),
-    ...(resultCount !== undefined ? { num_results: resultCount } : {})
+const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const validId = (id: string): boolean => /^[A-Za-z0-9_-]{1,100}$/.test(id);
+const commerceParameters = (input: MetaCommerceInput): MetaCommerceParameters | null => {
+  const contents = input.contents.flatMap(({ id, quantity, item_price }) =>
+    validId(id.trim()) && Number.isFinite(quantity) && quantity >= 1 && quantity <= 10_000 &&
+    Number.isFinite(item_price) && item_price >= 0 && item_price <= 100_000_000
+      ? [{ id: id.trim(), quantity: Math.floor(quantity), item_price: roundMoney(item_price) }] : []);
+  if (!contents.length || contents.length > 100 || !Number.isFinite(input.value) || input.value < 0 || input.value > 100_000_000) return null;
+  return {
+    content_ids: [...new Set(contents.map(item => item.id))], content_type: 'product',
+    contents, currency: META_CURRENCY, value: roundMoney(input.value),
+    num_items: contents.reduce((total, item) => total + item.quantity, 0),
+    ...(input.content_name?.trim() ? { content_name: input.content_name.trim() } : {}),
+    ...(input.content_category?.trim() ? { content_category: input.content_category.trim() } : {})
   };
-  const options = eventOptions(eventID);
-  const pixelId = configuredPixelId();
-  if (pixelId) {
-    if (options) window.fbq('trackSingle', pixelId, 'Search', parameters, options);
-    else window.fbq('trackSingle', pixelId, 'Search', parameters);
-  } else if (options) window.fbq('track', 'Search', parameters, options);
-  else window.fbq('track', 'Search', parameters);
-  markDispatch('Search', dispatchStatus());
+};
+
+const trackCommerce = (name: MetaCommerceEventName, input: MetaCommerceInput, id = generateEventId(name), paymentMethod?: MetaPaymentInput['payment_method']): boolean => {
+  const attribution = getMetaAttribution();
+  const parameters = attribution ? commerceParameters(input) : null;
+  if (!attribution || !parameters) return false;
+  if (paymentMethod) parameters.payment_method = paymentMethod;
+  browserEvent(attribution, name, { ...parameters }, id);
+  void mirrorMetaEvent(attribution, id, window.location.pathname, { name, commerce: {
+    contents: parameters.contents, value: parameters.value, payment_method: paymentMethod
+  } });
   return true;
 };
 
-export const trackAddToWishlist = (input: MetaCommerceInput, eventID?: string): boolean => sendCommerceEvent('AddToWishlist', commerceParameters(input), eventID);
+export const trackViewContent = (input: MetaCommerceInput, id?: string): boolean => trackCommerce('ViewContent', input, id);
+export const trackAddToWishlist = (input: MetaCommerceInput, id?: string): boolean => trackCommerce('AddToWishlist', input, id);
+export const trackAddToCart = (input: MetaCommerceInput, id?: string): boolean => trackCommerce('AddToCart', input, id);
+export const trackInitiateCheckout = (input: MetaCheckoutInput, id?: string): boolean => trackCommerce('InitiateCheckout', input, id);
+export const trackAddPaymentInfo = (input: MetaPaymentInput, id?: string): boolean => trackCommerce('AddPaymentInfo', input, id, input.payment_method);
 
-export const trackAddToCart = (input: MetaCommerceInput, eventID?: string): boolean => sendCommerceEvent('AddToCart', commerceParameters(input), eventID);
-
-export const trackInitiateCheckout = (input: MetaCheckoutInput, eventID?: string): boolean => {
-  const parameters = commerceParameters(input);
-  if (!parameters) return false;
-  const numItems = input.num_items ?? parameters.contents.reduce((sum, content) => sum + content.quantity, 0);
-  if (!Number.isFinite(numItems) || numItems <= 0) return false;
-  parameters.num_items = Math.floor(numItems);
-  const coupon = input.coupon?.trim();
-  if (coupon) parameters.coupon = coupon;
-  return sendCommerceEvent('InitiateCheckout', parameters, eventID);
+export const trackSearch = (input: MetaSearchInput, id = generateEventId('search')): boolean => {
+  const attribution = getMetaAttribution();
+  if (!attribution || !Number.isInteger(input.num_results) || input.num_results < 0 || input.num_results > 100_000) return false;
+  const search = { content_ids: [...new Set((input.content_ids ?? []).filter(validId))].slice(0, 50), num_results: input.num_results };
+  browserEvent(attribution, 'Search', search, id);
+  // Search terms can include names, email addresses or other personal details.
+  void mirrorMetaEvent(attribution, id, window.location.pathname, { name: 'Search', search });
+  return true;
 };
 
-export const trackAddPaymentInfo = (input: MetaPaymentInput, eventID?: string): boolean => {
-  const parameters = commerceParameters(input);
-  if (!parameters) return false;
-  const numItems = input.num_items ?? parameters.contents.reduce((sum, content) => sum + content.quantity, 0);
-  if (!Number.isFinite(numItems) || numItems <= 0) return false;
-  parameters.num_items = Math.floor(numItems);
-  parameters.payment_method = input.payment_method;
-  return sendCommerceEvent('AddPaymentInfo', parameters, eventID);
+export const trackPurchase = (input: MetaPurchaseInput, id: string): boolean => {
+  const attribution = getMetaAttribution();
+  const parameters = attribution ? commerceParameters(input) : null;
+  if (!attribution || !parameters || id !== metaPurchaseEventId(input.order_id)) return false;
+  return browserEvent(attribution, 'Purchase', { ...parameters, order_id: input.order_id }, id);
 };
 
-export const trackPurchase = (input: MetaPurchaseInput, eventID?: string): boolean => {
-  const orderId = cleanId(input.order_id);
-  const parameters = commerceParameters(input);
-  if (!orderId || !parameters) return false;
-  const numItems = input.num_items ?? parameters.contents.reduce((sum, content) => sum + content.quantity, 0);
-  if (!Number.isFinite(numItems) || numItems <= 0) return false;
-  parameters.num_items = Math.floor(numItems);
-  parameters.order_id = orderId;
-  const coupon = input.coupon?.trim();
-  if (coupon) parameters.coupon = coupon;
-  return sendCommerceEvent('Purchase', parameters, eventID);
-};
-
-export const trackCustomEvent = (eventName: string, properties: Record<string, string | number | boolean>): boolean => {
-  if (!isBrowser() || !window.fbq) return false;
-  const normalizedName = eventName.trim();
-  if (!normalizedName) return false;
-  const pixelId = configuredPixelId();
-  if (pixelId) window.fbq('trackSingleCustom', pixelId, normalizedName, properties);
-  else window.fbq('trackCustom', normalizedName, properties);
+export const trackCustomEvent = (name: string, properties: Record<string, string | number | boolean>): boolean => {
+  const pixelId = getMetaPixelId();
+  if (!name.trim() || !initializeMetaPixel(pixelId)) return false;
+  window.fbq?.('trackSingleCustom', pixelId, name.trim(), properties);
   return true;
 };
 
 export const generateEventId = (namespace = 'event'): string => {
   const prefix = namespace.trim().replace(/[^a-zA-Z0-9:_-]/g, '-') || 'event';
-  if (typeof globalThis.crypto?.randomUUID === 'function') return `${prefix}:${globalThis.crypto.randomUUID()}`;
-  const bytes = new Uint32Array(4);
-  if (typeof globalThis.crypto?.getRandomValues === 'function') {
-    globalThis.crypto.getRandomValues(bytes);
-    return `${prefix}:${Array.from(bytes, (value) => value.toString(16).padStart(8, '0')).join('')}`;
-  }
+  if (typeof globalThis.crypto?.randomUUID === 'function') return prefix + ':' + globalThis.crypto.randomUUID();
   eventCounter += 1;
-  return `${prefix}:${Date.now().toString(36)}:${eventCounter.toString(36)}:${Math.random().toString(36).slice(2)}`;
+  return prefix + ':' + Date.now().toString(36) + ':' + eventCounter.toString(36) + ':' + Math.random().toString(36).slice(2);
 };
 
-export const purchaseEventId = (orderId: string): string => `purchase:${cleanId(orderId)}`;
-
 export const resetMetaPixelStateForTests = (): void => {
-  missingPixelWarningIssued = false;
-  lastPageViewRoute = undefined;
+  pixelHasConsent = false;
+  lastPageView = undefined;
   eventCounter = 0;
 };

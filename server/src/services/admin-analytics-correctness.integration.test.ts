@@ -63,5 +63,23 @@ describe('analytics business truth', () => {
     expect(result.outstanding).toEqual({ cod: 80, partial: 0, total: 80 });
     expect(result.revenueByDay.find((row) => row.day === previousDay)).toMatchObject({ grossRevenue: 100, refunds: 20, netRevenue: 80, orders: 1 });
     expect(result.revenueByDay.find((row) => row.day === today)).toMatchObject({ grossRevenue: 110, refunds: 0, netRevenue: 110, totalRevenue: 190, orders: 2, codOrders: 1, prepaidOrders: 1, pendingCod: 80 });
+    const paid = { pendingCod: 80, paidValue: 110, totalRevenue: 190, unitsSold: 1 };
+    const refunded = { pendingCod: 0, paidValue: 80, totalRevenue: 80, unitsSold: 1 };
+    expect(result.salesTrend).toEqual({
+      granularity: 'day',
+      points: [{ period: previousDay, ...refunded }, { period: today, ...paid }]
+    });
+
+    const hourly = await AdminService.analyticsSummary({ preset: 'today', analyticsTestBatchId: batch });
+    expect(hourly.salesTrend.granularity).toBe('hour');
+    expect(hourly.salesTrend.points[0]).toEqual({ period: '00:00', ...paid });
+    expect(hourly.salesTrend.points.slice(1).every(point => point.totalRevenue === 0)).toBe(true);
+
+    const yearly = await AdminService.analyticsSummary({ preset: 'thisYear', analyticsTestBatchId: batch });
+    const month = today.slice(0, 7);
+    expect(yearly.salesTrend.granularity).toBe('month');
+    expect(yearly.salesTrend.points.at(-1)).toEqual(previousDay.startsWith(month)
+      ? { period: month, pendingCod: 80, paidValue: 190, totalRevenue: 270, unitsSold: 2 }
+      : { period: month, ...paid });
   });
 });

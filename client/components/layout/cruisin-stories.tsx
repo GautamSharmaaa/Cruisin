@@ -38,7 +38,7 @@ export function CruisinStories({ open, onClose, opener }: CruisinStoriesProps): 
   const variables = { '--hub-menu-ms': M.menuMs + 'ms', '--story-ms': M.storyMs + 'ms', '--story-exit-ms':M.storyExitMs+'ms' } as CSSProperties;
   return <Dialog.Root open={open} onOpenChange={open => { if (!open) onClose(); }}><Dialog.Portal>
     <Dialog.Overlay className="cruisin-stories-overlay" style={variables} />
-    <Dialog.Content className="cruisin-stories" style={variables} aria-describedby={undefined} data-lenis-prevent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }}
+    <Dialog.Content className="cruisin-stories" style={variables} aria-describedby={undefined} data-lenis-prevent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus({preventScroll:true}); }}
       onKeyDownCapture={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
         if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }

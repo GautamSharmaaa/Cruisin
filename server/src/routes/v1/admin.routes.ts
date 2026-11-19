@@ -1,10 +1,15 @@
 // Governed by .rules v1.0
+import { getAdminAlertSettings, saveAdminAlertSettings } from '../../services/admin-alert.service.js';
+import { asyncHandler } from '../../utils/async-handler.js';
 import { Router } from 'express';
+import { z } from 'zod';
+import { overviewPresetSchema } from '../../services/admin-insight.service.js';
+import { requireBrowserOrigin } from '../../middleware/browser-origin.middleware.js';
 import { AdminController } from '../../controllers/admin.controller.js';
 import { requireAdmin, requireRole } from '../../middleware/admin.middleware.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { UploadController } from '../../controllers/upload.controller.js';
-import { uploadLimiter } from '../../middleware/rate-limit.middleware.js';
+import { adminInsightLimiter, uploadLimiter } from '../../middleware/rate-limit.middleware.js';
 import { CatalogueController, catalogueCsvUpload } from '../../controllers/catalogue.controller.js';
 import { OrderController } from '../../controllers/order.controller.js';
 import { PaymentController } from '../../controllers/payment.controller.js';
@@ -16,7 +21,18 @@ import { bulkInvoicePdfSchema, invoiceListQuerySchema, invoiceSettingsSchema, in
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
+const alertSettingsRole = requireRole(['admin', 'superadmin']);
+const alertSettings = z.object({ recipients: z.array(z.string().trim().regex(/^\+[1-9]\d{6,14}$/)).max(10) }).strict();
+adminRouter.get('/notification-settings', alertSettingsRole, asyncHandler(async (_req, res) => {
+  res.json({ success: true, data: await getAdminAlertSettings(), message: 'Notification settings loaded' });
+}));
+adminRouter.put('/notification-settings', alertSettingsRole, requireBrowserOrigin, validate({ body: alertSettings }), asyncHandler(async (req, res) => {
+  const { recipients } = alertSettings.parse(req.body);
+  res.json({ success: true, data: await saveAdminAlertSettings(recipients), message: 'Notification settings saved' });
+}));
 adminRouter.get('/overview', AdminController.overview);
+adminRouter.post('/analytics/insights', requireRole(['manager', 'admin', 'superadmin']), requireBrowserOrigin, adminInsightLimiter, validate({ body: z.object({ preset: overviewPresetSchema }).strict() }), AdminController.generateInsight);
+adminRouter.get('/analytics/storefront', AdminController.storefrontActivity);
 adminRouter.get('/analytics/summary', AdminController.analyticsSummary);
 adminRouter.get('/analytics/profitability', AdminController.profitabilityAnalytics);
 adminRouter.get('/analytics/product-costs', requireRole(['admin', 'superadmin']), AdminController.productCostRows);

@@ -1,4 +1,5 @@
 // Governed by .rules v1.0
+import { metaAttributionSchema } from './meta.validator.js';
 import { z } from 'zod';
 import { normalizeIndiaCountry } from '../utils/india-address.js';
 
@@ -17,7 +18,7 @@ export const adminShippingAddressSchema = z.object({
     country: indiaCountrySchema
   }).strict()
 }).strict();
-export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe','cod']), paymentMode: z.enum(['online', 'cod', 'partial']).optional(), shippingMethod: z.enum(['standard', 'express']).default('standard'), logisticsQuoteId: z.string().uuid().optional(), couponCode: z.string().optional(), expectedCartVersion: z.number().int().min(0).optional(), idempotencyKey: z.string().uuid(), metaEventId: z.string().trim().regex(/^checkout:[a-zA-Z0-9:-]+$/).max(160).optional() });
+export const checkoutSchema = z.object({ shippingAddress: addressSchema, billingAddress: addressSchema, paymentMethod: z.enum(['razorpay','stripe','cod']), paymentMode: z.enum(['online', 'cod', 'partial']).optional(), shippingMethod: z.enum(['standard', 'express']).default('standard'), logisticsQuoteId: z.string().uuid().optional(), couponCode: z.string().optional(), expectedCartVersion: z.number().int().min(0).optional(), idempotencyKey: z.string().uuid(), meta: metaAttributionSchema.optional().catch(undefined), metaEventId: z.string().trim().regex(/^checkout:[a-zA-Z0-9:-]+$/).max(160).optional() });
 export const paymentVerifySchema = z.object({ method: z.enum(['razorpay','stripe']), payload: z.record(z.string(), z.unknown()) });
 export const paymentFailureSchema = z.object({ orderId: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid order ID'), providerOrderId: z.string().trim().min(8).max(160) });
 export const paymentCancellationSchema = paymentFailureSchema;

@@ -5,6 +5,8 @@
     "buildCommand": "npm --workspace server run build",
     "watchPatterns": [
       "/server/**",
+      "/packages/**",
+      "/railway/api.json",
       "/package.json",
       "/package-lock.json"
     ]

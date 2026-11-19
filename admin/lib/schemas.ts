@@ -90,7 +90,7 @@ export const adminProductSchema = z
     materialCare: z.string().optional().default(""),
     fitDetails: z.string().optional().default(""),
     shippingReturns: z.string().optional().default(""),
-    sizeGuide: z.string().optional().default(""),
+    sizeGuide: z.string().max(2000).optional().default(""),
     productHighlights: z.string().optional().default(""),
     pickupAddress: z.string().optional().default(""),
     lowStockThreshold: z.coerce.number<number>().int().min(0).default(10),

@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '@/constants/config';
-import { getAccessToken, hasSessionHint, setAccessToken } from '@/lib/access-token';
+import { getAccessToken, hasSessionHint, isAssistedWindow, setAccessToken } from '@/lib/access-token';
 import type { ApiEnvelope } from '@/types/api.types';
 
 export const api = axios.create({ baseURL: API_CONFIG.baseUrl, withCredentials: true, timeout: API_CONFIG.timeout });
@@ -45,9 +45,20 @@ const deviceFingerprint = (): string | null => {
 };
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+  if (config.url?.startsWith('/meta/')) {
+    config.withCredentials = false;
+    return config;
+  }
+  if (isAssistedWindow()) {
+    config.withCredentials = false;
+    if (/^\/auth\//.test(config.url ?? '') &&
+        !(config.method === 'get' && ['/auth/me', '/auth/addresses'].includes(config.url ?? ''))) {
+      throw new ApiRequestError('This action is unavailable in assisted access.', 403);
+    }
+  }
   const token = getAccessToken();
   if (token) config.headers.Authorization = 'Bearer ' + token;
-  const fingerprint = deviceFingerprint();
+  const fingerprint = isAssistedWindow() ? null : deviceFingerprint();
   if (fingerprint) config.headers['x-device-fingerprint'] = fingerprint;
   const label = performanceLabel(config.url);
   if (label && typeof performance !== 'undefined') {
@@ -64,7 +75,7 @@ api.interceptors.response.use((response) => {
 }, async (error: AxiosError<ApiEnvelope<unknown>> & { config?: TimedConfig }): Promise<unknown> => {
   const original = error.config;
   finishBrowserTiming(original);
-  if (error.response?.status === 401 && original && !original._retry && !original.url?.includes('/auth/refresh') && (getAccessToken() || hasSessionHint())) {
+  if (!isAssistedWindow() && error.response?.status === 401 && original && !original._retry && !original.url?.includes('/auth/refresh') && (getAccessToken() || hasSessionHint())) {
     original._retry = true;
     refreshPromise ??= api.post<ApiEnvelope<{ accessToken: string }>>('/auth/refresh', {}, { headers: { 'x-auth-bootstrap': '1' } }).then((response) => {
       const accessToken = response.data.data.accessToken;

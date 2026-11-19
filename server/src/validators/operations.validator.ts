@@ -161,6 +161,10 @@ export const sopCreateSchema = z
         "Requirement keys must be unique",
       )
       .default([]),
+    flowLabels: z.object({
+      start: z.string().trim().min(1).max(60),
+      end: z.string().trim().min(1).max(60),
+    }).strict().optional(),
     title: z.string().trim().min(3).max(160),
     category: z.string().min(2).max(80),
     body: z.string().min(3).max(50000),

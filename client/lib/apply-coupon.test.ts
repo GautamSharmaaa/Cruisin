@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { api } = vi.hoisted(() => ({ api: { delete: vi.fn(), get: vi.fn(), put: vi.fn(), post: vi.fn() } }));
 vi.mock('@/lib/api', () => ({ api }));
@@ -7,7 +7,15 @@ import { applyCouponCode } from './apply-coupon';
 import { useCartStore } from '@/store/cartStore';
 
 const product = { id: 'product-1', variants: [] } as never;
+afterEach(() => vi.unstubAllGlobals());
+
 beforeEach(() => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key),
+  });
   vi.clearAllMocks();
   useCartStore.setState({ items: [{ product, variantId: 'variant-1', size: 'M', color: 'Black', quantity: 2, price: 1000 }], coupon: undefined, couponDiscount: 0, freeShipping: false, version: 0 });
   api.get.mockResolvedValue({ data: { data: { items: [{ product: 'product-1', variant: 'variant-1' }] } } });

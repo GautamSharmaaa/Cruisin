@@ -10,9 +10,11 @@ test('photographic collection stays responsive and applies real filter and sort 
  await mkdir(resolve('../docs/qa/screenshots'),{recursive:true});
  for(const width of [360,375,390,440,768,1024,1440]){await page.setViewportSize({width,height:960});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect.poll(()=>page.locator('.collection-product-grid').first().evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(width>=1024?4:2);if(width===390||width===1440){await expect.poll(()=>page.locator('.editorial-product-card').first().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');await page.screenshot({path:screenshotPath(`cruisin-v2-collection-${width}.png`)});}}
  await page.getByRole('button',{name:'Sort by',exact:true}).click();await page.getByRole('button',{name:'Price, low to high',exact:true}).click();await expect(page).toHaveURL(/sort=price-asc/);
- await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Filters',exact:true}).click();const panel=page.getByRole('dialog',{name:'Filters',exact:true});await expect(panel).toBeVisible();
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Filters',exact:true}).click();const panel=page.getByRole('dialog',{name:'Filters',exact:true});await expect(panel).toBeVisible();await expect(panel.locator('details[open]')).toHaveCount(0);
+ await panel.getByText('Price',{exact:true}).click();
  await panel.getByRole('textbox',{name:'Minimum price',exact:true}).fill('1000');await panel.getByRole('textbox',{name:'Maximum price',exact:true}).fill('100');await panel.locator('.collection-filter-apply').click();await expect(panel.getByRole('alert')).toContainText('Minimum price');
  await panel.getByRole('textbox',{name:'Minimum price',exact:true}).fill('');await panel.getByRole('textbox',{name:'Maximum price',exact:true}).fill('');
+ await panel.getByText('Size',{exact:true}).click();
  const firstSize=panel.locator('.collection-filter-group').first().getByRole('checkbox').first();const size=(await firstSize.locator('..').innerText()).trim();await firstSize.check();
  const expected=(await (await request.get(api+'/products',{params:{size,sort:'price-asc',limit:1}})).json()).data.total;
  await expect(panel.locator('.collection-filter-apply')).toHaveText(`View ${expected} items`);await expect.poll(()=>panel.evaluate(el=>Math.round(el.getBoundingClientRect().left))).toBe(0);await page.screenshot({path:screenshotPath('cruisin-v2-collection-filters.png')});
@@ -32,7 +34,7 @@ test('product gallery, precise variant, quantity and cart work in the new produc
  await expect(page.getByRole('group',{name:'Quantity',exact:true}).locator('output')).toHaveText(String(quantity));await page.getByRole('button',{name:'Add To Cart',exact:true}).click();await expect(page.getByRole('dialog').getByText(title,{exact:true})).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('cruisin-cart')??'{}').state?.items?.[0]?.quantity)).toBe(quantity);
  await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
- await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('html')).toHaveAttribute('data-scroll-mode','native');await page.locator('.pdp-gallery-dots button').nth(1).click();await expect(page.locator('.pdp-gallery-dots button').nth(1)).toHaveAttribute('aria-current','true');
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('html')).toHaveAttribute('data-scroll-mode','native');await expect(page.locator('.pdp-gallery-dots')).toHaveCount(0);await page.getByRole('button',{name:'Next image',exact:true}).click();await expect(page.locator('.pdp-gallery-controls')).toContainText('2 /');
  const submissions:string[]=[];page.on('request',request=>{if(request.method()==='POST'&&/\/(orders|checkout)$/.test(new URL(request.url()).pathname))submissions.push(request.url());});await page.getByRole('button',{name:'Shop now',exact:true}).click();await expect(page).toHaveURL(/\/checkout(?:\?|$)|\/login/);expect(submissions).toEqual([]);
 });
 test('a product without photographs keeps its gallery height and usable purchase controls',async({page,request})=>{

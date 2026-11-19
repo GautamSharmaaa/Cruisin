@@ -1,3 +1,5 @@
+import type { StorefrontLinks } from '@cruisin/contracts/storefront-links';
+import type { FooterAppearance } from '@cruisin/contracts/footer-appearance';
 import type {StorefrontExperience} from '@cruisin/contracts/storefront-experience';
 // Governed by .rules v1.0
 import type { Product } from './product.types';
@@ -213,6 +215,9 @@ export interface PageSettingsDto {
 
 export interface SiteSettingsDto {
   storefrontExperience?:StorefrontExperience;
+  footerAppearance?: FooterAppearance;
+  storefrontLinks?: StorefrontLinks;
+  cruisinRingFinish?: 'chrome' | 'color';
   cruisinRingColorLight?: string;
   cruisinRingColorDark?: string;
   id?: string;

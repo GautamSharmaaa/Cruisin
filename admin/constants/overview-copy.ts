@@ -1,0 +1,25 @@
+// Governed by .rules v1.0
+export const OVERVIEW_SALES_COPY = {
+  title: 'Sales overview',
+  trend: 'Sales trend',
+  series: 'Visible sales metrics',
+  updating: 'Updating date range…',
+  caption: 'Grouped by order date in India Standard Time.',
+  metricDetails: 'How these figures are calculated',
+  metrics: {
+    totalRevenue: { label: 'Total revenue', detail: 'Booked order value after refunds, including amounts still due.' },
+    paidValue: { label: 'Paid value', detail: 'Payments collected after refunds, including collected COD.' },
+    pendingCod: { label: 'Pending COD value', detail: 'Cash still due on eligible cash-on-delivery orders.' },
+    unitsSold: { label: 'Products sold', detail: 'Units in orders with a collected payment.' },
+  },
+  granularity: { hour: 'Hourly', day: 'Daily', month: 'Monthly' },
+  table: 'View sales data',
+  period: 'Period',
+  orders: 'Orders',
+  paidOrders: 'Paid orders',
+  averageOrderValue: 'Average order value',
+  empty: 'No sales recorded in this period.',
+  loading: 'Loading sales overview',
+  error: 'Sales metrics couldn’t load.',
+  placeholder: '—',
+} as const;

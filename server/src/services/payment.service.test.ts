@@ -36,6 +36,22 @@ describe('Razorpay payment primitives', () => {
     expect(() => toPaise(0)).toThrow('Invalid payment amount');
   });
 
+  it('checks captured status, matching order and paise amount', async () => {
+    const payment = { id: 'pay_fixture123', order_id: 'order_fixture', status: 'captured', amount: 250000, currency: 'INR' };
+    const { PaymentService } = await import('./payment.service.js');
+    const readCapture = () => PaymentService.hasCapturedRazorpayPayment('order_fixture', 'pay_fixture123', 2500);
+    axiosGet.mockResolvedValueOnce({ data: { ...payment, status: 'authorized' } })
+      .mockResolvedValueOnce({ data: { ...payment, order_id: 'order_different' } })
+      .mockResolvedValueOnce({ data: { ...payment, amount: 1 } })
+      .mockResolvedValueOnce({ data: payment })
+      .mockRejectedValueOnce(new Error('Provider timeout'));
+    await expect(readCapture()).resolves.toBe(false);
+    await expect(readCapture()).resolves.toBe(false);
+    await expect(readCapture()).resolves.toBe(false);
+    await expect(readCapture()).resolves.toBe(true);
+    await expect(readCapture()).resolves.toBe(false);
+  });
+
   it('accepts only webhook signatures made with the webhook secret', async () => {
     const { PaymentService } = await import('./payment.service.js');
     const body = Buffer.from('{"event":"payment.captured"}');

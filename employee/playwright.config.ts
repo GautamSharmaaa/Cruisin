@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 const origin = process.env.PLAYWRIGHT_EMPLOYEE_URL ?? "http://127.0.0.1:3194";
 for (const value of [
   origin,
+  process.env.PLAYWRIGHT_STOREFRONT_URL ?? "http://127.0.0.1:3192",
   process.env.PLAYWRIGHT_ADMIN_URL ?? "http://127.0.0.1:3193",
   process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:8192",
 ])

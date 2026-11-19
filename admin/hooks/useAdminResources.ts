@@ -1,7 +1,7 @@
 // Governed by .rules v1.0
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, AdminPromotionExperienceDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, InvoiceDto, InvoiceListDto, InvoiceSettingsDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
+import type { AdminAnalyticsPointDto, AdminAnalyticsSummaryDto, AdminOverviewDto, AdminStorefrontActivityDto, AdminPromotionExperienceDto, CategoryDto, CmsMediaDto, CmsPageDto, CmsSectionDto, CmsVersionDto, CollectionDto, CouponDto, InvoiceDto, InvoiceListDto, InvoiceSettingsDto, NavigationItemDto, OrderDto, PageSettingsDto, ProductDto, ProfitabilityAnalyticsDto, SiteSettingsDto, TagDto, UserDto } from '@/types/dto.types';
 
 interface ApiEnvelope<TData> {
   success: boolean;
@@ -37,7 +37,16 @@ export interface AdminProductFilters {
 export const useAdminOverview = () => useQuery({ queryKey: ['admin', 'overview'], queryFn: async (): Promise<AdminOverviewDto> => { const response = await api.get<ApiEnvelope<AdminOverviewDto>>('/admin/overview'); return response.data.data; } });
 export const useAdminMe = (enabled = true) => useQuery({ queryKey: ['admin', 'me'], queryFn: async (): Promise<UserDto> => { const response = await api.get<ApiEnvelope<UserDto>>('/auth/me'); return response.data.data; }, enabled, retry: false });
 export const useAdminAnalytics = (days: number) => useQuery({ queryKey: ['admin', 'analytics', days], queryFn: async (): Promise<AdminAnalyticsPointDto[]> => { const response = await api.get<ApiEnvelope<AdminAnalyticsPointDto[]>>('/admin/analytics', { params: { days } }); return response.data.data; } });
-export const useAdminAnalyticsSummary = (params: { preset?: string; startDate?: string; endDate?: string; analyticsTestBatchId?: string; includeTestOrders?: boolean }) => useQuery({ queryKey: ['admin', 'analytics', 'summary', params], queryFn: async (): Promise<AdminAnalyticsSummaryDto> => { const response = await api.get<ApiEnvelope<AdminAnalyticsSummaryDto>>('/admin/analytics/summary', { params }); return response.data.data; }, staleTime: 30_000, refetchInterval: 60_000, refetchOnWindowFocus: true });
+export const useAdminAnalyticsSummary = (params: { preset?: string; startDate?: string; endDate?: string; analyticsTestBatchId?: string; includeTestOrders?: boolean }, retainPrevious = false, refreshInterval = 60_000) => useQuery({ placeholderData: retainPrevious ? previous => previous : undefined, queryKey: ['admin', 'analytics', 'summary', params], queryFn: async (): Promise<AdminAnalyticsSummaryDto> => { const response = await api.get<ApiEnvelope<AdminAnalyticsSummaryDto>>('/admin/analytics/summary', { params }); return response.data.data; }, staleTime: 30_000, refetchInterval: refreshInterval, refetchOnWindowFocus: true });
+export function useAdminStorefrontActivity(params: { preset?: string; startDate?: string; endDate?: string }, retainPrevious = false, refreshInterval = 60_000) {
+  return useQuery({
+    queryKey: ['admin', 'analytics', 'storefront', params],
+    placeholderData: retainPrevious ? previous => previous : undefined,
+    queryFn: async () => (await api.get<ApiEnvelope<AdminStorefrontActivityDto>>('/admin/analytics/storefront', { params })).data.data,
+    staleTime: 30_000,
+    refetchInterval: refreshInterval
+  });
+}
 export const useProfitabilityAnalytics = (params: Record<string, string | boolean | undefined>) => useQuery({ queryKey: ['admin', 'analytics', 'profitability', params], queryFn: async (): Promise<ProfitabilityAnalyticsDto> => { const response = await api.get<ApiEnvelope<ProfitabilityAnalyticsDto>>('/admin/analytics/profitability', { params }); return response.data.data; }, staleTime: 30_000, refetchInterval: 60_000, refetchOnWindowFocus: true });
 export const useAdminProducts = (filters: AdminProductFilters = {}) => useQuery({ queryKey: ['admin', 'products', filters], queryFn: async (): Promise<PaginatedResult<ProductDto>> => { const response = await api.get<ApiEnvelope<PaginatedResult<ProductDto>>>('/products/admin/catalogue', { params: filters }); return response.data.data; } });
 export const useAdminProduct = (id: string) => useQuery({ queryKey: ['admin', 'products', id], queryFn: async (): Promise<ProductDto> => { const response = await api.get<ApiEnvelope<ProductDto>>('/products/admin/' + id); return response.data.data; }, enabled: id.length > 0 });

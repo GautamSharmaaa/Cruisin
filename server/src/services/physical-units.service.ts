@@ -367,9 +367,10 @@ export const releasePhysicalUnits = async (
   );
 };
 export const PhysicalUnitsService = {
-  async list(ctx: OperationsContext, page: OperationPage) {
+  async list(ctx: OperationsContext, page: OperationPage & { variant?: string }) {
     permit(ctx, "inventory.view");
     const filter = {
+      ...(page.variant ? { variant: page.variant } : {}),
       ...(page.status ? { state: page.status } : {}),
       ...(page.q
         ? {

@@ -762,7 +762,10 @@ export const ReturnExchangeService = {
         items: request.items?.length ? request.items : request.item ? [request.item] : [],
         reason: request.reason,
         details: request.details,
-        evidence: (request.evidence ?? []).map((photo) => ({ url: UploadService.returnEvidenceUrl(photo), format: photo.format })),
+        evidence: (request.evidence ?? []).flatMap((photo) => {
+          const url = UploadService.returnEvidenceUrl(photo);
+          return url ? [{ url, format: photo.format }] : [];
+        }),
         status: request.status,
         handlingFee: request.handlingFee,
         handlingFeePaymentStatus: request.handlingFeePaymentStatus,
@@ -848,7 +851,10 @@ export const ReturnExchangeService = {
           manualUpiId,
           ...(destinationReadError ? { destinationReadError: true } : {})
         } : undefined,
-        evidence: (request.evidence ?? []).map((photo) => ({ url: UploadService.returnEvidenceUrl(photo), format: photo.format })),
+        evidence: (request.evidence ?? []).flatMap((photo) => {
+          const url = UploadService.returnEvidenceUrl(photo);
+          return url ? [{ url, format: photo.format }] : [];
+        }),
         handlingFeeProviderOrderId: undefined
       };
     });

@@ -8,7 +8,7 @@ export default function TermsAndConditionPage(): ReactNode {
     { heading: 'Store Use', body: 'Customers agree to provide accurate account, contact, shipping, and payment information when placing an order.' },
     { heading: 'Products', body: 'Product availability, prices, offers, and descriptions may change as inventory and campaigns are updated.' },
     { heading: 'Orders', body: 'Cruisin may verify, cancel, or update orders where required for payment, inventory, delivery, or fraud-prevention reasons.' },
-    { heading: 'Contact', body: 'For help with these terms, email support@cruisin.co.in.' }
+    { heading: 'Contact', body: 'For help with these terms, email support@cruisin.in.' }
   ]} />;
 }
 export const metadata: Metadata = { title: 'Terms and Conditions', description: 'Terms for browsing, ordering, and receiving support from Cruisin.', alternates: { canonical: '/terms-and-condition' } };

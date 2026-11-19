@@ -7,16 +7,23 @@ export const dateRangeOptions = ['all', 'today', 'week', 'month', 'quarter', 'ye
 export type DateRange = (typeof dateRangeOptions)[number];
 
 const labels: Record<DateRange, string> = { all: 'All time', today: 'Today', week: 'This week', month: 'This month', quarter: 'This quarter', year: 'This year' };
-const startOfDay = (value: Date): Date => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+const istOffset = 330 * 60_000;
 
 export const dateRangeStart = (range: DateRange, now = new Date()): Date | undefined => {
   if (range === 'all') return undefined;
-  const today = startOfDay(now);
-  if (range === 'today') return today;
-  if (range === 'week') { const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); return start; }
-  if (range === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
-  if (range === 'quarter') return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-  return new Date(now.getFullYear(), 0, 1);
+  const date = new Date(now.getTime() + istOffset);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const monday = day - ((date.getUTCDay() + 6) % 7);
+  const boundaries = {
+    today: Date.UTC(year, month, day),
+    week: Date.UTC(year, month, monday),
+    month: Date.UTC(year, month, 1),
+    quarter: Date.UTC(year, Math.floor(month / 3) * 3, 1),
+    year: Date.UTC(year, 0, 1)
+  };
+  return new Date(boundaries[range] - istOffset);
 };
 
 export const isInDateRange = (value: string | Date | undefined, range: DateRange, now = new Date()): boolean => {

@@ -5,16 +5,19 @@ import { createApp } from './src/app.js';
 import { connectDb, disconnectDb } from './src/config/db.js';
 import { connectRedis, redis } from './src/config/redis.js';
 import { logger } from './src/utils/logger.js';
+import { startMetaConversionWorker } from './src/services/meta-conversion.service.js';
 import { startDurableJobProcessor } from './src/services/durable-job-processor.js';
 
 let server: Server | undefined;
 let shuttingDown = false;
 let stopDurableJobs: (() => void) | undefined;
+let stopMetaWorker: (() => void) | undefined;
 
 const shutdown = async (signal: string, exitCode: number): Promise<void> => {
   if (shuttingDown) return;
   shuttingDown = true;
   stopDurableJobs?.();
+  stopMetaWorker?.();
   logger.info('API shutdown started', { signal });
   const forceExit = setTimeout(() => process.exit(1), 10_000);
   forceExit.unref();
@@ -45,6 +48,7 @@ const bootstrap = async (): Promise<void> => {
   await connectDb();
   await connectRedis();
   if (env.APP_ENV === 'production') stopDurableJobs = startDurableJobProcessor();
+  if (env.APP_ENV !== 'development' && env.META_PIXEL_ID) stopMetaWorker = startMetaConversionWorker();
   const app = createApp();
   server = app.listen(env.PORT, env.APP_ENV === 'development' ? '127.0.0.1' : '0.0.0.0', () => {
     logger.info('Cruisin API listening', { host: env.APP_ENV === 'development' ? '127.0.0.1' : '0.0.0.0', port: env.PORT, environment: env.NODE_ENV });

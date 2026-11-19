@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 "use client";
 
+import { OrderItemImage } from '@/components/dashboard/order-item-image';
 import {
   CreditCard,
   MapPin,
@@ -623,11 +624,7 @@ export function OrderDetailClient({ id }: OrderDetailClientProps): ReactNode {
                   className="border-b border-border-subtle"
                 >
                   <td className="p-4">
-                    <img
-                      src={item.image || "/placeholder.svg"}
-                      alt={`${item.title}${item.color ? ` — ${item.color}` : ""}`}
-                      className="h-20 w-16 bg-background-primary object-cover"
-                    />
+                    <OrderItemImage image={item.image} title={[item.title, item.color].filter(Boolean).join(' · ')} catalogue={item.imageSource === 'catalogue'} />
                   </td>
                   <td className="p-4 text-text-primary">{item.title}</td>
                   <td className="p-4 text-text-secondary">

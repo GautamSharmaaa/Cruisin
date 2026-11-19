@@ -16,6 +16,7 @@ import {
   Popover,
   Select as S,
 } from "radix-ui";
+import { flushSync } from "react-dom";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
 import { Toaster, toast } from "sonner";
 import { Command } from "cmdk";
@@ -29,15 +30,16 @@ export interface ThemeProviderProps {
   children: ReactNode;
   defaultTheme?: string;
   storageKey?: string;
+  disableTransitionOnChange?: boolean;
 }
-export function ThemeProvider({ children, defaultTheme = "dark", storageKey = "cruisin-theme" }: ThemeProviderProps): ReactNode {
+export function ThemeProvider({ children, defaultTheme = "dark", storageKey = "cruisin-theme", disableTransitionOnChange = true }: ThemeProviderProps): ReactNode {
   return (
     <NextThemeProvider
       attribute="class"
       defaultTheme={defaultTheme}
       enableSystem
       storageKey={storageKey}
-      disableTransitionOnChange
+      disableTransitionOnChange={disableTransitionOnChange}
     >
       {children}
       <Toaster richColors position="bottom-right" />
@@ -66,6 +68,68 @@ export function ThemeSelect(): ReactNode {
         ))}
       </select>
     </label>
+  );
+}
+export function ThemeToggle({ lightIcon, darkIcon, className, reveal = false }: { lightIcon: ReactNode; darkIcon: ReactNode; className?: string; reveal?: boolean }): ReactNode {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const dark = mounted && resolvedTheme === "dark";
+  const toggle = (button: HTMLButtonElement): void => {
+    const next = dark ? "light" : "dark";
+    if (!reveal || !document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTheme(next);
+      return;
+    }
+    const root = document.documentElement;
+    if (root.dataset.themeReveal) return;
+    const box = button.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.style.setProperty("--theme-reveal-x", `${x}px`);
+    root.style.setProperty("--theme-reveal-y", `${y}px`);
+    root.style.setProperty("--theme-reveal-radius", `${Math.ceil(radius) + 1}px`);
+    root.dataset.themeReveal = "true";
+
+    const cleanUp = (): void => {
+      delete root.dataset.themeReveal;
+      root.style.removeProperty("--theme-reveal-x");
+      root.style.removeProperty("--theme-reveal-y");
+      root.style.removeProperty("--theme-reveal-radius");
+    };
+
+    try {
+      const transition = document.startViewTransition(() => {
+        flushSync(() => setTheme(next));
+        if (root.classList.contains(next)) return;
+
+        // Capture the new view after the theme provider has applied its class.
+        return new Promise<void>(resolve => {
+          const finish = (): void => {
+            observer.disconnect();
+            window.clearTimeout(timeout);
+            resolve();
+          };
+          const observer = new MutationObserver(() => { if (root.classList.contains(next)) finish(); });
+          const timeout = window.setTimeout(finish, 120);
+          observer.observe(root, { attributeFilter: ["class"] });
+        });
+      });
+      void transition.ready.catch(() => undefined);
+      void transition.finished.then(cleanUp, cleanUp);
+    } catch {
+      cleanUp();
+      setTheme(next);
+    }
+  };
+  return (
+    <button type="button" role="switch" aria-label={C.dark + " mode"} aria-checked={dark}
+      title={dark ? "Switch to light mode" : "Switch to dark mode"} disabled={!mounted}
+      onClick={(event) => toggle(event.currentTarget)} className={className}>
+      <span aria-hidden="true" className={cn("col-start-1 row-start-1 transition-[transform,opacity] duration-300 motion-reduce:transition-none", dark ? "-rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100")}>{lightIcon}</span>
+      <span aria-hidden="true" className={cn("col-start-1 row-start-1 transition-[transform,opacity] duration-300 motion-reduce:transition-none", dark ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-50 opacity-0")}>{darkIcon}</span>
+    </button>
   );
 }
 export interface ButtonProps extends ComponentProps<"button"> {
@@ -397,19 +461,21 @@ export function Pagination({
 }
 export interface DataTableProps<T> {
   caption: string;
+  stackOnSmallScreens?: boolean;
   items: T[];
   keyOf: (item: T) => string;
   columns: { key: string; label: string; render: (item: T) => ReactNode }[];
 }
 export function DataTable<T>({
   caption,
+  stackOnSmallScreens = false,
   items,
   keyOf,
   columns,
 }: DataTableProps<T>): ReactNode {
   return (
-    <div className="ui-table-wrap">
-      <table className="ui-table">
+    <div className={stackOnSmallScreens ? "ui-table-wrap ui-table-stack" : "ui-table-wrap"}>
+      <table className="ui-table" role={stackOnSmallScreens ? "table" : undefined}>
         <caption>{caption}</caption>
         <thead>
           <tr>
@@ -420,11 +486,11 @@ export function DataTable<T>({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody role={stackOnSmallScreens ? "rowgroup" : undefined}>
           {items.map((i) => (
-            <tr key={keyOf(i)}>
+            <tr key={keyOf(i)} role={stackOnSmallScreens ? "row" : undefined}>
               {columns.map((c) => (
-                <td key={c.key}>{c.render(i)}</td>
+                <td key={c.key} role={stackOnSmallScreens ? "cell" : undefined} data-label={stackOnSmallScreens ? c.label : undefined}>{c.render(i)}</td>
               ))}
             </tr>
           ))}

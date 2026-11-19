@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { ThemeProvider } from "@cruisin/ui";
+import { EMPLOYEE_COPY } from "@/constants/copy";
 import "@cruisin/ui/styles.css";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "CRUISIN Employee Portal",
+  title: EMPLOYEE_COPY.tabTitle,
   description: "Secure CRUISIN operations",
   robots: { index: false, follow: false },
 };

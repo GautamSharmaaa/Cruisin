@@ -25,7 +25,7 @@ export function OrbitContentFields({ content, onChange }: OrbitContentFieldsProp
   const [drag, setDrag] = useState<number | null>(null);
   const save = (next: OrbitCard[]): void => onChange('cards', JSON.stringify(next));
   const update = (index: number, key: keyof OrbitCard, value: string): void => {
-    save(cards.map((card, position) => position === index ? { ...card, [key]: value } : card));
+    save(cards.map((card, position) => position === index ? { ...card, [key]: key === 'video' && !value.trim() ? undefined : value } : card));
   };
   const move = (from: number, to: number): void => {
     if (to < 0 || to >= cards.length || from === to) return;
@@ -47,6 +47,7 @@ export function OrbitContentFields({ content, onChange }: OrbitContentFieldsProp
       <legend draggable className="flex cursor-grab items-center gap-1" onDragStart={event => { event.dataTransfer.setData('text/plain', String(index)); event.dataTransfer.effectAllowed = 'move'; setDrag(index); }} onDragEnd={() => setDrag(null)}><GripVertical size={14} aria-hidden="true" />{C.card} {index + 1}</legend>
       <Input label={`${C.card} ${index + 1} ${C.label}`} value={card.label} onChange={event => update(index, 'label', event.target.value)} />
       <MediaControl label={`${C.card} ${index + 1} ${C.image}`} url={card.image} onChange={url => update(index, 'image', url)} />
+      <Input label={`${C.card} ${index + 1} ${C.video}`} value={card.video ?? ''} onChange={event => update(index, 'video', event.target.value)} />
       <Input label={`${C.card} ${index + 1} ${C.href}`} value={card.href} onChange={event => update(index, 'href', event.target.value)} />
       <div className="flex gap-2">
         <button type="button" className="cms-studio-text-action" aria-label={`${C.up} ${index + 1}`} disabled={index === 0} onClick={() => move(index, index - 1)}><ArrowUp size={16} /></button>

@@ -114,6 +114,7 @@ export interface InventoryRow {
   product: string;
   variant: string;
   title: string;
+  image?: string;
   sku: string;
   size: string;
   color: string;
@@ -134,6 +135,7 @@ export interface Sop {
     required: boolean;
   }[];
   publishedVersion?: number;
+  flowLabels?: { start: string; end: string };
   kind?: "GENERAL" | "PRODUCT" | "PACKAGING";
   requirements?: {
     key: string;

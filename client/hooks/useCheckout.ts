@@ -1,6 +1,7 @@
 // Governed by .rules v1.0
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiRequestError } from '@/lib/api';
+import { getMetaAttribution } from '@/lib/meta-consent';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
 import { flushCartMutations } from '@/lib/server-cart';
 import type { ShippingMethod } from '@/lib/shipping';
@@ -69,7 +70,7 @@ export const useCheckout = () => {
       const endpoint = input.paymentMode === 'cod' ? '/orders/cod' : input.paymentMode === 'partial' ? '/orders/partial/create' : '/payments/razorpay/create-order';
       const fingerprint = checkoutFingerprint(input, checkoutItems, authoritativeCart.coupon);
       const idempotencyKey = input.idempotencyKey ?? checkoutAttemptKey(fingerprint);
-      const response = await api.post<ApiEnvelope<CheckoutResult>>(endpoint, { ...input, idempotencyKey, couponCode: authoritativeCart.coupon, expectedCartVersion: authoritativeCart.version });
+      const response = await api.post<ApiEnvelope<CheckoutResult>>(endpoint, { ...input, meta: getMetaAttribution(), idempotencyKey, couponCode: authoritativeCart.coupon, expectedCartVersion: authoritativeCart.version });
       return response.data.data;
     },
     onSuccess: async (): Promise<void> => {

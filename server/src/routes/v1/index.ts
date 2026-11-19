@@ -1,5 +1,6 @@
 // Governed by .rules v1.0
 import { operationsAdminRouter, employeeRouter, publicMediaRouter } from './operations.routes.js';
+import { customerAccessAdminRouter, customerAccessRouter } from './customer-access.routes.js';
 import { Router } from 'express';
 import { adminRouter } from './admin.routes.js';
 import { adminManagementRouter } from './admin-management.routes.js';
@@ -20,11 +21,16 @@ import { logisticsWebhookRouter } from './logistics-webhook.routes.js';
 import { adminExchangeRouter, adminReturnRouter, returnExchangeRouter } from './return-exchange.routes.js';
 import { promotionExperienceAdminRouter, promotionExperienceRouter } from './promotion-experience.routes.js';
 
+import { metaRouter } from './meta.routes.js';
+import { storefrontActivityRouter } from './storefront-activity.routes.js';
+
 export const v1Router = Router();
 v1Router.use('/admin/operations', operationsAdminRouter);
 v1Router.use('/employee', employeeRouter);
 v1Router.use('/media', publicMediaRouter);
 v1Router.use('/auth', authRouter);
+v1Router.use('/customer-access', customerAccessRouter);
+v1Router.use('/admin', customerAccessAdminRouter);
 v1Router.use('/products', productRouter);
 v1Router.use('/navigation', navigationRouter);
 v1Router.use('/collections', collectionRouter);
@@ -33,6 +39,8 @@ v1Router.use('/site-settings', siteSettingsRouter);
 v1Router.use('/promotion-experience', promotionExperienceRouter);
 v1Router.use('/tags', tagRouter);
 v1Router.use('/categories', categoryRouter);
+v1Router.use('/meta', metaRouter);
+v1Router.use('/storefront-activity', storefrontActivityRouter);
 v1Router.use('/cart', cartRouter);
 v1Router.use('/orders', orderRouter);
 v1Router.use('/logistics', logisticsRouter);

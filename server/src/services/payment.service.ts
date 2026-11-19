@@ -170,6 +170,24 @@ export class PaymentService {
     throw new ApiError(400, 'Unsupported payment provider');
   }
 
+  public static async hasCapturedRazorpayPayment(orderId: string, paymentId: string, expectedAmount: number): Promise<boolean> {
+    if (!orderId || !/^pay_[A-Za-z0-9]+$/.test(paymentId)) return false;
+    try {
+      const { data: payment } = await axios.get<{
+        id: string; order_id: string; status: string; amount: number; currency: string;
+      }>('https://api.razorpay.com/v1/payments/' + paymentId, {
+        auth: { username: env.RAZORPAY_KEY_ID, password: env.RAZORPAY_KEY_SECRET },
+        timeout: 4_000,
+        maxRedirects: 0
+      });
+      return payment.id === paymentId && payment.order_id === orderId && payment.status === 'captured' &&
+        payment.currency === 'INR' && payment.amount === toPaise(expectedAmount);
+    } catch {
+      // A provider timeout leaves the order available for signed webhook settlement.
+      return false;
+    }
+  }
+
   public static verifyRazorpayWebhook(rawBody: Buffer, signature: string): boolean {
     if (!env.RAZORPAY_WEBHOOK_SECRET) return false;
     const expected = crypto.createHmac('sha256', env.RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest('hex');

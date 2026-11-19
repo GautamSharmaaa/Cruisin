@@ -1,26 +1,47 @@
 // Governed by .rules v1.0
 import type { Request, Response } from 'express';
+import { resolvePublicMedia } from '../services/media/reference-resolver.service.js';
 import { OrderService } from '../services/order.service.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
-import type { CheckoutPaymentMode, PaymentMethod } from '../types/payment.types.js';
+import type { PaymentMethod } from '../types/payment.types.js';
+import type { z } from 'zod';
+import type { checkoutSchema } from '../validators/order.validator.js';
+import { captureMetaCheckout } from '../services/meta-attribution.js';
+
+type CheckoutBody = z.infer<typeof checkoutSchema>;
 import { OrderManagementService } from '../services/order-management.service.js';
 import { finishPerformanceFlow } from '../utils/request-performance.js';
 
 export const OrderController = {
-  checkout: asyncHandler(async (req: Request<Record<string, string>, unknown, { shippingAddress: Record<string, unknown>; billingAddress: Record<string, unknown>; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: 'standard' | 'express'; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string }>, res: Response): Promise<void> => { const result = await OrderService.checkout(req.user?.userId ?? '', req.body); finishPerformanceFlow('checkout', res); res.status(201).json(new ApiResponse(result, 'Checkout initialized')); }),
+  checkout: asyncHandler(async (req: Request<Record<string, string>, unknown, CheckoutBody>, res: Response): Promise<void> => {
+    const { meta, ...input } = req.body;
+    const result = await OrderService.checkout(req.user?.userId ?? '', { ...input, metaAttribution: await captureMetaCheckout(req, meta) });
+    finishPerformanceFlow('checkout', res);
+    res.status(201).json(new ApiResponse(result, 'Checkout initialized'));
+  }),
   verify: asyncHandler(async (req: Request<Record<string, string>, unknown, { method: PaymentMethod; payload: Record<string, unknown> }>, res: Response): Promise<void> => { const result = await OrderService.verifyPayment(req.body.method, req.body.payload, req.user?.userId ?? ''); res.json(new ApiResponse(result, 'Payment verified')); }),
   paymentFailed: asyncHandler(async (req: Request<Record<string, string>, unknown, { orderId: string; providerOrderId: string }>, res: Response): Promise<void> => { const order = await OrderService.reportPaymentFailure(req.body.orderId, req.user?.userId ?? '', req.body.providerOrderId); res.json(new ApiResponse(order, 'Payment failure recorded')); }),
   paymentCancelled: asyncHandler(async (req: Request<Record<string, string>, unknown, { orderId: string; providerOrderId: string }>, res: Response): Promise<void> => { const order = await OrderService.reportPaymentCancellation(req.body.orderId, req.user?.userId ?? '', req.body.providerOrderId); res.json(new ApiResponse(order, 'Payment cancellation recorded')); }),
   mine: asyncHandler(async (req: Request, res: Response): Promise<void> => { const orders = await OrderService.list(req.user?.userId ?? ''); res.json(new ApiResponse(orders, 'Orders loaded')); }),
-  all: asyncHandler(async (req: Request, res: Response): Promise<void> => { const view = ['active', 'archived', 'all'].includes(String(req.query.view)) ? String(req.query.view) as 'active' | 'archived' | 'all' : 'active'; const orders = await OrderService.adminList(view); res.json(new ApiResponse(orders, 'Orders loaded')); }),
-  adminById: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.adminById(String(req.params.id ?? '')); res.json(new ApiResponse(order, 'Order loaded')); }),
+  all: asyncHandler(async (req: Request, res: Response): Promise<void> => { const view = ['active', 'archived', 'all'].includes(String(req.query.view)) ? String(req.query.view) as 'active' | 'archived' | 'all' : 'active'; const orders = await OrderService.adminList(view); res.json(new ApiResponse(await resolvePublicMedia(orders), 'Orders loaded')); }),
+  adminById: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.adminById(String(req.params.id ?? '')); res.json(new ApiResponse(await resolvePublicMedia(order), 'Order loaded')); }),
   byId: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.byId(String(req.params.id ?? ''), req.user); res.json(new ApiResponse(order, 'Order loaded')); }),
   customerCancel: asyncHandler(async (req: Request<Record<string, string>, unknown, { reasonCode: 'changed_mind' | 'wrong_item' | 'delivery_too_slow' | 'found_better_option' | 'other'; details?: string }>, res: Response): Promise<void> => { const order = await OrderService.cancelByCustomer(String(req.params.id ?? ''), req.user?.userId ?? '', req.body); res.json(new ApiResponse(order, 'Order cancelled')); }),
   updateStatus: asyncHandler(async (req: Request<Record<string, string>, unknown, { status: string; note?: string; trackingNumber?: string }>, res: Response): Promise<void> => { const order = await OrderService.updateStatus(String(req.params.id ?? ''), req.body); res.json(new ApiResponse(order, 'Order status updated')); }),
   updateShippingAddress: asyncHandler(async (req: Request<Record<string, string>, unknown, { shippingAddress: Record<string, string> }>, res: Response): Promise<void> => { const order = await OrderService.updateShippingAddress(String(req.params.id ?? ''), req.body.shippingAddress, req.user?.userId ?? ''); res.json(new ApiResponse(order, 'Shipping address updated')); }),
   paymentStatus: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.byId(String(req.params.id ?? ''), req.user); res.json(new ApiResponse(order, 'Payment status loaded')); }),
-  cod: asyncHandler(async (req: Request<Record<string, string>, unknown, { shippingAddress: Record<string, unknown>; billingAddress: Record<string, unknown>; shippingMethod?: 'standard' | 'express'; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string }>, res: Response): Promise<void> => { const result = await OrderService.createCodOrder(req.user?.userId ?? '', { ...req.body, paymentMethod: 'cod', paymentMode: 'cod' }); finishPerformanceFlow('checkout', res); res.status(201).json(new ApiResponse(result, 'COD order placed')); }),
+  cod: asyncHandler(async (req: Request<Record<string, string>, unknown, CheckoutBody>, res: Response): Promise<void> => {
+    const { meta, ...input } = req.body;
+    const result = await OrderService.createCodOrder(req.user?.userId ?? '', {
+      ...input,
+      paymentMethod: 'cod',
+      paymentMode: 'cod',
+      metaAttribution: await captureMetaCheckout(req, meta)
+    }, req.user?.assisted?.actorId);
+    finishPerformanceFlow('checkout', res);
+    res.status(201).json(new ApiResponse(result, 'COD order placed'));
+  }),
   markCodPaid: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.markCollectionPaid(String(req.params.id ?? ''), req.user?.userId ?? '', false); res.json(new ApiResponse(order, 'COD payment marked paid')); }),
   markPartialPaid: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.markCollectionPaid(String(req.params.id ?? ''), req.user?.userId ?? '', true); res.json(new ApiResponse(order, 'Remaining balance marked paid')); }),
   syncRefund: asyncHandler(async (req: Request, res: Response): Promise<void> => { const order = await OrderService.syncLatestRefund(String(req.params.id ?? '')); res.json(new ApiResponse(order, 'Refund status synchronized')); }),

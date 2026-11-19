@@ -16,7 +16,7 @@ test.describe('supported cross-browser smoke contract', () => {
     await expect(page.locator('main').getByRole('heading', { level: 1 }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    const menu = page.getByRole('dialog', { name: isMobile ? 'Menu' : 'Cruisin menu' });
+    const menu = page.getByRole('dialog', { name: 'Menu' });
     await expect(menu).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
@@ -26,17 +26,23 @@ test.describe('supported cross-browser smoke contract', () => {
     await page.getByRole('button',{name:'Price, low to high',exact:true}).click();
     await expect(page).toHaveURL(/sort=price-asc/);
     await expectNoHorizontalOverflow(page);
-    const firstProductLink = page.locator('.editorial-product-card').filter({has:page.getByRole('button',{name:/^Quick add:/})}).locator('.editorial-product-caption').first();
+    const firstProductLink = page.locator('.editorial-product-card').filter({has:page.getByRole('button',{name:/^Quick add:/})}).locator('.editorial-product-caption > a').first();
     await expect(firstProductLink).toBeVisible();
-    const productHref = await firstProductLink.getAttribute('href');
-    const productTitle = (await firstProductLink.getByRole('heading').textContent())?.trim();
+    const { href: productHref, title: productTitle } = await firstProductLink.evaluate(link => ({
+      href: link.getAttribute('href'),
+      title: link.querySelector('h3')?.textContent?.trim(),
+    }));
     expect(productHref).toBeTruthy();
     expect(productTitle).toBeTruthy();
 
     await page.goto(productHref!, { waitUntil: 'domcontentloaded' });
     // WebKit can take longer to hydrate the PDP after the catalogue request.
     await expect(page.getByRole('heading', { name: productTitle!, exact: true })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('group', { name: 'Available sizes' }).getByRole('button').and(page.locator(':not([disabled])')).first().click();
+    const sizes = isMobile
+      ? page.getByRole('dialog', { name: 'Select size' }).locator('.pdp-size-option:enabled')
+      : page.getByRole('group', { name: 'Available sizes' }).getByRole('button').and(page.locator(':enabled'));
+    if (isMobile) await page.getByRole('button', { name: /^Select size/i }).click();
+    await sizes.first().click();
     await page.getByRole('button', { name: 'Add To Cart', exact: true }).click();
     await expect(page.getByRole('dialog').getByText(productTitle!, { exact: true })).toBeVisible();
   });
@@ -55,7 +61,7 @@ test.describe('supported cross-browser smoke contract', () => {
     await page.getByLabel('Password').fill(adminPassword);
     await page.getByRole('button', { name: 'Enter Dashboard' }).click();
     await expect(page).toHaveURL(adminUrl + '/');
-    await expect(page.getByRole('heading', { name: 'Operations Overview', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
     await page.goto(adminUrl + '/analytics', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
     await expect(page.getByText('Net revenue', { exact: true })).toBeVisible();

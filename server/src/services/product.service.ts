@@ -185,7 +185,7 @@ export const ProductService = {
     if (filters.availability === 'out-of-stock' && !filters.size && !filters.color) and.push({ variants: { $not: { $elemMatch: { enabled: { $ne: false }, stock: { $gt: 0 } } } } });
     if (and.length > 0) query.$and = and;
     const skip = (filters.page - 1) * filters.limit;
-      const [items, total] = await Promise.all([ProductModel.find(query).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').sort(sortMap[filters.sort]).skip(skip).limit(filters.limit).lean(), ProductModel.countDocuments(query)]);
+      const [items, total] = await Promise.all([ProductModel.find(query).select(publicProductProjection).populate('category').populate('categoryIds').populate('collections').sort({ ...sortMap[filters.sort], _id: 1 }).skip(skip).limit(filters.limit).lean(), ProductModel.countDocuments(query)]);
       return { items: items.map(sanitizePublicProduct), total, page: filters.page, pages: Math.ceil(total / filters.limit) };
   },
   async adminList(filters: AdminProductFilters): Promise<PaginatedResult<unknown>> {

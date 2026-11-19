@@ -60,6 +60,7 @@ const run = (
 const id = (req: Request): string => String(req.params.id);
 const page = (req: Request): v.OperationPage =>
   v.operationPageSchema.parse(req.query);
+const unitListQuery = v.operationPageSchema.extend({ variant: z.string().regex(/^[a-f\d]{24}$/i).optional() });
 const employeeOrigin: RequestHandler = (req, _res, next): void => {
   if (!employeeBrowserOrigins.includes(req.headers.origin ?? "")) {
     next(new ApiError(403, "Employee request origin required"));
@@ -409,8 +410,8 @@ for (const router of [operationsAdminRouter, employeeRouter]) {
 
   router.get(
     "/units",
-    validate({ query: v.operationPageSchema }),
-    run((req) => PhysicalUnitsService.list(contextFrom(req), page(req))),
+    validate({ query: unitListQuery }),
+    run((req) => PhysicalUnitsService.list(contextFrom(req), unitListQuery.parse(req.query))),
   );
   router.post(
     "/units/receive",

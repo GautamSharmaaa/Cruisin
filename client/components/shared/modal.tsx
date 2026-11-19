@@ -6,4 +6,10 @@ import type { ReactNode } from 'react';
 import { COPY } from '@/constants/copy';
 
 export interface ModalProps { open: boolean; onOpenChange: (open: boolean) => void; title: string; children: ReactNode; className?:string; }
-export function Modal({ open, onOpenChange, title, children, className }: ModalProps): ReactNode { return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-[120] bg-background-primary/80 backdrop-blur" /><Dialog.Content className={"fixed left-1/2 top-1/2 z-[120] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 border border-border bg-background-elevated p-6 shadow-lg "+(className??'')}><Dialog.Title className="font-display text-xl text-text-primary">{title}</Dialog.Title><div className="mt-6">{children}</div><Dialog.Close className="absolute right-4 top-4 h-11 w-11 text-text-secondary hover:text-text-primary" aria-label={COPY.common.close}>×</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>; }
+export function Modal({ open, onOpenChange, title, children, className }: ModalProps): ReactNode { return <Dialog.Root open={open} onOpenChange={onOpenChange}><Dialog.Portal><Dialog.Overlay className="storefront-drawer-overlay fixed inset-0 z-[120] bg-background-primary/80 backdrop-blur" /><Dialog.Content onKeyDown={event => {
+  if (event.key !== 'Escape' || event.nativeEvent.isComposing ||
+      !(event.target instanceof Element) || event.target.closest('[role="dialog"]') !== event.currentTarget) return;
+  event.preventDefault();
+  event.stopPropagation();
+  onOpenChange(false);
+}} aria-describedby={undefined} className={"storefront-modal-panel fixed left-1/2 top-1/2 z-[120] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 border border-border bg-background-elevated p-6 shadow-lg "+(className??'')}><Dialog.Title className="font-display text-xl text-text-primary">{title}</Dialog.Title><div className="mt-6">{children}</div><Dialog.Close className="absolute right-4 top-4 h-11 w-11 text-text-secondary hover:text-text-primary" aria-label={COPY.common.close}>×</Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>; }

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const production = process.env.PLAYWRIGHT_PRODUCTION_SERVERS === 'true';
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: /meta-pixel\.spec\.ts/,
@@ -12,15 +14,16 @@ export default defineConfig({
     video: 'retain-on-failure'
   },
   webServer: {
-    command: 'npx next dev -p 3100',
-    url: 'http://127.0.0.1:3100',
+    command: production ? 'next start -H 127.0.0.1 -p 3100' : 'next dev -H 127.0.0.1 -p 3100',
+    url: 'http://127.0.0.1:3100/health',
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...process.env,
       NEXT_PUBLIC_API_URL: 'http://127.0.0.1:9/api/v1',
       NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3100',
-      NEXT_PUBLIC_META_PIXEL_ID: '1197303799247402'
+      NEXT_PUBLIC_META_PIXEL_ID: '100000000000001',
+      NEXT_PUBLIC_META_MARKETING_DEFAULT: 'opt-out'
     }
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } } }]

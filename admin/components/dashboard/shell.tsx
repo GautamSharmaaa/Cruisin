@@ -2,11 +2,19 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { Sidebar } from '@/components/dashboard/sidebar';
+import { isEmployeePath, Sidebar } from '@/components/dashboard/sidebar';
 import { Topbar } from '@/components/dashboard/topbar';
 export interface DashboardShellProps { children: ReactNode; }
 export function DashboardShell({ children }: DashboardShellProps): ReactNode {
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
-  return <div className="min-h-dvh min-w-0 overflow-x-hidden bg-background-primary"><Sidebar isOpen={isNavigationOpen} onClose={() => setIsNavigationOpen(false)} /><div className="min-w-0 lg:pl-72"><Topbar onMenu={() => setIsNavigationOpen(true)} /><main className="mx-auto grid w-full max-w-[1480px] min-w-0 gap-6 px-4 py-6 sm:px-6 lg:px-8">{children}</main></div></div>;
+  const employee = isEmployeePath(usePathname());
+  return <div className="cruisin-workspace-shell">
+    <Topbar employee={employee} onMenu={() => setIsNavigationOpen(true)} />
+    <div className="cruisin-workspace-grid">
+      <Sidebar employee={employee} isOpen={isNavigationOpen} onClose={() => setIsNavigationOpen(false)} />
+      <main className="cruisin-workspace-main" key={employee ? 'employee' : 'admin'}>{children}</main>
+    </div>
+  </div>;
 }

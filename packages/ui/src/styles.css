@@ -438,3 +438,110 @@ html.light {
   background: var(--bg-overlay);
   border-radius: var(--radius);
 }
+
+.ops-sop-flow { list-style:none; margin:0; padding:0; counter-reset:sop-step; }
+.ops-sop-flow > li { position:relative; display:grid; padding:0 0 16px 48px; counter-increment:sop-step; }
+.ops-sop-flow > li::before {
+  content:counter(sop-step, decimal-leading-zero);
+  position:absolute; top:0; left:0; z-index:1; display:grid; place-items:center;
+  width:32px; height:32px; border:1px solid var(--border-default);
+  background:var(--bg-elevated); color:var(--accent-gold); font:12px var(--font-mono,monospace);
+}
+.ops-sop-flow > li:not(:last-child)::after { content:""; position:absolute; top:32px; bottom:0; left:15px; border-left:1px solid var(--border-default); }
+.ops-sop-node { min-width:0; border:1px solid var(--border-default); background:var(--bg-elevated); padding:12px; }
+.ops-sop-node > p + .ui-row { margin-top:8px; gap:8px; }
+.ops-sop-editor-flow .ops-sop-node > p + .ui-row { margin:0; }
+
+.ops-scanner-controls { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.ops-scanner-controls > .ui-field { flex:1 1 200px; }
+.ops-scanner-controls > .ui-row { gap:8px; }
+.ops-scanner .ops-video[hidden] { display:none; }
+.ops-scanner .ops-video { max-height:240px; object-fit:cover; }
+.ops-print-label.ops-inventory-qr { justify-items:center; text-align:center; gap:8px; }
+
+.ops-sop-feature { container-type:inline-size; min-width:0; padding:clamp(16px,3vw,28px); border:1px solid var(--border-default); background:var(--bg-elevated); }
+.ops-sop-feature-header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; padding-bottom:16px; border-bottom:1px solid var(--border-default); }
+.ops-sop-feature-header h2 { font-size:clamp(22px,3vw,32px); line-height:1.2; }
+.ops-sop-feature h3 { font:11px var(--font-mono,monospace); text-transform:uppercase; letter-spacing:.14em; color:var(--accent-gold); }
+.ops-sop-chart { width:min(100%,400px); margin-inline:auto; text-align:center; }
+.ops-sop-diagram { margin:0; padding:0; list-style:none; }
+.ops-sop-diagram .ops-sop-node, .ops-sop-terminal {
+  display:grid; place-items:center; gap:8px; position:relative;
+  min-height:56px; padding:12px 16px; border:1px solid var(--text-secondary);
+  background:var(--bg-primary); color:var(--text-primary); overflow-wrap:anywhere;
+}
+.ops-sop-diagram .ops-sop-node > p { font-weight:500; line-height:1.35; }
+.ops-sop-diagram .ui-row { justify-content:center; margin:0; gap:4px; }
+.ops-sop-diagram .ui-status { padding:2px 6px; font-size:10px; }
+.ops-sop-start { width:64px; min-height:64px; aspect-ratio:1; margin-inline:auto; border-radius:50%; padding:4px; font-size:12px; }
+.ops-sop-end { border-radius:999px; }
+.ops-sop-start, .ops-sop-diagram > li { position:relative; margin-bottom:36px; }
+.ops-sop-start::before, .ops-sop-diagram > li::before {
+  content:""; position:absolute; left:50%; top:100%; width:1px; height:28px; background:var(--text-secondary);
+}
+.ops-sop-start::after, .ops-sop-diagram > li::after {
+  content:""; position:absolute; left:50%; top:calc(100% + 28px); transform:translateX(-50%);
+  border:5px solid transparent; border-top:8px solid var(--text-secondary);
+}
+.ops-sop-library > button { justify-self:start; }
+.ops-sop-library-list { padding:0; margin:0; list-style:none; border:1px solid var(--border-default); }
+.ops-sop-library-list:empty { display:none; }
+.ops-sop-library-list li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px 16px; }
+.ops-sop-library-list li + li { border-top:1px solid var(--border-default); }
+.ops-sop-library-list h2 { font-size:15px; font-weight:600; }
+.ops-sop-library-list p { color:var(--text-secondary); font-size:12px; }
+
+.ops-sop-workspace { gap:24px; }
+.ops-sop-workspace > .ops-heading {
+  margin:0; padding:clamp(16px,3vw,24px); border:1px solid var(--border-default); background:var(--bg-elevated);
+}
+.ops-sop-workspace .ui-button, .ops-sop-workspace .ui-input, .ops-sop-workspace .ui-status { border-radius:0; }
+.ops-sop-feature-meta { color:var(--text-secondary); font-size:12px; }
+.ops-step-editor { min-width:0; }
+.ops-step-editor h3 { margin:0 0 8px; font:600 18px/1.35 var(--font-body,sans-serif); letter-spacing:0; text-transform:none; color:var(--text-primary); }
+.ops-step-editor-grid { display:grid; gap:12px; min-width:0; padding:0; border:0; }
+.ops-step-picker, .ops-step-inspector { min-width:0; padding:12px; border:1px solid var(--border-default); background:var(--bg-primary); }
+.ops-step-picker { display:grid; align-content:start; gap:8px; }
+.ops-step-picker ol { display:grid; gap:4px; max-height:192px; margin:0; padding:0; list-style:none; overflow-y:auto; overscroll-behavior:contain; }
+.ops-step-picker li { min-width:0; }
+.ops-step-picker li button {
+  display:flex; align-items:center; gap:8px; min-height:44px; width:100%; padding:8px;
+  border:1px solid transparent; color:var(--text-secondary); text-align:left; font-size:13px; overflow-wrap:anywhere;
+}
+.ops-step-picker li button:hover { background:var(--bg-overlay); color:var(--text-primary); }
+.ops-step-picker li button[aria-pressed=true] { border-color:var(--accent-gold); background:var(--bg-elevated); color:var(--text-primary); }
+.ops-step-picker li button span { flex:none; font:11px var(--font-mono,monospace); color:var(--accent-gold); }
+.ops-step-picker > .ui-button { justify-self:start; }
+.ops-step-inspector textarea { resize:vertical; }
+.ops-step-flags { display:flex; flex-wrap:wrap; gap:8px; }
+.ops-step-flags label { display:flex; align-items:center; min-height:44px; gap:8px; padding:8px 12px; border:1px solid var(--border-default); font-size:12px; }
+.ops-step-flags input { accent-color:var(--accent-gold); }
+.ops-step-editor-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding-top:12px; border-top:1px solid var(--border-default); }
+@container (min-width:620px) {
+  .ops-step-editor-grid { grid-template-columns:minmax(180px,1fr) minmax(0,2fr); align-items:start; }
+  .ops-step-picker ol { max-height:360px; }
+  .ops-step-picker, .ops-step-inspector { padding:16px; }
+}
+
+.ops-step-editor-terminals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; min-width:0; padding:0; border:0; }
+
+.ops-inventory-product { min-width:0; border:1px solid var(--border-default); background:var(--bg-elevated); }
+.ops-inventory-product-heading { display:flex; gap:16px; align-items:center; padding:16px; border-bottom:1px solid var(--border-default); }
+.ops-inventory-product-heading img { flex:none; object-fit:cover; background:var(--bg-overlay); }
+.ops-inventory-product-heading h2 { margin-top:4px; font-size:20px; line-height:1.3; overflow-wrap:anywhere; }
+.ops-inventory-product > .ui-table-wrap { border:0; }
+.ops-inventory-product caption { text-align:left; color:var(--text-secondary); font-size:12px; }
+.ops-inventory-product td:last-child .ui-stack { min-width:160px; gap:8px; }
+.ops-inventory-product td:last-child .ui-row { gap:8px; }
+.ops-inventory-product td:last-child .ui-button { padding-inline:8px; font-size:10px; }
+.ops-report-entry { padding:12px; border:1px solid var(--border-default); background:var(--bg-overlay); }
+
+.ops-inventory-product .ui-table-stack td::before { content:none; }
+@media (max-width:767px) {
+  .ops-inventory-product .ui-table-stack table, .ops-inventory-product .ui-table-stack tbody { display:block; }
+  .ops-inventory-product .ui-table-stack thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .ops-inventory-product .ui-table-stack tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:8px; border-bottom:1px solid var(--border-default); }
+  .ops-inventory-product .ui-table-stack td { display:grid; align-content:start; gap:4px; min-width:0; border:0; overflow-wrap:anywhere; }
+  .ops-inventory-product .ui-table-stack td::before { content:attr(data-label); color:var(--text-secondary); font:10px var(--font-mono); text-transform:uppercase; }
+  .ops-inventory-product .ui-table-stack td:last-child { grid-column:1/-1; }
+}

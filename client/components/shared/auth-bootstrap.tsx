@@ -2,6 +2,8 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { isAssistedWindow } from '@/lib/access-token';
+import { AssistedAccessBanner } from '@/components/auth/assisted-access-banner';
 import { api, refreshAccessToken } from '@/lib/api';
 import type { ServerCart } from '@/lib/server-cart';
 import { useAuthStore } from '@/store/authStore';
@@ -20,6 +22,7 @@ export function AuthBootstrap({ children }: AuthBootstrapProps): ReactNode {
   const setWishlistIds = useWishlistStore((state) => state.setIds);
 
   useEffect(() => {
+    if (isAssistedWindow()) return;
     let active = true;
     const clearExpiredSession = (): void => {
       // The initial refresh request can finish after OTP login has already
@@ -56,5 +59,5 @@ export function AuthBootstrap({ children }: AuthBootstrapProps): ReactNode {
     };
   }, [clearSession, setSession, setWishlistIds]);
 
-  return children;
+  return <><AssistedAccessBanner />{children}</>;
 }

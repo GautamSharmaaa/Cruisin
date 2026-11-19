@@ -115,7 +115,7 @@ export function CmsHomepage({ sections, preview = false, editing=false, selected
   const announcementIndex = visible.findIndex((section) => section.type === 'announcement_bar' || section.type === 'marquee_strip');
   return <div data-testid="cms-homepage" className="relative"><h1 className="sr-only">Cruisin</h1>{visible.map((section,index)=>{
     const id=sectionKey(section);const content=<CmsSectionRenderer section={section}/>;
-    return <div key={id} data-cms-section-id={id} className={editing?'cms-preview-section':''} data-selected={editing&&selectedId===id}>
+    return <div key={id} id={`section-${id}`} data-cms-section-id={id} className={editing?'cms-preview-section':''} data-selected={editing&&selectedId===id}>
       {index===announcementIndex?<div data-testid="homepage-announcement-overlay" className="absolute inset-x-0 top-20 z-40">{content}</div>:content}
       {editing&&<><button type="button" className="cms-preview-select-layer" aria-label={`Edit section: ${section.title}`} data-select-cms-section={id}/>{selectedId===id&&<span className="cms-preview-selection-tag">{section.type==='hero_campaign'?'Campaign hero':section.title}</span>}</>}
     </div>;

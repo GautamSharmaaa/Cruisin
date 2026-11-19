@@ -7,16 +7,18 @@ import { SizeSelector } from '@/components/product/size-selector';
 import { COPY } from '@/constants/copy';
 import type { ProductVariant } from '@/types/product.types';
 
-export interface VariantSelectorProps { variants: ProductVariant[]; onChange: (variant: ProductVariant | null) => void; onColorChange?: (variant: ProductVariant) => void; }
+export interface VariantSelectorProps { variants: ProductVariant[]; selectedVariant?:ProductVariant|null; selectedColorVariant?:ProductVariant|null; onChange: (variant: ProductVariant | null) => void; onColorChange?: (variant: ProductVariant) => void; }
 
-export function VariantSelector({ variants, onChange, onColorChange }: VariantSelectorProps): ReactNode {
+export function VariantSelector({ variants, onChange, onColorChange, selectedVariant, selectedColorVariant }: VariantSelectorProps): ReactNode {
   const enabledVariants = useMemo(() => variants.filter((variant) => variant.enabled !== false), [variants]);
   const colors = useMemo(() => Array.from(new Map(enabledVariants.map((variant) => [variant.color.trim().toLowerCase(), variant.color])).values()).map((color) => {
     const matches = enabledVariants.filter((variant) => variant.color.trim().toLowerCase() === color.trim().toLowerCase());
     return { color, representative: matches.find((variant) => variant.stock > 0) ?? matches[0], soldOut: matches.every((variant) => variant.stock <= 0) };
   }), [enabledVariants]);
-  const [selectedColor, setSelectedColor] = useState<string>(colors.find((color) => !color.soldOut)?.color ?? colors[0]?.color ?? '');
-  const [selected, setSelected] = useState<ProductVariant | null>(null);
+  const [localColor, setSelectedColor] = useState<string>(colors.find((color) => !color.soldOut)?.color ?? colors[0]?.color ?? '');
+  const [localSelected, setSelected] = useState<ProductVariant | null>(null);
+  const selectedColor=selectedColorVariant?.color??localColor;
+  const selected=selectedVariant===undefined?localSelected:selectedVariant;
   const availableForColor = enabledVariants.filter((variant) => variant.color.trim().toLowerCase() === selectedColor.trim().toLowerCase());
 
   const selectColor = (representative: ProductVariant): void => {

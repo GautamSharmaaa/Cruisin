@@ -77,7 +77,7 @@ test("administrator and employee complete an independently reviewed task", async
   });
   const employee = await context.newPage();
   await employee.goto(employeeUrl + "/login");
-  await employee.getByLabel("Registered phone").fill(phone);
+  await employee.getByLabel("Registered phone").fill(`${phone.slice(0, 3)} ${phone.slice(3)}`);
   await employee.getByRole("button", { name: "Send login code" }).click();
   const code = await employee
     .getByRole("status")
@@ -87,7 +87,19 @@ test("administrator and employee complete an independently reviewed task", async
   await employee.getByLabel("One-time code").fill(code);
   await employee.getByRole("button", { name: "Verify and continue" }).click();
   await expect(employee).toHaveURL(employeeUrl + "/");
-  await employee.goto(employeeUrl + "/tasks");
+  await expect(employee.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  if (testInfo.project.name === "mobile") {
+    const menuButton = employee.getByRole("button", { name: "Open navigation" });
+    await menuButton.click();
+    await expect(employee.getByRole("dialog", { name: "Operations workspace" })).toBeVisible();
+    await employee.keyboard.press("Escape");
+    await expect(menuButton).toBeFocused();
+    await menuButton.click();
+    await employee.getByRole("dialog", { name: "Operations workspace" }).getByRole("link", { name: "My Tasks", exact: true }).click();
+  } else {
+    await employee.getByRole("navigation", { name: "Operations workspace" }).getByRole("link", { name: "My Tasks", exact: true }).click();
+  }
+  await expect(employee).toHaveURL(employeeUrl + "/tasks");
   await taskDetails(employee, title);
   dialog = employee.getByRole("dialog");
   await dialog.getByRole("button", { name: "Start work" }).click();
@@ -167,8 +179,8 @@ test("administrator and employee complete an independently reviewed task", async
     .click();
   await close(page);
   await page
-    .getByRole("heading", { name: sopTitle, exact: true })
-    .locator("..")
+    .locator(".ops-sop-library-list li")
+    .filter({ has: page.getByRole("heading", { name: sopTitle, exact: true }) })
     .getByRole("button", { name: "Details", exact: true })
     .click();
   dialog = page.getByRole("dialog");
@@ -176,9 +188,10 @@ test("administrator and employee complete an independently reviewed task", async
   await expect(dialog.getByText("PUBLISHED", { exact: true })).toBeVisible();
   await close(page);
   await employee.goto(employeeUrl + "/sops");
+  await employee.getByRole("button", { name: "Browse SOP library" }).click();
   await employee
-    .getByRole("heading", { name: sopTitle, exact: true })
-    .locator("..")
+    .locator(".ops-sop-library-list li")
+    .filter({ has: employee.getByRole("heading", { name: sopTitle, exact: true }) })
     .getByRole("button", { name: "Details", exact: true })
     .click();
   dialog = employee.getByRole("dialog");
@@ -193,7 +206,7 @@ test("administrator and employee complete an independently reviewed task", async
     .click();
   expect((await ack).status()).toBe(200);
   await close(employee);
-  const base = "http://127.0.0.1:8192/api/v1";
+  const base = new URL("/api/v1", process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:8192").href;
   const login = await request.post(base + "/auth/login", {
     headers: { Origin: adminUrl },
     data: { email: "admin@cruisin.local", password: "CruisinAdmin123" },
@@ -214,7 +227,7 @@ test("administrator and employee complete an independently reviewed task", async
     expect(created.status()).toBe(200);
   }
   await employee.goto(employeeUrl + "/");
-  await expect(employee.getByText("Orders awaiting packing: 0", {exact:true})).toBeVisible();
+  await expect(employee.locator(".ops-metric").filter({hasText:"Orders awaiting packing"}).locator("dd")).toHaveText("0");
   const notifications=employee.locator("section").filter({has:employee.getByRole("heading",{name:"Notifications",exact:true})});
   const pagination=notifications.getByRole("navigation",{name:"Pagination"});
   await expect(pagination).toContainText("1 / 2");
@@ -229,7 +242,7 @@ test("administrator and employee complete an independently reviewed task", async
   await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toBeVisible();
   await employee.unroute("**/employee/summary");
   await employee.getByRole("button",{name:"Refresh",exact:true}).last().click();
-  await expect(employee.getByText("Orders awaiting packing: 0", {exact:true})).toBeVisible();
+  await expect(employee.locator(".ops-metric").filter({hasText:"Orders awaiting packing"}).locator("dd")).toHaveText("0");
   await expect(employee.getByRole("alert").filter({hasText:"Network Error"})).toHaveCount(0);
   const categories = (await (await request.get(base + "/categories")).json())
     .data;
@@ -322,9 +335,9 @@ test("theme and keyboard dialog controls preserve all application shells", async
   page,
 }) => {
   await adminLogin(page);
-  await page
-    .getByRole("combobox", { name: "Color theme" })
-    .selectOption("light");
+  const theme = page.getByRole("switch", { name: "Dark mode" });
+  await expect(theme).toBeEnabled();
+  if (await theme.getAttribute("aria-checked") === "true") await theme.click();
   await expect(page.locator("html")).toHaveClass(/light/);
   await page.goto(adminUrl + "/employees");
   await page
@@ -334,14 +347,14 @@ test("theme and keyboard dialog controls preserve all application shells", async
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.goto("http://127.0.0.1:3192/");
-  await page
-    .getByRole("combobox", { name: "Color theme" })
-    .selectOption("light");
+  await page.goto(process.env.PLAYWRIGHT_STOREFRONT_URL ?? "http://127.0.0.1:3192");
+  await page.getByRole("button", { name: "Open Cruisin quick menu" }).click();
+  const light = page.getByRole("button", { name: "Switch to light mode" });
+  const dark = page.getByRole("button", { name: "Switch to dark mode" });
+  await expect(light.or(dark)).toBeVisible();
+  if (await light.isVisible()) await light.click();
   await expect(page.locator("html")).toHaveClass(/light/);
-  await page
-    .getByRole("combobox", { name: "Color theme" })
-    .selectOption("dark");
+  await dark.click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(page.locator("main:visible")).toHaveCount(1);
   await expect(page.getByRole("main")).toBeVisible();

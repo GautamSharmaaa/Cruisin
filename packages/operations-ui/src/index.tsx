@@ -34,7 +34,6 @@ import {
   type TaskStatus,
   type Approval,
   type InventoryRow,
-  type Sop,
   type PageResult,
 } from "@cruisin/contracts";
 import { OPS_COPY as C } from "./constants/copy";
@@ -51,8 +50,9 @@ import {
 import { EmployeeEditor } from "./employees";
 import { TaskForm, TaskPanel } from "./tasks";
 import { ApprovalPanel } from "./approvals";
-import { AdjustmentForm, InventoryActions } from "./inventory";
-import { SopEditor, SopPanel } from "./sops";
+import { InventoryProducts } from "./inventory-products";
+import { INVENTORY_COPY as I } from "./constants/inventory-copy";
+import { SopWorkspace } from "./sop-workspace";
 import { Exceptions } from "./exceptions";
 import { UnitPanel, type PhysicalUnit, Units } from "./units";
 import { Fulfillment } from "./fulfillment";
@@ -82,6 +82,7 @@ export interface OperationsPageProps {
   transport: OperationsTransport;
   principal: Principal;
   timezone?: string;
+  description?: string;
   onLogout?: () => Promise<void>;
 }
 export function OperationsPage({
@@ -89,6 +90,7 @@ export function OperationsPage({
   transport: api,
   principal,
   timezone = "Asia/Kolkata",
+  description,
   onLogout,
 }: OperationsPageProps): ReactNode {
   const [resolvedUnit, setResolvedUnit] = useState<PhysicalUnit | null>(null);
@@ -126,7 +128,7 @@ export function OperationsPage({
           : module === "profile"
             ? "/notifications"
             : `/${module}`;
-  const list = useList<Record<string, unknown>>(api, path, q, status, page);
+  const list = useList<Record<string, unknown>>(api, module === "sops" ? "" : path, q, status, page);
   const reload = list.reload;
   let content: ReactNode = null;
   if (module === "scanner") {
@@ -179,28 +181,25 @@ export function OperationsPage({
       <>
         {summaryError ? <Alert tone="danger">{summaryError}</Alert> : summary ? (
           <Card title={C.operationalSummary}>
-            <div className="ui-row">
-              <Status>
-                {C.activeTasks}: {summary.tasks.active}
-              </Status>
-              <Status>
-                {C.overdueTasks}: {summary.tasks.overdue}
-              </Status>
-              <Status>
-                {C.pendingApprovals}: {summary.pendingApprovals}
-              </Status>
-              <Status>{C.openExceptions}: {summary.openExceptions}</Status>
-              <Status>{C.unreadNotifications}: {summary.unreadNotifications}</Status>
-              {summary.fulfillment && <>
-                <Status>{C.awaitingPacking}: {summary.fulfillment.awaitingPacking}</Status>
-                <Status>{C.packedOrders}: {summary.fulfillment.packed}</Status>
-                <Status>{C.readyForHandover}: {summary.fulfillment.readyForHandover}</Status>
-              </>}
-              {principal.permissions.includes("inventory.view") && (
-                <Status>
-                  {C.lowStockVariants}: {summary.lowStockVariants}
-                </Status>
-              )}
+            <div className="ops-metrics">
+              {[
+                [C.activeTasks, summary.tasks.active],
+                [C.overdueTasks, summary.tasks.overdue],
+                [C.pendingApprovals, summary.pendingApprovals],
+                [C.openExceptions, summary.openExceptions],
+                [C.unreadNotifications, summary.unreadNotifications],
+                ...(summary.fulfillment ? [
+                  [C.awaitingPacking, summary.fulfillment.awaitingPacking],
+                  [C.packedOrders, summary.fulfillment.packed],
+                  [C.readyForHandover, summary.fulfillment.readyForHandover],
+                ] : []),
+                ...(principal.permissions.includes("inventory.view") ? [[C.lowStockVariants, summary.lowStockVariants]] : []),
+              ].map(([label, value]) => (
+                <dl className="ops-metric" key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </dl>
+              ))}
             </div>
             {principal.permissions.includes("inventory.view") && (
               <DataTable
@@ -344,71 +343,7 @@ export function OperationsPage({
       />
     );
   if (list.data && module === "inventory")
-    content = (
-      <DataTable<InventoryRow>
-        caption={C.inventory}
-        items={list.data.items as unknown as InventoryRow[]}
-        keyOf={(r) => r.variant}
-        columns={[
-          { key: "sku", label: C.sku, render: (r) => <strong>{r.sku}</strong> },
-          {
-            key: "variant",
-            label: C.size,
-            render: (r) => `${r.size} / ${r.color}`,
-          },
-          {
-            key: "available",
-            label: C.stock,
-            render: (r) => <Status>{r.available}</Status>,
-          },
-          { key: "reserved", label: C.reserved, render: (r) => r.reserved },
-          { key: "damaged", label: C.damaged, render: (r) => r.damaged },
-          { key: "threshold", label: C.threshold, render: (r) => r.threshold },
-          {
-            key: "alert",
-            label: C.lowStock,
-            render: (r) =>
-              r.available <= r.threshold ? <Status>{C.lowStock}</Status> : "—",
-          },
-          {
-            key: "actions",
-            label: C.details,
-            render: (r) => (
-              <InventoryActions
-                row={r}
-                api={api}
-                principal={principal}
-                onSaved={reload}
-              />
-            ),
-          },
-        ]}
-      />
-    );
-  if (list.data && module === "sops")
-    content = (
-      <div className="ui-grid">
-        {(list.data.items as unknown as Sop[]).map((s) => (
-          <Card key={s._id} title={s.title}>
-            <p className="ops-muted">
-              {s.category} · {C.version} {s.version}
-            </p>
-            <Status>{s.status}</Status>
-            <Dialog
-              title={s.title}
-              trigger={<Button variant="secondary">{C.details}</Button>}
-            >
-              <SopPanel
-                sop={s}
-                api={api}
-                principal={principal}
-                onSaved={reload}
-              />
-            </Dialog>
-          </Card>
-        ))}
-      </div>
-    );
+    content = <InventoryProducts data={list.data as unknown as PageResult<InventoryRow>} api={api} principal={principal} timezone={timezone} onSaved={reload} />;
   if (list.data && module === "activity")
     content = (
       <DataTable
@@ -477,6 +412,9 @@ export function OperationsPage({
         />
       </>
     );
+  if (module === "sops") return (
+    <SopWorkspace api={api} principal={principal} description={description} />
+  );
   return (
     <div className="ui-stack">
       <header className="ops-heading">
@@ -487,6 +425,7 @@ export function OperationsPage({
               ? C.adminTasks
               : C[module]}
           </h1>
+          {description && <p className="ops-description">{description}</p>}
         </div>
         <div className="ui-row">
           {module === "approvals" &&
@@ -515,22 +454,16 @@ export function OperationsPage({
                 <TaskForm api={api} onSaved={reload} />
               </Dialog>
             )}
-          {module === "sops" &&
-            principal.permissions.includes("sop.create") && (
-              <Dialog title={C.newSop} trigger={<Button>{C.newSop}</Button>}>
-                <SopEditor api={api} onSaved={reload} />
-              </Dialog>
-            )}
           <Button variant="ghost" onClick={() => { reload(); setSummaryRevision(r => r + 1); }}>
             {C.refresh}
           </Button>
         </div>
       </header>
       {!["dashboard", "orders", "scanner", "profile"].includes(module) && (
-        <div className="ui-row">
+        <div className="ui-row ops-list-toolbar">
           <Input
             aria-label={C.search}
-            placeholder={C.search}
+            placeholder={module === "inventory" ? I.search : C.search}
             value={q}
             onChange={(e) => {
               setQ(e.target.value);

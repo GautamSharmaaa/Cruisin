@@ -20,6 +20,7 @@ import { OrderSummary } from '@/components/checkout/order-summary';
 import { PaymentGateway, type PaymentConfiguration } from '@/components/checkout/payment-gateway';
 import { CheckoutPromotionStrip } from '@/components/promotion/checkout-promotion-strip';
 import { Button } from '@/components/ui/button';
+import { CUSTOMER_ACCESS } from '@/constants/customer-access';
 import { COPY } from '@/constants/copy';
 import { ROUTES } from '@/constants/routes';
 import { clearCheckoutAttempt, useCheckout } from '@/hooks/useCheckout';
@@ -33,6 +34,7 @@ import { taxInclusiveCheckoutTotals } from '@/lib/checkout-totals';
 import { combinedCartDiscount, recommendationBundleDiscount } from '@/lib/bundle-discount';
 import { checkoutPaymentSessionIssue } from '@/lib/checkout-payment';
 import { isCustomerVisibleProduct } from '@/lib/customer-state';
+import { useMarketingConsentId } from '@/lib/meta-consent';
 import { clearMetaCheckoutAttempt, getOrCreateCheckoutEventId, trackCheckoutPaymentSelected, trackCheckoutStarted } from '@/lib/meta-ecommerce';
 import { loadRazorpay, razorpayPrefillContact, type RazorpaySuccess } from '@/lib/razorpay';
 import { checkoutPageSchema } from '@/lib/schemas';
@@ -54,10 +56,12 @@ export default function CheckoutPage(): ReactNode {
   const checkout = useCheckout();
   const user = useAuthStore((state) => state.user);
   const isAuthInitialized = useAuthStore((state) => state.isInitialized);
+  const assisted = useAuthStore((state) => state.assistedUntil !== null);
+  const marketingConsent = useMarketingConsentId();
   const siteSettings = useSiteSettings();
   const addressBook = useAddressBook(Boolean(user));
   const addresses = useMemo(() => Array.isArray(addressBook.data) ? addressBook.data : [], [addressBook.data]);
-  const { handleSubmit, formState, watch, setValue } = useForm<import("zod").input<typeof checkoutPageSchema>, unknown, CheckoutForm>({ resolver: zodResolver(checkoutPageSchema), defaultValues: { country: COPY.fields.defaultCountry, paymentMethod: 'razorpay', shippingMethod: 'standard' } });
+  const { handleSubmit, formState, watch, setValue } = useForm<import("zod").input<typeof checkoutPageSchema>, unknown, CheckoutForm>({ resolver: zodResolver(checkoutPageSchema), defaultValues: { country: COPY.fields.defaultCountry, paymentMethod: assisted ? 'cod' : 'razorpay', shippingMethod: 'standard' } });
   const addressPrefilled = useRef(false);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
@@ -114,21 +118,25 @@ export default function CheckoutPage(): ReactNode {
     addressPrefilled.current = true;
   }, [addressBook.isSuccess, addresses, formState.isDirty, setValue, user]);
   useEffect(() => {
+    if (assisted) { setValue('paymentMethod', 'cod'); return; }
     const config = paymentConfig.data;
     if (!config) return;
     if (selectedPayment === 'cod' && (!config.codEnabled || orderTotal > config.maxCodOrderValue)) setValue('paymentMethod', 'razorpay');
     if (selectedPayment === 'partial' && (!config.partialPaymentEnabled || orderTotal < config.minPartialPaymentOrderValue)) setValue('paymentMethod', 'razorpay');
-  }, [orderTotal, paymentConfig.data, selectedPayment, setValue]);
+  }, [assisted, orderTotal, paymentConfig.data, selectedPayment, setValue]);
   useEffect(() => {
     if (logisticsQuote.data?.options.length && !logisticsQuote.data.options.some((option) => option.code === selectedShipping)) {
       setValue('shippingMethod', logisticsQuote.data.options[0]?.code ?? 'standard');
     }
   }, [logisticsQuote.data, selectedShipping, setValue]);
   useEffect(() => {
-    if (!user || visibleCartItems.length === 0) return;
-    trackCheckoutStarted({ items: visibleCartItems, value: orderTotal, coupon });
-  }, [coupon, orderTotal, user, visibleCartItems]);
-  const finish = (order: { _id?: string; id?: string; orderNumber?: string; paymentMode?: string; amountPaid?: number; amountDue?: number }, state: 'success' | 'failure'): void => { const id = getOrderId(order); if (state === 'success') { clearCheckoutAttempt(); clearMetaCheckoutAttempt(); useCartStore.getState().clearCart(); } const query = new URLSearchParams({ order: id }); if (order.orderNumber) query.set('number', order.orderNumber); if (order.paymentMode) query.set('mode', order.paymentMode); if (typeof order.amountPaid === 'number') query.set('paid', String(order.amountPaid)); if (typeof order.amountDue === 'number') query.set('due', String(order.amountDue)); router.push(`/checkout/${state}?${query.toString()}`); };
+    if (assisted || !user || visibleCartItems.length === 0) return;
+    trackCheckoutStarted({ items: visibleCartItems, value: orderTotal });
+  }, [assisted, marketingConsent, orderTotal, user, visibleCartItems]);
+  const finish = (order: { _id?: string; id?: string }, state: 'success' | 'failure'): void => {
+    if (state === 'success') { clearCheckoutAttempt(); clearMetaCheckoutAttempt(); useCartStore.getState().clearCart(); }
+    router.push(`/checkout/${state}?order=${encodeURIComponent(getOrderId(order))}`);
+  };
   const verify = async (response: RazorpaySuccess, localOrderId: string): Promise<void> => { try { const result = await api.post<ApiEnvelope<{ verified: boolean; order?: Order }>>('/payments/razorpay/verify', { method: 'razorpay', payload: response }); if (!result.data.data.verified) throw new Error('We could not verify this payment.'); finish(result.data.data.order ?? { _id: localOrderId }, 'success'); } catch { setPaymentMessage(COPY.checkout.pendingBody); router.push(ROUTES.checkoutPending + '?order=' + encodeURIComponent(localOrderId)); } };
   const openRazorpay = async (orderId: string, providerOrderId: string, amount: number, data: CheckoutForm): Promise<void> => {
     const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
@@ -172,13 +180,12 @@ export default function CheckoutPage(): ReactNode {
     });
     razorpay.open();
   };
-  const onSubmit = (data: CheckoutForm): void => { if (!user) return; setPaymentMessage(''); const address = { fullName: data.fullName, phone: data.phone, line1: data.line1, line2: data.line2, city: data.city, state: data.state, postalCode: data.postalCode, country: data.country }; const paymentMode = data.paymentMethod === 'cod' ? 'cod' : data.paymentMethod === 'partial' ? 'partial' : 'online'; const metaEventId = getOrCreateCheckoutEventId({ items: visibleCartItems, value: orderTotal, coupon }); checkout.mutate({ shippingAddress: address, billingAddress: address, paymentMethod: 'razorpay', paymentMode, shippingMethod: data.shippingMethod, logisticsQuoteId: logisticsQuote.data?.quoteId, metaEventId }, { onSuccess: (result) => { const id = getOrderId(result.order); if (paymentMode === 'cod') { finish(result.order, 'success'); return; } const issue = checkoutPaymentSessionIssue(result, orderTotal, paymentMode); if (issue) { clearCheckoutAttempt(); setPaymentMessage(issue); return; } if (!result.payment?.id) { clearCheckoutAttempt(); setPaymentMessage('A payment session could not be created. Please retry.'); return; } void openRazorpay(id, result.payment.id, result.amountToPay, data).catch((error: unknown) => setPaymentMessage(error instanceof Error ? error.message : 'Secure checkout could not be opened.')); } }); };
+  const onSubmit = (data: CheckoutForm): void => { if (!user) return; setPaymentMessage(''); const address = { fullName: data.fullName, phone: data.phone, line1: data.line1, line2: data.line2, city: data.city, state: data.state, postalCode: data.postalCode, country: data.country }; const paymentMode = data.paymentMethod === 'cod' ? 'cod' : data.paymentMethod === 'partial' ? 'partial' : 'online'; const metaInput = { items: visibleCartItems, value: orderTotal }; const metaEventId = getOrCreateCheckoutEventId(metaInput); checkout.mutate({ shippingAddress: address, billingAddress: address, paymentMethod: 'razorpay', paymentMode, shippingMethod: data.shippingMethod, logisticsQuoteId: logisticsQuote.data?.quoteId, metaEventId }, { onSuccess: (result) => { trackCheckoutPaymentSelected(metaInput, paymentMode === 'partial' ? 'online_partial' : paymentMode); const id = getOrderId(result.order); if (paymentMode === 'cod') { finish(result.order, 'success'); return; } const issue = checkoutPaymentSessionIssue(result, orderTotal, paymentMode); if (issue) { clearCheckoutAttempt(); setPaymentMessage(issue); return; } if (!result.payment?.id) { clearCheckoutAttempt(); setPaymentMessage('A payment session could not be created. Please retry.'); return; } void openRazorpay(id, result.payment.id, result.amountToPay, data).catch((error: unknown) => setPaymentMessage(error instanceof Error ? error.message : 'Secure checkout could not be opened.')); } }); };
   if (!isAuthInitialized) return <main className="min-h-dvh px-6 py-32 lg:px-20" aria-busy="true"><section className="mx-auto max-w-2xl border border-border bg-background-elevated p-8 shadow-lg"><p className="font-accent text-xs uppercase tracking-[0.16em] text-accent-gold">Private checkout</p><div className="mt-6 h-12 max-w-md animate-shimmer bg-[linear-gradient(90deg,var(--bg-elevated),var(--bg-overlay),var(--bg-elevated))] bg-[length:200%_100%]" /><p className="mt-6 text-sm text-text-secondary" aria-live="polite">{COPY.auth.checkingSession}</p></section></main>;
   if (!user) { const login = ROUTES.login + '?redirect=' + encodeURIComponent(ROUTES.checkout); return <main className="px-6 py-32 lg:px-20"><section className="mx-auto max-w-2xl border border-border bg-background-elevated p-8 text-center shadow-lg"><p className="font-accent text-xs uppercase tracking-[0.16em] text-accent-gold">{COPY.auth.privateAccess}</p><h1 className="mt-4 font-display text-4xl text-text-primary">{COPY.auth.prompts.checkout.title}</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-text-secondary">{COPY.auth.prompts.checkout.body}</p><div className="mt-8 grid gap-3"><button type="button" onClick={() => openMobileAuth({ next: ROUTES.checkout })} className={(compactAuth?'inline-flex':'hidden')+' h-12 items-center justify-center bg-accent-gold px-5 text-xs uppercase tracking-[0.1em] text-text-inverse'}>{COPY.auth.whatsapp.continue}</button><Link href={login} className={(compactAuth?'hidden':'inline-flex')+' h-12 items-center justify-center bg-accent-gold px-5 text-xs uppercase tracking-[0.1em] text-text-inverse'}>{COPY.auth.whatsapp.continue}</Link><button type="button" onClick={() => openMobileAuth({ next: ROUTES.checkout, method: 'alternative' })} className={(compactAuth?'inline-flex':'hidden')+' h-12 items-center justify-center border border-border px-5 text-xs uppercase tracking-[0.1em] text-text-primary'}>{COPY.auth.whatsapp.useAlternatives}</button><Link href={login + '&method=alternative'} className={(compactAuth?'hidden':'inline-flex')+' h-12 items-center justify-center border border-border px-5 text-xs uppercase tracking-[0.1em] text-text-primary'}>{COPY.auth.whatsapp.useAlternatives}</Link></div><Link href={ROUTES.shop} className="mt-5 inline-flex text-xs uppercase tracking-[0.1em] text-text-secondary hover:text-text-primary">{COPY.auth.prompts.checkout.dismiss}</Link></section></main>; }
   const changePayment = (value: 'razorpay' | 'cod' | 'partial'): void => {
     if (value === selectedPayment) return;
     setValue('paymentMethod', value);
-    trackCheckoutPaymentSelected({ items: visibleCartItems, value: orderTotal, coupon }, value === 'cod' ? 'cod' : value === 'partial' ? 'online_partial' : 'online');
   };
   const submitLabel = selectedPayment === 'cod'
     ? `Place COD order · ${formatPrice(orderTotal)}`
@@ -194,7 +201,9 @@ export default function CheckoutPage(): ReactNode {
     ? `Delivery in ${selectedDelivery.estimatedDeliveryDays}–${selectedDelivery.estimatedDeliveryDays + 1} days`
     : 'Delivery estimate shown after pincode check';
   const quoteMatchesCart = logisticsQuote.data?.cartVersion === cartVersion;
-  const checkoutBusy = checkout.isPending
+  const assistedCodAvailable = Boolean(paymentConfig.data?.codEnabled && orderTotal <= paymentConfig.data.maxCodOrderValue);
+  const checkoutBusy = (assisted && (!assistedCodAvailable || selectedPayment !== 'cod'))
+    || checkout.isPending
     || paymentConfig.isLoading
     || siteSettings.isLoading
     || logisticsQuote.isFetching
@@ -225,7 +234,7 @@ export default function CheckoutPage(): ReactNode {
             {addressBook.isLoading ? <div className="h-32 animate-shimmer border border-border-subtle bg-[linear-gradient(90deg,var(--bg-elevated),var(--bg-overlay),var(--bg-elevated))] bg-[length:200%_100%]" aria-label="Loading delivery address" /> : selectedAddress ? <motion.div animate={addressConfirmation ? { borderColor: 'rgba(70, 163, 108, .8)' } : { borderColor: 'var(--border-subtle)' }} className="border bg-background-elevated/40 p-5">
               <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-gold/10 text-accent-gold"><MapPin size={17} /></span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><p className="font-medium text-text-primary">Deliver to {selectedAddress.fullName}</p><button type="button" onClick={() => setAddressSheetOpen(true)} className="min-h-11 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-accent-gold">Change</button></div><p className="mt-1 text-sm leading-5 text-text-secondary">{selectedAddress.street}{selectedAddress.landmark ? `, ${selectedAddress.landmark}` : ''}<br />{selectedAddress.city}, {selectedAddress.state} · {selectedAddress.pincode}</p><p className="mt-3 text-xs text-success">{deliveryEstimate}</p></div></div>
               {addressConfirmation ? <p className="mt-4 border-t border-success/20 pt-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-success"><Check className="mr-1 inline h-3.5 w-3.5" /> Delivery address added</p> : null}
-            </motion.div> : <button type="button" onClick={() => setAddressSheetOpen(true)} className="flex min-h-28 w-full items-center gap-4 border border-border-subtle bg-background-elevated/40 p-5 text-left transition hover:border-accent-gold">
+            </motion.div> : assisted ? <p className="text-sm text-text-secondary">{CUSTOMER_ACCESS.addressNeeded}</p> : <button type="button" onClick={() => setAddressSheetOpen(true)} className="flex min-h-28 w-full items-center gap-4 border border-border-subtle bg-background-elevated/40 p-5 text-left transition hover:border-accent-gold">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-gold/10 text-accent-gold"><MapPin size={18} /></span><span className="min-w-0 flex-1"><span className="block font-medium text-text-primary">Add delivery address</span><span className="mt-1 block text-sm text-text-secondary">Enter your address to check delivery</span></span><span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-accent-gold">Add →</span>
             </button>}
             <p className="mt-3 text-[10px] uppercase tracking-[0.13em] text-text-muted">Billing address same as delivery</p>
@@ -233,7 +242,7 @@ export default function CheckoutPage(): ReactNode {
           <section className="border-b border-border-subtle px-5 py-7 md:border-0 md:p-0"><OffersRewards bundleDiscount={automaticDiscounts.bundleDiscount} /></section>
           <section className="border-b border-border-subtle px-5 py-7 md:border-0 md:p-0" aria-labelledby="payment-heading">
             <h2 id="payment-heading" className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-primary">Payment</h2>
-            <PaymentGateway value={selectedPayment} onChange={changePayment} config={paymentConfig.data} orderTotal={orderTotal} />
+            {assisted ? <p className="text-sm text-text-secondary">{assistedCodAvailable ? CUSTOMER_ACCESS.codOnly : CUSTOMER_ACCESS.codUnavailable}</p> : <PaymentGateway value={selectedPayment} onChange={changePayment} config={paymentConfig.data} orderTotal={orderTotal} />}
           </section>
           {checkout.error || paymentMessage ? <p className="mx-5 text-sm text-danger md:mx-0" aria-live="polite">{paymentMessage || checkout.error?.message}</p> : null}
           <section className="hidden md:block"><Button type="button" onClick={handleSubmit(onSubmit)} className="h-12 w-full text-xs font-semibold tracking-[0.14em]" disabled={!selectedAddress || checkoutBusy}>{selectedAddress ? checkout.isPending ? pendingSubmitLabel : submitLabel : 'Add delivery address first'}</Button></section>
@@ -242,8 +251,8 @@ export default function CheckoutPage(): ReactNode {
       </div>
     </motion.div>
     <div className="fixed inset-x-0 bottom-0 z-[90] border-t border-border bg-background-primary/95 px-4 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)] items-center gap-3"><div className="min-w-0"><motion.p key={orderTotal} initial={{ opacity: 0.4, y: 3 }} animate={{ opacity: 1, y: 0 }} className="truncate font-mono text-lg text-text-primary">{formatPrice(orderTotal)}</motion.p><p className={'mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] ' + (savings > 0 ? 'text-success' : 'text-text-muted')}>{savings > 0 ? `You save ${formatPrice(savings)}` : selectedPayment === 'cod' && codFee > 0 ? `Includes ${formatPrice(codFee)} COD fee` : 'Taxes included'}</p></div>{selectedAddress ? <button type="button" onClick={handleSubmit(onSubmit)} disabled={checkoutBusy} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse disabled:cursor-wait disabled:opacity-60">{checkout.isPending ? pendingSubmitLabel : selectedPayment === 'cod' ? 'Place COD order →' : selectedPayment === 'partial' ? 'Pay advance →' : 'Pay securely →'}</button> : <button type="button" onClick={() => setAddressSheetOpen(true)} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse">Add delivery address →</button>}</div>
+      <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)] items-center gap-3"><div className="min-w-0"><motion.p key={orderTotal} initial={{ opacity: 0.4, y: 3 }} animate={{ opacity: 1, y: 0 }} className="truncate font-mono text-lg text-text-primary">{formatPrice(orderTotal)}</motion.p><p className={'mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] ' + (savings > 0 ? 'text-success' : 'text-text-muted')}>{savings > 0 ? `You save ${formatPrice(savings)}` : selectedPayment === 'cod' && codFee > 0 ? `Includes ${formatPrice(codFee)} COD fee` : 'Taxes included'}</p></div>{selectedAddress ? <button type="button" onClick={handleSubmit(onSubmit)} disabled={checkoutBusy} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse disabled:cursor-wait disabled:opacity-60">{checkout.isPending ? pendingSubmitLabel : selectedPayment === 'cod' ? 'Place COD order →' : selectedPayment === 'partial' ? 'Pay advance →' : 'Pay securely →'}</button> : assisted ? null : <button type="button" onClick={() => setAddressSheetOpen(true)} className="h-14 bg-accent-gold px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-text-inverse">Add delivery address →</button>}</div>
     </div>
-    <AddressBottomSheet open={addressSheetOpen} onOpenChange={setAddressSheetOpen} addresses={addresses} selectedAddressId={selectedAddress?._id} customerName={user.name} customerPhone={user.phone} onAddressSelected={(address) => applyAddress(address, true)} />
+    <AddressBottomSheet readOnly={assisted} open={addressSheetOpen && (!assisted || addresses.length > 0)} onOpenChange={setAddressSheetOpen} addresses={addresses} selectedAddressId={selectedAddress?._id} customerName={user.name} customerPhone={user.phone} onAddressSelected={(address) => applyAddress(address, true)} />
   </main>;
 }

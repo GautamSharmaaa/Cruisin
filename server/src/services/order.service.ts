@@ -6,6 +6,7 @@ import { env } from '../config/env.js';
 import { logisticsConfig } from '../config/logistics.js';
 import { CartModel } from '../models/cart.model.js';
 import { CouponModel } from '../models/coupon.model.js';
+import { SecurityEventModel } from '../models/security-event.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { ShipmentModel } from '../models/shipment.model.js';
 import { PaymentWebhookEventModel } from '../models/payment-webhook-event.model.js';
@@ -31,9 +32,11 @@ import { LogisticsService } from './logistics/logistics.service.js';
 import { assertCouponCustomerEligible, confirmCouponRedemption, releaseCouponRedemption, reserveCouponRedemption } from './coupon-redemption.service.js';
 import { InvoiceService } from './invoice.service.js';
 import { ReturnRefundReconciliationService } from './return-refund-reconciliation.service.js';
+import { canQueueMeta, metaPurchaseReceipt, type MetaOrderAttribution } from './meta-attribution.js';
+import { isMetaPurchaseConfirmed } from '@cruisin/contracts/meta-commerce';
 
 type AddressInput = Record<string, unknown>;
-type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string };
+export type CheckoutInput = { shippingAddress: AddressInput; billingAddress: AddressInput; paymentMethod: PaymentMethod; paymentMode?: CheckoutPaymentMode; shippingMethod?: ShippingMethod; logisticsQuoteId?: string; couponCode?: string; expectedCartVersion?: number; idempotencyKey: string; metaEventId?: string; metaAttribution?: MetaOrderAttribution };
 
 const enforceCartVersion = (cart: { version?: number | null }, expectedVersion?: number): void => {
   if (expectedVersion !== undefined && (cart.version ?? 0) !== expectedVersion) throw new ApiError(409, 'Your bag changed. Review it before placing the order.');
@@ -49,7 +52,7 @@ const reconcileReturnRefundSafely = async (orderId: string): Promise<void> => {
   }
 };
 const onlineReservationTtlMs = 15 * 60_000;
-const checkoutRequestHash = (input: CheckoutInput): string => crypto.createHash('sha256').update(JSON.stringify({
+const checkoutRequestHash = (input: CheckoutInput, legacyMetaEventId?: string | null): string => crypto.createHash('sha256').update(JSON.stringify({
   shippingAddress: input.shippingAddress,
   billingAddress: input.billingAddress,
   paymentMethod: input.paymentMethod,
@@ -58,7 +61,7 @@ const checkoutRequestHash = (input: CheckoutInput): string => crypto.createHash(
   logisticsQuoteId: input.logisticsQuoteId,
   couponCode: input.couponCode?.toUpperCase(),
   expectedCartVersion: input.expectedCartVersion,
-  metaEventId: input.metaEventId
+  metaEventId: legacyMetaEventId ?? undefined
 })).digest('hex');
 const shippingSettings = async (): Promise<{ standardShippingRate?: number; expressShippingRate?: number; freeStandardShippingThreshold?: number; codCheckoutEnabled?: boolean; codFee?: number }> => {
   const settings = await SiteSettingsModel.findOne({ singletonKey: 'global' }).select('standardShippingRate expressShippingRate freeStandardShippingThreshold codCheckoutEnabled codFee').lean();
@@ -90,6 +93,32 @@ const normalizeOrderRead = (order: unknown): unknown => {
   const view = order as { orderStatus?: string; amountDue?: number };
   return view.orderStatus === 'cancelled' && view.amountDue !== 0 ? { ...order, amountDue: 0 } : order;
 };
+type OrderImageItem = { product: unknown; variant?: unknown; sku?: string; image?: string };
+const hasOrderImage = (item: OrderImageItem): boolean => Boolean(item.image?.trim() && item.image !== '/product.webp');
+
+async function withAdminOrderImages<T extends { items?: OrderImageItem[] }>(orders: T[]): Promise<T[]> {
+  const missing = orders.flatMap(order => (order.items ?? []).filter(item => !hasOrderImage(item)));
+  if (!missing.length) return orders;
+
+  const productIds = [...new Set(missing.map(item => idString(item.product)).filter(id => Types.ObjectId.isValid(id)))];
+  const products = await ProductModel.find({ _id: { $in: productIds } })
+    .select('images variants._id variants.sku variants.color variants.images').lean();
+  const byId = new Map(products.map(product => [idString(product._id), product]));
+  return orders.map(order => ({
+    ...order,
+    items: order.items?.map(item => {
+      if (hasOrderImage(item)) return item;
+      const product = byId.get(idString(item.product));
+      const variants = product?.variants ?? [];
+      const variantId = idString(item.variant);
+      const variant = (variantId ? variants.find(candidate => idString(candidate._id) === variantId) : undefined)
+        ?? (item.sku ? variants.find(candidate => candidate.sku === item.sku) : undefined);
+      const sharesProductImage = new Set(variants.map(candidate => candidate.color?.trim().toLowerCase())).size <= 1;
+      const image = variant?.images?.[0]?.url || (sharesProductImage ? product?.images?.[0]?.url : undefined);
+      return { ...item, image, imageSource: image ? 'catalogue' : undefined };
+    })
+  }));
+}
 type CancellationRefundOrder = {
   amountPaid: number;
   refundAmount?: number | null;
@@ -291,16 +320,17 @@ const existingCheckoutResult = <T extends {
 
 type ExistingCheckoutOrder = Parameters<typeof existingCheckoutResult>[0] & {
   checkoutRequestHash?: string | null;
+  metaCheckoutEventId?: string | null;
   paymentStatus?: string | null;
 };
 
 const resolveExistingCheckout = async (
   userId: string,
   idempotencyKey: string,
-  requestHash: string,
+  input: CheckoutInput,
   initial: ExistingCheckoutOrder
 ): Promise<ReturnType<typeof existingCheckoutResult>> => {
-  validateExistingAttempt(initial, requestHash);
+  validateExistingAttempt(initial, input);
   if (initial.paymentMode !== 'cod' && ['failed', 'cancelled'].includes(initial.paymentStatus ?? '')) {
     throw terminalCheckoutAttemptError('The previous payment session did not start. Retry checkout to create a new attempt.');
   }
@@ -314,7 +344,7 @@ const resolveExistingCheckout = async (
     await new Promise((resolve) => setTimeout(resolve, 100));
     const current = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: idempotencyKey });
     if (!current) break;
-    validateExistingAttempt(current, requestHash);
+    validateExistingAttempt(current, input);
     if (current.razorpayOrderId || current.stripePaymentIntentId) return existingCheckoutResult(current);
     if (['failed', 'cancelled'].includes(current.paymentStatus)) {
       throw terminalCheckoutAttemptError('The previous payment session did not start. Retry checkout to create a new attempt.');
@@ -491,8 +521,10 @@ const createOrderRecord = async (data: Record<string, unknown>, session?: Client
   return created[0];
 };
 
-const validateExistingAttempt = (order: { checkoutRequestHash?: string | null }, requestHash: string): void => {
-  if (order.checkoutRequestHash && order.checkoutRequestHash !== requestHash) {
+const validateExistingAttempt = (order: { checkoutRequestHash?: string | null; metaCheckoutEventId?: string | null }, input: CheckoutInput): void => {
+  if (order.checkoutRequestHash &&
+      order.checkoutRequestHash !== checkoutRequestHash(input) &&
+      order.checkoutRequestHash !== checkoutRequestHash(input, order.metaCheckoutEventId)) {
     throw new ApiError(409, 'This checkout attempt key was already used for different order details');
   }
 };
@@ -560,6 +592,16 @@ const cancelOrderWithCompensation = async (input: {
   return await current;
 });
 
+const expectedCaptureAmount = (order: {
+  total: number; paymentMode?: string | null; razorpayOrderId?: string | null; stripePaymentIntentId?: string | null;
+  paymentAttempts: Array<{ providerOrderId?: string | null; amount: number }>;
+}): number => {
+  if (order.paymentMode !== 'partial') return order.total;
+  const providerOrderId = order.razorpayOrderId ?? order.stripePaymentIntentId;
+  const attempt = [...order.paymentAttempts].reverse().find(candidate => candidate.providerOrderId === providerOrderId);
+  return money(attempt?.amount ?? 0);
+};
+
 const completeOnlinePayment = async (orderId: string, paymentId: string, note: string, method?: string): Promise<unknown> => {
   const settlementStartedAt = new Date();
   const staleSettlement = new Date(settlementStartedAt.getTime() - 5 * 60_000);
@@ -571,7 +613,7 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
       $or: [{ paymentSettlementStartedAt: { $exists: false } }, { paymentSettlementStartedAt: { $lt: staleSettlement } }]
     },
     { $set: { paymentSettlementStartedAt: settlementStartedAt } },
-    { new: true }
+    { new: true, ...(env.META_PIXEL_ID ? { projection: '+metaAttribution' } : {}) }
   );
   if (!order) {
     const current = await OrderModel.findById(orderId);
@@ -598,8 +640,7 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
     }
     throw new ApiError(409, 'Payment settlement is already in progress');
   }
-  const paymentAttempt = [...order.paymentAttempts].reverse().find((attempt) => attempt.providerOrderId === order.razorpayOrderId || attempt.providerOrderId === order.stripePaymentIntentId);
-  const capturedAmount = order.paymentMode === 'partial' ? money(paymentAttempt?.amount ?? 0) : order.total;
+  const capturedAmount = expectedCaptureAmount(order);
   if (capturedAmount <= 0 || capturedAmount > order.total) {
     await OrderModel.updateOne({ _id: orderId, paymentSettlementStartedAt: settlementStartedAt }, { $unset: { paymentSettlementStartedAt: 1 } });
     throw new ApiError(409, 'Payment amount could not be reconciled');
@@ -624,6 +665,11 @@ const completeOnlinePayment = async (orderId: string, paymentId: string, note: s
   order.razorpayPaymentId = paymentId;
   order.paymentStatus = order.paymentMode === 'partial' ? 'partially_paid' : 'paid';
   order.orderStatus = 'confirmed';
+  const purchase = isMetaPurchaseConfirmed(order) ? metaPurchaseReceipt(orderId, order.metaAttribution) : undefined;
+  if (purchase) {
+    order.set('metaPurchase', purchase);
+    order.metaPurchasePending = canQueueMeta() || undefined;
+  }
   reconcilePaymentAttempt(order as unknown as MutablePaymentOrder, paymentId, capturedAmount, 'captured', method);
   order.timeline.push({ status: order.paymentStatus, timestamp: new Date(), note });
   order.paymentSettlementStartedAt = undefined;
@@ -704,7 +750,7 @@ export const OrderService = {
     const requestHash = checkoutRequestHash(input);
     const existing = await recordPerformanceStage('idempotency.load', () => OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey }));
     if (existing) {
-      return await resolveExistingCheckout(userId, input.idempotencyKey, requestHash, existing);
+      return await resolveExistingCheckout(userId, input.idempotencyKey, input, existing);
     }
     if (input.paymentMethod !== 'razorpay' && input.paymentMethod !== 'stripe') throw new ApiError(400, 'Unsupported payment method');
     if (mode === 'partial' && (!env.PARTIAL_PAYMENT_ENABLED || input.paymentMethod !== 'razorpay')) throw new ApiError(400, 'Partial payment is unavailable');
@@ -723,7 +769,7 @@ export const OrderService = {
         await assertCartUnchangedInTransaction(cart, session);
         await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session, String(orderId)));
         if (coupon) await recordPerformanceStage('coupon.reserve', () => reserveCouponRedemption({ customerId: userId, coupon, orderId, status: 'reserved', expiresAt: reservationExpiresAt, session }));
-        const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, stockReservationExpiresAt: reservationExpiresAt, timeline: [{ status: 'pending', timestamp: new Date(), note: [coupon ? `Coupon ${coupon.code}` : '', bundleSaving.label].filter(Boolean).join(' · ') || 'Order created' }] }, session);
+        const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, metaAttribution: input.metaAttribution, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: input.paymentMethod, paymentMode: mode, shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: input.paymentMethod, subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee: 0, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, stockReservationExpiresAt: reservationExpiresAt, timeline: [{ status: 'pending', timestamp: new Date(), note: [coupon ? `Coupon ${coupon.code}` : '', bundleSaving.label].filter(Boolean).join(' · ') || 'Order created' }] }, session);
         if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId, session);
         await LogisticsJobService.enqueue('release_payment_reservation', { orderId: String(orderId) }, `release-payment-reservation:${orderId}`, 8, { session, runAt: reservationExpiresAt });
         return created;
@@ -732,7 +778,7 @@ export const OrderService = {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
-      return await resolveExistingCheckout(userId, input.idempotencyKey, requestHash, duplicate);
+      return await resolveExistingCheckout(userId, input.idempotencyKey, input, duplicate);
     }
     try {
       const payment = await recordPerformanceStage('razorpay.create', () => PaymentService.getProvider(input.paymentMethod).createOrder(advance, 'INR', { localOrderId: String(order._id), orderNumber: order.orderNumber ?? String(order._id), paymentMode: mode }));
@@ -755,12 +801,12 @@ export const OrderService = {
     }
   },
 
-  async createCodOrder(userId: string, input: CheckoutInput): Promise<unknown> {
+  async createCodOrder(userId: string, input: CheckoutInput, assistedActorId?: string): Promise<unknown> {
     if (!userId) throw new ApiError(401, 'Sign in is required to place an order');
     const requestHash = checkoutRequestHash(input);
     const existing = await recordPerformanceStage('idempotency.load', () => OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey }));
     if (existing) {
-      validateExistingAttempt(existing, requestHash);
+      validateExistingAttempt(existing, input);
       return existingCheckoutResult(existing);
     }
     const prepared = await prepareCheckout(userId, input, 'cod');
@@ -771,13 +817,18 @@ export const OrderService = {
     const total = money(subtotal - discount + shipping + codFee);
     if (total > env.MAX_COD_ORDER_VALUE) throw new ApiError(400, 'Cash on delivery is unavailable for this order value');
     const orderId = new Types.ObjectId();
+    const attribution = assistedActorId ? undefined : input.metaAttribution;
+    const purchase = metaPurchaseReceipt(String(orderId), attribution);
     let order;
     try {
       order = await recordPerformanceStage('order.transaction', () => withMongoTransaction(async (session) => {
         await assertCartUnchangedInTransaction(cart, session);
         await recordPerformanceStage('stock.reserve', () => reserveInventory(items, session, String(orderId)));
         if (coupon) await recordPerformanceStage('coupon.reserve', () => reserveCouponRedemption({ customerId: userId, coupon, orderId, status: 'confirmed', session }));
-        const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, timeline: [{ status: 'placed', timestamp: new Date(), note: ['COD order placed; payment due on delivery', bundleSaving.label].filter(Boolean).join(' · ') }] }, session);
+        const created = await createOrderRecord({ _id: orderId, orderNumber: orderNumber(), checkoutIdempotencyKey: input.idempotencyKey, checkoutRequestHash: requestHash, checkoutCartVersion: cart.version ?? 0, metaCheckoutEventId: input.metaEventId, metaAttribution: attribution, metaPurchase: purchase, metaPurchasePending: purchase && canQueueMeta() ? true : undefined, user: userId, items, shippingAddress: input.shippingAddress, billingAddress: input.billingAddress, paymentMethod: 'cod', paymentMode: 'cod', shippingMethod, logisticsQuoteId: logisticsQuote?.quoteId, paymentProvider: 'cod', paymentStatus: 'cod_pending', orderStatus: 'placed', subtotal, tax, shipping, discount, couponDiscount, bundleDiscount, bundleDiscountLabel: bundleSaving.label, codFee, total, amountPaid: 0, amountDue: total, couponCode: coupon?.code, stockReserved: true, timeline: [{ status: 'placed', timestamp: new Date(), note: [assistedActorId ? 'COD order placed by staff on behalf of the customer' : 'COD order placed; payment due on delivery', bundleSaving.label].filter(Boolean).join(' · ') }] }, session);
+        if (assistedActorId) {
+          await SecurityEventModel.create([{ user: userId, type: 'assisted_order_placed', metadata: { actorId: assistedActorId, orderId: String(orderId) } }], sessionOptions(session));
+        }
         if (logisticsQuote) await LogisticsQuoteService.consume(logisticsQuote.quoteId, session);
         const deleted = await CartModel.deleteOne({ _id: cart._id, ...cartVersionFilter(cart.version ?? 0) }, sessionOptions(session));
         if (session && deleted.deletedCount !== 1) throw new ApiError(409, 'Your bag changed while checkout was being finalized');
@@ -789,7 +840,7 @@ export const OrderService = {
       if (!duplicateKey(error)) throw error;
       const duplicate = await OrderModel.findOne({ user: userId, checkoutIdempotencyKey: input.idempotencyKey });
       if (!duplicate) throw error;
-      validateExistingAttempt(duplicate, requestHash);
+      validateExistingAttempt(duplicate, input);
       return existingCheckoutResult(duplicate);
     }
     return { order, payment: null, amountToPay: 0 };
@@ -805,7 +856,12 @@ export const OrderService = {
     const order = await OrderModel.findOne(providerOrderId ? { razorpayOrderId: providerOrderId } : { stripePaymentIntentId: paymentId });
     if (!order) throw new ApiError(404, 'Order not found for payment');
     if (String(order.user) !== userId) throw new ApiError(403, 'Order access denied');
-    const settled = await completeOnlinePayment(String(order._id), paymentId, 'Payment signature verified');
+    if (method === 'razorpay' && (env.PAYMENT_MODE === 'live' || env.APP_ENV === 'staging') &&
+        !['paid', 'partially_paid', 'partially_refunded', 'refunded'].includes(order.paymentStatus) &&
+        !await PaymentService.hasCapturedRazorpayPayment(order.razorpayOrderId ?? '', paymentId, expectedCaptureAmount(order))) {
+      return { verified: false };
+    }
+    const settled = await completeOnlinePayment(String(order._id), paymentId, 'Payment verified');
     return { verified: true, order: settled };
   },
 
@@ -1011,9 +1067,14 @@ export const OrderService = {
   async adminList(view: 'active' | 'archived' | 'all' = 'active'): Promise<unknown[]> {
     const filter = view === 'archived' ? { archivedAt: { $exists: true } } : view === 'all' ? {} : { archivedAt: { $exists: false } };
     const orders = await OrderModel.find(filter).sort({ createdAt: -1 }).lean();
-    return orders.map(normalizeOrderRead);
+    return (await withAdminOrderImages(orders)).map(normalizeOrderRead);
   },
-  async adminById(id: string): Promise<unknown> { const order = await OrderModel.findById(id).lean(); if (!order) throw new ApiError(404, 'Order not found'); return normalizeOrderRead(order); },
+  async adminById(id: string): Promise<unknown> {
+    const order = await OrderModel.findById(id).lean();
+    if (!order) throw new ApiError(404, 'Order not found');
+    const [withImage] = await withAdminOrderImages([order]);
+    return normalizeOrderRead(withImage);
+  },
   async byId(id: string, user: { userId: string; role: string } | undefined): Promise<unknown> {
     const order = await OrderModel.findById(id).lean();
     if (!order) throw new ApiError(404, 'Order not found');

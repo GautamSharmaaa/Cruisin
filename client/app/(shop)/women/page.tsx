@@ -14,9 +14,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const dynamic='force-dynamic';
-export default async function WomenPage(): Promise<ReactNode> {
+export default async function WomenPage({ searchParams }: { searchParams: Promise<{ view?: string }> }): Promise<ReactNode> {
   const settings = await loadPageSettingsServer('landing', 'women');
+  const shopAll = (await searchParams).view === 'all';
   let cms:CmsExperienceDto|null=null;
-  try{cms=(await serverApi.get<ApiEnvelope<CmsExperienceDto>>('/cms/pages/women/public')).data.data;}catch{/* Keep the real catalog available while the department draft is unpublished. */}
-  return <>{cms?.sections.length?<CmsHomepage sections={cms.sections}/>:null}<div id="collection"><ProductListingPage pageType="landing" pageSlug="women" initialSettings={settings} gender="women" /></div></>;
+  if (!shopAll) try{cms=(await serverApi.get<ApiEnvelope<CmsExperienceDto>>('/cms/pages/women/public')).data.data;}catch{/* Keep the real catalog available while the department draft is unpublished. */}
+  return <>{cms?.sections.length?<div className="department-editorial"><CmsHomepage sections={cms.sections}/></div>:null}<div id="collection"><ProductListingPage pageType="landing" pageSlug="women" initialSettings={settings} gender="women" /></div></>;
 }

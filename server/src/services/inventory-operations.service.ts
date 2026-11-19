@@ -232,18 +232,19 @@ export const InventoryOperationsService = {
     permit(ctx, "inventory.view");
     const escaped = page.q ? literalSearch(page.q) : undefined;
     const match = escaped
-      ? { "variants.sku": { $regex: escaped, $options: "i" } }
+      ? { $or: [{ "variants.sku": { $regex: escaped, $options: "i" } }, { title: { $regex: escaped, $options: "i" } }] }
       : {};
     const pipeline = [
       { $unwind: "$variants" },
       { $match: match },
-      { $sort: { "variants.sku": 1 as const, _id: 1 as const } },
+      { $sort: { title: 1 as const, _id: 1 as const, "variants.sku": 1 as const } },
       {
         $project: {
           _id: 0,
           product: { $toString: "$_id" },
           variant: { $toString: "$variants._id" },
           title: 1,
+          image: { $arrayElemAt: ["$images.url", 0] },
           sku: "$variants.sku",
           size: "$variants.size",
           color: "$variants.color",

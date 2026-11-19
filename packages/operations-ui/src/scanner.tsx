@@ -1,113 +1,95 @@
 "use client";
+
 import { useRef, useState, useEffect, type ReactNode } from "react";
-import {
-  BrowserMultiFormatReader,
-  type IScannerControls,
-} from "@zxing/browser";
+import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
 import { Button, Input, Field, Alert } from "@cruisin/ui";
 import { OPS_COPY as C } from "./constants/copy";
+
 export interface ScannerProps {
   onScan: (code: string) => Promise<void>;
 }
+
 export function Scanner({ onScan }: ScannerProps): ReactNode {
   const video = useRef<HTMLVideoElement>(null);
   const controls = useRef<IScannerControls | null>(null);
+  const generation = useRef(0);
   const seen = useRef("");
-  const mounted = useRef(true);
+  const scanInFlight = useRef(false);
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [active, setActive] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   const stop = (): void => {
+    generation.current++;
     controls.current?.stop();
     controls.current = null;
-    video.current?.srcObject &&
-      (video.current.srcObject as MediaStream)
-        .getTracks()
-        .forEach((t) => t.stop());
+    const stream = video.current?.srcObject;
+    if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop());
     setActive(false);
   };
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      controls.current?.stop();
-    };
+
+  useEffect(() => () => {
+    generation.current++;
+    controls.current?.stop();
   }, []);
+
+  const submit = async (raw: string): Promise<void> => {
+    const code = raw.trim();
+    if (!code || scanInFlight.current) return;
+    scanInFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await onScan(code);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : C.error);
+    } finally {
+      scanInFlight.current = false;
+      setBusy(false);
+    }
+  };
+
   const start = async (): Promise<void> => {
+    const element = video.current;
+    if (!element) return;
+    const request = ++generation.current;
     setError("");
     seen.current = "";
     setActive(true);
     try {
       const reader = new BrowserMultiFormatReader();
-      const c = await reader.decodeFromVideoDevice(
-        undefined,
-        video.current!,
-        (result) => {
-          if (result && result.getText() !== seen.current) {
-            seen.current = result.getText();
-            setValue(result.getText());
-            void onScan(result.getText()).catch((e) =>
-              setError(e instanceof Error ? e.message : C.error),
-            );
-          }
-        },
-      );
-      if (!mounted.current) {
-        c.stop();
-        return;
-      }
-      controls.current = c;
+      const session = await reader.decodeFromVideoDevice(undefined, element, result => {
+        if (!result || generation.current !== request || scanInFlight.current) return;
+        const code = result.getText();
+        if (code === seen.current) return;
+        seen.current = code;
+        setValue(code);
+        void submit(code);
+      });
+      if (generation.current !== request) session.stop();
+      else controls.current = session;
     } catch {
-      setError(C.cameraError);
-      setActive(false);
+      if (generation.current === request) {
+        setError(C.cameraError);
+        setActive(false);
+      }
     }
   };
+
   return (
-    <div className="ui-stack">
-      <video
-        ref={video}
-        muted
-        playsInline
-        className="ops-video"
-        aria-label={C.scanner}
-      />
-      <div className="ui-row">
-        <Button onClick={() => void start()} disabled={active}>
-          {C.camera}
-        </Button>
-        <Button variant="secondary" onClick={stop} disabled={!active}>
-          {C.stopCamera}
-        </Button>
-      </div>
-      <div className="ui-stack">
+    <div className="ops-scanner ui-stack">
+      <div className="ops-scanner-controls">
         <Field label={C.scanInput}>
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            maxLength={300}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                setError("");
-                void onScan(value).catch((err) =>
-                  setError(err instanceof Error ? err.message : C.error),
-                );
-              }
-            }}
-          />
+          <Input value={value} onChange={event => setValue(event.target.value)} maxLength={300}
+            onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void submit(value); } }} />
         </Field>
-        <Button
-          type="button"
-          onClick={() => {
-            setError("");
-            void onScan(value).catch((err) =>
-              setError(err instanceof Error ? err.message : C.error),
-            );
-          }}
-        >
-          {C.scan}
-        </Button>
+        <div className="ui-row">
+          <Button type="button" disabled={busy || !value.trim()} onClick={() => void submit(value)}>{C.scan}</Button>
+          <Button type="button" variant="secondary" onClick={active ? stop : () => void start()}>{active ? C.stopCamera : C.camera}</Button>
+        </div>
       </div>
+      <video ref={video} muted playsInline className="ops-video" hidden={!active} aria-label={C.scanner} />
       {error && <Alert tone="danger">{error}</Alert>}
     </div>
   );

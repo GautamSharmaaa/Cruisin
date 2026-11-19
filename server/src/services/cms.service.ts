@@ -171,7 +171,11 @@ export const CmsService = {
 
   async listPages(): Promise<unknown[]> {
     await this.ensureHomePage();
-    await Promise.all(['men','women'].map(slug=>CMSPageModel.findOneAndUpdate({slug},{$setOnInsert:{slug,title:slug==='men'?'Men':'Women',status:'draft',previewToken:randomUUID()}},{upsert:true,new:true})));
+    const pages = { men: 'Men', women: 'Women', shop: 'Shop All', sale: 'Sale', 'new-featured': 'New & Featured', collections: 'Collections' };
+    const now = new Date();
+    await Promise.all(Object.entries(pages).map(([slug, title]) => CMSPageModel.updateOne(
+      { slug }, { $setOnInsert: { slug, title, status: 'draft', previewToken: randomUUID(), createdAt: now, updatedAt: now } }, { upsert: true, timestamps: false }
+    )));
     return CMSPageModel.find({ status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).lean();
   },
 

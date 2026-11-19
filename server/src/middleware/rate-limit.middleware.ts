@@ -14,3 +14,6 @@ export const otpRequestLimiter = rateLimit({ windowMs: 60_000, limit: relaxedLim
 export const otpVerifyLimiter = rateLimit({ windowMs: 60_000, limit: relaxedLimit(5), store: store('otp-verify'), standardHeaders: true, legacyHeaders: false, handler: (_req, res) => { res.status(429).json(new ApiResponse(null, 'Too many OTP verification attempts', ['RATE_LIMITED'])); } });
 export const uploadLimiter = rateLimit({ windowMs: 60_000, limit: relaxedLimit(10), store: store('upload'), standardHeaders: true, legacyHeaders: false, handler: (_req, res) => { res.status(429).json(new ApiResponse(null, 'Too many upload requests', ['RATE_LIMITED'])); } });
 export const generalLimiter = rateLimit({ windowMs: 60_000, limit: relaxedLimit(100), store: store('general'), standardHeaders: true, legacyHeaders: false, handler: (_req, res) => { res.status(429).json(new ApiResponse(null, 'Too many requests', ['RATE_LIMITED'])); } });
+
+
+export const adminInsightLimiter = rateLimit({ windowMs: 60_000, limit: 5, store: store('admin-insights'), standardHeaders: true, legacyHeaders: false, handler: (_req, res) => { res.status(429).json(new ApiResponse(null, 'Too many insight requests', ['RATE_LIMITED'])); } });

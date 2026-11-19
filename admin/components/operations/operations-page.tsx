@@ -9,6 +9,7 @@ import {
 import { Skeleton, Alert } from "@cruisin/ui";
 import type { Principal } from "@cruisin/contracts";
 import { api } from "@/lib/api";
+import { EMPLOYEE_WEBSITE_COPY as E } from "@/constants/employee-website-copy";
 const prefix = "/admin/operations";
 const transport: OperationsTransport = {
   async get<T>(path: string): Promise<T> {
@@ -50,11 +51,14 @@ export function AdminOperations({ module }: AdminOperationsProps): ReactNode {
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!principal) return <Skeleton />;
   return (
+    <section className="admin-employee-workspace">
     <Workspace
       module={module}
       transport={transport}
       principal={principal}
       timezone={timezone}
+      description={module === "orders" || module === "scanner" || module === "profile" ? undefined : E.descriptions[module]}
     />
+    </section>
   );
 }

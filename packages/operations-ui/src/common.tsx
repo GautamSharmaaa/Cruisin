@@ -64,6 +64,7 @@ export function useList<T>(
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   useEffect(() => {
+    if (!path) return;
     let active = true;
     setError("");
     const timer = setTimeout(() => {

@@ -2,9 +2,10 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-const api = "http://127.0.0.1:8192/api/v1";
-const adminOrigin = "http://127.0.0.1:3193";
-const employeeOrigin = "http://127.0.0.1:3194";
+const api = new URL("/api/v1", process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:8192").href;
+const storefrontOrigin = new URL(process.env.PLAYWRIGHT_STOREFRONT_URL ?? "http://127.0.0.1:3192").origin;
+const adminOrigin = process.env.PLAYWRIGHT_ADMIN_URL ?? "http://127.0.0.1:3193";
+const employeeOrigin = process.env.PLAYWRIGHT_EMPLOYEE_URL ?? "http://127.0.0.1:3194";
 let paymentRestore: {
   headers: Record<string, string>;
   codCheckoutEnabled: boolean;
@@ -248,6 +249,15 @@ test("physical unit follows QC, packaging, customer reservation and fulfillment"
     "/products/" + `physical-browser-${id}`,
   );
   expect(available.variants[0].stock).toBe(1);
+  await page.goto(employeeOrigin + "/inventory");
+  await page.getByRole("textbox", { name: "Search", exact: true }).fill(sku);
+  const inventoryVariant = page.getByRole("row").filter({ hasText: sku });
+  await inventoryVariant.getByRole("button", { name: "Packaging report", exact: true }).click();
+  const report = page.getByRole("dialog", { name: "Packaging report" });
+  await report.getByRole("button", { name: new RegExp(unit.unitId) }).click();
+  await expect(report.getByText("VERIFIED", { exact: true })).toBeVisible();
+  await expect(report.getByAltText("synthetic-packaging.png")).toBeVisible();
+  await page.keyboard.press("Escape");
   // A synthetic customer uses the existing commerce API; external payment services are not called.
   const customer = await browser.newContext();
   if (process.env.CI === "true") {
@@ -269,13 +279,13 @@ test("physical unit follows QC, packaging, customer reservation and fulfillment"
     );
   }
   const customerLogin = await customer.request.post(api + "/auth/login", {
-    headers: { Origin: "http://127.0.0.1:3192" },
+    headers: { Origin: storefrontOrigin },
     data: { email: `unit-${id}@example.test`, password: "SyntheticTest123!" },
   });
   expect(customerLogin.ok(), await customerLogin.text()).toBeTruthy();
   const customerToken = (await customerLogin.json()).data.accessToken;
   const customerHeaders = {
-    Origin: "http://127.0.0.1:3192",
+    Origin: storefrontOrigin,
     Authorization: `Bearer ${customerToken}`,
   };
   const add = await customer.request.post(api + "/cart/items", {
