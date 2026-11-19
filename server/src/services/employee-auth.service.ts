@@ -19,6 +19,7 @@ import { ApiError } from "../utils/api-error.js";
 import { sha256 } from "../utils/generate-token.js";
 import { withMongoTransaction } from "../utils/mongo-transaction.js";
 import { audit, permit, type OperationsContext } from "./operations-context.js";
+import { IdentityProviderService } from "./identity-provider.service.js";
 export const employeeSessionCookie = "cruisinEmployeeSession";
 export const employeeCookieOptions = {
   httpOnly: true,
@@ -54,7 +55,9 @@ export class SyntheticEmployeeOtpProvider implements EmployeeOtpProvider {
   }
 }
 export const employeeOtpProvider: EmployeeOtpProvider =
-  new SyntheticEmployeeOtpProvider();
+  env.APP_ENV === "production"
+    ? { send: (phone, code) => IdentityProviderService.sendOtp(phone, "whatsapp", code) }
+    : new SyntheticEmployeeOtpProvider();
 const anonymousAudit = async (
   action: string,
   entity: string,

@@ -1,12 +1,19 @@
 import type { NextConfig } from "next";
 import {mediaDeliveryConfig} from '@cruisin/contracts/media-config';
 const mediaDelivery=mediaDeliveryConfig(process.env.NEXT_PUBLIC_MEDIA_DELIVERY_ORIGIN);
-const apiOrigin = new URL(
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8192/api/v1",
-).origin;
+const publicApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8192/api/v1";
+const apiOrigin = URL.canParse(publicApiUrl) ? new URL(publicApiUrl).origin : "'self'";
+const apiProxyTarget = process.env.API_PROXY_TARGET?.replace(/\/$/, "");
 const config: NextConfig = {
   images:{remotePatterns:[...mediaDelivery.patterns]},
   transpilePackages: ["@cruisin/ui", "@cruisin/operations-ui"],
+  async rewrites() {
+    if (!apiProxyTarget) return [];
+    return [
+      { source: "/api/v1/employee/:path*", destination: `${apiProxyTarget}/api/v1/employee/:path*` },
+      { source: "/api/v1/media/:id/signed", destination: `${apiProxyTarget}/api/v1/media/:id/signed` },
+    ];
+  },
   async headers() {
     return [
       {
