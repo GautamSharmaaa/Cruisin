@@ -285,7 +285,19 @@ export function ProductListingPage({ pageType, pageSlug, eyebrow = COPY.shop.eye
       )}</nav>)}
       {(advancedVisible || experience.collectionWindowVisible || experience.collectionSortVisible) && <div className="collection-toolbar" data-testid="listing-toolbar">
         {advancedVisible && <button type="button" ref={filterTrigger} className="collection-filter-trigger" onClick={() => setAdvancedOpen(true)}><SlidersHorizontal size={18} strokeWidth={1.2} />{C.filters}</button>}
-        {experience.collectionWindowVisible && <button type="button" className="collection-window-toggle" aria-label={dense ? C.regularGrid : C.denseGrid} aria-pressed={dense} title={dense ? C.regularGrid : C.denseGrid} onClick={event => toggleDensity(event.currentTarget)}><Image src="/images/ui/shop-window.png" alt="" width={84} height={84} unoptimized /></button>}
+        {experience.collectionWindowVisible && <button
+          type="button"
+          className="collection-window-toggle"
+          aria-label={dense ? C.regularGrid : C.denseGrid}
+          aria-pressed={dense}
+          title={dense ? C.regularGrid : C.denseGrid}
+          onClick={event => toggleDensity(event.currentTarget)}
+        >
+          <picture>
+            <source media="(prefers-reduced-motion: no-preference)" type="image/webp" srcSet="/images/ui/shop-window.webp" />
+            <Image src="/images/ui/shop-window.png" alt="" width={84} height={84} unoptimized />
+          </picture>
+        </button>}
         {experience.collectionSortVisible && <SortSelect value={sort} onChange={updateSort}/>}
       </div>}
       </div>
