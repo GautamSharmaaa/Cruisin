@@ -243,6 +243,7 @@ const content = async (
   res
     .set({
       "Content-Type": result.contentType,
+      "Cross-Origin-Resource-Policy": result.visibility === "public" ? "cross-origin" : "same-origin",
       "Cache-Control":
         result.visibility === "private"
           ? "private, no-store"
